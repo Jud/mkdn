@@ -4,6 +4,10 @@ import SwiftUI
 ///
 /// Uses `MermaidRenderer` (JavaScriptCore + beautiful-mermaid) to produce SVG,
 /// then SwiftDraw to rasterize to an NSImage. No WKWebView.
+///
+/// Scroll isolation: when not activated, no `ScrollView` exists in the hierarchy
+/// so document-level scroll passes through. Click to activate internal panning;
+/// press Escape or click outside to deactivate.
 struct MermaidBlockView: View {
     let code: String
 
@@ -12,6 +16,9 @@ struct MermaidBlockView: View {
     @State private var errorMessage: String?
     @State private var isLoading = true
     @State private var zoomScale: CGFloat = 1.0
+    @State private var baseZoomScale: CGFloat = 1.0
+    @State private var isActivated = false
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         Group {
@@ -28,7 +35,79 @@ struct MermaidBlockView: View {
         }
     }
 
-    // MARK: - Subviews
+    // MARK: - Diagram View
+
+    @ViewBuilder
+    private func diagramView(image: NSImage) -> some View {
+        if isActivated {
+            activatedDiagramView(image: image)
+        } else {
+            inactiveDiagramView(image: image)
+        }
+    }
+
+    private func inactiveDiagramView(image: NSImage) -> some View {
+        Image(nsImage: image)
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+            .scaleEffect(zoomScale)
+            .frame(maxWidth: .infinity, maxHeight: 400)
+            .clipped()
+            .contentShape(Rectangle())
+            .gesture(zoomGesture)
+            .onTapGesture {
+                isActivated = true
+                isFocused = true
+            }
+            .background(appState.theme.colors.backgroundSecondary)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+
+    private func activatedDiagramView(image: NSImage) -> some View {
+        ScrollView([.horizontal, .vertical]) {
+            Image(nsImage: image)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(
+                    width: image.size.width * zoomScale,
+                    height: image.size.height * zoomScale
+                )
+        }
+        .frame(maxWidth: .infinity, maxHeight: 400)
+        .background(appState.theme.colors.backgroundSecondary)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(appState.theme.colors.accent, lineWidth: 2)
+        )
+        .gesture(zoomGesture)
+        .focusable()
+        .focused($isFocused)
+        .onKeyPress(.escape) {
+            isActivated = false
+            return .handled
+        }
+        .onChange(of: isFocused) { _, newValue in
+            if !newValue {
+                isActivated = false
+            }
+        }
+    }
+
+    // MARK: - Zoom Gesture
+
+    private var zoomGesture: some Gesture {
+        MagnifyGesture()
+            .onChanged { value in
+                let newScale = baseZoomScale * value.magnification
+                zoomScale = max(0.5, min(newScale, 4.0))
+            }
+            .onEnded { _ in
+                baseZoomScale = zoomScale
+            }
+    }
+
+    // MARK: - Loading & Error Views
 
     private var loadingView: some View {
         HStack {
@@ -41,24 +120,6 @@ struct MermaidBlockView: View {
         .frame(maxWidth: .infinity, minHeight: 100)
         .background(appState.theme.colors.backgroundSecondary)
         .clipShape(RoundedRectangle(cornerRadius: 6))
-    }
-
-    private func diagramView(image: NSImage) -> some View {
-        ScrollView([.horizontal, .vertical]) {
-            Image(nsImage: image)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .scaleEffect(zoomScale)
-        }
-        .frame(maxWidth: .infinity, minHeight: 200)
-        .background(appState.theme.colors.backgroundSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: 6))
-        .gesture(
-            MagnifyGesture()
-                .onChanged { value in
-                    zoomScale = max(0.5, min(value.magnification, 4.0))
-                }
-        )
     }
 
     private func errorView(message: String) -> some View {
@@ -97,7 +158,6 @@ struct MermaidBlockView: View {
         isLoading = false
     }
 
-    /// Convert an SVG string to NSImage on the main actor (avoids Sendable issues).
     @MainActor
     private func svgStringToImage(_ svgString: String) -> NSImage? {
         guard let data = svgString.data(using: .utf8) else { return nil }
