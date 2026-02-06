@@ -6,7 +6,6 @@ import Foundation
 /// When the app is launched from the terminal with a file argument,
 /// this struct parses the path and resolves it to a URL.
 struct CLIHandler {
-
     /// Attempt to extract a file URL from process arguments.
     ///
     /// Checks `CommandLine.arguments` for a Markdown file path.

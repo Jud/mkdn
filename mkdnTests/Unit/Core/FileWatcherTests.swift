@@ -5,7 +5,6 @@ import Testing
 
 @Suite("FileWatcher")
 struct FileWatcherTests {
-
     @Test("Starts not outdated")
     @MainActor func startsClean() {
         let watcher = FileWatcher()

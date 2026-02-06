@@ -6,12 +6,11 @@ import Foundation
 @MainActor
 @Observable
 final class EditorViewModel {
-
     /// The current text content in the editor.
-    var text: String = ""
+    var text = ""
 
     /// Whether the editor has unsaved changes.
-    var hasUnsavedChanges: Bool = false
+    var hasUnsavedChanges = false
 
     /// The file URL being edited.
     var fileURL: URL?

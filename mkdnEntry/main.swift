@@ -1,5 +1,5 @@
-import SwiftUI
 import mkdnLib
+import SwiftUI
 
 @main
 struct MkdnApp: App {

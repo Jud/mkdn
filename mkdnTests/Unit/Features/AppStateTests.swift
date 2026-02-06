@@ -5,7 +5,6 @@ import Testing
 
 @Suite("AppState")
 struct AppStateTests {
-
     @Test("Default state is preview-only with no file")
     @MainActor func defaultState() {
         let state = AppState()

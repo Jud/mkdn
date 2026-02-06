@@ -11,7 +11,6 @@ import SwiftUI
 ///
 /// This is entirely in-process. No WKWebView is used anywhere.
 actor MermaidRenderer {
-
     /// Shared singleton instance.
     static let shared = MermaidRenderer()
 

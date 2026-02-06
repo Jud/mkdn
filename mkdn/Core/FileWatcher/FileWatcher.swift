@@ -7,9 +7,8 @@ import Foundation
 @MainActor
 @Observable
 final class FileWatcher {
-
     /// Whether the watched file has changed since last acknowledgment.
-    private(set) var isOutdated: Bool = false
+    private(set) var isOutdated = false
 
     /// The URL currently being watched.
     private(set) var watchedURL: URL?

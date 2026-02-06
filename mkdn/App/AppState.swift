@@ -4,17 +4,16 @@ import SwiftUI
 @MainActor
 @Observable
 public final class AppState {
-
     // MARK: - File State
 
     /// The URL of the currently open Markdown file.
     public var currentFileURL: URL?
 
     /// Raw Markdown text content of the open file.
-    public var markdownContent: String = ""
+    public var markdownContent = ""
 
     /// Whether the on-disk file has changed since last load.
-    public var isFileOutdated: Bool = false
+    public var isFileOutdated = false
 
     // MARK: - View Mode
 

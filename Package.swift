@@ -19,7 +19,7 @@ let package = Package(
 
         // SVG rendering to native NSImage/CGImage
         // Pinned below 0.25.0 to avoid #Preview macro issue in CLI builds
-        .package(url: "https://github.com/swhitty/SwiftDraw.git", "0.17.0"..<"0.25.0"),
+        .package(url: "https://github.com/swhitty/SwiftDraw.git", "0.17.0" ..< "0.25.0"),
 
         // Swift-friendly JavaScriptCore wrapper
         .package(url: "https://github.com/jectivex/JXKit.git", from: "3.6.0"),

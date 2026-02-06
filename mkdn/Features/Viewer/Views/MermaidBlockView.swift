@@ -10,7 +10,7 @@ struct MermaidBlockView: View {
     @Environment(AppState.self) private var appState
     @State private var renderedImage: NSImage?
     @State private var errorMessage: String?
-    @State private var isLoading: Bool = true
+    @State private var isLoading = true
     @State private var zoomScale: CGFloat = 1.0
 
     var body: some View {

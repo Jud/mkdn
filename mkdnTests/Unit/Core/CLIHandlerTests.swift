@@ -5,7 +5,6 @@ import Testing
 
 @Suite("CLIHandler")
 struct CLIHandlerTests {
-
     @Test("Returns nil when no arguments")
     func returnsNilForNoArgs() {
         // CLIHandler.fileURLFromArguments() reads CommandLine.arguments,

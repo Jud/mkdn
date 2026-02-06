@@ -6,7 +6,6 @@ import SwiftUI
 /// Uses apple/swift-markdown for parsing and a custom `MarkdownVisitor`
 /// for rendering each node type as SwiftUI views.
 enum MarkdownRenderer {
-
     /// Parse raw Markdown text into a structured document.
     static func parse(_ text: String) -> Document {
         Document(parsing: text)

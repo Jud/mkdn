@@ -4,7 +4,6 @@ import Testing
 
 @Suite("AppTheme")
 struct ThemeTests {
-
     @Test("Solarized Dark provides all colors")
     func solarizedDarkColors() {
         let colors = AppTheme.solarizedDark.colors

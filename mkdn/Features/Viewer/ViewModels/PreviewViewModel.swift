@@ -6,12 +6,11 @@ import SwiftUI
 @MainActor
 @Observable
 final class PreviewViewModel {
-
     /// Rendered Markdown blocks for display.
     private(set) var blocks: [MarkdownBlock] = []
 
     /// The raw Markdown text being rendered.
-    var markdownText: String = "" {
+    var markdownText = "" {
         didSet {
             renderBlocks()
         }

@@ -5,7 +5,6 @@ import Testing
 
 @Suite("EditorViewModel")
 struct EditorViewModelTests {
-
     @Test("Default state is empty")
     @MainActor func defaultState() {
         let viewModel = EditorViewModel()
