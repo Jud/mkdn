@@ -14,7 +14,6 @@ struct CodeBlockView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Language label
             if let language, !language.isEmpty {
                 Text(language)
                     .font(.caption.monospaced())
@@ -24,7 +23,6 @@ struct CodeBlockView: View {
                     .padding(.bottom, 4)
             }
 
-            // Code content
             ScrollView(.horizontal, showsIndicators: true) {
                 Text(highlightedCode)
                     .font(.system(.body, design: .monospaced))
@@ -46,7 +44,6 @@ struct CodeBlockView: View {
     /// JavaScript, or other languages. Code blocks whose language is anything
     /// other than `"swift"` are rendered as plain monospace text with the
     /// theme's `codeForeground` color -- never as an error or blank block.
-    /// This satisfies BR-001 (graceful degradation for unsupported languages).
     private var highlightedCode: AttributedString {
         let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -56,9 +53,8 @@ struct CodeBlockView: View {
             return result
         }
 
-        // Use Splash for Swift highlighting.
         let syntaxColors = appState.theme.syntaxColors
-        let outputFormat = SolarizedOutputFormat(
+        let outputFormat = ThemeOutputFormat(
             plainTextColor: syntaxColors.comment,
             tokenColorMap: [
                 .keyword: syntaxColors.keyword,
@@ -74,44 +70,5 @@ struct CodeBlockView: View {
         )
         let highlighter = SyntaxHighlighter(format: outputFormat)
         return highlighter.highlight(trimmed)
-    }
-}
-
-// MARK: - Splash Output Format for SwiftUI AttributedString
-
-/// Splash output format producing `AttributedString` with SwiftUI Colors.
-/// Uses `SwiftUI.Color` explicitly to avoid ambiguity with Splash's Color typealias.
-struct SolarizedOutputFormat: OutputFormat {
-    let plainTextColor: SwiftUI.Color
-    let tokenColorMap: [TokenType: SwiftUI.Color]
-
-    func makeBuilder() -> Builder {
-        Builder(plainTextColor: plainTextColor, tokenColorMap: tokenColorMap)
-    }
-
-    struct Builder: OutputBuilder {
-        let plainTextColor: SwiftUI.Color
-        let tokenColorMap: [TokenType: SwiftUI.Color]
-        var result = AttributedString()
-
-        mutating func addToken(_ token: String, ofType type: TokenType) {
-            var attributed = AttributedString(token)
-            attributed.foregroundColor = tokenColorMap[type] ?? plainTextColor
-            result.append(attributed)
-        }
-
-        mutating func addPlainText(_ text: String) {
-            var attributed = AttributedString(text)
-            attributed.foregroundColor = plainTextColor
-            result.append(attributed)
-        }
-
-        mutating func addWhitespace(_ whitespace: String) {
-            result.append(AttributedString(whitespace))
-        }
-
-        func build() -> AttributedString {
-            result
-        }
     }
 }
