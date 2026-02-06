@@ -101,3 +101,8 @@ Homebrew distribution is explicitly **out of scope** for this PRD and will be ad
 | A1 | swift-argument-parser integrates cleanly with SwiftUI `@main` pattern | May need custom entry point that parses args then conditionally launches the app | Will Do: CLI-launchable |
 | A2 | CLI errors can exit the process before SwiftUI creates a window | SwiftUI may create a window before `init()` completes; may need `NSApplication` interception | Will Do: CLI-launchable |
 | A3 | Single positional argument is sufficient for the target workflow | Users may want glob patterns or multiple files in the future | Won't Do: Multiple files |
+
+## Discoveries
+
+- **Codebase Discovery**: `Color.red`/`Color.blue`/`Color.green` are ambiguous between AppKit `NSColor` and SwiftUI `Color` in test targets; `Splash` module's `TokenType` must be explicitly imported for `.keyword`/`.number` member inference in `ThemeOutputFormatTests.swift`. — *Ref: [field-notes.md](archives/features/cli-launch/field-notes.md)*
+- **Codebase Discovery**: Types in `mkdnLib` accessed by the `mkdn` executable target via `import mkdnLib` (not `@testable import`) require explicit `public` access modifiers; `ParsableArguments` conformance additionally requires an explicit `public init()` when the conforming type is public. — *Ref: [field-notes.md](archives/features/cli-launch/field-notes.md)*

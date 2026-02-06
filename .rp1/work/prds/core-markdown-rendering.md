@@ -118,3 +118,8 @@ This surface explicitly excludes Mermaid diagram rendering and the editor/split-
 | A3 | SwiftUI Text + AttributedString is performant enough for syntax-highlighted code blocks up to ~500 lines | May need lazy rendering or virtualization for very large code blocks | NFR-1 |
 | A4 | ThemeColors protocol can express all color and typography needs for every block type | Theme system may need extension; but pluggable by design | Will Do: "Terminal-consistent theming" |
 | A5 | Rendering pipeline can remain stateless and re-render on every view update without performance issues | May need caching layer (see OQ-1) | Success: "daily-driver use" |
+
+## Discoveries
+
+- **Workaround**: When `GIT_COMMIT=false` leaves multiple tasks uncommitted, project-wide formatters/linters can destroy prior work via `git checkout`; run formatters only on specific files, or stash/commit intermediate work first. -- *Ref: [field-notes.md](archives/features/core-markdown-rendering/field-notes.md)*
+- **Codebase Discovery**: Untracked (new) files survive `git checkout` incidents; when triaging recovery after accidental reverts, verify actual file state before re-assigning tasks. -- *Ref: [field-notes.md](archives/features/core-markdown-rendering/field-notes.md)*
