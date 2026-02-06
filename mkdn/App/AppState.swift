@@ -38,6 +38,11 @@ public final class AppState {
     /// Active color theme.
     public var theme: AppTheme = .solarizedDark
 
+    // MARK: - Mode Overlay State
+
+    /// Label text for the ephemeral mode transition overlay.
+    public var modeOverlayLabel: String?
+
     public init() {}
 
     // MARK: - Methods
@@ -64,5 +69,19 @@ public final class AppState {
     public func reloadFile() throws {
         guard let url = currentFileURL else { return }
         try loadFile(at: url)
+    }
+
+    /// Cycle to the next available theme.
+    public func cycleTheme() {
+        let allThemes = AppTheme.allCases
+        guard let currentIndex = allThemes.firstIndex(of: theme) else { return }
+        let nextIndex = (currentIndex + 1) % allThemes.count
+        theme = allThemes[nextIndex]
+    }
+
+    /// Switch view mode and trigger the ephemeral overlay.
+    public func switchMode(to mode: ViewMode) {
+        viewMode = mode
+        modeOverlayLabel = mode == .previewOnly ? "Preview" : "Edit"
     }
 }
