@@ -2,8 +2,8 @@ import SwiftUI
 
 /// Renders a Markdown table as a native SwiftUI grid.
 struct TableBlockView: View {
-    let headers: [String]
-    let rows: [[String]]
+    let columns: [TableColumn]
+    let rows: [[AttributedString]]
 
     @Environment(AppState.self) private var appState
 
@@ -16,13 +16,14 @@ struct TableBlockView: View {
             VStack(alignment: .leading, spacing: 0) {
                 // Header row
                 HStack(spacing: 0) {
-                    ForEach(Array(headers.enumerated()), id: \.offset) { _, header in
-                        Text(header)
+                    ForEach(Array(columns.enumerated()), id: \.offset) { _, column in
+                        Text(column.header)
                             .font(.body.bold())
                             .foregroundColor(colors.headingColor)
+                            .tint(colors.linkColor)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
-                            .frame(minWidth: 80, alignment: .leading)
+                            .frame(minWidth: 80, alignment: column.alignment.swiftUIAlignment)
                     }
                 }
                 .background(colors.backgroundSecondary)
@@ -33,13 +34,17 @@ struct TableBlockView: View {
                 // Data rows
                 ForEach(Array(rows.enumerated()), id: \.offset) { rowIndex, row in
                     HStack(spacing: 0) {
-                        ForEach(Array(row.enumerated()), id: \.offset) { _, cell in
+                        ForEach(Array(row.enumerated()), id: \.offset) { colIndex, cell in
+                            let alignment = colIndex < columns.count
+                                ? columns[colIndex].alignment.swiftUIAlignment
+                                : .leading
                             Text(cell)
                                 .font(.body)
                                 .foregroundColor(colors.foreground)
+                                .tint(colors.linkColor)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
-                                .frame(minWidth: 80, alignment: .leading)
+                                .frame(minWidth: 80, alignment: alignment)
                                 .textSelection(.enabled)
                         }
                     }
@@ -55,6 +60,16 @@ struct TableBlockView: View {
                 RoundedRectangle(cornerRadius: 6)
                     .stroke(colors.border.opacity(0.3), lineWidth: 1)
             )
+        }
+    }
+}
+
+extension TableColumnAlignment {
+    var swiftUIAlignment: Alignment {
+        switch self {
+        case .left: .leading
+        case .center: .center
+        case .right: .trailing
         }
     }
 }

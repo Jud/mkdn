@@ -19,8 +19,7 @@ struct MarkdownVisitor {
             return .heading(level: heading.level, text: text)
 
         case let paragraph as Paragraph:
-            let text = inlineText(from: paragraph)
-            return .paragraph(text: text)
+            return convertParagraph(paragraph)
 
         case let codeBlock as CodeBlock:
             let language = codeBlock.language?.lowercased()
@@ -57,19 +56,47 @@ struct MarkdownVisitor {
         case let table as Markdown.Table:
             return convertTable(table)
 
+        case let htmlBlock as HTMLBlock:
+            return .htmlBlock(content: htmlBlock.rawHTML)
+
         default:
             return nil
         }
     }
 
+    // MARK: - Paragraph Conversion
+
+    /// Converts a paragraph, promoting a standalone image child to a block-level image.
+    private func convertParagraph(_ paragraph: Paragraph) -> MarkdownBlock {
+        let children = Array(paragraph.children)
+        if children.count == 1, let image = children.first as? Markdown.Image {
+            let source = image.source ?? ""
+            let alt = plainText(from: image)
+            return .image(source: source, alt: alt)
+        }
+        let text = inlineText(from: paragraph)
+        return .paragraph(text: text)
+    }
+
     // MARK: - Table Conversion
 
     private func convertTable(_ table: Markdown.Table) -> MarkdownBlock {
-        let headers: [String] = Array(table.head.cells.map { plainText(from: $0) })
-        let rows: [[String]] = Array(table.body.rows.map { row in
-            Array(row.cells.map { plainText(from: $0) })
-        })
-        return .table(headers: headers, rows: rows)
+        let columns: [TableColumn] = table.head.cells.enumerated().map { index, cell in
+            let alignment: TableColumnAlignment = if index < table.columnAlignments.count {
+                switch table.columnAlignments[index] {
+                case .center: .center
+                case .right: .right
+                default: .left
+                }
+            } else {
+                .left
+            }
+            return TableColumn(header: inlineText(from: cell), alignment: alignment)
+        }
+        let rows: [[AttributedString]] = table.body.rows.map { row in
+            row.cells.map { inlineText(from: $0) }
+        }
+        return .table(columns: columns, rows: rows)
     }
 
     // MARK: - Inline Text
@@ -89,12 +116,23 @@ struct MarkdownVisitor {
 
         case let emphasis as Emphasis:
             var result = inlineText(from: emphasis)
-            result.inlinePresentationIntent = .emphasized
+            for run in result.runs {
+                let existing = result[run.range].inlinePresentationIntent ?? []
+                result[run.range].inlinePresentationIntent = existing.union(.emphasized)
+            }
             return result
 
         case let strong as Strong:
             var result = inlineText(from: strong)
-            result.inlinePresentationIntent = .stronglyEmphasized
+            for run in result.runs {
+                let existing = result[run.range].inlinePresentationIntent ?? []
+                result[run.range].inlinePresentationIntent = existing.union(.stronglyEmphasized)
+            }
+            return result
+
+        case let strikethrough as Strikethrough:
+            var result = inlineText(from: strikethrough)
+            result.strikethroughStyle = .single
             return result
 
         case let code as InlineCode:
@@ -106,8 +144,14 @@ struct MarkdownVisitor {
             var result = inlineText(from: link)
             if let destination = link.destination, let url = URL(string: destination) {
                 result.link = url
+                result.foregroundColor = theme.colors.linkColor
+                result.underlineStyle = .single
             }
             return result
+
+        case let image as Markdown.Image:
+            let alt = plainText(from: image)
+            return AttributedString(alt)
 
         case is SoftBreak:
             return AttributedString(" ")

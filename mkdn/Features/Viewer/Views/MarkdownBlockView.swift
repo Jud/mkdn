@@ -3,8 +3,16 @@ import SwiftUI
 /// Renders a single `MarkdownBlock` as a native SwiftUI view.
 struct MarkdownBlockView: View {
     let block: MarkdownBlock
+    var depth = 0
 
     @Environment(AppState.self) private var appState
+
+    private static let bulletStyles: [String] = [
+        "\u{2022}", // bullet (level 0)
+        "\u{25E6}", // white bullet (level 1)
+        "\u{25AA}", // small black square (level 2)
+        "\u{25AB}", // small white square (level 3+)
+    ]
 
     private var colors: ThemeColors {
         appState.theme.colors
@@ -19,6 +27,7 @@ struct MarkdownBlockView: View {
             Text(text)
                 .font(.body)
                 .foregroundColor(colors.foreground)
+                .tint(colors.linkColor)
                 .textSelection(.enabled)
 
         case let .codeBlock(language, code):
@@ -41,8 +50,20 @@ struct MarkdownBlockView: View {
                 .background(colors.border)
                 .padding(.vertical, 8)
 
-        case let .table(headers, rows):
-            TableBlockView(headers: headers, rows: rows)
+        case let .table(columns, rows):
+            TableBlockView(columns: columns, rows: rows)
+
+        case let .image(source, alt):
+            ImageBlockView(source: source, alt: alt)
+
+        case let .htmlBlock(content):
+            Text(content)
+                .font(.system(.body, design: .monospaced))
+                .foregroundColor(colors.codeForeground)
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(colors.codeBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
         }
     }
 
@@ -62,6 +83,7 @@ struct MarkdownBlockView: View {
         Text(text)
             .font(font)
             .foregroundColor(colors.headingColor)
+            .tint(colors.linkColor)
             .textSelection(.enabled)
             .padding(.top, level <= 2 ? 8 : 4)
     }
@@ -77,7 +99,7 @@ struct MarkdownBlockView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(blocks) { child in
-                    MarkdownBlockView(block: child)
+                    MarkdownBlockView(block: child, depth: depth)
                 }
             }
             .padding(.leading, 12)
@@ -100,7 +122,7 @@ struct MarkdownBlockView: View {
 
                     VStack(alignment: .leading, spacing: 4) {
                         ForEach(item.blocks) { block in
-                            MarkdownBlockView(block: block)
+                            MarkdownBlockView(block: block, depth: depth + 1)
                         }
                     }
                 }
@@ -111,17 +133,20 @@ struct MarkdownBlockView: View {
 
     @ViewBuilder
     private func unorderedListView(items: [ListItem]) -> some View {
+        let bulletIndex = min(depth, Self.bulletStyles.count - 1)
+        let bullet = Self.bulletStyles[bulletIndex]
+
         VStack(alignment: .leading, spacing: 4) {
             ForEach(items) { item in
                 HStack(alignment: .top, spacing: 8) {
-                    Text("\u{2022}")
+                    Text(bullet)
                         .font(.body)
                         .foregroundColor(colors.foregroundSecondary)
                         .frame(width: 24, alignment: .trailing)
 
                     VStack(alignment: .leading, spacing: 4) {
                         ForEach(item.blocks) { block in
-                            MarkdownBlockView(block: block)
+                            MarkdownBlockView(block: block, depth: depth + 1)
                         }
                     }
                 }

@@ -1,5 +1,18 @@
 import SwiftUI
 
+/// Column alignment matching Markdown table syntax.
+enum TableColumnAlignment: Sendable {
+    case left
+    case center
+    case right
+}
+
+/// Column definition for a Markdown table.
+struct TableColumn: Sendable {
+    let header: AttributedString
+    let alignment: TableColumnAlignment
+}
+
 /// Represents a rendered Markdown block element.
 enum MarkdownBlock: Identifiable {
     case heading(level: Int, text: AttributedString)
@@ -10,28 +23,34 @@ enum MarkdownBlock: Identifiable {
     case orderedList(items: [ListItem])
     case unorderedList(items: [ListItem])
     case thematicBreak
-    case table(headers: [String], rows: [[String]])
+    case table(columns: [TableColumn], rows: [[AttributedString]])
+    case image(source: String, alt: String)
+    case htmlBlock(content: String)
 
     var id: String {
         switch self {
         case let .heading(level, text):
-            "heading-\(level)-\(text.hashValue)"
+            "heading-\(level)-\(stableHash(String(text.characters)))"
         case let .paragraph(text):
-            "paragraph-\(text.hashValue)"
+            "paragraph-\(stableHash(String(text.characters)))"
         case let .codeBlock(language, code):
-            "code-\(language ?? "none")-\(code.hashValue)"
+            "code-\(language ?? "none")-\(stableHash(code))"
         case let .mermaidBlock(code):
-            "mermaid-\(code.hashValue)"
+            "mermaid-\(stableHash(code))"
         case let .blockquote(blocks):
-            "blockquote-\(blocks.count)"
+            "blockquote-\(blocks.map(\.id).joined(separator: "-"))"
         case let .orderedList(items):
-            "ol-\(items.count)"
+            "ol-\(items.count)-\(stableHash(items.map { $0.blocks.first?.id ?? "" }.joined()))"
         case let .unorderedList(items):
-            "ul-\(items.count)"
+            "ul-\(items.count)-\(stableHash(items.map { $0.blocks.first?.id ?? "" }.joined()))"
         case .thematicBreak:
-            "hr-\(UUID().uuidString)"
-        case let .table(headers, _):
-            "table-\(headers.joined())"
+            "hr"
+        case let .table(columns, _):
+            "table-\(stableHash(columns.map { String($0.header.characters) }.joined()))"
+        case let .image(source, _):
+            "image-\(stableHash(source))"
+        case let .htmlBlock(content):
+            "html-\(stableHash(content))"
         }
     }
 }
@@ -40,4 +59,14 @@ enum MarkdownBlock: Identifiable {
 struct ListItem: Identifiable {
     let id = UUID()
     let blocks: [MarkdownBlock]
+}
+
+/// DJB2 hash producing a stable, deterministic integer for a given string.
+/// Unlike `.hashValue`, this returns the same value across process launches.
+private func stableHash(_ string: String) -> UInt64 {
+    var hash: UInt64 = 5_381
+    for byte in string.utf8 {
+        hash = hash &* 33 &+ UInt64(byte)
+    }
+    return hash
 }

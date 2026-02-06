@@ -4,7 +4,6 @@ import Testing
 
 @Suite("MarkdownRenderer")
 struct MarkdownRendererTests {
-
     @Test("Parses a heading")
     func parsesHeading() {
         let blocks = MarkdownRenderer.render(text: "# Hello World", theme: .solarizedDark)
@@ -34,10 +33,10 @@ struct MarkdownRendererTests {
     @Test("Detects fenced code block")
     func parsesCodeBlock() {
         let markdown = """
-            ```swift
-            let x = 42
-            ```
-            """
+        ```swift
+        let x = 42
+        ```
+        """
 
         let blocks = MarkdownRenderer.render(text: markdown, theme: .solarizedDark)
 
@@ -55,11 +54,11 @@ struct MarkdownRendererTests {
     @Test("Detects Mermaid code block")
     func parsesMermaidBlock() {
         let markdown = """
-            ```mermaid
-            graph TD
-                A --> B
-            ```
-            """
+        ```mermaid
+        graph TD
+            A --> B
+        ```
+        """
 
         let blocks = MarkdownRenderer.render(text: markdown, theme: .solarizedDark)
 
@@ -90,10 +89,10 @@ struct MarkdownRendererTests {
     @Test("Parses an unordered list")
     func parsesUnorderedList() {
         let markdown = """
-            - Item one
-            - Item two
-            - Item three
-            """
+        - Item one
+        - Item two
+        - Item three
+        """
 
         let blocks = MarkdownRenderer.render(text: markdown, theme: .solarizedDark)
 
@@ -110,10 +109,10 @@ struct MarkdownRendererTests {
     @Test("Parses an ordered list")
     func parsesOrderedList() {
         let markdown = """
-            1. First
-            2. Second
-            3. Third
-            """
+        1. First
+        2. Second
+        3. Third
+        """
 
         let blocks = MarkdownRenderer.render(text: markdown, theme: .solarizedDark)
 
@@ -142,32 +141,32 @@ struct MarkdownRendererTests {
     @Test("Parses a table")
     func parsesTable() {
         let markdown = """
-            | Name | Age |
-            |------|-----|
-            | Alice | 30 |
-            | Bob | 25 |
-            """
+        | Name | Age |
+        |------|-----|
+        | Alice | 30 |
+        | Bob | 25 |
+        """
 
         let blocks = MarkdownRenderer.render(text: markdown, theme: .solarizedDark)
 
         #expect(!blocks.isEmpty)
 
-        guard case let .table(headers, rows) = blocks.first else {
+        guard case let .table(columns, rows) = blocks.first else {
             Issue.record("Expected a table block")
             return
         }
 
-        #expect(headers.count == 2)
+        #expect(columns.count == 2)
         #expect(rows.count == 2)
     }
 
     @Test("Renders multiple heading levels")
     func parsesMultipleHeadingLevels() {
         let markdown = """
-            # H1
-            ## H2
-            ### H3
-            """
+        # H1
+        ## H2
+        ### H3
+        """
 
         let blocks = MarkdownRenderer.render(text: markdown, theme: .solarizedDark)
 

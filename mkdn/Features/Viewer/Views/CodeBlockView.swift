@@ -41,10 +41,16 @@ struct CodeBlockView: View {
     }
 
     /// Produce syntax-highlighted attributed text using Splash.
+    ///
+    /// Splash only ships SwiftGrammar; it has no built-in grammars for Python,
+    /// JavaScript, or other languages. Code blocks whose language is anything
+    /// other than `"swift"` are rendered as plain monospace text with the
+    /// theme's `codeForeground` color -- never as an error or blank block.
+    /// This satisfies BR-001 (graceful degradation for unsupported languages).
     private var highlightedCode: AttributedString {
         let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        guard let language, !language.isEmpty, language == "swift" else {
+        guard language == "swift" else {
             var result = AttributedString(trimmed)
             result.foregroundColor = colors.codeForeground
             return result
