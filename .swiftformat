@@ -1,0 +1,63 @@
+# SwiftFormat Configuration
+# mkdn: Mac-native Markdown viewer/editor
+
+# Swift version
+--swiftversion 6.0
+
+# Indentation
+--indent 4
+--tabwidth 4
+--smarttabs enabled
+--indentcase false
+--ifdef indent
+
+# Wrapping
+--wraparguments before-first
+--wrapparameters before-first
+--wrapcollections before-first
+--wrapconditions after-first
+--wrapreturntype preserve
+--wraptypealiases before-first
+--maxwidth 120
+--closingparen balanced
+
+# Spacing
+--operatorfunc spaced
+--ranges spaced
+--trimwhitespace always
+--stripunusedargs closure-only
+
+# Braces
+--allman false
+--elseposition same-line
+--guardelse next-line
+
+# Semicolons
+--semicolons never
+
+# Redundancy
+--self remove
+--selfrequired
+--redundanttype inferred
+
+# Imports
+--importgrouping testable-last
+
+# Other
+--commas always
+--decimalgrouping 3
+--exponentcase lowercase
+--exponentgrouping disabled
+--fractiongrouping disabled
+--header strip
+--hexgrouping 4
+--hexliteralcase uppercase
+--lifecycle
+--linebreaks lf
+--octalgrouping 4
+--patternlet hoist
+--voidtype void
+--emptybraces no-space
+
+# Exclusions
+--exclude .build,DerivedData,mkdn/Resources

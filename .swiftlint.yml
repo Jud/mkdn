@@ -1,0 +1,91 @@
+# SwiftLint Configuration — Strict Mode
+# mkdn: Mac-native Markdown viewer/editor
+
+strict: true
+
+opt_in_rules:
+  - all
+
+# Disabled rules: known false-positive-prone or incompatible with project style
+disabled_rules:
+  # Conflicts with SwiftFormat or project conventions
+  - explicit_acl                    # Too noisy for app targets
+  - explicit_top_level_acl          # Same reason
+  - explicit_type_interface         # Redundant with type inference
+  - missing_docs                    # Will enable once API stabilizes
+  - file_types_order                # Feature-based MVVM has its own ordering
+  - type_contents_order             # Same reason
+  - no_grouping_extension           # We use extensions for protocol conformance
+  - prefixed_toplevel_constant      # Swift convention doesn't require prefix
+  - required_deinit                 # Not needed for most SwiftUI views
+  - conditional_returns_on_newline  # Conflicts with SwiftFormat
+  - indentation_width               # SwiftFormat handles indentation
+  - no_magic_numbers                # Too aggressive for UI layout code
+  - sorted_imports                  # SwiftFormat handles import sorting
+
+# Paths
+included:
+  - mkdn
+  - mkdnTests
+
+excluded:
+  - .build
+  - DerivedData
+  - mkdn/Resources
+
+# Rule configurations
+line_length:
+  warning: 120
+  error: 150
+  ignores_comments: true
+  ignores_urls: true
+  ignores_interpolated_strings: true
+
+type_body_length:
+  warning: 300
+  error: 500
+
+file_length:
+  warning: 500
+  error: 800
+
+function_body_length:
+  warning: 50
+  error: 80
+
+function_parameter_count:
+  warning: 6
+  error: 8
+
+type_name:
+  min_length: 3
+  max_length: 50
+
+identifier_name:
+  min_length: 2
+  max_length: 50
+  excluded:
+    - id
+    - x
+    - y
+    - i
+    - j
+    - ok
+
+nesting:
+  type_level: 3
+  function_level: 3
+
+cyclomatic_complexity:
+  warning: 10
+  error: 15
+
+large_tuple:
+  warning: 3
+  error: 4
+
+trailing_comma:
+  mandatory_comma: true
+
+vertical_whitespace:
+  max_empty_lines: 1
