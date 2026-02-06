@@ -15,11 +15,14 @@ public struct ContentView: View {
                 switch appState.viewMode {
                 case .previewOnly:
                     MarkdownPreviewView()
+                        .transition(.opacity)
                 case .sideBySide:
                     SplitEditorView()
+                        .transition(.move(edge: .leading).combined(with: .opacity))
                 }
             }
         }
+        .animation(.spring(response: 0.4, dampingFraction: 0.85), value: appState.viewMode)
         .frame(minWidth: 600, minHeight: 400)
         .toolbar {
             MkdnToolbarContent()
@@ -50,6 +53,10 @@ private struct MkdnToolbarContent: ToolbarContent {
 
     var body: some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
+            if appState.hasUnsavedChanges {
+                UnsavedIndicator()
+            }
+
             if appState.isFileOutdated {
                 OutdatedIndicator()
             }

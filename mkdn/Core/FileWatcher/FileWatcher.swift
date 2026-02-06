@@ -10,6 +10,9 @@ final class FileWatcher {
     /// Whether the watched file has changed since last acknowledgment.
     private(set) var isOutdated = false
 
+    /// Whether file-change events should be ignored (during app-initiated saves).
+    private(set) var isSavePaused = false
+
     /// The URL currently being watched.
     private(set) var watchedURL: URL?
 
@@ -43,7 +46,8 @@ final class FileWatcher {
 
         source.setEventHandler { [weak self] in
             Task { @MainActor [weak self] in
-                self?.isOutdated = true
+                guard let self, !self.isSavePaused else { return }
+                self.isOutdated = true
             }
         }
 
@@ -70,5 +74,24 @@ final class FileWatcher {
     /// Acknowledge the outdated state (e.g., after reload).
     func acknowledge() {
         isOutdated = false
+    }
+
+    /// Pause file-change detection during an app-initiated save.
+    ///
+    /// Call before writing to disk so the resulting DispatchSource event
+    /// does not produce a false outdated signal.
+    func pauseForSave() {
+        isSavePaused = true
+    }
+
+    /// Re-enable file-change detection after an app-initiated save.
+    ///
+    /// Waits approximately 200ms before clearing the pause flag to allow
+    /// any in-flight DispatchSource events to drain.
+    func resumeAfterSave() {
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(200))
+            self.isSavePaused = false
+        }
     }
 }

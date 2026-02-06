@@ -5,13 +5,12 @@ struct SplitEditorView: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        HSplitView {
+        ResizableSplitView {
             editorPane
-                .frame(minWidth: 250)
-
+        } right: {
             MarkdownPreviewView()
-                .frame(minWidth: 250)
         }
+        .focusEffectDisabled()
     }
 
     private var editorPane: some View {

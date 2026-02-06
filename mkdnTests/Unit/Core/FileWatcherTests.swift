@@ -19,6 +19,32 @@ struct FileWatcherTests {
         #expect(!watcher.isOutdated)
     }
 
+    // MARK: - Save-Pause Behavior
+
+    @Test("pauseForSave prevents isOutdated from being set")
+    @MainActor func pauseForSavePreventsOutdated() {
+        let watcher = FileWatcher()
+        #expect(!watcher.isSavePaused)
+
+        watcher.pauseForSave()
+
+        #expect(watcher.isSavePaused)
+        #expect(!watcher.isOutdated)
+    }
+
+    @Test("resumeAfterSave re-enables detection after delay")
+    @MainActor func resumeAfterSaveReEnables() async throws {
+        let watcher = FileWatcher()
+        watcher.pauseForSave()
+        #expect(watcher.isSavePaused)
+
+        watcher.resumeAfterSave()
+        #expect(watcher.isSavePaused)
+
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(!watcher.isSavePaused)
+    }
+
     // Note: Tests that call watch(url:) create a DispatchSource whose async
     // teardown can race with the test process exit, causing signal 5 crashes.
     // Integration tests for file watching should run in the full app context

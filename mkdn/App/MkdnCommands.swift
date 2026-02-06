@@ -9,6 +9,14 @@ public struct MkdnCommands: Commands {
     }
 
     public var body: some Commands {
+        CommandGroup(replacing: .saveItem) {
+            Button("Save") {
+                try? appState.saveFile()
+            }
+            .keyboardShortcut("s", modifiers: .command)
+            .disabled(appState.currentFileURL == nil || !appState.hasUnsavedChanges)
+        }
+
         CommandGroup(after: .sidebar) {
             Section {
                 Button("Preview Only") {
