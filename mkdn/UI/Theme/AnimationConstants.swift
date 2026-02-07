@@ -11,6 +11,12 @@ enum AnimationConstants {
 
     static let orbDissolve: Animation = .easeIn(duration: 0.4)
 
+    // MARK: - Default Handler Orb
+
+    /// Pulse animation for the default-handler orb; same cadence as the breathing orb.
+    static let defaultHandlerOrbPulse: Animation = .easeInOut(duration: 2.5)
+        .repeatForever(autoreverses: true)
+
     // MARK: - Mode Transition Overlay
 
     static let overlaySpringIn: Animation = .spring(response: 0.35, dampingFraction: 0.7)

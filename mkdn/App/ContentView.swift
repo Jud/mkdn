@@ -52,7 +52,9 @@ public struct ContentView: View {
 
             if !appSettings.hasShownDefaultHandlerHint {
                 DefaultHandlerHintView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                    .padding(.top, 8)
+                    .padding(.trailing, 12)
             }
         }
         .frame(minWidth: 600, minHeight: 400)
