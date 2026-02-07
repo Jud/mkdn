@@ -1,7 +1,6 @@
 import SwiftUI
 
 /// Centralized animation timing constants for the Controls feature.
-/// Single source of truth for all animation tuning.
 enum AnimationConstants {
     // MARK: - Breathing Orb
 

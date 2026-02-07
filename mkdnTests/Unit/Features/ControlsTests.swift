@@ -6,22 +6,19 @@ import Testing
 struct ControlsTests {
     // MARK: - cycleTheme
 
-    @Test("cycleTheme toggles from dark to light")
-    @MainActor func cycleThemeDarkToLight() {
+    @Test("cycleTheme cycles through auto, dark, light")
+    @MainActor func cycleThemeModes() {
         let state = AppState()
-        #expect(state.theme == .solarizedDark)
+        #expect(state.themeMode == .auto)
 
         state.cycleTheme()
-        #expect(state.theme == .solarizedLight)
-    }
-
-    @Test("cycleTheme wraps from light back to dark")
-    @MainActor func cycleThemeLightToDark() {
-        let state = AppState()
-        state.theme = .solarizedLight
+        #expect(state.themeMode == .solarizedDark)
 
         state.cycleTheme()
-        #expect(state.theme == .solarizedDark)
+        #expect(state.themeMode == .solarizedLight)
+
+        state.cycleTheme()
+        #expect(state.themeMode == .auto)
     }
 
     // MARK: - switchMode

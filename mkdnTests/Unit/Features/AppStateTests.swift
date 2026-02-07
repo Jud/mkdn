@@ -31,6 +31,7 @@ struct AppStateTests {
         #expect(state.markdownContent.isEmpty)
         #expect(!state.isFileOutdated)
         #expect(state.viewMode == .previewOnly)
+        #expect(state.themeMode == .auto)
         #expect(state.theme == .solarizedDark)
     }
 
@@ -89,14 +90,19 @@ struct AppStateTests {
         #expect(state.viewMode == .previewOnly)
     }
 
-    @Test("Theme can be changed")
+    @Test("Theme mode can be changed and resolves correctly")
     @MainActor func themeChange() {
         let state = AppState()
 
-        #expect(state.theme == .solarizedDark)
+        #expect(state.themeMode == .auto)
+        #expect(state.theme == .solarizedDark) // auto + dark system scheme
 
-        state.theme = .solarizedLight
+        state.themeMode = .solarizedLight
         #expect(state.theme == .solarizedLight)
+
+        state.systemColorScheme = .light
+        state.themeMode = .auto
+        #expect(state.theme == .solarizedLight) // auto + light system scheme
     }
 
     // MARK: - Unsaved Changes Tracking

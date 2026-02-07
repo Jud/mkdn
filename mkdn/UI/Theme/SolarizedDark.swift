@@ -3,14 +3,12 @@ import SwiftUI
 /// Solarized Dark theme color definitions.
 /// Reference: https://ethanschoonover.com/solarized/
 enum SolarizedDark {
-    // Solarized base palette
     private static let base03 = Color(red: 0.000, green: 0.169, blue: 0.212) // #002b36
     private static let base02 = Color(red: 0.027, green: 0.212, blue: 0.259) // #073642
     private static let base01 = Color(red: 0.345, green: 0.431, blue: 0.459) // #586e75
     private static let base0 = Color(red: 0.514, green: 0.580, blue: 0.588) // #839496
     private static let base1 = Color(red: 0.576, green: 0.631, blue: 0.631) // #93a1a1
 
-    // Solarized accent palette
     private static let yellow = Color(red: 0.710, green: 0.537, blue: 0.000) // #b58900
     private static let orange = Color(red: 0.796, green: 0.294, blue: 0.086) // #cb4b16
     private static let red = Color(red: 0.863, green: 0.196, blue: 0.184) // #dc322f

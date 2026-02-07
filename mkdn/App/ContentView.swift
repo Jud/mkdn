@@ -3,8 +3,10 @@ import UniformTypeIdentifiers
 
 /// Root content view that switches between preview-only and side-by-side modes.
 /// Overlays a breathing orb for file-change notification and an ephemeral mode label.
+/// Bridges the system `colorScheme` environment to `AppState` for auto-theming.
 public struct ContentView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.colorScheme) private var colorScheme
 
     public init() {}
 
@@ -48,6 +50,12 @@ public struct ContentView: View {
             }
         }
         .frame(minWidth: 600, minHeight: 400)
+        .onAppear {
+            appState.systemColorScheme = colorScheme
+        }
+        .onChange(of: colorScheme) { _, newScheme in
+            appState.systemColorScheme = newScheme
+        }
         .onDrop(of: [.fileURL], isTargeted: nil) { providers in
             handleFileDrop(providers)
         }
