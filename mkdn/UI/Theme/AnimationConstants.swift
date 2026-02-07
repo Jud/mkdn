@@ -2,10 +2,19 @@ import SwiftUI
 
 /// Centralized animation timing constants for the Controls feature.
 enum AnimationConstants {
+    // MARK: - Orb Visual
+
+    /// Theme-neutral orb glow color -- Solarized violet (#6c71c4), calm and mystical.
+    static let orbGlowColor = Color(red: 0.424, green: 0.443, blue: 0.769)
+
     // MARK: - Breathing Orb
 
     /// Pulse animation: sinusoidal, ~12 cycles/min = ~5s per full cycle = ~2.5s per half.
     static let orbPulse: Animation = .easeInOut(duration: 2.5).repeatForever(autoreverses: true)
+
+    /// Halo bloom animation: slightly slower than core pulse for dimensional offset.
+    static let orbHaloBloom: Animation = .easeInOut(duration: 3.0)
+        .repeatForever(autoreverses: true)
 
     static let orbAppear: Animation = .easeOut(duration: 0.5)
 
