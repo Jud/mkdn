@@ -2,7 +2,7 @@
 
 **Feature ID**: mermaid-rearchitect
 **Status**: In Progress
-**Progress**: 40% (6 of 15 tasks)
+**Progress**: 47% (7 of 15 tasks)
 **Estimated Effort**: 5 days
 **Started**: 2026-02-07
 
@@ -179,7 +179,7 @@ Replace the existing four-stage Mermaid rendering pipeline (JavaScriptCore + bea
     - **Status**: PASS
     - **Actions**: Verified commit 9135557 actually only contains `MermaidWebView.swift` and `tasks.md` (confirmed via `git show --stat`). The out-of-scope changes (debugLog additions to DocumentWindow.swift and MarkdownBlockView.swift, status change in mermaid-rendering.md) were uncommitted working directory modifications, not part of the commit. Discarded all three out-of-scope working directory changes via `git checkout HEAD --`. No code changes to MermaidWebView.swift needed.
 
-- [ ] **T7**: Update MarkdownPreviewView to remove MermaidImageStore reference `[complexity:simple]`
+- [x] **T7**: Update MarkdownPreviewView to remove MermaidImageStore reference `[complexity:simple]`
 
     **Reference**: [design.md#311-files-modified](design.md#311-files-modified)
 
@@ -187,9 +187,16 @@ Replace the existing four-stage Mermaid rendering pipeline (JavaScriptCore + bea
 
     **Acceptance Criteria**:
 
-    - [ ] Remove MermaidImageStore.shared.removeAll() call on theme change in MarkdownPreviewView.swift
-    - [ ] Remove any import of MermaidImageStore if present
-    - [ ] MarkdownPreviewView compiles and functions correctly after change
+    - [x] Remove MermaidImageStore.shared.removeAll() call on theme change in MarkdownPreviewView.swift
+    - [x] Remove any import of MermaidImageStore if present
+    - [x] MarkdownPreviewView compiles and functions correctly after change
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Features/Viewer/Views/MarkdownPreviewView.swift` (no modification needed)
+    - **Approach**: T1 already removed all MermaidImageStore references from MarkdownPreviewView.swift and DocumentState.swift as part of its compilation AC ("No dead imports or references to removed code remain" + "Project compiles after removal"). Verified: no MermaidImageStore references exist in any source file under mkdn/. Project builds successfully and all 129 tests pass.
+    - **Deviations**: No code changes required; T1 performed this cleanup as a prerequisite for its own compilation acceptance criteria (documented in T1 implementation summary and field-notes.md).
+    - **Tests**: 129/129 passing
 
 ### View Layer
 
@@ -221,6 +228,18 @@ Replace the existing four-stage Mermaid rendering pipeline (JavaScriptCore + bea
     - **Approach**: Full rewrite of MermaidBlockView to orchestrate the WKWebView-based rendering pipeline. Uses ZStack with MermaidWebView (opacity-gated until rendered) and loading/error overlays. Frame height driven by JS-reported renderedHeight capped at 600pt. Focus model uses onTapGesture to activate, onKeyPress(.escape) to deactivate, with 2pt accent border overlay when focused. Theme passed directly to MermaidWebView for in-place re-rendering via updateNSView path.
     - **Deviations**: None
     - **Tests**: 120/120 passing (0 failures)
+
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
 
 ### Testing
 
