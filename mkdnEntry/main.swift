@@ -8,12 +8,6 @@ struct MkdnApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @State private var appSettings = AppSettings()
 
-    init() {
-        if let url = LaunchContext.fileURL {
-            FileOpenCoordinator.shared.pendingURLs.append(url)
-        }
-    }
-
     var body: some Scene {
         WindowGroup(for: URL.self) { $fileURL in
             DocumentWindow(fileURL: fileURL)
