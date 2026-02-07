@@ -7,6 +7,10 @@ import AppKit
 /// Markdown files from Finder, dock drag-and-drop, or other applications.
 @MainActor
 public final class AppDelegate: NSObject, NSApplicationDelegate {
+    public func applicationWillFinishLaunching(_: Notification) {
+        NSApp.setActivationPolicy(.regular)
+    }
+
     public func application(_: NSApplication, open urls: [URL]) {
         let markdownURLs = urls.filter { FileOpenCoordinator.isMarkdownURL($0) }
         for url in markdownURLs {
