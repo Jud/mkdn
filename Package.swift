@@ -29,6 +29,8 @@ let package = Package(
             ],
             path: "mkdn",
             resources: [
+                .copy("Resources/mermaid.min.js"),
+                .copy("Resources/mermaid-template.html"),
             ]
         ),
         .executableTarget(

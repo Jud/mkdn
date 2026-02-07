@@ -2,7 +2,7 @@
 
 **Feature ID**: mermaid-rearchitect
 **Status**: In Progress
-**Progress**: 20% (3 of 15 tasks)
+**Progress**: 27% (4 of 15 tasks)
 **Estimated Effort**: 5 days
 **Started**: 2026-02-07
 
@@ -69,7 +69,7 @@ Replace the existing four-stage Mermaid rendering pipeline (JavaScriptCore + bea
     | Commit | PASS |
     | Comments | PASS |
 
-- [ ] **T2**: Bundle standard Mermaid.js and create HTML rendering template `[complexity:medium]`
+- [x] **T2**: Bundle standard Mermaid.js and create HTML rendering template `[complexity:medium]`
 
     **Reference**: [design.md#36-html-template-mermaid-templatehtml](design.md#36-html-template-mermaid-templatehtml)
 
@@ -77,14 +77,21 @@ Replace the existing four-stage Mermaid rendering pipeline (JavaScriptCore + bea
 
     **Acceptance Criteria**:
 
-    - [ ] Standard mermaid.min.js is placed at mkdn/Resources/mermaid.min.js
-    - [ ] mermaid-template.html is created at mkdn/Resources/mermaid-template.html per design spec
-    - [ ] Template includes `__MERMAID_CODE__` and `__THEME_VARIABLES__` token placeholders
-    - [ ] Template includes sizeReport, renderComplete, and renderError message handlers
-    - [ ] Template includes reRenderWithTheme function for theme changes
-    - [ ] Template body has transparent background and overflow hidden
-    - [ ] `.copy("Resources/mermaid.min.js")` and `.copy("Resources/mermaid-template.html")` added to Package.swift resources
-    - [ ] Resources are accessible via Bundle.module at runtime
+    - [x] Standard mermaid.min.js is placed at mkdn/Resources/mermaid.min.js
+    - [x] mermaid-template.html is created at mkdn/Resources/mermaid-template.html per design spec
+    - [x] Template includes `__MERMAID_CODE__` and `__THEME_VARIABLES__` token placeholders
+    - [x] Template includes sizeReport, renderComplete, and renderError message handlers
+    - [x] Template includes reRenderWithTheme function for theme changes
+    - [x] Template body has transparent background and overflow hidden
+    - [x] `.copy("Resources/mermaid.min.js")` and `.copy("Resources/mermaid-template.html")` added to Package.swift resources
+    - [x] Resources are accessible via Bundle.module at runtime
+
+    **Implementation Summary**:
+
+    - **Files**: `Package.swift` (modified), `mkdn/Resources/mermaid.min.js` (created), `mkdn/Resources/mermaid-template.html` (created)
+    - **Approach**: Downloaded standard Mermaid.js v11.12.2 from jsDelivr CDN. Created HTML template with three token placeholders: `__MERMAID_CODE__` (HTML-escaped for pre tag), `__MERMAID_CODE_JS__` (JS-escaped for originalCode variable), and `__THEME_VARIABLES__` (JSON object). Template includes render(), reRenderWithTheme(), and three WKScriptMessageHandler callbacks (sizeReport, renderComplete, renderError). Added `.copy()` resource rules to Package.swift.
+    - **Deviations**: Added `__MERMAID_CODE_JS__` as a third token (design spec listed two). This separates HTML-escaped content (for the pre tag) from JS-escaped content (for the template literal variable used in re-renders). See field-notes.md for details.
+    - **Tests**: 120/120 passing (0 failures)
 
 - [x] **T3**: Create MermaidRenderState and MermaidError enums `[complexity:simple]`
 

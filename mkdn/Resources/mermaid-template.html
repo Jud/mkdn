@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { margin: 0; padding: 0; }
+        body { background: transparent; overflow: hidden; }
+        #diagram { display: inline-block; }
+    </style>
+    <script src="mermaid.min.js"></script>
+</head>
+<body>
+    <div id="diagram">
+        <pre class="mermaid">__MERMAID_CODE__</pre>
+    </div>
+    <script>
+        var originalCode = `__MERMAID_CODE_JS__`;
+
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: 'base',
+            themeVariables: __THEME_VARIABLES__,
+            securityLevel: 'strict',
+            flowchart: { htmlLabels: true },
+        });
+
+        async function render() {
+            try {
+                await mermaid.run({ querySelector: '.mermaid' });
+                var svg = document.querySelector('#diagram svg');
+                if (svg) {
+                    var bbox = svg.getBoundingClientRect();
+                    window.webkit.messageHandlers.sizeReport.postMessage({
+                        width: bbox.width,
+                        height: bbox.height
+                    });
+                    window.webkit.messageHandlers.renderComplete.postMessage({});
+                }
+            } catch (error) {
+                window.webkit.messageHandlers.renderError.postMessage({
+                    message: error.message || String(error)
+                });
+            }
+        }
+
+        function reRenderWithTheme(themeVarsJSON) {
+            mermaid.initialize({
+                startOnLoad: false,
+                theme: 'base',
+                themeVariables: themeVarsJSON,
+                securityLevel: 'strict',
+                flowchart: { htmlLabels: true },
+            });
+            var container = document.getElementById('diagram');
+            var svg = container.querySelector('svg');
+            if (svg) svg.remove();
+            var pre = document.createElement('pre');
+            pre.className = 'mermaid';
+            pre.textContent = originalCode;
+            container.appendChild(pre);
+            render();
+        }
+
+        render();
+    </script>
+</body>
+</html>
