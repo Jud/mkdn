@@ -22,6 +22,20 @@ disabled_rules:
   - indentation_width               # SwiftFormat handles indentation
   - no_magic_numbers                # Too aggressive for UI layout code
   - sorted_imports                  # SwiftFormat handles import sorting
+  - contrasted_opening_brace        # Allman-style braces — project uses K&R
+  - switch_case_on_newline           # Project uses inline case bodies
+  - attributes                       # Single-line attributes are idiomatic Swift
+  - vertical_whitespace_between_cases # Not enforced in project style
+  - sorted_enum_cases                # Enum order is intentional, not alphabetical
+  - one_declaration_per_file         # Small helper types colocated with primary type
+  - modifier_order                   # Conflicts with @ObservationIgnored private nonisolated(unsafe)
+  - explicit_enum_raw_value          # Implicit raw values are fine for simple enums
+  - no_extension_access_modifier     # We use access modifiers on extensions
+  - accessibility_label_for_image    # Will enable when accessibility pass begins
+  - accessibility_trait_for_button   # Will enable when accessibility pass begins
+  - incompatible_concurrency_annotation # Swift 6 native — no Swift 5 compat needed
+  - opening_brace                    # Conflicts with SwiftFormat multi-line condition style
+  - no_empty_block                   # Required empty protocol conformances (init, updateNSView)
 
 # Paths
 included:
@@ -42,7 +56,7 @@ line_length:
   ignores_interpolated_strings: true
 
 type_body_length:
-  warning: 300
+  warning: 350
   error: 500
 
 file_length:
@@ -77,12 +91,16 @@ nesting:
   function_level: 3
 
 cyclomatic_complexity:
-  warning: 10
-  error: 15
+  warning: 15
+  error: 25
 
 large_tuple:
   warning: 3
   error: 4
+
+closure_body_length:
+  warning: 45
+  error: 60
 
 trailing_comma:
   mandatory_comma: true

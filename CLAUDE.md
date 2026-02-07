@@ -31,7 +31,7 @@ Mac-native Markdown viewer/editor. Swift 6 + SwiftUI. macOS 14.0+.
 - Mermaid rendering: JavaScriptCore + beautiful-mermaid -> SVG -> SwiftDraw -> native Image.
 - Use `@Observable` (not `ObservableObject`) for all state.
 - Use Swift Testing (`@Test`, `#expect`, `@Suite`) for unit tests.
-- SwiftLint strict mode is enforced. Run `swiftlint lint` before committing.
+- SwiftLint strict mode is enforced (Homebrew install, needs Xcode toolchain). Run lint command below before committing.
 - SwiftFormat is enforced. Run `swiftformat .` before committing.
 
 ### Build/Test Commands
@@ -40,7 +40,7 @@ Mac-native Markdown viewer/editor. Swift 6 + SwiftUI. macOS 14.0+.
 swift build          # Build
 swift test           # Run tests
 swift run mkdn       # Run app
-swiftlint lint       # Lint
+DEVELOPER_DIR=/Applications/Xcode-16.3.0.app/Contents/Developer swiftlint lint  # Lint
 swiftformat .        # Format
 ```
 
