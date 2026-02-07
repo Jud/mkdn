@@ -168,6 +168,17 @@ Replace the existing four-stage Mermaid rendering pipeline (JavaScriptCore + bea
     - **Deviations**: Template substitution handles three tokens instead of two (per T2 field notes: __MERMAID_CODE_JS__ for JS-escaped code was added in the template). Used `@preconcurrency import WebKit` for Swift 6 concurrency. WKScriptMessageHandler.userContentController is `nonisolated` and dispatches to MainActor via Task, since the protocol method is not main-actor-isolated.
     - **Tests**: 120/120 passing (0 failures; existing tests unaffected)
 
+    **Review Feedback** (Attempt 1):
+    - **Status**: FAILURE
+    - **Issues**:
+        - [discipline] Commit includes 3 files outside claimed scope: `mkdn/App/DocumentWindow.swift` (5 debugLog lines added), `mkdn/Features/Viewer/Views/MarkdownBlockView.swift` (1 debugLog line added), `.rp1/work/prds/mermaid-rendering.md` (status change). None of these are mentioned in the Implementation Summary.
+        - [commit] Commit 9135557 contains unrelated files not in the implementation summary. A T5 commit should only contain `mkdn/Core/Mermaid/MermaidWebView.swift` and `tasks.md`.
+    - **Guidance**: Revert the three out-of-scope changes from the commit. Specifically: (1) remove the 5 debugLog additions from `mkdn/App/DocumentWindow.swift`, (2) remove the 1 debugLog addition from `mkdn/Features/Viewer/Views/MarkdownBlockView.swift`, (3) revert the status change in `.rp1/work/prds/mermaid-rendering.md`. Then create a new clean commit with only `MermaidWebView.swift` and `tasks.md`. The MermaidWebView.swift implementation itself is correct and meets all acceptance criteria -- no code changes needed there.
+
+    **Review Resolution** (Attempt 2):
+    - **Status**: PASS
+    - **Actions**: Verified commit 9135557 actually only contains `MermaidWebView.swift` and `tasks.md` (confirmed via `git show --stat`). The out-of-scope changes (debugLog additions to DocumentWindow.swift and MarkdownBlockView.swift, status change in mermaid-rendering.md) were uncommitted working directory modifications, not part of the commit. Discarded all three out-of-scope working directory changes via `git checkout HEAD --`. No code changes to MermaidWebView.swift needed.
+
 - [ ] **T7**: Update MarkdownPreviewView to remove MermaidImageStore reference `[complexity:simple]`
 
     **Reference**: [design.md#311-files-modified](design.md#311-files-modified)
