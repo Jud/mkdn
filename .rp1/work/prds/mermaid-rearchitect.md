@@ -161,3 +161,10 @@ The rest of the app remains fully native SwiftUI. WKWebView is used exclusively 
 | A3 | Memory overhead of multiple WKWebViews is acceptable for typical documents (1-5 diagrams) | For diagram-heavy docs, may need lazy init / off-screen teardown | Performance NFR |
 | A4 | SwiftDraw is only used for Mermaid rendering and can be fully removed | If used elsewhere, keep in Package.swift | Dependency cleanup |
 | A5 | Five diagram types cover majority of developer use cases | Standard Mermaid.js supports all types, so adding more is trivial | Will Do: 5 diagram types |
+
+## Discoveries
+
+- **Codebase Discovery**: JXKit was referenced in KB documentation (modules.md, architecture.md) but was never added to Package.swift; the codebase used `import JavaScriptCore` (system framework) directly. -- *Ref: [field-notes.md](../archives/features/mermaid-rearchitect/field-notes.md)*
+- **Codebase Discovery**: `MermaidError` enum was co-located inside `MermaidRenderer.swift` rather than in its own file; deleting the renderer also deleted the error type. -- *Ref: [field-notes.md](../archives/features/mermaid-rearchitect/field-notes.md)*
+- **Design Deviation**: HTML template uses three substitution tokens (`__MERMAID_CODE__`, `__MERMAID_CODE_JS__`, `__THEME_VARIABLES__`) instead of the two specified in design, to distinguish HTML escaping from JS escaping. -- *Ref: [field-notes.md](../archives/features/mermaid-rearchitect/field-notes.md)*
+- **Codebase Discovery**: Pre-existing SwiftLint violations exist in `DocumentWindow.swift`, `MarkdownPreviewView.swift`, and `MarkdownBlockView.swift` that are unrelated to Mermaid work. -- *Ref: [field-notes.md](../archives/features/mermaid-rearchitect/field-notes.md)*
