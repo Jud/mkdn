@@ -2,7 +2,7 @@
 
 **Feature ID**: mermaid-rearchitect
 **Status**: In Progress
-**Progress**: 13% (2 of 15 tasks)
+**Progress**: 20% (3 of 15 tasks)
 **Estimated Effort**: 5 days
 **Started**: 2026-02-07
 
@@ -107,7 +107,7 @@ Replace the existing four-stage Mermaid rendering pipeline (JavaScriptCore + bea
     - **Deviations**: None
     - **Tests**: 100/100 passing (existing tests unaffected)
 
-- [ ] **T4**: Create MermaidThemeMapper utility for theme-to-Mermaid variable mapping `[complexity:medium]`
+- [x] **T4**: Create MermaidThemeMapper utility for theme-to-Mermaid variable mapping `[complexity:medium]`
 
     **Reference**: [design.md#37-theme-to-mermaid-variable-mapping](design.md#37-theme-to-mermaid-variable-mapping)
 
@@ -115,13 +115,20 @@ Replace the existing four-stage Mermaid rendering pipeline (JavaScriptCore + bea
 
     **Acceptance Criteria**:
 
-    - [ ] MermaidThemeMapper enum created at mkdn/Core/Mermaid/MermaidThemeMapper.swift
-    - [ ] Static method themeVariablesJSON(for:) returns valid JSON string of Mermaid themeVariables
-    - [ ] All 26 Mermaid theme variables from the design spec mapping table are included
-    - [ ] Solarized Dark theme produces correct hex values per design spec
-    - [ ] Solarized Light theme produces correct hex values per design spec
-    - [ ] Hardcoded hex lookup keyed by AppTheme case (no runtime Color-to-hex conversion)
-    - [ ] Output is valid JSON parseable by JavaScript
+    - [x] MermaidThemeMapper enum created at mkdn/Core/Mermaid/MermaidThemeMapper.swift
+    - [x] Static method themeVariablesJSON(for:) returns valid JSON string of Mermaid themeVariables
+    - [x] All 26 Mermaid theme variables from the design spec mapping table are included
+    - [x] Solarized Dark theme produces correct hex values per design spec
+    - [x] Solarized Light theme produces correct hex values per design spec
+    - [x] Hardcoded hex lookup keyed by AppTheme case (no runtime Color-to-hex conversion)
+    - [x] Output is valid JSON parseable by JavaScript
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Core/Mermaid/MermaidThemeMapper.swift`
+    - **Approach**: Created a public enum with a static `themeVariablesJSON(for:)` method that returns a JSON string. Uses hardcoded `[String: String]` dictionaries for each AppTheme case, keyed to Solarized hex values from the design spec. Serializes via JSONSerialization with sortedKeys for deterministic output. Also exposes an internal `themeVariables(for:)` method returning the raw dictionary for testability.
+    - **Deviations**: None
+    - **Tests**: 100/100 passing (existing tests unaffected)
 
 ### WKWebView Integration
 
