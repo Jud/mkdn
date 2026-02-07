@@ -1,6 +1,6 @@
 import AppKit
 import Foundation
-@preconcurrency import JXKit
+import JavaScriptCore
 import SwiftDraw
 import SwiftUI
 
@@ -19,7 +19,7 @@ actor MermaidRenderer {
 
     /// Lazily-created JavaScript context, reused across renders.
     /// Set to `nil` on corruption to force recreation on next call.
-    private var context: JXContext?
+    private var context: JSContext?
 
     /// Diagram type keywords that mkdn supports rendering.
     private static let supportedTypes: Set<String> = [
@@ -40,6 +40,10 @@ actor MermaidRenderer {
     /// The theme controls which `beautifulMermaid.THEMES` preset is passed to the
     /// JavaScript renderer and is included in the cache key so that each theme
     /// variant is cached independently.
+    ///
+    /// `beautifulMermaid.renderMermaid()` is async (returns a Promise). Apple's
+    /// `JSContext` properly drains the microtask queue, so we resolve the Promise
+    /// via `.then()` with a native Swift callback and a `CheckedContinuation`.
     func renderToSVG(_ mermaidCode: String, theme: AppTheme = .solarizedDark) async throws -> String {
         let trimmed = mermaidCode.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
@@ -64,18 +68,46 @@ actor MermaidRenderer {
 
         let themePreset = mermaidJSThemeKey(for: theme)
 
-        let svg: String
-        do {
-            let js = "beautifulMermaid.renderMermaid(\"\(escaped)\", beautifulMermaid.THEMES['\(themePreset)'])"
-            let promise = try jsContext.eval(js)
-            let result = try await promise.awaitPromise()
-            svg = try result.string
-        } catch let error as JXError {
-            context = nil
-            throw MermaidError.javaScriptError(error.message)
-        } catch {
-            context = nil
-            throw MermaidError.javaScriptError(error.localizedDescription)
+        let svg: String = try await withCheckedThrowingContinuation { continuation in
+            var resumed = false
+
+            let onSuccess: @convention(block) (String) -> Void = { result in
+                guard !resumed else { return }
+                resumed = true
+                continuation.resume(returning: result)
+            }
+
+            let onError: @convention(block) (String) -> Void = { error in
+                guard !resumed else { return }
+                resumed = true
+                continuation.resume(throwing: MermaidError.javaScriptError(error))
+            }
+
+            jsContext.setObject(
+                unsafeBitCast(onSuccess, to: AnyObject.self),
+                forKeyedSubscript: "__mkdn_resolve" as NSString
+            )
+            jsContext.setObject(
+                unsafeBitCast(onError, to: AnyObject.self),
+                forKeyedSubscript: "__mkdn_reject" as NSString
+            )
+
+            let js = """
+            beautifulMermaid.renderMermaid("\(escaped)", beautifulMermaid.THEMES['\(themePreset)'])
+                .then(function(r) { __mkdn_resolve(r); })
+                .catch(function(e) { __mkdn_reject(String(e)); });
+            """
+
+            jsContext.evaluateScript(js)
+
+            if let exception = jsContext.exception {
+                guard !resumed else { return }
+                resumed = true
+                context = nil
+                continuation.resume(
+                    throwing: MermaidError.javaScriptError(exception.toString() ?? "Unknown JS error")
+                )
+            }
         }
 
         let sanitized = SVGSanitizer.sanitize(svg)
@@ -102,14 +134,16 @@ actor MermaidRenderer {
 
     // MARK: - Private
 
-    /// Returns the existing `JXContext` or creates a new one with
+    /// Returns the existing `JSContext` or creates a new one with
     /// beautiful-mermaid.js loaded from the SPM bundle resource.
-    private func getOrCreateContext() throws -> JXContext {
+    private func getOrCreateContext() throws -> JSContext {
         if let existing = context {
             return existing
         }
 
-        let newContext = JXContext()
+        guard let newContext = JSContext() else {
+            throw MermaidError.contextCreationFailed("JSContext() returned nil.")
+        }
 
         guard let bundleURL = Bundle.module.url(
             forResource: "mermaid.min",
@@ -123,9 +157,15 @@ actor MermaidRenderer {
 
         do {
             let source = try String(contentsOf: bundleURL, encoding: .utf8)
-            try newContext.eval(source)
-        } catch let error as JXError {
-            throw MermaidError.contextCreationFailed(error.message)
+            newContext.evaluateScript(source)
+
+            if let exception = newContext.exception {
+                throw MermaidError.contextCreationFailed(
+                    exception.toString() ?? "JS evaluation error"
+                )
+            }
+        } catch let error as MermaidError {
+            throw error
         } catch {
             throw MermaidError.contextCreationFailed(error.localizedDescription)
         }

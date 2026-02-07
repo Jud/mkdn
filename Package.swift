@@ -21,8 +21,6 @@ let package = Package(
         // Pinned below 0.25.0 to avoid #Preview macro issue in CLI builds
         .package(url: "https://github.com/swhitty/SwiftDraw.git", "0.17.0" ..< "0.25.0"),
 
-        // Swift-friendly JavaScriptCore wrapper
-        .package(url: "https://github.com/jectivex/JXKit.git", from: "3.6.0"),
 
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.5.0"),
         .package(url: "https://github.com/JohnSundell/Splash.git", from: "0.9.0"),
@@ -33,7 +31,7 @@ let package = Package(
             dependencies: [
                 .product(name: "Markdown", package: "swift-markdown"),
                 .product(name: "SwiftDraw", package: "SwiftDraw"),
-                .product(name: "JXKit", package: "JXKit"),
+
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "Splash", package: "Splash"),
             ],
