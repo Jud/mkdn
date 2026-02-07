@@ -9,7 +9,7 @@ struct MkdnApp: App {
     @State private var appSettings = AppSettings()
 
     var body: some Scene {
-        WindowGroup(for: URL.self) { $fileURL in
+        WindowGroup(for: URL.self) { $fileURL in // swiftlint:disable:this unused_parameter
             DocumentWindow(fileURL: fileURL)
                 .environment(appSettings)
         }
@@ -25,27 +25,45 @@ struct MkdnApp: App {
 
 // MARK: - CLI Entry Point
 
-do {
-    let cli = try MkdnCLI.parse()
+//
+// NSApplication interprets positional CLI arguments as kAEOpenDocuments
+// AppleEvents, which suppresses default WindowGroup window creation.
+// ProcessInfo.processInfo.arguments is cached from C argv before any Swift
+// code runs, so CommandLine.arguments stripping is ineffective.
+//
+// Solution: when a file argument is detected, save the validated path to the
+// MKDN_LAUNCH_FILE env var and execv() the binary without the file argument.
+// The re-launched process reads the env var and proceeds with a clean argv.
+// See: .rp1/work/issues/file-arg-no-window/investigation_report.md
 
-    if let filePath = cli.file {
-        let url = try FileValidator.validate(path: filePath)
-        LaunchContext.fileURL = url
-    }
-
-    // Strip CLI arguments so SwiftUI only sees the bare executable name.
-    // Without this, WindowGroup(for: URL.self) misinterprets the file argument
-    // and fails to create its default window.
-    CommandLine.arguments = [CommandLine.arguments[0]]
-
-    NSApplication.shared.setActivationPolicy(.regular)
+if let envFile = ProcessInfo.processInfo.environment["MKDN_LAUNCH_FILE"] {
+    unsetenv("MKDN_LAUNCH_FILE")
+    LaunchContext.fileURL = URL(fileURLWithPath: envFile).standardized.resolvingSymlinksInPath()
     MkdnApp.main()
-    // Note: MkdnApp.main() never returns (runs the app loop)
-} catch let error as CLIError {
-    FileHandle.standardError.write(
-        Data("mkdn: error: \(error.localizedDescription)\n".utf8)
-    )
-    Foundation.exit(error.exitCode)
-} catch {
-    MkdnCLI.exit(withError: error)
+} else {
+    do {
+        let cli = try MkdnCLI.parse()
+
+        if let filePath = cli.file {
+            let url = try FileValidator.validate(path: filePath)
+            setenv("MKDN_LAUNCH_FILE", url.path, 1)
+            let execPath = ProcessInfo.processInfo.arguments[0]
+            let cArgs: [UnsafeMutablePointer<CChar>?] = [strdup(execPath), nil]
+            cArgs.withUnsafeBufferPointer { buffer in
+                guard let baseAddress = buffer.baseAddress else { return }
+                _ = execv(execPath, baseAddress)
+            }
+            perror("execv")
+            Foundation.exit(1)
+        }
+
+        MkdnApp.main()
+    } catch let error as CLIError {
+        FileHandle.standardError.write(
+            Data("mkdn: error: \(error.localizedDescription)\n".utf8)
+        )
+        Foundation.exit(error.exitCode)
+    } catch {
+        MkdnCLI.exit(withError: error)
+    }
 }
