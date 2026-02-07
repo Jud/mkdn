@@ -2,7 +2,8 @@ import SwiftUI
 
 /// Side-by-side editor and preview split view.
 struct SplitEditorView: View {
-    @Environment(AppState.self) private var appState
+    @Environment(DocumentState.self) private var documentState
+    @Environment(AppSettings.self) private var appSettings
 
     var body: some View {
         ResizableSplitView {
@@ -14,9 +15,9 @@ struct SplitEditorView: View {
     }
 
     private var editorPane: some View {
-        @Bindable var state = appState
+        @Bindable var state = documentState
 
         return MarkdownEditorView(text: $state.markdownContent)
-            .background(appState.theme.colors.background)
+            .background(appSettings.theme.colors.background)
     }
 }

@@ -5,10 +5,10 @@ struct TableBlockView: View {
     let columns: [TableColumn]
     let rows: [[AttributedString]]
 
-    @Environment(AppState.self) private var appState
+    @Environment(AppSettings.self) private var appSettings
 
     private var colors: ThemeColors {
-        appState.theme.colors
+        appSettings.theme.colors
     }
 
     var body: some View {

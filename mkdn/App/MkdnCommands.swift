@@ -2,20 +2,40 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// Application menu commands.
+///
+/// Uses `AppSettings` for theme operations and `@FocusedValue` to access
+/// the active window's `DocumentState` for document operations.
 public struct MkdnCommands: Commands {
-    public let appState: AppState
+    public let appSettings: AppSettings
+    @FocusedValue(\.documentState) private var documentState
 
-    public init(appState: AppState) {
-        self.appState = appState
+    public init(appSettings: AppSettings) {
+        self.appSettings = appSettings
     }
 
     public var body: some Commands {
+        CommandGroup(after: .appInfo) {
+            Button("Set as Default Markdown App") {
+                let success = DefaultHandlerService.registerAsDefault()
+                if success {
+                    documentState?.modeOverlayLabel = "Default Markdown App Set"
+                }
+            }
+        }
+
+        CommandGroup(before: .saveItem) {
+            Button("Close Window") {
+                NSApplication.shared.keyWindow?.close()
+            }
+            .keyboardShortcut("w", modifiers: .command)
+        }
+
         CommandGroup(replacing: .saveItem) {
             Button("Save") {
-                try? appState.saveFile()
+                try? documentState?.saveFile()
             }
             .keyboardShortcut("s", modifiers: .command)
-            .disabled(appState.currentFileURL == nil || !appState.hasUnsavedChanges)
+            .disabled(documentState?.currentFileURL == nil || documentState?.hasUnsavedChanges != true)
         }
 
         CommandGroup(after: .importExport) {
@@ -25,21 +45,21 @@ public struct MkdnCommands: Commands {
             .keyboardShortcut("o", modifiers: .command)
 
             Button("Reload") {
-                try? appState.reloadFile()
+                try? documentState?.reloadFile()
             }
             .keyboardShortcut("r", modifiers: .command)
-            .disabled(appState.currentFileURL == nil || !appState.isFileOutdated)
+            .disabled(documentState?.currentFileURL == nil || documentState?.isFileOutdated != true)
         }
 
         CommandGroup(after: .sidebar) {
             Section {
                 Button("Preview Mode") {
-                    appState.switchMode(to: .previewOnly)
+                    documentState?.switchMode(to: .previewOnly)
                 }
                 .keyboardShortcut("1", modifiers: .command)
 
                 Button("Edit Mode") {
-                    appState.switchMode(to: .sideBySide)
+                    documentState?.switchMode(to: .sideBySide)
                 }
                 .keyboardShortcut("2", modifiers: .command)
             }
@@ -47,8 +67,9 @@ public struct MkdnCommands: Commands {
             Section {
                 Button("Cycle Theme") {
                     withAnimation(AnimationConstants.themeCrossfade) {
-                        appState.cycleTheme()
+                        appSettings.cycleTheme()
                     }
+                    documentState?.modeOverlayLabel = appSettings.themeMode.displayName
                 }
                 .keyboardShortcut("t", modifiers: .command)
             }
@@ -65,6 +86,6 @@ public struct MkdnCommands: Commands {
         panel.canChooseDirectories = false
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        try? appState.loadFile(at: url)
+        try? documentState?.loadFile(at: url)
     }
 }

@@ -5,7 +5,7 @@ struct MarkdownBlockView: View {
     let block: MarkdownBlock
     var depth = 0
 
-    @Environment(AppState.self) private var appState
+    @Environment(AppSettings.self) private var appSettings
 
     private static let bulletStyles: [String] = [
         "\u{2022}", // bullet (level 0)
@@ -15,7 +15,7 @@ struct MarkdownBlockView: View {
     ]
 
     private var colors: ThemeColors {
-        appState.theme.colors
+        appSettings.theme.colors
     }
 
     var body: some View {
@@ -99,7 +99,7 @@ struct MarkdownBlockView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(blocks) { child in
-                    MarkdownBlockView(block: child, depth: depth)
+                    Self(block: child, depth: depth)
                 }
             }
             .padding(.leading, 12)
@@ -122,7 +122,7 @@ struct MarkdownBlockView: View {
 
                     VStack(alignment: .leading, spacing: 4) {
                         ForEach(item.blocks) { block in
-                            MarkdownBlockView(block: block, depth: depth + 1)
+                            Self(block: block, depth: depth + 1)
                         }
                     }
                 }
@@ -146,7 +146,7 @@ struct MarkdownBlockView: View {
 
                     VStack(alignment: .leading, spacing: 4) {
                         ForEach(item.blocks) { block in
-                            MarkdownBlockView(block: block, depth: depth + 1)
+                            Self(block: block, depth: depth + 1)
                         }
                     }
                 }

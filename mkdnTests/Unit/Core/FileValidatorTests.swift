@@ -120,7 +120,7 @@ struct FileValidatorTests {
         } throws: { error in
             guard let cliError = error as? CLIError else { return false }
             guard case let .unsupportedExtension(path, ext) = cliError else { return false }
-            return path == "README" && ext == ""
+            return path == "README" && ext.isEmpty
         }
     }
 

@@ -19,7 +19,7 @@ enum MarkdownBlock: Identifiable {
     case paragraph(text: AttributedString)
     case codeBlock(language: String?, code: String)
     case mermaidBlock(code: String)
-    case blockquote(blocks: [MarkdownBlock])
+    case blockquote(blocks: [Self])
     case orderedList(items: [ListItem])
     case unorderedList(items: [ListItem])
     case thematicBreak
@@ -57,8 +57,11 @@ enum MarkdownBlock: Identifiable {
 
 /// A list item containing child blocks.
 struct ListItem: Identifiable {
-    let id = UUID()
     let blocks: [MarkdownBlock]
+
+    var id: String {
+        "li-\(blocks.map(\.id).joined(separator: "-"))"
+    }
 }
 
 /// DJB2 hash producing a stable, deterministic integer for a given string.

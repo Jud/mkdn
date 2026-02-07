@@ -39,7 +39,6 @@ struct MermaidCacheTests {
         cache.set(2, value: "b")
         cache.set(3, value: "c")
 
-        // Cache is full. Inserting a 4th should evict key 1 (LRU).
         cache.set(4, value: "d")
 
         #expect(cache.get(1) == nil)
@@ -56,10 +55,8 @@ struct MermaidCacheTests {
         cache.set(2, value: "b")
         cache.set(3, value: "c")
 
-        // Access key 1, promoting it to most-recently-used.
         _ = cache.get(1)
 
-        // Insert key 4. Key 2 is now the LRU and should be evicted.
         cache.set(4, value: "d")
 
         #expect(cache.get(1) == "a")
@@ -77,7 +74,7 @@ struct MermaidCacheTests {
 
         cache.removeAll()
 
-        #expect(cache.count == 0)
+        #expect(cache.isEmpty)
         #expect(cache.get(1) == nil)
         #expect(cache.get(2) == nil)
         #expect(cache.get(3) == nil)
@@ -87,7 +84,7 @@ struct MermaidCacheTests {
     func countTracksEntries() {
         var cache = MermaidCache(capacity: 5)
 
-        #expect(cache.count == 0)
+        #expect(cache.isEmpty)
 
         cache.set(1, value: "a")
         #expect(cache.count == 1)
@@ -96,7 +93,7 @@ struct MermaidCacheTests {
         #expect(cache.count == 2)
 
         cache.removeAll()
-        #expect(cache.count == 0)
+        #expect(cache.isEmpty)
     }
 
     @Test("DJB2 hash produces consistent results for same input")
@@ -128,7 +125,6 @@ struct MermaidCacheTests {
 
         #expect(cache.count == 50)
 
-        // 51st entry should evict the first.
         cache.set(99, value: "overflow")
 
         #expect(cache.count == 50)

@@ -2,8 +2,6 @@ import SwiftUI
 
 /// Breathing-dot indicator shown when the editor has unsaved changes.
 struct UnsavedIndicator: View {
-    @Environment(AppState.self) private var appState
-
     @State private var isBreathing = false
 
     var body: some View {

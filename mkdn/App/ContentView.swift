@@ -3,9 +3,10 @@ import UniformTypeIdentifiers
 
 /// Root content view that switches between preview-only and side-by-side modes.
 /// Overlays a breathing orb for file-change notification and an ephemeral mode label.
-/// Bridges the system `colorScheme` environment to `AppState` for auto-theming.
+/// Bridges the system `colorScheme` environment to `AppSettings` for auto-theming.
 public struct ContentView: View {
-    @Environment(AppState.self) private var appState
+    @Environment(DocumentState.self) private var documentState
+    @Environment(AppSettings.self) private var appSettings
     @Environment(\.colorScheme) private var colorScheme
 
     public init() {}
@@ -13,10 +14,10 @@ public struct ContentView: View {
     public var body: some View {
         ZStack {
             Group {
-                if appState.currentFileURL == nil {
+                if documentState.currentFileURL == nil {
                     WelcomeView()
                 } else {
-                    switch appState.viewMode {
+                    switch documentState.viewMode {
                     case .previewOnly:
                         MarkdownPreviewView()
                             .transition(.opacity)
@@ -26,9 +27,9 @@ public struct ContentView: View {
                     }
                 }
             }
-            .animation(AnimationConstants.viewModeTransition, value: appState.viewMode)
+            .animation(AnimationConstants.viewModeTransition, value: documentState.viewMode)
 
-            if appState.isFileOutdated {
+            if documentState.isFileOutdated {
                 BreathingOrbView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                     .padding(16)
@@ -42,19 +43,25 @@ public struct ContentView: View {
                     )
             }
 
-            if let label = appState.modeOverlayLabel {
+            if let label = documentState.modeOverlayLabel {
                 ModeTransitionOverlay(label: label) {
-                    appState.modeOverlayLabel = nil
+                    documentState.modeOverlayLabel = nil
                 }
                 .id(label)
             }
+
+            if !appSettings.hasShownDefaultHandlerHint {
+                DefaultHandlerHintView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            }
         }
         .frame(minWidth: 600, minHeight: 400)
+        .background(WindowAccessor())
         .onAppear {
-            appState.systemColorScheme = colorScheme
+            appSettings.systemColorScheme = colorScheme
         }
         .onChange(of: colorScheme) { _, newScheme in
-            appState.systemColorScheme = newScheme
+            appSettings.systemColorScheme = newScheme
         }
         .onDrop(of: [.fileURL], isTargeted: nil) { providers in
             handleFileDrop(providers)
@@ -68,7 +75,7 @@ public struct ContentView: View {
                 return
             }
             Task { @MainActor in
-                try? appState.loadFile(at: url)
+                try? documentState.loadFile(at: url)
             }
         }
         return true

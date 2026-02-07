@@ -1,27 +1,30 @@
+import AppKit
 import mkdnLib
 import SwiftUI
 
 // MARK: - SwiftUI App (no @main)
 
 struct MkdnApp: App {
-    @State private var appState: AppState
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @State private var appSettings = AppSettings()
 
     init() {
-        let state = AppState()
         if let url = LaunchContext.fileURL {
-            try? state.loadFile(at: url)
+            FileOpenCoordinator.shared.pendingURLs.append(url)
         }
-        _appState = State(initialValue: state)
     }
 
     var body: some Scene {
-        WindowGroup {
-            ContentView()
-                .environment(appState)
+        WindowGroup(for: URL.self) { $fileURL in
+            DocumentWindow(fileURL: fileURL)
+                .environment(appSettings)
         }
+        .handlesExternalEvents(matching: [])
+        .windowStyle(.hiddenTitleBar)
         .commands {
             CommandGroup(replacing: .newItem) {}
-            MkdnCommands(appState: appState)
+            MkdnCommands(appSettings: appSettings)
+            OpenRecentCommands()
         }
     }
 }
@@ -36,6 +39,7 @@ do {
         LaunchContext.fileURL = url
     }
 
+    NSApplication.shared.setActivationPolicy(.regular)
     MkdnApp.main()
 } catch let error as CLIError {
     FileHandle.standardError.write(

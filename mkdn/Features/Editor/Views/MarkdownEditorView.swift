@@ -6,22 +6,22 @@ import SwiftUI
 /// the default system focus ring for a polished appearance.
 struct MarkdownEditorView: View {
     @Binding var text: String
-    @Environment(AppState.self) private var appState
+    @Environment(AppSettings.self) private var appSettings
     @FocusState private var isFocused: Bool
 
     var body: some View {
         TextEditor(text: $text)
             .font(.system(.body, design: .monospaced))
-            .foregroundColor(appState.theme.colors.foreground)
+            .foregroundColor(appSettings.theme.colors.foreground)
             .scrollContentBackground(.hidden)
-            .background(appState.theme.colors.background)
+            .background(appSettings.theme.colors.background)
             .focused($isFocused)
             .focusEffectDisabled()
             .padding(8)
             .overlay(
                 RoundedRectangle(cornerRadius: 4)
                     .stroke(
-                        appState.theme.colors.accent.opacity(isFocused ? 0.3 : 0),
+                        appSettings.theme.colors.accent.opacity(isFocused ? 0.3 : 0),
                         lineWidth: 1.5
                     )
             )

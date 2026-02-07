@@ -48,6 +48,10 @@ struct MermaidCache {
     var count: Int {
         storage.count
     }
+
+    var isEmpty: Bool {
+        storage.isEmpty
+    }
 }
 
 // MARK: - Internal

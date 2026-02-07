@@ -2,21 +2,21 @@ import SwiftUI
 
 /// Welcome screen shown when no file is open.
 struct WelcomeView: View {
-    @Environment(AppState.self) private var appState
+    @Environment(AppSettings.self) private var appSettings
 
     var body: some View {
         VStack(spacing: 20) {
             Image(systemName: "doc.richtext")
                 .font(.system(size: 64))
-                .foregroundColor(appState.theme.colors.foregroundSecondary)
+                .foregroundColor(appSettings.theme.colors.foregroundSecondary)
 
             Text("mkdn")
                 .font(.system(size: 36, weight: .bold, design: .monospaced))
-                .foregroundColor(appState.theme.colors.headingColor)
+                .foregroundColor(appSettings.theme.colors.headingColor)
 
             Text("Open a Markdown file to get started")
                 .font(.body)
-                .foregroundColor(appState.theme.colors.foregroundSecondary)
+                .foregroundColor(appSettings.theme.colors.foregroundSecondary)
 
             VStack(alignment: .leading, spacing: 8) {
                 instructionRow(
@@ -35,17 +35,17 @@ struct WelcomeView: View {
             .padding(.top, 12)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(appState.theme.colors.background)
+        .background(appSettings.theme.colors.background)
     }
 
     private func instructionRow(icon: String, text: String) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
                 .frame(width: 20)
-                .foregroundColor(appState.theme.colors.accent)
+                .foregroundColor(appSettings.theme.colors.accent)
             Text(text)
                 .font(.callout)
-                .foregroundColor(appState.theme.colors.foreground)
+                .foregroundColor(appSettings.theme.colors.foreground)
         }
     }
 }

@@ -5,13 +5,14 @@ struct ImageBlockView: View {
     let source: String
     let alt: String
 
-    @Environment(AppState.self) private var appState
+    @Environment(DocumentState.self) private var documentState
+    @Environment(AppSettings.self) private var appSettings
     @State private var loadedImage: NSImage?
     @State private var loadError = false
     @State private var isLoading = true
 
     private var colors: ThemeColors {
-        appState.theme.colors
+        appSettings.theme.colors
     }
 
     var body: some View {
@@ -24,7 +25,7 @@ struct ImageBlockView: View {
                 errorPlaceholder
             }
         }
-        .task { await loadImage() }
+        .task(id: source) { await loadImage() }
     }
 
     // MARK: - Subviews
@@ -82,6 +83,8 @@ struct ImageBlockView: View {
     // MARK: - Loading
 
     private func loadImage() async {
+        guard loadedImage == nil, !loadError else { return }
+
         isLoading = true
         defer { isLoading = false }
 
@@ -91,13 +94,13 @@ struct ImageBlockView: View {
         }
 
         if resolvedURL.isFileURL {
-            await loadLocalImage(url: resolvedURL)
+            loadLocalImage(url: resolvedURL)
         } else {
             await loadRemoteImage(url: resolvedURL)
         }
     }
 
-    private func loadLocalImage(url: URL) async {
+    private func loadLocalImage(url: URL) {
         let image = NSImage(contentsOf: url)
         if let image {
             loadedImage = image
@@ -139,7 +142,7 @@ struct ImageBlockView: View {
     }
 
     private func resolveRelativePath(_ path: String) -> URL? {
-        guard let fileURL = appState.currentFileURL else {
+        guard let fileURL = documentState.currentFileURL else {
             return nil
         }
         let baseDirectory = fileURL.deletingLastPathComponent()
@@ -148,7 +151,7 @@ struct ImageBlockView: View {
     }
 
     private func validateLocalPath(_ url: URL) -> URL? {
-        guard let fileURL = appState.currentFileURL else {
+        guard let fileURL = documentState.currentFileURL else {
             return nil
         }
         let baseDirectory = fileURL.deletingLastPathComponent().standardized

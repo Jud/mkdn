@@ -3,9 +3,9 @@ import Testing
 
 @testable import mkdnLib
 
-@Suite("AppState")
-struct AppStateTests {
-    /// Sets up an AppState with a file loaded but no FileWatcher DispatchSource.
+@Suite("DocumentState")
+struct DocumentStateTests {
+    /// Sets up a DocumentState with a file loaded but no FileWatcher DispatchSource.
     ///
     /// DispatchSource cleanup races with test process teardown (signal 5).
     /// This helper avoids creating a DispatchSource by directly setting state
@@ -13,8 +13,8 @@ struct AppStateTests {
     @MainActor
     private static func stateWithFile(
         content: String
-    ) throws -> (AppState, URL) {
-        let state = AppState()
+    ) throws -> (DocumentState, URL) {
+        let state = DocumentState()
         let url = URL(fileURLWithPath: "/tmp/mkdn-test-\(UUID().uuidString).md")
         try content.write(to: url, atomically: true, encoding: .utf8)
         state.currentFileURL = url
@@ -25,19 +25,18 @@ struct AppStateTests {
 
     @Test("Default state is preview-only with no file")
     @MainActor func defaultState() {
-        let state = AppState()
+        let state = DocumentState()
 
         #expect(state.currentFileURL == nil)
         #expect(state.markdownContent.isEmpty)
         #expect(!state.isFileOutdated)
         #expect(state.viewMode == .previewOnly)
-        #expect(state.themeMode == .auto)
-        #expect(state.theme == .solarizedDark)
+        #expect(state.modeOverlayLabel == nil)
     }
 
     @Test("Loads a Markdown file")
     @MainActor func loadsFile() throws {
-        let state = AppState()
+        let state = DocumentState()
         let url = URL(fileURLWithPath: "/tmp/mkdn-test-\(UUID().uuidString).md")
         let content = "# Test Heading\n\nSome content."
 
@@ -79,7 +78,7 @@ struct AppStateTests {
 
     @Test("View mode toggles correctly")
     @MainActor func viewModeToggles() {
-        let state = AppState()
+        let state = DocumentState()
 
         #expect(state.viewMode == .previewOnly)
 
@@ -90,26 +89,11 @@ struct AppStateTests {
         #expect(state.viewMode == .previewOnly)
     }
 
-    @Test("Theme mode can be changed and resolves correctly")
-    @MainActor func themeChange() {
-        let state = AppState()
-
-        #expect(state.themeMode == .auto)
-        #expect(state.theme == .solarizedDark) // auto + dark system scheme
-
-        state.themeMode = .solarizedLight
-        #expect(state.theme == .solarizedLight)
-
-        state.systemColorScheme = .light
-        state.themeMode = .auto
-        #expect(state.theme == .solarizedLight) // auto + light system scheme
-    }
-
     // MARK: - Unsaved Changes Tracking
 
     @Test("hasUnsavedChanges is false after loadFile")
     @MainActor func noUnsavedChangesAfterLoad() throws {
-        let state = AppState()
+        let state = DocumentState()
         let url = URL(fileURLWithPath: "/tmp/mkdn-test-\(UUID().uuidString).md")
         let content = "# Fresh Load"
 
@@ -160,7 +144,7 @@ struct AppStateTests {
 
     @Test("saveFile with no currentFileURL is a no-op")
     @MainActor func saveFileNoURLIsNoOp() throws {
-        let state = AppState()
+        let state = DocumentState()
 
         #expect(state.currentFileURL == nil)
         try state.saveFile()

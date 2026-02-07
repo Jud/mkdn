@@ -1,12 +1,14 @@
+import AppKit
 import SwiftUI
 
-/// UserDefaults key for persisted theme mode preference.
-private let themeModeKey = "themeMode"
-
-/// Central application state, observable across the view hierarchy.
+/// Per-window document state, observable across the view hierarchy.
+///
+/// Each window creates its own `DocumentState` instance to manage the
+/// lifecycle of a single Markdown document: file I/O, editing, view mode,
+/// and file-change detection.
 @MainActor
 @Observable
-public final class AppState {
+public final class DocumentState {
     // MARK: - File State
 
     /// The URL of the currently open Markdown file.
@@ -36,40 +38,12 @@ public final class AppState {
     /// Current display mode: preview-only or side-by-side editing.
     public var viewMode: ViewMode = .previewOnly
 
-    // MARK: - Theme
-
-    /// User's theme preference: auto (follows system), or a pinned variant.
-    /// Persisted to UserDefaults under the `"themeMode"` key.
-    public var themeMode: ThemeMode {
-        didSet {
-            UserDefaults.standard.set(themeMode.rawValue, forKey: themeModeKey)
-        }
-    }
-
-    /// Current system color scheme, bridged from `@Environment(\.colorScheme)`.
-    /// Updated by the root view whenever the OS appearance changes.
-    public var systemColorScheme: ColorScheme = .dark
-
-    /// Resolved color theme based on the user's mode preference and system appearance.
-    /// All views read this to obtain colors and syntax highlighting.
-    public var theme: AppTheme {
-        themeMode.resolved(for: systemColorScheme)
-    }
-
     // MARK: - Mode Overlay State
 
     /// Label text for the ephemeral mode transition overlay.
     public var modeOverlayLabel: String?
 
-    public init() {
-        if let raw = UserDefaults.standard.string(forKey: themeModeKey),
-           let mode = ThemeMode(rawValue: raw)
-        {
-            themeMode = mode
-        } else {
-            themeMode = .auto
-        }
-    }
+    public init() {}
 
     // MARK: - Methods
 
@@ -79,7 +53,9 @@ public final class AppState {
         currentFileURL = url
         markdownContent = content
         lastSavedContent = content
+        MermaidImageStore.shared.removeAll()
         fileWatcher.watch(url: url)
+        NSDocumentController.shared.noteNewRecentDocumentURL(url)
     }
 
     /// Save the current content back to the file.
@@ -95,15 +71,6 @@ public final class AppState {
     public func reloadFile() throws {
         guard let url = currentFileURL else { return }
         try loadFile(at: url)
-    }
-
-    /// Cycle to the next theme mode (Auto -> Dark -> Light -> Auto).
-    public func cycleTheme() {
-        let allModes = ThemeMode.allCases
-        guard let currentIndex = allModes.firstIndex(of: themeMode) else { return }
-        let nextIndex = (currentIndex + 1) % allModes.count
-        themeMode = allModes[nextIndex]
-        modeOverlayLabel = themeMode.displayName
     }
 
     /// Switch view mode and trigger the ephemeral overlay.

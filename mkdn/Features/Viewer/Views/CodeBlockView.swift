@@ -6,10 +6,10 @@ struct CodeBlockView: View {
     let language: String?
     let code: String
 
-    @Environment(AppState.self) private var appState
+    @Environment(AppSettings.self) private var appSettings
 
     private var colors: ThemeColors {
-        appState.theme.colors
+        appSettings.theme.colors
     }
 
     var body: some View {
@@ -53,7 +53,7 @@ struct CodeBlockView: View {
             return result
         }
 
-        let syntaxColors = appState.theme.syntaxColors
+        let syntaxColors = appSettings.theme.syntaxColors
         let outputFormat = ThemeOutputFormat(
             plainTextColor: syntaxColors.comment,
             tokenColorMap: [

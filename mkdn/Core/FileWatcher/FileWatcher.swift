@@ -18,10 +18,11 @@ final class FileWatcher {
 
     @ObservationIgnored private nonisolated(unsafe) var dispatchSource: (any DispatchSourceFileSystemObject)?
     @ObservationIgnored private nonisolated(unsafe) var fileDescriptor: Int32 = -1
+    @ObservationIgnored private nonisolated(unsafe) var watchTask: Task<Void, Never>?
     private let queue = DispatchQueue(label: "com.mkdn.filewatcher", qos: .utility)
 
     deinit {
-        // Cancel the dispatch source — its cancel handler will close the fd.
+        watchTask?.cancel()
         dispatchSource?.cancel()
     }
 
@@ -44,15 +45,15 @@ final class FileWatcher {
             queue: queue
         )
 
-        source.setEventHandler { [weak self] in
-            Task { @MainActor [weak self] in
-                guard let self, !self.isSavePaused else { return }
-                self.isOutdated = true
-            }
+        let (stream, continuation) = AsyncStream.makeStream(of: Void.self)
+
+        source.setEventHandler {
+            continuation.yield()
         }
 
         let fd = fileDescriptor
         source.setCancelHandler {
+            continuation.finish()
             if fd >= 0 {
                 close(fd)
             }
@@ -60,10 +61,21 @@ final class FileWatcher {
 
         source.resume()
         dispatchSource = source
+
+        watchTask = Task {
+            for await _ in stream {
+                guard !Task.isCancelled else { break }
+                if !isSavePaused {
+                    isOutdated = true
+                }
+            }
+        }
     }
 
     /// Stop watching the current file.
     func stopWatching() {
+        watchTask?.cancel()
+        watchTask = nil
         dispatchSource?.cancel()
         dispatchSource = nil
         watchedURL = nil
@@ -89,9 +101,9 @@ final class FileWatcher {
     /// Waits approximately 200ms before clearing the pause flag to allow
     /// any in-flight DispatchSource events to drain.
     func resumeAfterSave() {
-        Task { @MainActor in
+        Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(200))
-            self.isSavePaused = false
+            self?.isSavePaused = false
         }
     }
 }

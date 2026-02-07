@@ -1,5 +1,6 @@
 import Testing
 
+@preconcurrency import SwiftDraw
 @testable import mkdnLib
 
 @Suite("MermaidRenderer")
@@ -9,7 +10,7 @@ struct MermaidRendererTests {
         let renderer = MermaidRenderer()
 
         do {
-            _ = try await renderer.renderToSVG("")
+            _ = try await renderer.renderToSVG("", theme: .solarizedDark)
             Issue.record("Expected MermaidError.emptyInput")
         } catch {
             guard let mermaidError = error as? MermaidError,
@@ -26,7 +27,7 @@ struct MermaidRendererTests {
         let renderer = MermaidRenderer()
 
         do {
-            _ = try await renderer.renderToSVG("   \n\t\n  ")
+            _ = try await renderer.renderToSVG("   \n\t\n  ", theme: .solarizedDark)
             Issue.record("Expected MermaidError.emptyInput")
         } catch {
             guard let mermaidError = error as? MermaidError,
@@ -43,7 +44,7 @@ struct MermaidRendererTests {
         let renderer = MermaidRenderer()
 
         do {
-            _ = try await renderer.renderToSVG("gantt\n    title A Schedule")
+            _ = try await renderer.renderToSVG("gantt\n    title A Schedule", theme: .solarizedDark)
             Issue.record("Expected MermaidError.unsupportedDiagramType")
         } catch {
             guard let mermaidError = error as? MermaidError,
@@ -61,7 +62,7 @@ struct MermaidRendererTests {
         let renderer = MermaidRenderer()
 
         do {
-            _ = try await renderer.renderToSVG("pie\n    title Votes")
+            _ = try await renderer.renderToSVG("pie\n    title Votes", theme: .solarizedLight)
             Issue.record("Expected MermaidError.unsupportedDiagramType")
         } catch {
             guard let mermaidError = error as? MermaidError,
@@ -82,7 +83,7 @@ struct MermaidRendererTests {
         let renderer = MermaidRenderer()
 
         do {
-            _ = try await renderer.renderToSVG("\(typeName)\n    content")
+            _ = try await renderer.renderToSVG("\(typeName)\n    content", theme: .solarizedDark)
             Issue.record("Expected MermaidError.unsupportedDiagramType for '\(typeName)'")
         } catch {
             guard let mermaidError = error as? MermaidError,
@@ -93,6 +94,15 @@ struct MermaidRendererTests {
             }
             #expect(detected == typeName)
         }
+    }
+
+    @Test("Same code with different themes produces different cache keys")
+    func themeAwareCacheKeys() {
+        let code = "graph TD\n    A --> B"
+        let darkKey = mermaidStableHash(code + AppTheme.solarizedDark.rawValue)
+        let lightKey = mermaidStableHash(code + AppTheme.solarizedLight.rawValue)
+
+        #expect(darkKey != lightKey)
     }
 
     @Test("clearCache completes without error")
@@ -106,31 +116,114 @@ struct MermaidRendererTests {
     func emptyInputErrorDescription() {
         let error = MermaidError.emptyInput
 
-        #expect(error.errorDescription != nil)
-        #expect(error.errorDescription!.contains("empty"))
+        #expect(error.errorDescription?.contains("empty") == true)
     }
 
     @Test("MermaidError.unsupportedDiagramType includes type name in message")
     func unsupportedTypeErrorDescription() {
         let error = MermaidError.unsupportedDiagramType("gantt")
 
-        #expect(error.errorDescription != nil)
-        #expect(error.errorDescription!.contains("gantt"))
+        #expect(error.errorDescription?.contains("gantt") == true)
     }
 
     @Test("MermaidError.contextCreationFailed includes reason in message")
     func contextCreationFailedErrorDescription() {
         let error = MermaidError.contextCreationFailed("file not found")
 
-        #expect(error.errorDescription != nil)
-        #expect(error.errorDescription!.contains("file not found"))
+        #expect(error.errorDescription?.contains("file not found") == true)
     }
 
     @Test("MermaidError.javaScriptError includes JS message")
     func javaScriptErrorDescription() {
         let error = MermaidError.javaScriptError("ReferenceError: x is not defined")
 
-        #expect(error.errorDescription != nil)
-        #expect(error.errorDescription!.contains("ReferenceError"))
+        #expect(error.errorDescription?.contains("ReferenceError") == true)
+    }
+
+    @Test("End-to-end: renderToSVG produces valid SVG from a simple flowchart")
+    func endToEndFlowchartRendering() async throws {
+        let renderer = MermaidRenderer()
+        let svg = try await renderer.renderToSVG("graph TD\n    A --> B", theme: .solarizedDark)
+
+        #expect(svg.contains("<svg"))
+        #expect(svg.contains("</svg>"))
+    }
+
+    @Test("End-to-end: renderToSVG produces valid SVG with solarizedLight theme")
+    func endToEndFlowchartRenderingLight() async throws {
+        let renderer = MermaidRenderer()
+        let svg = try await renderer.renderToSVG("graph TD\n    A --> B", theme: .solarizedLight)
+
+        #expect(svg.contains("<svg"))
+        #expect(svg.contains("</svg>"))
+    }
+
+    @Test("End-to-end: sanitized SVG is parseable by SwiftDraw")
+    func endToEndSwiftDrawParsing() async throws {
+        let renderer = MermaidRenderer()
+        let svg = try await renderer.renderToSVG("graph TD\n    A --> B", theme: .solarizedDark)
+
+        guard let data = svg.data(using: .utf8) else {
+            Issue.record("SVG string could not be converted to UTF-8 data")
+            return
+        }
+        let svgImage = SwiftDraw.SVG(data: data)
+        #expect(svgImage != nil, "SwiftDraw failed to parse sanitized SVG. Preview: \(String(svg.prefix(300)))")
+    }
+
+    @Test("End-to-end: renderToSVG output can be rasterized via SwiftDraw")
+    func endToEndRasterization() async throws {
+        let renderer = MermaidRenderer()
+        let svg = try await renderer.renderToSVG("graph TD\n    A --> B", theme: .solarizedDark)
+
+        guard let data = svg.data(using: .utf8) else {
+            Issue.record("SVG string could not be converted to UTF-8 data")
+            return
+        }
+        guard let svgImage = SwiftDraw.SVG(data: data) else {
+            Issue.record("SwiftDraw could not parse SVG")
+            return
+        }
+        let nsImage = svgImage.rasterize()
+        #expect(nsImage.size.width > 0)
+        #expect(nsImage.size.height > 0)
+    }
+
+    @Test("End-to-end: sequence diagram renders to valid SVG")
+    func endToEndSequenceDiagram() async throws {
+        let renderer = MermaidRenderer()
+        let code = """
+        sequenceDiagram
+            Alice->>Bob: Hello Bob
+            Bob-->>Alice: Hi Alice
+        """
+        let svg = try await renderer.renderToSVG(code, theme: .solarizedDark)
+
+        #expect(svg.contains("<svg"))
+        #expect(svg.contains("</svg>"))
+    }
+
+    @Test("End-to-end: sanitized SVG contains no var() references")
+    func sanitizedSVGHasNoVarReferences() async throws {
+        let renderer = MermaidRenderer()
+        let svg = try await renderer.renderToSVG("graph TD\n    A --> B", theme: .solarizedDark)
+
+        #expect(!svg.contains("var(--"), "Sanitized SVG still contains var() references: \(String(svg.prefix(500)))")
+    }
+
+    @Test("End-to-end: sanitized SVG contains no color-mix() expressions")
+    func sanitizedSVGHasNoColorMix() async throws {
+        let renderer = MermaidRenderer()
+        let svg = try await renderer.renderToSVG("graph TD\n    A --> B", theme: .solarizedDark)
+
+        #expect(!svg.contains("color-mix("), "Sanitized SVG still contains color-mix(): \(String(svg.prefix(500)))")
+    }
+
+    @Test("End-to-end: sanitized SVG contains no @import rules")
+    func sanitizedSVGHasNoImportRules() async throws {
+        let renderer = MermaidRenderer()
+        let svg = try await renderer.renderToSVG("graph TD\n    A --> B", theme: .solarizedDark)
+
+        #expect(!svg.contains("@import"), "Sanitized SVG still contains @import rules")
     }
 }

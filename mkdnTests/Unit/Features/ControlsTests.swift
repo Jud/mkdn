@@ -4,28 +4,11 @@ import Testing
 
 @Suite("Controls")
 struct ControlsTests {
-    // MARK: - cycleTheme
-
-    @Test("cycleTheme cycles through auto, dark, light")
-    @MainActor func cycleThemeModes() {
-        let state = AppState()
-        #expect(state.themeMode == .auto)
-
-        state.cycleTheme()
-        #expect(state.themeMode == .solarizedDark)
-
-        state.cycleTheme()
-        #expect(state.themeMode == .solarizedLight)
-
-        state.cycleTheme()
-        #expect(state.themeMode == .auto)
-    }
-
     // MARK: - switchMode
 
     @Test("switchMode to previewOnly sets viewMode and overlay label")
     @MainActor func switchModePreviewOnly() {
-        let state = AppState()
+        let state = DocumentState()
         state.viewMode = .sideBySide
 
         state.switchMode(to: .previewOnly)
@@ -35,7 +18,7 @@ struct ControlsTests {
 
     @Test("switchMode to sideBySide sets viewMode and overlay label")
     @MainActor func switchModeSideBySide() {
-        let state = AppState()
+        let state = DocumentState()
 
         state.switchMode(to: .sideBySide)
         #expect(state.viewMode == .sideBySide)
@@ -46,7 +29,7 @@ struct ControlsTests {
 
     @Test("isFileOutdated delegates to FileWatcher state")
     @MainActor func isFileOutdatedDelegation() {
-        let state = AppState()
+        let state = DocumentState()
         #expect(state.isFileOutdated == state.fileWatcher.isOutdated)
         #expect(!state.isFileOutdated)
     }

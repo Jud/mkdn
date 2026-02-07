@@ -1,6 +1,6 @@
 import AppKit
 import Foundation
-import JXKit
+@preconcurrency import JXKit
 import SwiftDraw
 import SwiftUI
 
@@ -35,8 +35,12 @@ actor MermaidRenderer {
 
     // MARK: - Public API
 
-    /// Render Mermaid code to an SVG string.
-    func renderToSVG(_ mermaidCode: String) throws -> String {
+    /// Render Mermaid code to an SVG string themed for the given app theme.
+    ///
+    /// The theme controls which `beautifulMermaid.THEMES` preset is passed to the
+    /// JavaScript renderer and is included in the cache key so that each theme
+    /// variant is cached independently.
+    func renderToSVG(_ mermaidCode: String, theme: AppTheme = .solarizedDark) async throws -> String {
         let trimmed = mermaidCode.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             throw MermaidError.emptyInput
@@ -44,7 +48,7 @@ actor MermaidRenderer {
 
         try validateDiagramType(trimmed)
 
-        let cacheKey = mermaidStableHash(mermaidCode)
+        let cacheKey = mermaidStableHash(mermaidCode + theme.rawValue)
 
         if let cached = cache.get(cacheKey) {
             return cached
@@ -58,9 +62,13 @@ actor MermaidRenderer {
             .replacingOccurrences(of: "\r", with: "\\r")
             .replacingOccurrences(of: "\t", with: "\\t")
 
+        let themePreset = mermaidJSThemeKey(for: theme)
+
         let svg: String
         do {
-            let result = try jsContext.eval("renderMermaid(\"\(escaped)\")")
+            let js = "beautifulMermaid.renderMermaid(\"\(escaped)\", beautifulMermaid.THEMES['\(themePreset)'])"
+            let promise = try jsContext.eval(js)
+            let result = try await promise.awaitPromise()
             svg = try result.string
         } catch let error as JXError {
             context = nil
@@ -70,13 +78,14 @@ actor MermaidRenderer {
             throw MermaidError.javaScriptError(error.localizedDescription)
         }
 
-        cache.set(cacheKey, value: svg)
-        return svg
+        let sanitized = SVGSanitizer.sanitize(svg)
+        cache.set(cacheKey, value: sanitized)
+        return sanitized
     }
 
-    /// Render Mermaid code to a native NSImage.
-    func renderToImage(_ mermaidCode: String) throws -> NSImage {
-        let svg = try renderToSVG(mermaidCode)
+    /// Render Mermaid code to a native NSImage themed for the given app theme.
+    func renderToImage(_ mermaidCode: String, theme: AppTheme = .solarizedDark) async throws -> NSImage {
+        let svg = try await renderToSVG(mermaidCode, theme: theme)
         guard let svgData = svg.data(using: .utf8) else {
             throw MermaidError.invalidSVGData
         }
@@ -125,12 +134,22 @@ actor MermaidRenderer {
         return newContext
     }
 
+    /// Maps an ``AppTheme`` to the corresponding key in `beautifulMermaid.THEMES`.
+    private func mermaidJSThemeKey(for theme: AppTheme) -> String {
+        switch theme {
+        case .solarizedDark:
+            "solarized-dark"
+        case .solarizedLight:
+            "solarized-light"
+        }
+    }
+
     /// Validates the diagram type keyword on the first non-empty line.
     /// Throws for known-but-unsupported types; unknown keywords pass through to JS.
     private func validateDiagramType(_ trimmedCode: String) throws {
         let firstLine = trimmedCode
             .components(separatedBy: .newlines)
-            .first(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty })?
+            .first { !$0.trimmingCharacters(in: .whitespaces).isEmpty }?
             .trimmingCharacters(in: .whitespaces) ?? ""
 
         let keyword = firstLine

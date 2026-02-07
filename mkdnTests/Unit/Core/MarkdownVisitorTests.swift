@@ -36,7 +36,7 @@ struct MarkdownVisitorTests {
         }
 
         #expect(source == "diagram.svg")
-        #expect(alt == "")
+        #expect(alt.isEmpty)
     }
 
     // MARK: - Strikethrough

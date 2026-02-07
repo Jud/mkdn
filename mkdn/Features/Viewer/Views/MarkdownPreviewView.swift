@@ -6,7 +6,8 @@ import SwiftUI
 /// editor does not trigger a re-render on every keystroke. The initial
 /// render on appear is performed without delay.
 struct MarkdownPreviewView: View {
-    @Environment(AppState.self) private var appState
+    @Environment(DocumentState.self) private var documentState
+    @Environment(AppSettings.self) private var appSettings
 
     @State private var renderedBlocks: [MarkdownBlock] = []
     @State private var isInitialRender = true
@@ -20,8 +21,8 @@ struct MarkdownPreviewView: View {
             }
             .padding(24)
         }
-        .background(appState.theme.colors.background)
-        .task(id: appState.markdownContent) {
+        .background(appSettings.theme.colors.background)
+        .task(id: documentState.markdownContent) {
             if isInitialRender {
                 isInitialRender = false
             } else {
@@ -29,14 +30,15 @@ struct MarkdownPreviewView: View {
                 guard !Task.isCancelled else { return }
             }
             renderedBlocks = MarkdownRenderer.render(
-                text: appState.markdownContent,
-                theme: appState.theme
+                text: documentState.markdownContent,
+                theme: appSettings.theme
             )
         }
-        .onChange(of: appState.theme) {
+        .onChange(of: appSettings.theme) {
+            MermaidImageStore.shared.removeAll()
             renderedBlocks = MarkdownRenderer.render(
-                text: appState.markdownContent,
-                theme: appState.theme
+                text: documentState.markdownContent,
+                theme: appSettings.theme
             )
         }
     }

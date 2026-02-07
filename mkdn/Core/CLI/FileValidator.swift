@@ -17,7 +17,7 @@ public enum FileValidator {
 
     /// Expand tilde, resolve relative paths against cwd, resolve symlinks.
     static func resolvePath(_ path: String) -> URL {
-        let expanded = NSString(string: path).expandingTildeInPath
+        let expanded = (path as NSString).expandingTildeInPath // swiftlint:disable:this legacy_objc_type
         let url: URL
         if expanded.hasPrefix("/") {
             url = URL(fileURLWithPath: expanded)
