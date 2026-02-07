@@ -2,7 +2,7 @@
 
 **Feature ID**: mermaid-rearchitect
 **Status**: In Progress
-**Progress**: 47% (7 of 15 tasks)
+**Progress**: 53% (8 of 15 tasks)
 **Estimated Effort**: 5 days
 **Started**: 2026-02-07
 
@@ -243,7 +243,7 @@ Replace the existing four-stage Mermaid rendering pipeline (JavaScriptCore + bea
 
 ### Testing
 
-- [ ] **T9**: Write unit tests for MermaidThemeMapper and HTML template token substitution `[complexity:medium]`
+- [x] **T9**: Write unit tests for MermaidThemeMapper and HTML template token substitution `[complexity:medium]`
 
     **Reference**: [design.md#7-testing-strategy](design.md#7-testing-strategy)
 
@@ -251,18 +251,25 @@ Replace the existing four-stage Mermaid rendering pipeline (JavaScriptCore + bea
 
     **Acceptance Criteria**:
 
-    - [ ] MermaidThemeMapperTests created at mkdnTests/Unit/Core/MermaidThemeMapperTests.swift
-    - [ ] Test: themeVariablesJSON output for Solarized Dark contains correct hex values
-    - [ ] Test: themeVariablesJSON output for Solarized Light contains correct hex values
-    - [ ] Test: output is valid JSON (parseable by JSONSerialization)
-    - [ ] Test: all 26 required Mermaid themeVariable keys are present in output
-    - [ ] Test: dark and light themes produce different variable values
-    - [ ] MermaidHTMLTemplateTests created at mkdnTests/Unit/Core/MermaidHTMLTemplateTests.swift
-    - [ ] Test: token substitution produces HTML with no remaining `__` token placeholders
-    - [ ] Test: HTML entity escaping works for special characters (<, >, &, ") in diagram code
-    - [ ] Test: MermaidRenderState equatable conformance works correctly for all cases
-    - [ ] All tests use Swift Testing (@Test, #expect, @Suite)
-    - [ ] All tests compile and pass
+    - [x] MermaidThemeMapperTests created at mkdnTests/Unit/Core/MermaidThemeMapperTests.swift
+    - [x] Test: themeVariablesJSON output for Solarized Dark contains correct hex values
+    - [x] Test: themeVariablesJSON output for Solarized Light contains correct hex values
+    - [x] Test: output is valid JSON (parseable by JSONSerialization)
+    - [x] Test: all 26 required Mermaid themeVariable keys are present in output
+    - [x] Test: dark and light themes produce different variable values
+    - [x] MermaidHTMLTemplateTests created at mkdnTests/Unit/Core/MermaidHTMLTemplateTests.swift
+    - [x] Test: token substitution produces HTML with no remaining `__` token placeholders
+    - [x] Test: HTML entity escaping works for special characters (<, >, &, ") in diagram code
+    - [x] Test: MermaidRenderState equatable conformance works correctly for all cases
+    - [x] All tests use Swift Testing (@Test, #expect, @Suite)
+    - [x] All tests compile and pass
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdnTests/Unit/Core/MermaidThemeMapperTests.swift`, `mkdnTests/Unit/Core/MermaidHTMLTemplateTests.swift`
+    - **Approach**: Created two test suites using Swift Testing. MermaidThemeMapperTests validates hex values for both themes, JSON parseability (parameterized over all themes), presence of all 26 required keys, and dark/light theme differentiation. MermaidHTMLTemplateTests validates token substitution on the real bundled template, HTML entity escaping for all four special characters, JS escaping for backticks/backslashes/dollar signs, and MermaidRenderState equatable conformance. Tests requiring MermaidWebView static methods use @MainActor per project conventions.
+    - **Deviations**: None
+    - **Tests**: 131/131 passing
 
 ### User Docs
 
