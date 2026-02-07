@@ -2,7 +2,7 @@
 
 **Feature ID**: mermaid-rearchitect
 **Status**: In Progress
-**Progress**: 33% (5 of 15 tasks)
+**Progress**: 40% (6 of 15 tasks)
 **Estimated Effort**: 5 days
 **Started**: 2026-02-07
 
@@ -193,7 +193,7 @@ Replace the existing four-stage Mermaid rendering pipeline (JavaScriptCore + bea
 
 ### View Layer
 
-- [ ] **T6**: Rewrite MermaidBlockView with WKWebView-based rendering and focus interaction model `[complexity:medium]`
+- [x] **T6**: Rewrite MermaidBlockView with WKWebView-based rendering and focus interaction model `[complexity:medium]`
 
     **Reference**: [design.md#33-mermaidblockview-swiftui-view](design.md#33-mermaidblockview-swiftui-view)
 
@@ -201,19 +201,26 @@ Replace the existing four-stage Mermaid rendering pipeline (JavaScriptCore + bea
 
     **Acceptance Criteria**:
 
-    - [ ] MermaidBlockView rewritten at mkdn/Features/Viewer/Views/MermaidBlockView.swift
-    - [ ] @State properties: isFocused (Bool), renderedHeight (CGFloat, default 200), renderState (MermaidRenderState)
-    - [ ] ZStack layout with loading/error overlay on top of MermaidWebView
-    - [ ] MermaidWebView opacity 0 until renderState == .rendered, then 1 (prevents blank flash)
-    - [ ] Frame: maxWidth .infinity, height capped at min(renderedHeight, 600)
-    - [ ] Clipped with RoundedRectangle(cornerRadius: 6)
-    - [ ] When focused: 2pt accent-colored border overlay using theme.colors.accent
-    - [ ] Background: theme.colors.backgroundSecondary
-    - [ ] .onTapGesture sets isFocused = true
-    - [ ] .onKeyPress(.escape) sets isFocused = false (macOS 14+ API)
-    - [ ] Loading state shows ProgressView spinner
-    - [ ] Error state shows warning icon and descriptive error message
-    - [ ] Theme changes trigger re-render via MermaidWebView updateNSView path
+    - [x] MermaidBlockView rewritten at mkdn/Features/Viewer/Views/MermaidBlockView.swift
+    - [x] @State properties: isFocused (Bool), renderedHeight (CGFloat, default 200), renderState (MermaidRenderState)
+    - [x] ZStack layout with loading/error overlay on top of MermaidWebView
+    - [x] MermaidWebView opacity 0 until renderState == .rendered, then 1 (prevents blank flash)
+    - [x] Frame: maxWidth .infinity, height capped at min(renderedHeight, 600)
+    - [x] Clipped with RoundedRectangle(cornerRadius: 6)
+    - [x] When focused: 2pt accent-colored border overlay using theme.colors.accent
+    - [x] Background: theme.colors.backgroundSecondary
+    - [x] .onTapGesture sets isFocused = true
+    - [x] .onKeyPress(.escape) sets isFocused = false (macOS 14+ API)
+    - [x] Loading state shows ProgressView spinner
+    - [x] Error state shows warning icon and descriptive error message
+    - [x] Theme changes trigger re-render via MermaidWebView updateNSView path
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Features/Viewer/Views/MermaidBlockView.swift`
+    - **Approach**: Full rewrite of MermaidBlockView to orchestrate the WKWebView-based rendering pipeline. Uses ZStack with MermaidWebView (opacity-gated until rendered) and loading/error overlays. Frame height driven by JS-reported renderedHeight capped at 600pt. Focus model uses onTapGesture to activate, onKeyPress(.escape) to deactivate, with 2pt accent border overlay when focused. Theme passed directly to MermaidWebView for in-place re-rendering via updateNSView path.
+    - **Deviations**: None
+    - **Tests**: 120/120 passing (0 failures)
 
 ### Testing
 
