@@ -2,7 +2,7 @@
 
 **Feature ID**: mermaid-rearchitect
 **Status**: In Progress
-**Progress**: 7% (1 of 15 tasks)
+**Progress**: 13% (2 of 15 tasks)
 **Estimated Effort**: 5 days
 **Started**: 2026-02-07
 
@@ -57,6 +57,18 @@ Replace the existing four-stage Mermaid rendering pipeline (JavaScriptCore + bea
     - **Deviations**: JXKit was not present in Package.swift (only referenced in KB docs); actual import was `import JavaScriptCore` in MermaidRenderer.swift which was deleted. Also cleaned up MermaidImageStore references in MarkdownPreviewView and DocumentState (formally T7 scope, but required for T1 compilation AC).
     - **Tests**: 100/100 passing (0 failures)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | N/A |
+    | Commit | PASS |
+    | Comments | PASS |
+
 - [ ] **T2**: Bundle standard Mermaid.js and create HTML rendering template `[complexity:medium]`
 
     **Reference**: [design.md#36-html-template-mermaid-templatehtml](design.md#36-html-template-mermaid-templatehtml)
@@ -74,7 +86,7 @@ Replace the existing four-stage Mermaid rendering pipeline (JavaScriptCore + bea
     - [ ] `.copy("Resources/mermaid.min.js")` and `.copy("Resources/mermaid-template.html")` added to Package.swift resources
     - [ ] Resources are accessible via Bundle.module at runtime
 
-- [ ] **T3**: Create MermaidRenderState and MermaidError enums `[complexity:simple]`
+- [x] **T3**: Create MermaidRenderState and MermaidError enums `[complexity:simple]`
 
     **Reference**: [design.md#34-mermaidrenderstate](design.md#34-mermaidrenderstate)
 
@@ -82,11 +94,18 @@ Replace the existing four-stage Mermaid rendering pipeline (JavaScriptCore + bea
 
     **Acceptance Criteria**:
 
-    - [ ] MermaidRenderState enum created at mkdn/Core/Mermaid/MermaidRenderState.swift with cases: loading, rendered, error(String)
-    - [ ] MermaidRenderState conforms to Equatable
-    - [ ] MermaidError enum created at mkdn/Core/Mermaid/MermaidError.swift with cases: templateNotFound, renderFailed(String)
-    - [ ] MermaidError conforms to LocalizedError with descriptive errorDescription
-    - [ ] Both files compile cleanly with Swift 6 strict concurrency
+    - [x] MermaidRenderState enum created at mkdn/Core/Mermaid/MermaidRenderState.swift with cases: loading, rendered, error(String)
+    - [x] MermaidRenderState conforms to Equatable
+    - [x] MermaidError enum created at mkdn/Core/Mermaid/MermaidError.swift with cases: templateNotFound, renderFailed(String)
+    - [x] MermaidError conforms to LocalizedError with descriptive errorDescription
+    - [x] Both files compile cleanly with Swift 6 strict concurrency
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Core/Mermaid/MermaidRenderState.swift`, `mkdn/Core/Mermaid/MermaidError.swift`
+    - **Approach**: Created two enum types per design spec. MermaidRenderState has three cases (loading, rendered, error) and conforms to Equatable and Sendable. MermaidError has two cases (templateNotFound, renderFailed) and conforms to LocalizedError with descriptive errorDescription and Sendable.
+    - **Deviations**: None
+    - **Tests**: 100/100 passing (existing tests unaffected)
 
 - [ ] **T4**: Create MermaidThemeMapper utility for theme-to-Mermaid variable mapping `[complexity:medium]`
 
