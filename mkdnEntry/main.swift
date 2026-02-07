@@ -33,8 +33,14 @@ do {
         LaunchContext.fileURL = url
     }
 
+    // Strip CLI arguments so SwiftUI only sees the bare executable name.
+    // Without this, WindowGroup(for: URL.self) misinterprets the file argument
+    // and fails to create its default window.
+    CommandLine.arguments = [CommandLine.arguments[0]]
+
     NSApplication.shared.setActivationPolicy(.regular)
     MkdnApp.main()
+    // Note: MkdnApp.main() never returns (runs the app loop)
 } catch let error as CLIError {
     FileHandle.standardError.write(
         Data("mkdn: error: \(error.localizedDescription)\n".utf8)

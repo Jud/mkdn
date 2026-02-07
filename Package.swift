@@ -43,7 +43,8 @@ let package = Package(
         .executableTarget(
             name: "mkdn",
             dependencies: ["mkdnLib"],
-            path: "mkdnEntry"
+            path: "mkdnEntry",
+            swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .testTarget(
             name: "mkdnTests",
