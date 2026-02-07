@@ -50,3 +50,8 @@ Feature-Based MVVM. Two-target layout:
 - `mkdnLib` (library target): All source in `mkdn/`, tests in `mkdnTests/`.
 - `mkdn` (executable target): Entry point in `mkdnEntry/main.swift`.
 - Tests use `@testable import mkdnLib`. Central state: `AppState`.
+
+### rp1 Workflow
+
+- All `.rp1/` artifacts (work/, context/, settings.toml) are tracked in git. Always commit them.
+- `GIT_COMMIT=true` is the default (see `.rp1/settings.toml`).
