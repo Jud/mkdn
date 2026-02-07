@@ -226,4 +226,91 @@ struct MermaidRendererTests {
 
         #expect(!svg.contains("@import"), "Sanitized SVG still contains @import rules")
     }
+
+    @Test("End-to-end: class diagram renders and rasterizes")
+    func endToEndClassDiagram() async throws {
+        let renderer = MermaidRenderer()
+        let code = """
+        classDiagram
+            Animal <|-- Duck
+            Animal : +int age
+            Duck : +String beakColor
+        """
+        let svg = try await renderer.renderToSVG(code, theme: .solarizedDark)
+        #expect(svg.contains("<svg"))
+        #expect(!svg.contains("var(--"))
+
+        guard let data = svg.data(using: .utf8) else {
+            Issue.record("SVG data conversion failed")
+            return
+        }
+        let parsed = SwiftDraw.SVG(data: data)
+        #expect(parsed != nil, "SwiftDraw rejected class diagram SVG: \(String(svg.prefix(300)))")
+    }
+
+    @Test("End-to-end: state diagram renders and rasterizes")
+    func endToEndStateDiagram() async throws {
+        let renderer = MermaidRenderer()
+        let code = """
+        stateDiagram-v2
+            [*] --> Active
+            Active --> Inactive
+            Inactive --> [*]
+        """
+        let svg = try await renderer.renderToSVG(code, theme: .solarizedDark)
+        #expect(svg.contains("<svg"))
+        #expect(!svg.contains("var(--"))
+
+        guard let data = svg.data(using: .utf8) else {
+            Issue.record("SVG data conversion failed")
+            return
+        }
+        let parsed = SwiftDraw.SVG(data: data)
+        #expect(parsed != nil, "SwiftDraw rejected state diagram SVG: \(String(svg.prefix(300)))")
+    }
+
+    @Test("End-to-end: ER diagram renders and rasterizes")
+    func endToEndERDiagram() async throws {
+        let renderer = MermaidRenderer()
+        let code = """
+        erDiagram
+            CUSTOMER ||--o{ ORDER : places
+            ORDER ||--|{ LINE-ITEM : contains
+        """
+        let svg = try await renderer.renderToSVG(code, theme: .solarizedDark)
+        #expect(svg.contains("<svg"))
+        #expect(!svg.contains("var(--"))
+
+        guard let data = svg.data(using: .utf8) else {
+            Issue.record("SVG data conversion failed")
+            return
+        }
+        let parsed = SwiftDraw.SVG(data: data)
+        #expect(parsed != nil, "SwiftDraw rejected ER diagram SVG: \(String(svg.prefix(300)))")
+    }
+
+    @Test("End-to-end: flowchart with subgraph renders and rasterizes")
+    func endToEndFlowchartSubgraph() async throws {
+        let renderer = MermaidRenderer()
+        let code = """
+        flowchart TD
+            subgraph sub1[Module A]
+                A1 --> A2
+            end
+            subgraph sub2[Module B]
+                B1 --> B2
+            end
+            A2 --> B1
+        """
+        let svg = try await renderer.renderToSVG(code, theme: .solarizedDark)
+        #expect(svg.contains("<svg"))
+        #expect(!svg.contains("var(--"))
+
+        guard let data = svg.data(using: .utf8) else {
+            Issue.record("SVG data conversion failed")
+            return
+        }
+        let parsed = SwiftDraw.SVG(data: data)
+        #expect(parsed != nil, "SwiftDraw rejected flowchart subgraph SVG: \(String(svg.prefix(300)))")
+    }
 }
