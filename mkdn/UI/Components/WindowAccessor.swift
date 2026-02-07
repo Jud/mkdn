@@ -31,7 +31,7 @@ public final class WindowAccessorView: NSView {
         window.standardWindowButton(.miniaturizeButton)?.isHidden = true
         window.standardWindowButton(.zoomButton)?.isHidden = true
 
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate()
+        window.orderFrontRegardless()
+        NSApp.activate(ignoringOtherApps: true)
     }
 }
