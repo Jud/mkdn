@@ -20,6 +20,15 @@ enum AnimationConstants {
 
     static let orbDissolve: Animation = .easeIn(duration: 0.4)
 
+    // MARK: - File Change Orb
+
+    /// Solarized cyan (#2aa198) for the file-change orb -- distinct from the violet default-handler orb.
+    static let fileChangeOrbColor = Color(red: 0.165, green: 0.631, blue: 0.596)
+
+    /// Pulse animation for the file-change orb; same cadence as the breathing orb.
+    static let fileChangeOrbPulse: Animation = .easeInOut(duration: 2.5)
+        .repeatForever(autoreverses: true)
+
     // MARK: - Default Handler Orb
 
     /// Pulse animation for the default-handler orb; same cadence as the breathing orb.

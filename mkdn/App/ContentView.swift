@@ -30,7 +30,7 @@ public struct ContentView: View {
             .animation(AnimationConstants.viewModeTransition, value: documentState.viewMode)
 
             if documentState.isFileOutdated {
-                BreathingOrbView()
+                FileChangeOrbView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                     .padding(16)
                     .transition(
@@ -50,11 +50,12 @@ public struct ContentView: View {
                 .id(label)
             }
 
-            if !appSettings.hasShownDefaultHandlerHint {
-                DefaultHandlerHintView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                    .padding(.top, 8)
-                    .padding(.trailing, 12)
+            if !appSettings.hasShownDefaultHandlerHint, !documentState.isFileOutdated {
+                GeometryReader { geometry in
+                    DefaultHandlerHintView()
+                        .position(x: geometry.size.width - 20, y: 20)
+                }
+                .ignoresSafeArea()
             }
         }
         .frame(minWidth: 600, minHeight: 400)
