@@ -15,10 +15,6 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    public func applicationDidFinishLaunching(_: Notification) {
-        NSApp.activate()
-    }
-
     public func applicationShouldHandleReopen(
         _: NSApplication,
         hasVisibleWindows _: Bool
