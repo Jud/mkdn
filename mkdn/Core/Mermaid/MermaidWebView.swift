@@ -33,6 +33,7 @@ struct MermaidWebView: NSViewRepresentable {
     let theme: AppTheme
     @Binding var isFocused: Bool
     @Binding var renderedHeight: CGFloat
+    @Binding var renderedAspectRatio: CGFloat
     @Binding var renderState: MermaidRenderState
 
     /// All diagram `WKWebView` instances share a single web content process.
@@ -194,11 +195,14 @@ struct MermaidWebView: NSViewRepresentable {
             switch message.name {
             case "sizeReport":
                 guard let body = message.body as? [String: Any],
-                      let height = body["height"] as? CGFloat
+                      let width = body["width"] as? CGFloat,
+                      let height = body["height"] as? CGFloat,
+                      width > 0
                 else {
                     return
                 }
                 parent.renderedHeight = max(height, 1)
+                parent.renderedAspectRatio = height / width
 
             case "renderComplete":
                 parent.renderState = .rendered

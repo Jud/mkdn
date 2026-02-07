@@ -13,6 +13,7 @@ struct MermaidBlockView: View {
 
     @State private var isFocused = false
     @State private var renderedHeight: CGFloat = 200
+    @State private var renderedAspectRatio: CGFloat = 0.5
     @State private var renderState: MermaidRenderState = .loading
 
     private var colors: ThemeColors {
@@ -20,38 +21,46 @@ struct MermaidBlockView: View {
     }
 
     var body: some View {
-        ZStack {
+        diagramContent
+            .background(colors.backgroundSecondary)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .overlay(focusBorder)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                isFocused = true
+            }
+            .focusable(isFocused)
+            .onKeyPress(.escape) {
+                isFocused = false
+                return .handled
+            }
+    }
+
+    @ViewBuilder
+    private var diagramContent: some View {
+        let content = ZStack {
             MermaidWebView(
                 code: code,
                 theme: appSettings.theme,
                 isFocused: $isFocused,
                 renderedHeight: $renderedHeight,
+                renderedAspectRatio: $renderedAspectRatio,
                 renderState: $renderState
             )
             .opacity(renderState == .rendered ? 1 : 0)
 
             overlay
         }
-        .frame(
-            maxWidth: .infinity,
-            minHeight: renderState == .rendered
-                ? renderedHeight
-                : 100,
-            maxHeight: renderState == .rendered
-                ? renderedHeight
-                : 100
-        )
-        .background(colors.backgroundSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: 6))
-        .overlay(focusBorder)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            isFocused = true
-        }
-        .focusable(isFocused)
-        .onKeyPress(.escape) {
-            isFocused = false
-            return .handled
+
+        if renderState == .rendered {
+            content
+                .aspectRatio(
+                    1 / renderedAspectRatio,
+                    contentMode: .fit
+                )
+        } else {
+            content
+                .frame(maxWidth: .infinity, minHeight: 100, maxHeight: 100)
         }
     }
 
