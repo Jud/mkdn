@@ -15,8 +15,6 @@ struct MermaidBlockView: View {
     @State private var renderedHeight: CGFloat = 200
     @State private var renderState: MermaidRenderState = .loading
 
-    private let maxDiagramHeight: CGFloat = 600
-
     private var colors: ThemeColors {
         appSettings.theme.colors
     }
@@ -37,9 +35,11 @@ struct MermaidBlockView: View {
         .frame(
             maxWidth: .infinity,
             minHeight: renderState == .rendered
-                ? min(renderedHeight, maxDiagramHeight)
+                ? renderedHeight
                 : 100,
-            maxHeight: min(renderedHeight, maxDiagramHeight)
+            maxHeight: renderState == .rendered
+                ? renderedHeight
+                : 100
         )
         .background(colors.backgroundSecondary)
         .clipShape(RoundedRectangle(cornerRadius: 6))

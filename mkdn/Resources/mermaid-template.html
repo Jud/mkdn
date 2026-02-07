@@ -4,9 +4,11 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        * { margin: 0; padding: 0; }
-        body { background: transparent; overflow: hidden; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { background: transparent; width: 100%; }
+        body { overflow: visible; }
         #diagram { display: inline-block; }
+        #diagram svg { display: block; max-width: 100%; }
     </style>
     <script src="mermaid.min.js"></script>
 </head>
@@ -17,52 +19,62 @@
     <script>
         var originalCode = `__MERMAID_CODE_JS__`;
 
-        mermaid.initialize({
-            startOnLoad: false,
-            theme: 'base',
-            themeVariables: __THEME_VARIABLES__,
-            securityLevel: 'strict',
-            flowchart: { htmlLabels: true },
-        });
-
-        async function render() {
-            try {
-                await mermaid.run({ querySelector: '.mermaid' });
-                var svg = document.querySelector('#diagram svg');
-                if (svg) {
-                    var bbox = svg.getBoundingClientRect();
-                    window.webkit.messageHandlers.sizeReport.postMessage({
-                        width: bbox.width,
-                        height: bbox.height
-                    });
-                    window.webkit.messageHandlers.renderComplete.postMessage({});
-                }
-            } catch (error) {
-                window.webkit.messageHandlers.renderError.postMessage({
-                    message: error.message || String(error)
-                });
-            }
-        }
-
-        function reRenderWithTheme(themeVarsJSON) {
+        if (typeof mermaid === 'undefined') {
+            window.webkit.messageHandlers.renderError.postMessage({
+                message: 'mermaid.min.js failed to load. Check that the resource is bundled correctly.'
+            });
+        } else {
             mermaid.initialize({
                 startOnLoad: false,
                 theme: 'base',
-                themeVariables: themeVarsJSON,
+                themeVariables: __THEME_VARIABLES__,
                 securityLevel: 'strict',
                 flowchart: { htmlLabels: true },
             });
-            var container = document.getElementById('diagram');
-            var svg = container.querySelector('svg');
-            if (svg) svg.remove();
-            var pre = document.createElement('pre');
-            pre.className = 'mermaid';
-            pre.textContent = originalCode;
-            container.appendChild(pre);
+
+            async function render() {
+                try {
+                    await mermaid.run({ querySelector: '.mermaid' });
+                    var svg = document.querySelector('#diagram svg');
+                    if (svg) {
+                        var bbox = svg.getBoundingClientRect();
+                        window.webkit.messageHandlers.sizeReport.postMessage({
+                            width: bbox.width,
+                            height: bbox.height
+                        });
+                        window.webkit.messageHandlers.renderComplete.postMessage({});
+                    } else {
+                        window.webkit.messageHandlers.renderError.postMessage({
+                            message: 'Mermaid.run() completed but no SVG element was produced.'
+                        });
+                    }
+                } catch (error) {
+                    window.webkit.messageHandlers.renderError.postMessage({
+                        message: error.message || String(error)
+                    });
+                }
+            }
+
+            window.reRenderWithTheme = function(themeVarsJSON) {
+                mermaid.initialize({
+                    startOnLoad: false,
+                    theme: 'base',
+                    themeVariables: themeVarsJSON,
+                    securityLevel: 'strict',
+                    flowchart: { htmlLabels: true },
+                });
+                var container = document.getElementById('diagram');
+                var svg = container.querySelector('svg');
+                if (svg) svg.remove();
+                var pre = document.createElement('pre');
+                pre.className = 'mermaid';
+                pre.textContent = originalCode;
+                container.appendChild(pre);
+                render();
+            };
+
             render();
         }
-
-        render();
     </script>
 </body>
 </html>

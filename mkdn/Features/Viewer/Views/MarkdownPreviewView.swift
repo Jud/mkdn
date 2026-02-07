@@ -14,7 +14,7 @@ struct MarkdownPreviewView: View {
 
     var body: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 12) {
                 ForEach(renderedBlocks) { block in
                     MarkdownBlockView(block: block)
                 }

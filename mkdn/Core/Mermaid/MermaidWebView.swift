@@ -57,14 +57,21 @@ struct MermaidWebView: NSViewRepresentable {
         contentController.add(context.coordinator, name: "renderError")
         configuration.userContentController = contentController
 
-        let webView = WKWebView(frame: .zero, configuration: configuration)
+        let webView = WKWebView(frame: container.bounds, configuration: configuration)
         webView.navigationDelegate = context.coordinator
         webView.isHidden = false
         webView.setValue(false, forKey: "drawsBackground")
         webView.underPageBackgroundColor = .clear
-        webView.autoresizingMask = [.width, .height]
+        webView.allowsMagnification = true
+        webView.translatesAutoresizingMaskIntoConstraints = false
 
         container.addSubview(webView)
+        NSLayoutConstraint.activate([
+            webView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            webView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            webView.topAnchor.constraint(equalTo: container.topAnchor),
+            webView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
         context.coordinator.webView = webView
         context.coordinator.containerView = container
         context.coordinator.currentTheme = theme
