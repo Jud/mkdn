@@ -2,7 +2,7 @@
 
 **Feature ID**: mermaid-rearchitect
 **Status**: In Progress
-**Progress**: 27% (4 of 15 tasks)
+**Progress**: 33% (5 of 15 tasks)
 **Estimated Effort**: 5 days
 **Started**: 2026-02-07
 
@@ -139,7 +139,7 @@ Replace the existing four-stage Mermaid rendering pipeline (JavaScriptCore + bea
 
 ### WKWebView Integration
 
-- [ ] **T5**: Create MermaidWebView (NSViewRepresentable + MermaidContainerView + Coordinator) `[complexity:complex]`
+- [x] **T5**: Create MermaidWebView (NSViewRepresentable + MermaidContainerView + Coordinator) `[complexity:complex]`
 
     **Reference**: [design.md#31-mermaidcontainerview-nsview](design.md#31-mermaidcontainerview-nsview)
 
@@ -147,19 +147,26 @@ Replace the existing four-stage Mermaid rendering pipeline (JavaScriptCore + bea
 
     **Acceptance Criteria**:
 
-    - [ ] MermaidContainerView NSView subclass with hitTest gating based on allowsInteraction flag
-    - [ ] MermaidWebView NSViewRepresentable created at mkdn/Core/Mermaid/MermaidWebView.swift
-    - [ ] Shared static WKProcessPool for all diagram instances
-    - [ ] WKUserContentController with sizeReport, renderComplete, renderError message handlers
-    - [ ] Coordinator implements WKScriptMessageHandler to route messages and update bindings
-    - [ ] Coordinator implements WKNavigationDelegate to block all non-initial navigation
-    - [ ] Template loading with token substitution for __MERMAID_CODE__ (HTML escaped) and __THEME_VARIABLES__
-    - [ ] loadHTMLString called with baseURL pointing to resource directory for local mermaid.min.js resolution
-    - [ ] updateNSView detects theme changes and re-renders via evaluateJavaScript (in-place, no WKWebView recreation)
-    - [ ] updateNSView updates allowsInteraction on MermaidContainerView when focus changes
-    - [ ] Click-outside detection via NSEvent.addLocalMonitorForEvents installed/removed with focus state
-    - [ ] WKWebView configured with isOpaque=false, transparent background, underPageBackgroundColor=.clear
-    - [ ] Compiles with Swift 6 strict concurrency (@preconcurrency import WebKit if needed)
+    - [x] MermaidContainerView NSView subclass with hitTest gating based on allowsInteraction flag
+    - [x] MermaidWebView NSViewRepresentable created at mkdn/Core/Mermaid/MermaidWebView.swift
+    - [x] Shared static WKProcessPool for all diagram instances
+    - [x] WKUserContentController with sizeReport, renderComplete, renderError message handlers
+    - [x] Coordinator implements WKScriptMessageHandler to route messages and update bindings
+    - [x] Coordinator implements WKNavigationDelegate to block all non-initial navigation
+    - [x] Template loading with token substitution for __MERMAID_CODE__ (HTML escaped) and __THEME_VARIABLES__
+    - [x] loadHTMLString called with baseURL pointing to resource directory for local mermaid.min.js resolution
+    - [x] updateNSView detects theme changes and re-renders via evaluateJavaScript (in-place, no WKWebView recreation)
+    - [x] updateNSView updates allowsInteraction on MermaidContainerView when focus changes
+    - [x] Click-outside detection via NSEvent.addLocalMonitorForEvents installed/removed with focus state
+    - [x] WKWebView configured with isOpaque=false, transparent background, underPageBackgroundColor=.clear
+    - [x] Compiles with Swift 6 strict concurrency (@preconcurrency import WebKit if needed)
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Core/Mermaid/MermaidWebView.swift`
+    - **Approach**: Created MermaidContainerView (NSView with hitTest gating), MermaidWebView (NSViewRepresentable), and Coordinator (WKScriptMessageHandler + WKNavigationDelegate) in a single file. Uses shared static WKProcessPool, three message handlers (sizeReport, renderComplete, renderError), template loading with three-token substitution (__MERMAID_CODE__, __MERMAID_CODE_JS__, __THEME_VARIABLES__), in-place theme re-rendering via evaluateJavaScript, click-outside detection via NSEvent local monitor, and transparent WKWebView background. Navigation delegate blocks all non-initial navigation except .other type.
+    - **Deviations**: Template substitution handles three tokens instead of two (per T2 field notes: __MERMAID_CODE_JS__ for JS-escaped code was added in the template). Used `@preconcurrency import WebKit` for Swift 6 concurrency. WKScriptMessageHandler.userContentController is `nonisolated` and dispatches to MainActor via Task, since the protocol method is not main-actor-isolated.
+    - **Tests**: 120/120 passing (0 failures; existing tests unaffected)
 
 - [ ] **T7**: Update MarkdownPreviewView to remove MermaidImageStore reference `[complexity:simple]`
 
