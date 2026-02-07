@@ -40,8 +40,8 @@ struct MarkdownPreviewView: View {
                 theme: appSettings.theme
             )
             debugLog("[PREVIEW] rendered \(renderedBlocks.count) blocks: \(renderedBlocks.map { type(of: $0) })")
-            let mermaidCount = renderedBlocks.filter {
-                if case .mermaidBlock = $0 { return true }
+            let mermaidCount = renderedBlocks.filter { block in
+                if case .mermaidBlock = block { return true }
                 return false
             }.count
             debugLog("[PREVIEW] mermaid blocks: \(mermaidCount)")

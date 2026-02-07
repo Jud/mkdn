@@ -27,8 +27,8 @@ Mac-native Markdown viewer/editor. Swift 6 + SwiftUI. macOS 14.0+.
 
 ### Critical Rules
 
-- **NO WKWebView** -- the entire app is native SwiftUI, no exceptions.
-- Mermaid rendering: JavaScriptCore + beautiful-mermaid -> SVG -> SwiftDraw -> native Image.
+- **NO WKWebView** -- the app is native SwiftUI, except for Mermaid diagrams (WKWebView-per-diagram).
+- Mermaid rendering: WKWebView + standard Mermaid.js per diagram. Click-to-focus interaction model.
 - Use `@Observable` (not `ObservableObject`) for all state.
 - Use Swift Testing (`@Test`, `#expect`, `@Suite`) for unit tests.
 - SwiftLint strict mode is enforced (Homebrew install, needs Xcode toolchain). Run lint command below before committing.
