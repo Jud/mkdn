@@ -16,12 +16,6 @@ let package = Package(
     dependencies: [
         // Markdown parsing (Apple's official parser)
         .package(url: "https://github.com/apple/swift-markdown.git", from: "0.5.0"),
-
-        // SVG rendering to native NSImage/CGImage
-        // Pinned below 0.25.0 to avoid #Preview macro issue in CLI builds
-        .package(url: "https://github.com/swhitty/SwiftDraw.git", "0.17.0" ..< "0.25.0"),
-
-
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.5.0"),
         .package(url: "https://github.com/JohnSundell/Splash.git", from: "0.9.0"),
     ],
@@ -30,14 +24,11 @@ let package = Package(
             name: "mkdnLib",
             dependencies: [
                 .product(name: "Markdown", package: "swift-markdown"),
-                .product(name: "SwiftDraw", package: "SwiftDraw"),
-
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "Splash", package: "Splash"),
             ],
             path: "mkdn",
             resources: [
-                .copy("Resources/mermaid.min.js"),
             ]
         ),
         .executableTarget(

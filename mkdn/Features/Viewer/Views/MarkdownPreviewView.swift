@@ -23,19 +23,30 @@ struct MarkdownPreviewView: View {
         }
         .background(appSettings.theme.colors.background)
         .task(id: documentState.markdownContent) {
+            debugLog(
+                "[PREVIEW] .task fired, content length=\(documentState.markdownContent.count), isInitial=\(isInitialRender)"
+            )
             if isInitialRender {
                 isInitialRender = false
             } else {
                 try? await Task.sleep(for: .milliseconds(150))
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled else {
+                    debugLog("[PREVIEW] task cancelled during debounce")
+                    return
+                }
             }
             renderedBlocks = MarkdownRenderer.render(
                 text: documentState.markdownContent,
                 theme: appSettings.theme
             )
+            debugLog("[PREVIEW] rendered \(renderedBlocks.count) blocks: \(renderedBlocks.map { type(of: $0) })")
+            let mermaidCount = renderedBlocks.filter {
+                if case .mermaidBlock = $0 { return true }
+                return false
+            }.count
+            debugLog("[PREVIEW] mermaid blocks: \(mermaidCount)")
         }
         .onChange(of: appSettings.theme) {
-            MermaidImageStore.shared.removeAll()
             renderedBlocks = MarkdownRenderer.render(
                 text: documentState.markdownContent,
                 theme: appSettings.theme

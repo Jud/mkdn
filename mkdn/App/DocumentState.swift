@@ -53,7 +53,6 @@ public final class DocumentState {
         currentFileURL = url
         markdownContent = content
         lastSavedContent = content
-        MermaidImageStore.shared.removeAll()
         fileWatcher.watch(url: url)
         NSDocumentController.shared.noteNewRecentDocumentURL(url)
     }
