@@ -24,7 +24,7 @@ struct AnimationComplianceTests {
 
     // MARK: - Calibration
 
-    @Test("calibration_frameCaptureInfrastructure")
+    @Test("calibration_frameCaptureAndTimingAccuracy")
     func calibrationFrameCapture() async throws {
         let client = try await AnimationHarness.ensureRunning()
         _ = try await client.setTheme("solarizedDark")
@@ -32,7 +32,9 @@ struct AnimationComplianceTests {
         let loadResp = try await client.loadFile(
             path: animationFixturePath("canonical.md")
         )
-        #expect(loadResp.status == "ok", "File load must succeed")
+        try #require(
+            loadResp.status == "ok", "File load must succeed"
+        )
 
         let infoResp = try await client.getWindowInfo()
         if let data = infoResp.data,
@@ -43,17 +45,11 @@ struct AnimationComplianceTests {
             )
         }
 
-        let captureResp = try await client.startFrameCapture(
-            fps: 30,
-            duration: 1.0
-        )
-        let result = try extractFrameCapture(from: captureResp)
+        // Phase 1: Verify frame capture infrastructure
+        try await verifyFrameCaptureInfra(client: client)
 
-        #expect(result.frameCount > 0, "Must capture at least one frame")
-        #expect(result.fps == 30, "FPS must match requested value")
-
-        let frames = try loadFrameImages(from: result)
-        #expect(!frames.isEmpty, "Must load captured frame images")
+        // Phase 2: Verify timing accuracy via crossfade
+        try await verifyCrossfadeTimingAccuracy(client: client)
 
         Self.calibrationPassed = true
     }

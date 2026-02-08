@@ -2,7 +2,7 @@
 
 **Feature ID**: automated-ui-testing
 **Status**: In Progress
-**Progress**: 60% (9 of 15 tasks)
+**Progress**: 67% (10 of 15 tasks)
 **Estimated Effort**: 9 days
 **Started**: 2026-02-08
 
@@ -423,10 +423,28 @@ Automated UI testing infrastructure for mkdn that enables an AI coding agent and
 
     **Implementation Summary**:
 
-    - **Files**: `mkdnTests/UITest/AnimationPRD.swift`, `mkdnTests/UITest/AnimationComplianceTests.swift`, `mkdnTests/UITest/AnimationComplianceTests+ReduceMotion.swift`
-    - **Approach**: Created 3-file animation compliance suite following existing SpatialCompliance/VisualCompliance patterns. AnimationPRD.swift holds PRD expected values, shared harness, fixture helpers, and assertion utilities. Main struct covers calibration gate + FR-1 through FR-4 (breathing orb rhythm, spring-settle, crossfade duration, stagger delays/constants). ReduceMotion extension covers FR-5 (orb static under RM, reduced transition durations). Tests trigger animations via harness IPC then immediately capture frames for curve-fitting analysis via FrameAnalyzer. Orb detection uses cyan pixel scanning in upper window region.
-    - **Deviations**: None
-    - **Tests**: 87/87 unit tests passing; FrameAnalyzer tests cover pulse, transition, stagger, and spring curve analysis
+    - **Files**: `mkdnTests/UITest/AnimationPRD.swift`, `mkdnTests/UITest/AnimationComplianceTests.swift`, `mkdnTests/UITest/AnimationComplianceTests+ReduceMotion.swift`, `mkdnTests/UITest/AnimationComplianceTests+FadeDurations.swift`
+    - **Approach**: Created 4-file animation compliance suite following existing SpatialCompliance/VisualCompliance patterns. AnimationPRD.swift holds PRD expected values, shared harness, fixture helpers, assertion utilities, and calibration helpers. Main struct covers calibration gate (two-phase: infra check + crossfade timing accuracy) + FR-1 through FR-4 (breathing orb rhythm, spring-settle, crossfade duration, stagger delays/constants). FadeDurations extension covers FR-3 fadeIn and fadeOut duration tests with content region transition measurement. ReduceMotion extension covers FR-5 (orb static under RM, reduced transition durations). Tests trigger animations via harness IPC then immediately capture frames for curve-fitting analysis via FrameAnalyzer.
+    - **Deviations**: Calibration uses `try #require` (not `#expect`) to ensure calibrationPassed is only set when all checks pass. fadeIn/fadeOut tests use 3-frame tolerance (matching crossfade test) to account for IPC latency between animation trigger and frame capture start. fadeIn end-color reference derived from last captured frame (not theme colors) because text content creates a mixed-color region.
+    - **Tests**: 257/257 unit tests passing; 13 UI compliance tests correctly gated behind calibration (require GUI environment with Screen Recording permissions)
+
+    **Review Feedback** (Attempt 1):
+    - **Status**: FAILURE
+    - **Issues**:
+        - [completeness] Missing fadeIn (0.5s) and fadeOut (0.4s) duration tests. AC states "Tests verify fade durations: 30fps capture confirms crossfade (0.35s), fadeIn (0.5s), fadeOut (0.4s) match AnimationConstants." Only crossfade is tested. `AnimationPRD.fadeInDuration` and `AnimationPRD.fadeOutDuration` constants are defined but never used in any test assertion.
+        - [completeness] Calibration test does not match AC. AC states "capture a known-duration animation (crossfade at 0.35s), verify measured duration is within one frame of expected." The actual calibration (`calibrationFrameCapture`) only verifies frame capture infrastructure (frameCount > 0, fps == 30) but never captures a crossfade or verifies timing accuracy. This means timing measurement accuracy is not validated before running compliance tests.
+    - **Guidance**:
+        1. Add a `test_animationDesignLanguage_FR3_fadeInDuration` test: trigger a file load (which causes block entrance via fadeIn animation), capture frames at 30fps, and measure the opacity transition duration of a content block using `FrameAnalyzer.measureTransitionDuration`. Assert against `AnimationPRD.fadeInDuration` (0.5s) with `animTolerance30fps` tolerance.
+        2. Add a `test_animationDesignLanguage_FR3_fadeOutDuration` test: load a file, then switch to a different file (or reload) to trigger block exit via fadeOut animation. Capture frames and measure the opacity transition. Assert against `AnimationPRD.fadeOutDuration` (0.4s).
+        3. Strengthen the calibration test: after verifying frame capture infrastructure, perform a theme switch (dark to light), capture frames at 30fps, measure the crossfade duration via `FrameAnalyzer.measureTransitionDuration`, and verify the measured value is within one frame (`animTolerance30fps`) of `AnimationPRD.crossfadeDuration` (0.35s). Only set `calibrationPassed = true` if this timing check also passes.
+        4. Uncheck the two ACs that are not fully satisfied: "Tests verify fade durations" and "Timing calibration test runs first."
+
+    **Review Feedback Resolution** (Attempt 2):
+    - Added `test_animationDesignLanguage_FR3_fadeInDuration` in new `AnimationComplianceTests+FadeDurations.swift` extension: loads minimal file, then content-rich file to trigger block entrance fadeIn, captures 30fps frames, measures content region opacity transition against `AnimationPRD.fadeInDuration` (0.5s)
+    - Added `test_animationDesignLanguage_FR3_fadeOutDuration` in same extension: loads content-rich file, captures settled content color, loads minimal file to trigger block exit fadeOut, measures transition back to background against `AnimationPRD.fadeOutDuration` (0.4s)
+    - Enhanced calibration to two-phase: Phase 1 verifies frame capture infrastructure (frameCount, fps, image loading) via `verifyFrameCaptureInfra`; Phase 2 measures crossfade timing accuracy via `verifyCrossfadeTimingAccuracy` (dark-to-light switch, 30fps capture, duration within `animTolerance30fps` of 0.35s). `calibrationPassed` only set if both phases pass.
+    - Changed calibration assertions from `#expect` to `try #require` to ensure downstream tests are properly blocked on calibration failure
+    - SwiftLint: 0 violations; SwiftFormat: no changes; Tests: 257/257 passing
 
 ### CI and Documentation
 

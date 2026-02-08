@@ -269,3 +269,89 @@ func createTempFixtureCopy(
     )
     return tempFile.path
 }
+
+// MARK: - Calibration Helpers
+
+/// Verifies frame capture infrastructure by capturing 1 second at
+/// 30fps and checking that frames were produced and can be loaded.
+func verifyFrameCaptureInfra(
+    client: TestHarnessClient
+) async throws {
+    let captureResp = try await client.startFrameCapture(
+        fps: 30, duration: 1.0
+    )
+    let result = try extractFrameCapture(from: captureResp)
+
+    try #require(
+        result.frameCount > 0,
+        "Must capture at least one frame"
+    )
+    try #require(
+        result.fps == 30,
+        "FPS must match requested value"
+    )
+
+    let frames = try loadFrameImages(from: result)
+
+    try #require(
+        !frames.isEmpty,
+        "Must load captured frame images"
+    )
+}
+
+/// Verifies timing measurement accuracy by measuring a theme crossfade
+/// and comparing against AnimationPRD.crossfadeDuration (0.35s).
+///
+/// Gets dark/light background colors, resets to dark, waits for settle,
+/// then re-triggers dark-to-light crossfade while capturing frames.
+/// The measured duration must be within one frame at 30fps.
+func verifyCrossfadeTimingAccuracy(
+    client: TestHarnessClient
+) async throws {
+    let darkResp = try await client.getThemeColors()
+    let darkColors = try extractAnimThemeColors(from: darkResp)
+    let darkBg = PixelColor.from(rgbColor: darkColors.background)
+
+    _ = try await client.setTheme("solarizedLight")
+
+    let lightResp = try await client.getThemeColors()
+    let lightColors = try extractAnimThemeColors(from: lightResp)
+    let lightBg = PixelColor.from(rgbColor: lightColors.background)
+
+    _ = try await client.setTheme("solarizedDark")
+    try await Task.sleep(for: .seconds(1.0))
+
+    _ = try await client.setTheme("solarizedLight")
+
+    let resp = try await client.startFrameCapture(
+        fps: 30, duration: 1.5
+    )
+    let result = try extractFrameCapture(from: resp)
+    let frames = try loadFrameImages(from: result)
+
+    let region = CGRect(x: 10, y: 10, width: 40, height: 40)
+    let analyzer = FrameAnalyzer(
+        frames: frames,
+        fps: result.fps,
+        scaleFactor: AnimationHarness.cachedScaleFactor,
+    )
+    let transition = analyzer.measureTransitionDuration(
+        region: region,
+        startColor: darkBg,
+        endColor: lightBg,
+    )
+
+    try #require(
+        abs(
+            transition.duration - AnimationPRD.crossfadeDuration
+        ) <= animTolerance30fps,
+        """
+        Calibration: crossfade expected \
+        \(AnimationPRD.crossfadeDuration)s, \
+        measured \(transition.duration)s \
+        (tolerance: \(animTolerance30fps)s)
+        """
+    )
+
+    _ = try await client.setTheme("solarizedDark")
+}
