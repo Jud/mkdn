@@ -8,6 +8,9 @@ public struct ContentView: View {
     @Environment(DocumentState.self) private var documentState
     @Environment(AppSettings.self) private var appSettings
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var motion: MotionPreference { MotionPreference(reduceMotion: reduceMotion) }
 
     public init() {}
 
@@ -27,7 +30,7 @@ public struct ContentView: View {
                     }
                 }
             }
-            .animation(AnimationConstants.viewModeTransition, value: documentState.viewMode)
+            .animation(motion.resolved(.gentleSpring), value: documentState.viewMode)
 
             if documentState.isFileOutdated {
                 FileChangeOrbView()
@@ -64,7 +67,12 @@ public struct ContentView: View {
             appSettings.systemColorScheme = colorScheme
         }
         .onChange(of: colorScheme) { _, newScheme in
-            appSettings.systemColorScheme = newScheme
+            let themeAnimation = reduceMotion
+                ? AnimationConstants.reducedCrossfade
+                : AnimationConstants.crossfade
+            withAnimation(themeAnimation) {
+                appSettings.systemColorScheme = newScheme
+            }
         }
         .onDrop(of: [.fileURL], isTargeted: nil) { providers in
             handleFileDrop(providers)

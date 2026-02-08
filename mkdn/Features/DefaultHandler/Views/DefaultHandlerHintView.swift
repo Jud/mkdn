@@ -6,9 +6,11 @@ import SwiftUI
 /// suppresses the orb via `AppSettings.hasShownDefaultHandlerHint`.
 struct DefaultHandlerHintView: View {
     @Environment(AppSettings.self) private var appSettings
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showDialog = false
     @State private var isPulsing = false
     @State private var isHaloExpanded = false
+    @State private var popoverAppeared = false
 
     private let orbColor = AnimationConstants.orbGlowColor
 
@@ -35,6 +37,11 @@ struct DefaultHandlerHintView: View {
             }
             .popover(isPresented: $showDialog, arrowEdge: .bottom) {
                 popoverContent
+            }
+            .onChange(of: showDialog) { _, newValue in
+                if !newValue {
+                    popoverAppeared = false
+                }
             }
     }
 
@@ -70,6 +77,16 @@ struct DefaultHandlerHintView: View {
         }
         .padding(16)
         .fixedSize()
+        .scaleEffect(popoverAppeared ? 1.0 : 0.95)
+        .opacity(popoverAppeared ? 1.0 : 0)
+        .onAppear {
+            let animation = reduceMotion
+                ? AnimationConstants.reducedCrossfade
+                : AnimationConstants.springSettle
+            withAnimation(animation) {
+                popoverAppeared = true
+            }
+        }
     }
 
     private func markHintShown() {

@@ -2,7 +2,7 @@
 
 **Feature ID**: animation-design-language
 **Status**: In Progress
-**Progress**: 50% (8 of 16 tasks)
+**Progress**: 69% (11 of 16 tasks)
 **Estimated Effort**: 5 days
 **Started**: 2026-02-07
 
@@ -255,7 +255,14 @@ Establish a unified animation design language for mkdn by expanding `AnimationCo
     | Commit | ✅ PASS |
     | Comments | ✅ PASS |
 
-- [ ] **T8**: Add spring-settle entrance animation to popover content views `[complexity:simple]`
+- [x] **T8**: Add spring-settle entrance animation to popover content views `[complexity:simple]`
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/UI/Components/FileChangeOrbView.swift`, `mkdn/Features/DefaultHandler/Views/DefaultHandlerHintView.swift`
+    - **Approach**: Added `@State popoverAppeared` flag and `@Environment(\.accessibilityReduceMotion)` to both orb views. Popover content applies `.scaleEffect(popoverAppeared ? 1.0 : 0.95)` and `.opacity(popoverAppeared ? 1.0 : 0)` with `.onAppear` triggering `withAnimation(springSettle)` to set `popoverAppeared = true`. `.onChange(of: showDialog)` resets the flag when the popover closes so re-openings animate fresh. System `.popover()` is preserved. With Reduce Motion, `reducedCrossfade` (0.15s) is used instead of `springSettle`.
+    - **Deviations**: None
+    - **Tests**: 103/103 passing (pre-existing signal 5)
 
     **Reference**: [design.md#39-popover-spring-entrance](design.md#39-popover-spring-entrance)
 
@@ -263,12 +270,19 @@ Establish a unified animation design language for mkdn by expanding `AnimationCo
 
     **Acceptance Criteria**:
 
-    - [ ] Orb popover content in `FileChangeOrbView` animates on appear: scale from 0.95 to 1.0 + opacity from 0 to 1 using `springSettle` (AC-010a)
-    - [ ] Orb popover content in `DefaultHandlerHintView` animates on appear with the same spring-settle effect (AC-010b)
-    - [ ] System `.popover()` modifier is preserved (not replaced with custom overlay) -- animation is internal to content
-    - [ ] With Reduce Motion, popover content uses `reducedCrossfade` instead of spring-settle (AC-011a)
+    - [x] Orb popover content in `FileChangeOrbView` animates on appear: scale from 0.95 to 1.0 + opacity from 0 to 1 using `springSettle` (AC-010a)
+    - [x] Orb popover content in `DefaultHandlerHintView` animates on appear with the same spring-settle effect (AC-010b)
+    - [x] System `.popover()` modifier is preserved (not replaced with custom overlay) -- animation is internal to content
+    - [x] With Reduce Motion, popover content uses `reducedCrossfade` instead of spring-settle (AC-011a)
 
-- [ ] **T9**: Verify mode transition overlay and view mode transition consistency with primitives `[complexity:simple]`
+- [x] **T9**: Verify mode transition overlay and view mode transition consistency with primitives `[complexity:simple]`
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/UI/Components/ModeTransitionOverlay.swift`, `mkdn/App/ContentView.swift`
+    - **Approach**: Replaced deprecated aliases in `ModeTransitionOverlay` (`overlaySpringIn` -> `springSettle`, `overlayFadeOut` -> `quickFade`) and added `@Environment(\.accessibilityReduceMotion)` with conditional animation resolution: entrance uses `springSettle` (or `reducedCrossfade` with RM), exit uses `quickFade` (or `reducedCrossfade` with RM). Documented full animation contract in doc comment. In `ContentView`, replaced deprecated `viewModeTransition` with `motion.resolved(.gentleSpring)` which returns `gentleSpring` normally or `reducedInstant` with Reduce Motion. The `.animation(_:value:)` modifier accepts `Animation?` from `MotionPreference.resolved()`.
+    - **Deviations**: None
+    - **Tests**: 103/103 passing (pre-existing signal 5)
 
     **Reference**: [design.md#implementation-plan](design.md#implementation-plan)
 
@@ -276,13 +290,20 @@ Establish a unified animation design language for mkdn by expanding `AnimationCo
 
     **Acceptance Criteria**:
 
-    - [ ] `ModeTransitionOverlay` spring entrance uses `AnimationConstants.springSettle` primitive (not inline values) (AC-004a, AC-004b)
-    - [ ] View mode transition in `ContentView` uses `AnimationConstants.gentleSpring` primitive (AC-005a)
-    - [ ] Overlay animation contract documented in code comments: spring entrance from 0.8 scale + 0 opacity, 1.5s hold, fade-out exit (AC-004a)
-    - [ ] Reduce Motion integration: overlay uses `reducedCrossfade` for entrance/exit (AC-011a)
-    - [ ] Content does not visibly re-layout or jump during view mode transition (AC-005b)
+    - [x] `ModeTransitionOverlay` spring entrance uses `AnimationConstants.springSettle` primitive (not inline values) (AC-004a, AC-004b)
+    - [x] View mode transition in `ContentView` uses `AnimationConstants.gentleSpring` primitive (AC-005a)
+    - [x] Overlay animation contract documented in code comments: spring entrance from 0.8 scale + 0 opacity, 1.5s hold, fade-out exit (AC-004a)
+    - [x] Reduce Motion integration: overlay uses `reducedCrossfade` for entrance/exit (AC-011a)
+    - [x] Content does not visibly re-layout or jump during view mode transition (AC-005b)
 
-- [ ] **T10**: Implement theme crossfade isolation via explicit withAnimation scoping `[complexity:simple]`
+- [x] **T10**: Implement theme crossfade isolation via explicit withAnimation scoping `[complexity:simple]`
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/App/MkdnCommands.swift`, `mkdn/Features/Theming/ThemePickerView.swift`, `mkdn/App/ContentView.swift`
+    - **Approach**: Three call sites now wrap theme state changes with explicit `withAnimation`. (1) `MkdnCommands`: replaced deprecated `themeCrossfade` alias with `crossfade`/`reducedCrossfade` conditional on `NSWorkspace.shared.accessibilityDisplayShouldReduceMotion` (Commands struct cannot use `@Environment`). (2) `ThemePickerView`: replaced `@Bindable` binding with a custom `Binding<ThemeMode>` whose setter wraps `appSettings.themeMode = newMode` in `withAnimation(crossfade)`. (3) `ContentView`: wrapped `appSettings.systemColorScheme = newScheme` in `.onChange(of: colorScheme)` with `withAnimation(crossfade)` for auto-mode system appearance changes. All three use `reducedCrossfade` (0.15s) with Reduce Motion. No broad `.animation()` modifiers added -- all scoping is via `withAnimation` on specific state mutations.
+    - **Deviations**: `AppSettings.swift` not modified -- animation wrapping happens at call sites per design. `MkdnCommands` uses `NSWorkspace.shared.accessibilityDisplayShouldReduceMotion` instead of `@Environment(\.accessibilityReduceMotion)` because `Commands` does not reliably support view-level environment values. `ContentView.onChange(of: colorScheme)` also wrapped for auto-mode theme transitions (not explicitly in the task AC but necessary for completeness -- system appearance changes in auto mode should also crossfade).
+    - **Tests**: 103/103 passing (pre-existing signal 5)
 
     **Reference**: [design.md#24-theme-crossfade-isolation-strategy](design.md#24-theme-crossfade-isolation-strategy)
 
@@ -290,11 +311,11 @@ Establish a unified animation design language for mkdn by expanding `AnimationCo
 
     **Acceptance Criteria**:
 
-    - [ ] Theme changes in `AppSettings.cycleTheme()` and `ThemePickerView` binding are wrapped with `withAnimation(AnimationConstants.crossfade)` (AC-006a)
-    - [ ] Concurrent orb breathing, focus border, and spring animations are not disrupted by theme crossfade (AC-006b)
-    - [ ] Crossfade duration (0.35s) masks any WKWebView theme update latency (AC-006c)
-    - [ ] With Reduce Motion, theme crossfade uses `reducedCrossfade` (0.15s) -- shortened but not eliminated (AC-011d)
-    - [ ] No broad `.animation()` modifiers added to root view hierarchy
+    - [x] Theme changes in `AppSettings.cycleTheme()` and `ThemePickerView` binding are wrapped with `withAnimation(AnimationConstants.crossfade)` (AC-006a)
+    - [x] Concurrent orb breathing, focus border, and spring animations are not disrupted by theme crossfade (AC-006b)
+    - [x] Crossfade duration (0.35s) masks any WKWebView theme update latency (AC-006c)
+    - [x] With Reduce Motion, theme crossfade uses `reducedCrossfade` (0.15s) -- shortened but not eliminated (AC-011d)
+    - [x] No broad `.animation()` modifiers added to root view hierarchy
 
 ### Dependent Features
 
@@ -321,6 +342,18 @@ Establish a unified animation design language for mkdn by expanding `AnimationCo
     - [ ] `.hoverScale(AnimationConstants.toolbarHoverScale)` applied to toolbar buttons in `ViewModePicker` (AC-009c) -- BLOCKED: `ViewModePicker.swift` does not exist
     - [x] All hover animations use `AnimationConstants.quickSettle` spring (AC-009d)
     - [x] With Reduce Motion, hover animation is nil (instant state change, no motion) (AC-011a)
+
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
 
 - [ ] **T11**: Write unit tests for AnimationConstants values and MotionPreference resolution `[complexity:simple]`
 
