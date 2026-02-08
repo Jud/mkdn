@@ -39,6 +39,7 @@ struct MkdnApp: App {
 // Check for --test-harness before CLI parsing to avoid argument parser conflicts.
 // The flag activates the in-process test harness server for automated UI testing.
 let rawArguments = CommandLine.arguments
+
 if rawArguments.contains("--test-harness") {
     TestHarnessMode.isEnabled = true
     if let socketIdx = rawArguments.firstIndex(of: "--socket-path"),

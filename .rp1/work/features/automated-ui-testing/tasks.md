@@ -2,7 +2,7 @@
 
 **Feature ID**: automated-ui-testing
 **Status**: Not Started
-**Progress**: 13% (2 of 15 tasks)
+**Progress**: 20% (3 of 15 tasks)
 **Estimated Effort**: 9 days
 **Started**: 2026-02-08
 
@@ -119,6 +119,18 @@ Automated UI testing infrastructure for mkdn that enables an AI coding agent and
     - **Approach**: Socket server uses dedicated DispatchQueue for blocking POSIX socket I/O with AsyncBridge (semaphore-based) to dispatch commands to @MainActor TestHarnessHandler. Command handler is a separate @MainActor enum with weak references to AppSettings and DocumentState. CaptureService uses CGWindowListCreateImage (deprecated but explicitly chosen per design D2) with NSBitmapImageRep for PNG output. TestHarnessMode uses nonisolated(unsafe) for startup config and ReduceMotionOverride enum to avoid optional boolean. DocumentWindow wires handler references and starts server on appear when test harness mode is enabled.
     - **Deviations**: Design specified single TestHarnessServer file; split into TestHarnessServer.swift (socket I/O + mode config) and TestHarnessHandler.swift (command processing) to stay within SwiftLint file_length limits and separate concerns. Used ReduceMotionOverride enum instead of optional Bool to satisfy SwiftLint discouraged_optional_boolean rule. startFrameCapture/stopFrameCapture return stub errors pending T9 (ScreenCaptureKit implementation).
     - **Tests**: 160/160 passing (all existing tests unaffected)
+
+    **Review Feedback** (Attempt 1):
+    - **Status**: FAILURE
+    - **Issues**:
+        - [quality] SwiftLint `let_var_whitespace` violation at `mkdnEntry/main.swift:42:1`. The `let rawArguments = CommandLine.arguments` declaration on line 41 is not separated by a blank line from the `if rawArguments.contains("--test-harness")` statement on line 42.
+    - **Guidance**: Add a blank line between `let rawArguments = CommandLine.arguments` and `if rawArguments.contains("--test-harness") {` in `mkdnEntry/main.swift` to satisfy SwiftLint's `let_var_whitespace` rule. Run `DEVELOPER_DIR=/Applications/Xcode-16.3.0.app/Contents/Developer swiftlint lint mkdnEntry/main.swift` to confirm zero violations before committing.
+
+    **Review Feedback Resolution** (Attempt 2):
+    - Added blank line between `let rawArguments` declaration and `if` statement in `mkdnEntry/main.swift`
+    - SwiftLint: 0 violations confirmed
+    - SwiftFormat: no changes needed
+    - Tests: 160/160 passing
 
 - [ ] **T3**: Implement test harness client and app launcher `[complexity:medium]`
 
