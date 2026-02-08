@@ -2,7 +2,7 @@
 
 **Feature ID**: automated-ui-testing
 **Status**: In Progress
-**Progress**: 33% (5 of 15 tasks)
+**Progress**: 40% (6 of 15 tasks)
 **Estimated Effort**: 9 days
 **Started**: 2026-02-08
 
@@ -98,6 +98,18 @@ Automated UI testing infrastructure for mkdn that enables an AI coding agent and
     - **Deviations**: None
     - **Tests**: N/A (static content files; no code changes)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | N/A |
+    | Commit | PASS |
+    | Comments | N/A |
+
 ### Foundation - Harness and Analysis
 
 - [x] **T2**: Implement app-side test harness server and single-frame capture `[complexity:complex]`
@@ -186,7 +198,7 @@ Automated UI testing infrastructure for mkdn that enables an AI coding agent and
     | Commit | PASS |
     | Comments | PASS |
 
-- [ ] **T5**: Implement image analysis library `[complexity:medium]`
+- [x] **T5**: Implement image analysis library `[complexity:medium]`
 
     **Reference**: [design.md#34-imageanalyzer](design.md#34-imageanalyzer)
 
@@ -194,18 +206,25 @@ Automated UI testing infrastructure for mkdn that enables an AI coding agent and
 
     **Acceptance Criteria**:
 
-    - [ ] `ImageAnalyzer` in `mkdnTests/Support/ImageAnalyzer.swift` provides pixel-level access to `CGImage` data via `CGDataProvider`
-    - [ ] `ImageAnalyzer.sampleColor(at:)` returns `PixelColor` at a given point, accounting for scale factor
-    - [ ] `ImageAnalyzer.averageColor(in:)` returns average `PixelColor` in a CGRect region
-    - [ ] `ImageAnalyzer.matchesColor(_:at:tolerance:)` compares colors with configurable tolerance for anti-aliasing
-    - [ ] `SpatialMeasurement` utilities in `mkdnTests/Support/SpatialMeasurement.swift` provide `measureEdge(from:direction:targetColor:tolerance:)` and `measureDistance(between:and:along:at:)` for edge detection and distance measurement
-    - [ ] `ColorExtractor` in `mkdnTests/Support/ColorExtractor.swift` provides `PixelColor.from(swiftUIColor:)` conversion and `PixelColor.distance(to:)` metric
-    - [ ] `PixelColor` struct with red, green, blue, alpha as `UInt8` and Equatable conformance
-    - [ ] `ImageAnalyzer.findColorBoundary(from:direction:sourceColor:tolerance:)` walks pixels to find color transition boundaries
-    - [ ] `ImageAnalyzer.contentBounds(background:tolerance:)` finds bounding rect of non-background content
-    - [ ] Unit tests in `mkdnTests/Unit/Support/ImageAnalyzerTests.swift` verify accuracy against synthetic test images with known geometry and colors
-    - [ ] Spatial measurement accuracy is within 1pt at 2x Retina scale factor (verified by synthetic image tests)
-    - [ ] Code passes SwiftLint and SwiftFormat
+    - [x] `ImageAnalyzer` in `mkdnTests/Support/ImageAnalyzer.swift` provides pixel-level access to `CGImage` data via `CGDataProvider`
+    - [x] `ImageAnalyzer.sampleColor(at:)` returns `PixelColor` at a given point, accounting for scale factor
+    - [x] `ImageAnalyzer.averageColor(in:)` returns average `PixelColor` in a CGRect region
+    - [x] `ImageAnalyzer.matchesColor(_:at:tolerance:)` compares colors with configurable tolerance for anti-aliasing
+    - [x] `SpatialMeasurement` utilities in `mkdnTests/Support/SpatialMeasurement.swift` provide `measureEdge(from:direction:targetColor:tolerance:)` and `measureDistance(between:and:along:at:)` for edge detection and distance measurement
+    - [x] `ColorExtractor` in `mkdnTests/Support/ColorExtractor.swift` provides `PixelColor.from(swiftUIColor:)` conversion and `PixelColor.distance(to:)` metric
+    - [x] `PixelColor` struct with red, green, blue, alpha as `UInt8` and Equatable conformance
+    - [x] `ImageAnalyzer.findColorBoundary(from:direction:sourceColor:tolerance:)` walks pixels to find color transition boundaries
+    - [x] `ImageAnalyzer.contentBounds(background:tolerance:)` finds bounding rect of non-background content
+    - [x] Unit tests in `mkdnTests/Unit/Support/ImageAnalyzerTests.swift` verify accuracy against synthetic test images with known geometry and colors
+    - [x] Spatial measurement accuracy is within 1pt at 2x Retina scale factor (verified by synthetic image tests)
+    - [x] Code passes SwiftLint and SwiftFormat
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdnTests/Support/ColorExtractor.swift`, `mkdnTests/Support/ImageAnalyzer.swift`, `mkdnTests/Support/SpatialMeasurement.swift`, `mkdnTests/Unit/Support/SyntheticImage.swift`, `mkdnTests/Unit/Support/ImageAnalyzerTests.swift`, `mkdnTests/Unit/Support/SpatialMeasurementTests.swift`
+    - **Approach**: ImageAnalyzer reads raw pixel data directly from CGDataProvider (no normalization redraw) with comprehensive byte order detection handling 4 macOS pixel formats (big/little endian x alpha first/last) via pixelFromBytes. SyntheticImage factory creates CGImages with known geometry using deviceRGB color space and top-left coordinate flip for pixel-accurate test verification. SpatialMeasurement provides edge detection, distance, and gap measurement along cardinal directions. Tests split across 3 files (SyntheticImage, ImageAnalyzerTests, SpatialMeasurementTests) to stay within SwiftLint file_length limit.
+    - **Deviations**: Design specified `PixelColor.from(swiftUIColor:)` but implemented `PixelColor.from(red:green:blue:)` and `PixelColor.from(rgbColor:)` instead, since test infrastructure uses RGBColor from the harness protocol rather than SwiftUI Color (avoids importing SwiftUI in test support). Added `dominantColor(in:)` and `findRegion(matching:)` to ImageAnalyzer for downstream compliance suite needs. Added `measureGap` to SpatialMeasurement for gap measurement between color regions.
+    - **Tests**: 32/32 passing
 
 ### Compliance Suites
 
