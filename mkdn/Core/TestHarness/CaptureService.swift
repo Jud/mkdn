@@ -4,6 +4,7 @@ import CoreGraphics
 @MainActor
 enum CaptureService {
     private static var captureCounter = 0
+    static var activeFrameSession: FrameCaptureSession?
 
     // MARK: - Full Window Capture
 
@@ -68,6 +69,40 @@ enum CaptureService {
             theme: appSettings.theme.rawValue,
             viewMode: documentState.viewMode.rawValue
         )
+    }
+
+    // MARK: - Frame Sequence Capture
+
+    static func startFrameCapture(
+        _ window: NSWindow,
+        fps: Int,
+        duration: TimeInterval,
+        outputDir: String?
+    ) async throws -> FrameCaptureResult {
+        let session = FrameCaptureSession()
+        activeFrameSession = session
+        defer { activeFrameSession = nil }
+
+        let dir = outputDir ?? defaultFrameDir()
+
+        return try await session.capture(
+            windowID: CGWindowID(window.windowNumber),
+            windowSize: window.frame.size,
+            scaleFactor: window.backingScaleFactor,
+            fps: fps,
+            duration: duration,
+            outputDir: dir
+        )
+    }
+
+    private static func defaultFrameDir() -> String {
+        let timestamp = Int(Date().timeIntervalSince1970)
+        let dir = "/tmp/mkdn-frames/\(timestamp)"
+        try? FileManager.default.createDirectory(
+            atPath: dir,
+            withIntermediateDirectories: true
+        )
+        return dir
     }
 
     // MARK: - Window Image Capture

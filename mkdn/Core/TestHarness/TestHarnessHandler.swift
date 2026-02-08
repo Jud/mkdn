@@ -25,9 +25,9 @@ enum TestHarnessHandler {
         case let .captureRegion(region, outputPath):
             handleCaptureRegion(region, outputPath)
         case let .startFrameCapture(fps, duration, outputDir):
-            handleStartFrameCapture(fps, duration, outputDir)
+            await handleStartFrameCapture(fps, duration, outputDir)
         case .stopFrameCapture:
-            .error("Frame capture not yet implemented (see T9)")
+            handleStopFrameCapture()
         case .getWindowInfo:
             handleGetWindowInfo()
         case .getThemeColors:
@@ -190,11 +190,34 @@ enum TestHarnessHandler {
     }
 
     private static func handleStartFrameCapture(
-        _: Int,
-        _: Double,
-        _: String?
-    ) -> HarnessResponse {
-        .error("Frame capture not yet implemented (see T9)")
+        _ fps: Int,
+        _ duration: Double,
+        _ outputDir: String?
+    ) async -> HarnessResponse {
+        guard let window = findMainWindow() else {
+            return .error("No visible window found")
+        }
+        do {
+            let result = try await CaptureService.startFrameCapture(
+                window,
+                fps: fps,
+                duration: duration,
+                outputDir: outputDir
+            )
+            return .ok(data: .frameCapture(result))
+        } catch {
+            return .error(
+                "Frame capture failed: \(error.localizedDescription)"
+            )
+        }
+    }
+
+    private static func handleStopFrameCapture() -> HarnessResponse {
+        guard CaptureService.activeFrameSession != nil else {
+            return .ok(message: "No active frame capture session")
+        }
+        CaptureService.activeFrameSession = nil
+        return .ok(message: "Frame capture stopped")
     }
 
     // MARK: - Info Commands

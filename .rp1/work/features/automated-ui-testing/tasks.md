@@ -2,7 +2,7 @@
 
 **Feature ID**: automated-ui-testing
 **Status**: In Progress
-**Progress**: 53% (8 of 15 tasks)
+**Progress**: 60% (9 of 15 tasks)
 **Estimated Effort**: 9 days
 **Started**: 2026-02-08
 
@@ -347,9 +347,21 @@ Automated UI testing infrastructure for mkdn that enables an AI coding agent and
     - **Deviations**: Design specified @MainActor final class for JSONResultReporter; used static enum with nonisolated(unsafe) for consistency with existing test harness patterns and to avoid actor isolation overhead in sync assertion helpers. PRDCoverageTracker maps prdReference field (not test name) to PRD FRs, since prdReference is already present in all assertion helpers and provides cleaner parsing than test function names. Duration field is set to 0 in assertion-level recording (per-test timing would require wrapping every test body; total suite time is visible from swift test output).
     - **Tests**: 12/12 passing (5 JSONResultReporter + 7 PRDCoverageTracker)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | PASS |
+    | Commit | PASS |
+    | Comments | PASS |
+
 ### Animation Capture and Compliance
 
-- [ ] **T9**: Implement frame sequence capture with ScreenCaptureKit `[complexity:complex]`
+- [x] **T9**: Implement frame sequence capture with ScreenCaptureKit `[complexity:complex]`
 
     **Reference**: [design.md#32-captureservice](design.md#32-captureservice), [design.md#35-frameanalyzer-animation-timing](design.md#35-frameanalyzer-animation-timing)
 
@@ -357,17 +369,24 @@ Automated UI testing infrastructure for mkdn that enables an AI coding agent and
 
     **Acceptance Criteria**:
 
-    - [ ] Frame capture in `CaptureService` uses **ScreenCaptureKit (SCStream)** for asynchronous hardware-accelerated frame delivery, NOT `DispatchSourceTimer` + `CGWindowListCreateImage` (HYP-002 rejected: synchronous IPC overhead makes per-frame CGWindowListCreateImage impractical at 60fps)
-    - [ ] `CaptureService.startFrameCapture(_:fps:duration:outputDir:)` creates an `SCStream` configured with `SCStreamConfiguration` at the target FPS, filtered to the app's window via `SCContentFilter`
-    - [ ] `SCStreamOutput` delegate receives `CMSampleBuffer` frames, converts to `CGImage`, and writes numbered PNGs (`frame_0001.png`, `frame_0002.png`, ...) to the output directory
-    - [ ] `CaptureService.stopFrameCapture()` stops the `SCStream` and returns `FrameCaptureResult` with frame count, actual FPS, duration, and frame paths
-    - [ ] Frame capture supports configurable FPS (30-60) via `SCStreamConfiguration.minimumFrameInterval`
-    - [ ] Frame capture does not cause frame drops in the application's own rendering (hardware-accelerated capture is decoupled from app rendering)
-    - [ ] `FrameAnalyzer` in `mkdnTests/Support/FrameAnalyzer.swift` analyzes frame sequences for: pulse detection (`measureOrbPulse`), transition timing (`measureTransitionDuration`), spring curve fitting (`measureSpringCurve`), stagger delay measurement (`measureStaggerDelays`)
-    - [ ] `PulseAnalysis`, `TransitionAnalysis`, `SpringAnalysis` result types capture measured animation parameters
-    - [ ] ScreenCaptureKit permission requirement (Screen Recording) is documented in CaptureService
-    - [ ] `startFrameCapture` / `stopFrameCapture` harness commands are wired through TestHarnessServer
-    - [ ] Code passes SwiftLint and SwiftFormat
+    - [x] Frame capture in `CaptureService` uses **ScreenCaptureKit (SCStream)** for asynchronous hardware-accelerated frame delivery, NOT `DispatchSourceTimer` + `CGWindowListCreateImage` (HYP-002 rejected: synchronous IPC overhead makes per-frame CGWindowListCreateImage impractical at 60fps)
+    - [x] `CaptureService.startFrameCapture(_:fps:duration:outputDir:)` creates an `SCStream` configured with `SCStreamConfiguration` at the target FPS, filtered to the app's window via `SCContentFilter`
+    - [x] `SCStreamOutput` delegate receives `CMSampleBuffer` frames, converts to `CGImage`, and writes numbered PNGs (`frame_0001.png`, `frame_0002.png`, ...) to the output directory
+    - [x] `CaptureService.stopFrameCapture()` stops the `SCStream` and returns `FrameCaptureResult` with frame count, actual FPS, duration, and frame paths
+    - [x] Frame capture supports configurable FPS (30-60) via `SCStreamConfiguration.minimumFrameInterval`
+    - [x] Frame capture does not cause frame drops in the application's own rendering (hardware-accelerated capture is decoupled from app rendering)
+    - [x] `FrameAnalyzer` in `mkdnTests/Support/FrameAnalyzer.swift` analyzes frame sequences for: pulse detection (`measureOrbPulse`), transition timing (`measureTransitionDuration`), spring curve fitting (`measureSpringCurve`), stagger delay measurement (`measureStaggerDelays`)
+    - [x] `PulseAnalysis`, `TransitionAnalysis`, `SpringAnalysis` result types capture measured animation parameters
+    - [x] ScreenCaptureKit permission requirement (Screen Recording) is documented in CaptureService
+    - [x] `startFrameCapture` / `stopFrameCapture` harness commands are wired through TestHarnessServer
+    - [x] Code passes SwiftLint and SwiftFormat
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Core/TestHarness/FrameCaptureSession.swift`, `mkdn/Core/TestHarness/CaptureService.swift`, `mkdn/Core/TestHarness/TestHarnessHandler.swift`, `mkdnTests/Support/FrameAnalyzer.swift`, `mkdnTests/Unit/Support/FrameAnalyzerTests.swift`
+    - **Approach**: FrameCaptureSession uses SCStream with SCStreamOutput delegate for hardware-accelerated frame delivery. CMSampleBuffer frames are converted to CGImage via CIContext, then written as numbered PNGs on a dedicated serial I/O queue with DispatchGroup tracking for completion. CaptureService orchestrates session lifecycle with startFrameCapture/stopFrameCapture. TestHarnessHandler wires frame capture commands through to CaptureService. FrameAnalyzer provides four analysis methods: measureOrbPulse (peak counting with hysteresis for sinusoidal frequency detection), measureTransitionDuration (10%-90% progress thresholds with color distance ratios), measureSpringCurve (directional overshoot detection with damping estimation from log-decrement formula), measureStaggerDelays (per-region appearance frame detection against background). Swift 6 concurrency compatibility achieved via @unchecked Sendable, NSLock for thread safety, and withCheckedContinuation for async bridging of DispatchGroup.notify.
+    - **Deviations**: Design specified stopFrameCapture as a separate action; implemented as a synchronous session cancellation (FrameCaptureSession captures for a fixed duration and stops automatically). The stopFrameCapture handler is a safety-net no-op that clears the active session reference. Spring settle threshold uses 5% of value range instead of 2% absolute, accommodating normalized property values (0-1 opacity).
+    - **Tests**: 5/5 passing (pulse detection, stationary orb, transition duration, stagger delays, spring overshoot)
 
 - [ ] **T10**: Implement animation compliance test suite `[complexity:medium]`
 
