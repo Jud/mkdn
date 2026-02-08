@@ -14,7 +14,6 @@ struct TableBlockView: View {
     var body: some View {
         ScrollView(.horizontal, showsIndicators: true) {
             VStack(alignment: .leading, spacing: 0) {
-                // Header row
                 HStack(spacing: 0) {
                     ForEach(Array(columns.enumerated()), id: \.offset) { _, column in
                         Text(column.header)
@@ -23,7 +22,10 @@ struct TableBlockView: View {
                             .tint(colors.linkColor)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
-                            .frame(minWidth: 80, alignment: column.alignment.swiftUIAlignment)
+                            .frame(
+                                maxWidth: .infinity,
+                                alignment: column.alignment.swiftUIAlignment
+                            )
                     }
                 }
                 .background(colors.backgroundSecondary)
@@ -31,7 +33,6 @@ struct TableBlockView: View {
                 Divider()
                     .background(colors.border)
 
-                // Data rows
                 ForEach(Array(rows.enumerated()), id: \.offset) { rowIndex, row in
                     HStack(spacing: 0) {
                         ForEach(Array(row.enumerated()), id: \.offset) { colIndex, cell in
@@ -44,7 +45,10 @@ struct TableBlockView: View {
                                 .tint(colors.linkColor)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
-                                .frame(minWidth: 80, alignment: alignment)
+                                .frame(
+                                    maxWidth: .infinity,
+                                    alignment: alignment
+                                )
                                 .textSelection(.enabled)
                         }
                     }
