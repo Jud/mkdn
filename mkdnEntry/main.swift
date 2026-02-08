@@ -36,7 +36,18 @@ struct MkdnApp: App {
 // The re-launched process reads the env var and proceeds with a clean argv.
 // See: .rp1/work/issues/file-arg-no-window/investigation_report.md
 
-if let envFile = ProcessInfo.processInfo.environment["MKDN_LAUNCH_FILE"] {
+// Check for --test-harness before CLI parsing to avoid argument parser conflicts.
+// The flag activates the in-process test harness server for automated UI testing.
+let rawArguments = CommandLine.arguments
+if rawArguments.contains("--test-harness") {
+    TestHarnessMode.isEnabled = true
+    if let socketIdx = rawArguments.firstIndex(of: "--socket-path"),
+       socketIdx + 1 < rawArguments.count
+    {
+        TestHarnessMode.socketPath = rawArguments[socketIdx + 1]
+    }
+    MkdnApp.main()
+} else if let envFile = ProcessInfo.processInfo.environment["MKDN_LAUNCH_FILE"] {
     unsetenv("MKDN_LAUNCH_FILE")
     LaunchContext.fileURL = URL(fileURLWithPath: envFile).standardized.resolvingSymlinksInPath()
     MkdnApp.main()

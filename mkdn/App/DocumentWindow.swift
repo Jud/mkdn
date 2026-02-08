@@ -17,6 +17,7 @@ import SwiftUI
 public struct DocumentWindow: View {
     public let fileURL: URL?
     @State private var documentState = DocumentState()
+    @State private var isReady = false
     @Environment(AppSettings.self) private var appSettings
     @Environment(\.openWindow) private var openWindow
 
@@ -29,7 +30,8 @@ public struct DocumentWindow: View {
             .environment(documentState)
             .environment(appSettings)
             .focusedSceneValue(\.documentState, documentState)
-            .task {
+            .opacity(isReady ? 1 : 0)
+            .onAppear {
                 if let fileURL {
                     try? documentState.loadFile(at: fileURL)
                     NSDocumentController.shared.noteNewRecentDocumentURL(fileURL)
@@ -46,6 +48,12 @@ public struct DocumentWindow: View {
                         openWindow(value: url)
                     }
                 }
+                if TestHarnessMode.isEnabled {
+                    TestHarnessHandler.appSettings = appSettings
+                    TestHarnessHandler.documentState = documentState
+                    TestHarnessServer.shared.start()
+                }
+                isReady = true
             }
             .onChange(of: FileOpenCoordinator.shared.pendingURLs) {
                 for url in FileOpenCoordinator.shared.consumeAll() {

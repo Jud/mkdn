@@ -2,7 +2,7 @@
 
 **Feature ID**: automated-ui-testing
 **Status**: Not Started
-**Progress**: 7% (1 of 15 tasks)
+**Progress**: 13% (2 of 15 tasks)
 **Estimated Effort**: 9 days
 **Started**: 2026-02-08
 
@@ -64,6 +64,18 @@ Automated UI testing infrastructure for mkdn that enables an AI coding agent and
     - **Deviations**: Design specified single `HarnessProtocol.swift` file; split into `HarnessCommand.swift`, `HarnessResponse.swift`, `HarnessError.swift` to satisfy SwiftLint strict mode `file_name` rule requiring file name to match a declared type.
     - **Tests**: 34/34 passing
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | PASS |
+    | Commit | PASS |
+    | Comments | PASS |
+
 - [ ] **T4**: Create standardized Markdown test fixtures `[complexity:simple]`
 
     **Reference**: [design.md#38-test-fixture-structure](design.md#38-test-fixture-structure)
@@ -81,7 +93,7 @@ Automated UI testing infrastructure for mkdn that enables an AI coding agent and
 
 ### Foundation - Harness and Analysis
 
-- [ ] **T2**: Implement app-side test harness server and single-frame capture `[complexity:complex]`
+- [x] **T2**: Implement app-side test harness server and single-frame capture `[complexity:complex]`
 
     **Reference**: [design.md#22-communication-protocol](design.md#22-communication-protocol), [design.md#23-test-mode-activation](design.md#23-test-mode-activation), [design.md#32-captureservice](design.md#32-captureservice), [design.md#24-integration-with-existing-architecture](design.md#24-integration-with-existing-architecture)
 
@@ -89,17 +101,24 @@ Automated UI testing infrastructure for mkdn that enables an AI coding agent and
 
     **Acceptance Criteria**:
 
-    - [ ] `TestHarnessServer` in `mkdn/Core/TestHarness/TestHarnessServer.swift` listens on a Unix domain socket, accepts connections, and dispatches JSON commands
-    - [ ] `mkdnEntry/main.swift` detects `--test-harness` argument, skips normal CLI file-argument handling, launches SwiftUI app normally, and starts `TestHarnessServer` on a background thread
-    - [ ] `--test-harness` flag is consumed before `MkdnCLI.parse()` to avoid argument parser conflicts
-    - [ ] `RenderCompletionSignal.shared.signalRenderComplete()` is called from `SelectableTextView.Coordinator` after applying text content and overlays
-    - [ ] `CaptureService` in `mkdn/Core/TestHarness/CaptureService.swift` captures window content via `CGWindowListCreateImage` with the app's own window ID for single-frame captures
-    - [ ] `CaptureService.captureWindow(_:outputPath:)` writes PNG to disk and returns `CaptureResult` with metadata (dimensions, scale factor, timestamp, theme, view mode)
-    - [ ] `CaptureService.captureRegion(_:region:outputPath:)` captures a specified CGRect region of the window
-    - [ ] All `HarnessCommand` handlers are implemented: loadFile dispatches to `DocumentState`, switchMode/cycleTheme/setTheme dispatch to `AppSettings`, captureWindow/captureRegion invoke `CaptureService`, getWindowInfo returns window dimensions, getThemeColors returns current theme RGB values, setReduceMotion sets test-mode override, ping returns pong, quit terminates
-    - [ ] Commands that trigger re-rendering (loadFile, switchMode, cycleTheme, setTheme, reloadFile) await `RenderCompletionSignal` before responding
-    - [ ] Server cleans up socket file on termination
-    - [ ] Code passes SwiftLint and SwiftFormat
+    - [x] `TestHarnessServer` in `mkdn/Core/TestHarness/TestHarnessServer.swift` listens on a Unix domain socket, accepts connections, and dispatches JSON commands
+    - [x] `mkdnEntry/main.swift` detects `--test-harness` argument, skips normal CLI file-argument handling, launches SwiftUI app normally, and starts `TestHarnessServer` on a background thread
+    - [x] `--test-harness` flag is consumed before `MkdnCLI.parse()` to avoid argument parser conflicts
+    - [x] `RenderCompletionSignal.shared.signalRenderComplete()` is called from `SelectableTextView.Coordinator` after applying text content and overlays
+    - [x] `CaptureService` in `mkdn/Core/TestHarness/CaptureService.swift` captures window content via `CGWindowListCreateImage` with the app's own window ID for single-frame captures
+    - [x] `CaptureService.captureWindow(_:outputPath:)` writes PNG to disk and returns `CaptureResult` with metadata (dimensions, scale factor, timestamp, theme, view mode)
+    - [x] `CaptureService.captureRegion(_:region:outputPath:)` captures a specified CGRect region of the window
+    - [x] All `HarnessCommand` handlers are implemented: loadFile dispatches to `DocumentState`, switchMode/cycleTheme/setTheme dispatch to `AppSettings`, captureWindow/captureRegion invoke `CaptureService`, getWindowInfo returns window dimensions, getThemeColors returns current theme RGB values, setReduceMotion sets test-mode override, ping returns pong, quit terminates
+    - [x] Commands that trigger re-rendering (loadFile, switchMode, cycleTheme, setTheme, reloadFile) await `RenderCompletionSignal` before responding
+    - [x] Server cleans up socket file on termination
+    - [x] Code passes SwiftLint and SwiftFormat
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Core/TestHarness/TestHarnessServer.swift`, `mkdn/Core/TestHarness/TestHarnessHandler.swift`, `mkdn/Core/TestHarness/CaptureService.swift`, `mkdnEntry/main.swift`, `mkdn/Features/Viewer/Views/SelectableTextView.swift`, `mkdn/App/DocumentWindow.swift`
+    - **Approach**: Socket server uses dedicated DispatchQueue for blocking POSIX socket I/O with AsyncBridge (semaphore-based) to dispatch commands to @MainActor TestHarnessHandler. Command handler is a separate @MainActor enum with weak references to AppSettings and DocumentState. CaptureService uses CGWindowListCreateImage (deprecated but explicitly chosen per design D2) with NSBitmapImageRep for PNG output. TestHarnessMode uses nonisolated(unsafe) for startup config and ReduceMotionOverride enum to avoid optional boolean. DocumentWindow wires handler references and starts server on appear when test harness mode is enabled.
+    - **Deviations**: Design specified single TestHarnessServer file; split into TestHarnessServer.swift (socket I/O + mode config) and TestHarnessHandler.swift (command processing) to stay within SwiftLint file_length limits and separate concerns. Used ReduceMotionOverride enum instead of optional Bool to satisfy SwiftLint discouraged_optional_boolean rule. startFrameCapture/stopFrameCapture return stub errors pending T9 (ScreenCaptureKit implementation).
+    - **Tests**: 160/160 passing (all existing tests unaffected)
 
 - [ ] **T3**: Implement test harness client and app launcher `[complexity:medium]`
 

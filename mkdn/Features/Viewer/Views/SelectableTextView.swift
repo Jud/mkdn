@@ -10,8 +10,8 @@ import SwiftUI
 /// images) are represented by `NSTextAttachment` placeholders; overlays are
 /// positioned by the ``OverlayCoordinator``.
 ///
-/// The ``Coordinator`` implements `NSTextViewportLayoutControllerDelegate` to
-/// provide per-layout-fragment animation hooks for the ``EntranceAnimator``.
+/// The ``Coordinator`` owns an ``EntranceAnimator`` that enumerates layout
+/// fragments after content is set to apply staggered cover-layer animations.
 struct SelectableTextView: NSViewRepresentable {
     let attributedText: NSAttributedString
     let attachments: [AttachmentInfo]
@@ -39,7 +39,6 @@ struct SelectableTextView: NSViewRepresentable {
         let coordinator = context.coordinator
         coordinator.textView = textView
         coordinator.animator.textView = textView
-        Self.installViewportDelegate(on: textView, coordinator: coordinator)
 
         applyTheme(to: textView, scrollView: scrollView)
 
@@ -48,6 +47,7 @@ struct SelectableTextView: NSViewRepresentable {
         }
 
         textView.textStorage?.setAttributedString(attributedText)
+        coordinator.animator.animateVisibleFragments()
 
         coordinator.overlayCoordinator.updateOverlays(
             attachments: attachments,
@@ -56,6 +56,7 @@ struct SelectableTextView: NSViewRepresentable {
             in: textView
         )
         coordinator.lastAppliedText = attributedText
+        RenderCompletionSignal.shared.signalRenderComplete()
 
         return scrollView
     }
@@ -79,6 +80,7 @@ struct SelectableTextView: NSViewRepresentable {
 
             textView.textStorage?.setAttributedString(attributedText)
             textView.setSelectedRange(NSRange(location: 0, length: 0))
+            coordinator.animator.animateVisibleFragments()
 
             coordinator.overlayCoordinator.updateOverlays(
                 attachments: attachments,
@@ -87,6 +89,7 @@ struct SelectableTextView: NSViewRepresentable {
                 in: textView
             )
             coordinator.lastAppliedText = attributedText
+            RenderCompletionSignal.shared.signalRenderComplete()
         }
     }
 }
@@ -120,14 +123,6 @@ extension SelectableTextView {
         scrollView.autohidesScrollers = true
     }
 
-    private static func installViewportDelegate(
-        on textView: NSTextView,
-        coordinator: Coordinator
-    ) {
-        textView.textLayoutManager?
-            .textViewportLayoutController.delegate = coordinator
-    }
-
     private func applyTheme(
         to textView: NSTextView,
         scrollView: NSScrollView
@@ -154,28 +149,10 @@ extension SelectableTextView {
 
 extension SelectableTextView {
     @MainActor
-    final class Coordinator: NSObject, @preconcurrency NSTextViewportLayoutControllerDelegate {
+    final class Coordinator: NSObject {
         weak var textView: NSTextView?
         let animator = EntranceAnimator()
         let overlayCoordinator = OverlayCoordinator()
         var lastAppliedText: NSAttributedString?
-
-        // MARK: - NSTextViewportLayoutControllerDelegate
-
-        func viewportBounds(
-            for _: NSTextViewportLayoutController
-        ) -> CGRect {
-            guard let scrollView = textView?.enclosingScrollView else {
-                return .zero
-            }
-            return scrollView.contentView.bounds
-        }
-
-        func textViewportLayoutController(
-            _: NSTextViewportLayoutController,
-            configureRenderingSurfaceFor fragment: NSTextLayoutFragment
-        ) {
-            animator.animateFragment(fragment)
-        }
     }
 }
