@@ -29,7 +29,9 @@ struct ThemeOutputFormat: OutputFormat, Sendable {
         }
 
         mutating func addWhitespace(_ whitespace: String) {
-            result.append(AttributedString(whitespace))
+            var attributed = AttributedString(whitespace)
+            attributed.foregroundColor = plainTextColor
+            result.append(attributed)
         }
 
         func build() -> AttributedString {

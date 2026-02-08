@@ -55,8 +55,8 @@ struct ThemeOutputFormatTests {
         #expect(runs[0].foregroundColor == green)
     }
 
-    @Test("addWhitespace preserves content without explicit foreground color")
-    func whitespacePreserved() {
+    @Test("addWhitespace applies plainTextColor as foreground color")
+    func whitespaceHasForegroundColor() {
         let format = ThemeOutputFormat(
             plainTextColor: red,
             tokenColorMap: [:]
@@ -68,7 +68,7 @@ struct ThemeOutputFormatTests {
         #expect(String(result.characters) == "  \n")
         let runs = Array(result.runs)
         #expect(runs.count == 1)
-        #expect(runs[0].foregroundColor == nil)
+        #expect(runs[0].foregroundColor == red)
     }
 
     @Test("build returns non-empty result after adding content")
