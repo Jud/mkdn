@@ -37,68 +37,11 @@ struct FileChangeOrbView: View {
     }
 
     private var orbVisual: some View {
-        ZStack {
-            outerHalo
-            midGlow
-            innerCore
-        }
-        .opacity(isPulsing ? 1.0 : 0.4)
-    }
-
-    private var outerHalo: some View {
-        Circle()
-            .fill(
-                RadialGradient(
-                    colors: [
-                        orbColor.opacity(isHaloExpanded ? 0.3 : 0.1),
-                        Color.clear,
-                    ],
-                    center: .center,
-                    startRadius: 2,
-                    endRadius: 20
-                )
-            )
-            .frame(width: 40, height: 40)
-            .scaleEffect(isHaloExpanded ? 1.1 : 0.85)
-    }
-
-    private var midGlow: some View {
-        Circle()
-            .fill(
-                RadialGradient(
-                    colors: [
-                        orbColor.opacity(0.8),
-                        orbColor.opacity(0.15),
-                    ],
-                    center: .center,
-                    startRadius: 1,
-                    endRadius: 10
-                )
-            )
-            .frame(width: 22, height: 22)
-            .shadow(
-                color: orbColor.opacity(isPulsing ? 0.6 : 0.2),
-                radius: isPulsing ? 10 : 4
-            )
-            .scaleEffect(isPulsing ? 1.0 : 0.85)
-    }
-
-    private var innerCore: some View {
-        Circle()
-            .fill(
-                RadialGradient(
-                    colors: [
-                        Color.white.opacity(0.9),
-                        orbColor,
-                        orbColor.opacity(0.3),
-                    ],
-                    center: UnitPoint(x: 0.4, y: 0.35),
-                    startRadius: 0,
-                    endRadius: 7
-                )
-            )
-            .frame(width: 12, height: 12)
-            .opacity(isPulsing ? 1.0 : 0.5)
+        OrbVisual(
+            color: orbColor,
+            isPulsing: isPulsing,
+            isHaloExpanded: isHaloExpanded
+        )
     }
 
     private var popoverContent: some View {
