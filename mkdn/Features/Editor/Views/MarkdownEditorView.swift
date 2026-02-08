@@ -25,6 +25,6 @@ struct MarkdownEditorView: View {
                         lineWidth: 1.5
                     )
             )
-            .animation(.easeInOut(duration: 0.2), value: isFocused)
+            .animation(AnimationConstants.quickShift, value: isFocused)
     }
 }

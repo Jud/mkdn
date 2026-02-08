@@ -38,6 +38,7 @@ struct MotionPreference {
         case fadeOut
         case crossfade
         case quickFade
+        case quickShift
     }
 
     /// Resolve a named primitive to its standard or Reduce Motion animation.
@@ -76,6 +77,7 @@ struct MotionPreference {
         case .fadeOut: AnimationConstants.fadeOut
         case .crossfade: AnimationConstants.crossfade
         case .quickFade: AnimationConstants.quickFade
+        case .quickShift: AnimationConstants.quickShift
         }
     }
 
@@ -86,7 +88,7 @@ struct MotionPreference {
         case .crossfade:
             AnimationConstants.reducedCrossfade
         case .springSettle, .gentleSpring, .quickSettle,
-             .fadeIn, .fadeOut, .quickFade:
+             .fadeIn, .fadeOut, .quickFade, .quickShift:
             AnimationConstants.reducedInstant
         }
     }

@@ -10,10 +10,7 @@ struct UnsavedIndicator: View {
                 .fill(.yellow)
                 .frame(width: 8, height: 8)
                 .opacity(isBreathing ? 1.0 : 0.4)
-                .animation(
-                    .easeInOut(duration: 2.5).repeatForever(autoreverses: true),
-                    value: isBreathing
-                )
+                .animation(AnimationConstants.breathe, value: isBreathing)
             Text("Unsaved")
                 .font(.caption)
                 .foregroundColor(.secondary)

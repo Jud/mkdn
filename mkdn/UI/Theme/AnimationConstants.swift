@@ -163,6 +163,24 @@ enum AnimationConstants {
     ///   transition.
     static let quickFade: Animation = .easeOut(duration: 0.2)
 
+    // MARK: - Primitive: Quick-Shift
+
+    // Symmetric fast transition. Ease-in-out curve (balanced appear/disappear).
+    // Derived from: crossfade, shortened for micro-transitions that need symmetry.
+
+    /// Quick symmetric transition for focus borders and state toggles.
+    ///
+    /// - Visual intent: A balanced, fast transition where appear and disappear
+    ///   are equally weighted. The easeInOut curve gives a symmetric feel
+    ///   appropriate for toggling states like focus borders.
+    /// - Design rationale: 0.2s matches ``quickFade`` in duration but uses
+    ///   easeInOut instead of easeOut, providing symmetry between on and off
+    ///   states. Focus borders appear and disappear with equal emphasis.
+    /// - Derivation: ``crossfade`` shortened to micro-transition speed. Where
+    ///   ``quickFade`` prioritizes the exit, quickShift treats both directions
+    ///   equally.
+    static let quickShift: Animation = .easeInOut(duration: 0.2)
+
     // MARK: - Orchestration: Stagger
 
     /// Per-block stagger delay for content load entrance animation.

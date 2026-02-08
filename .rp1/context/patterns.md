@@ -99,6 +99,7 @@ All animations use named primitives from `AnimationConstants`. Never use inline
 | `fadeIn` / `fadeOut` | Fade | Element appear/disappear |
 | `crossfade` | Fade | State transitions (theme change, loading->rendered) |
 | `quickFade` | Fade | Fast exits (popover dismiss, hover exit) |
+| `quickShift` | Fade | Symmetric fast transitions (focus borders, state toggles) |
 
 ### MotionPreference (Reduce Motion)
 

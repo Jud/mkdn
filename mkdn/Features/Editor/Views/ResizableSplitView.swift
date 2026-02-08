@@ -85,8 +85,8 @@ struct ResizableSplitView<Left: View, Right: View>: View {
                     NSCursor.pop()
                 }
             }
-            .animation(.easeInOut(duration: 0.15), value: isHovering)
-            .animation(.easeInOut(duration: 0.15), value: isDragging)
+            .animation(AnimationConstants.reducedCrossfade, value: isHovering)
+            .animation(AnimationConstants.reducedCrossfade, value: isDragging)
     }
 
     private var dividerFill: some ShapeStyle {
