@@ -2,7 +2,7 @@
 
 **Feature ID**: cross-element-selection
 **Status**: In Progress
-**Progress**: 8% (1 of 12 tasks)
+**Progress**: 17% (2 of 12 tasks)
 **Estimated Effort**: 5 days
 **Started**: 2026-02-08
 
@@ -61,9 +61,21 @@ Replace the preview pane's rendering layer from independent SwiftUI `Text` views
     - **Deviations**: None
     - **Tests**: No dedicated tests for T1 (scheduled in T7); build passes, all existing tests pass
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
 ### Conversion Layer
 
-- [ ] **T2**: Create MarkdownTextStorageBuilder to convert IndexedBlock array to NSAttributedString `[complexity:complex]`
+- [x] **T2**: Create MarkdownTextStorageBuilder to convert IndexedBlock array to NSAttributedString `[complexity:complex]`
 
     **Reference**: [design.md#32-markdowntextstoragebuilder](design.md#32-markdowntextstoragebuilder)
 
@@ -71,23 +83,30 @@ Replace the preview pane's rendering layer from independent SwiftUI `Text` views
 
     **Acceptance Criteria**:
 
-    - [ ] New file `mkdn/Core/Markdown/MarkdownTextStorageBuilder.swift` created
-    - [ ] `AttachmentInfo` struct defined with `blockIndex`, `block`, and `attachment` properties
-    - [ ] `TextStorageResult` struct defined with `attributedString` and `attachments` properties
-    - [ ] `MarkdownTextStorageBuilder.build(blocks:theme:)` iterates `[IndexedBlock]` and produces a single `NSAttributedString`
-    - [ ] Heading blocks use `PlatformTypeConverter` heading fonts with correct color and paragraph spacing
-    - [ ] Paragraph blocks use body font with foreground color and standard paragraph style
-    - [ ] Code blocks use monospaced font with code colors and background attribute; language label as separate run above code text
-    - [ ] Mermaid blocks produce `NSTextAttachment` placeholders with estimated height, recorded in `AttachmentInfo` array
-    - [ ] Blockquote blocks use indented paragraph style (`headIndent`, `firstLineHeadIndent`)
-    - [ ] Ordered and unordered list blocks use paragraph indent attributes with number/bullet prefix text runs
-    - [ ] Thematic break blocks produce `NSTextAttachment` for horizontal rule
-    - [ ] Table blocks render as selectable text with column alignment
-    - [ ] Image blocks produce `NSTextAttachment` placeholder recorded in `AttachmentInfo` array
-    - [ ] HTML blocks use monospaced font with code-style background
-    - [ ] Inline styles (bold, italic, code, links, strikethrough) from `MarkdownVisitor`'s `AttributedString` are preserved via `NSAttributedString(attributedString)` conversion
-    - [ ] Blocks separated by `\n` with paragraph spacing attributes (not multiple newlines)
-    - [ ] File passes SwiftLint strict mode and SwiftFormat
+    - [x] New file `mkdn/Core/Markdown/MarkdownTextStorageBuilder.swift` created
+    - [x] `AttachmentInfo` struct defined with `blockIndex`, `block`, and `attachment` properties
+    - [x] `TextStorageResult` struct defined with `attributedString` and `attachments` properties
+    - [x] `MarkdownTextStorageBuilder.build(blocks:theme:)` iterates `[IndexedBlock]` and produces a single `NSAttributedString`
+    - [x] Heading blocks use `PlatformTypeConverter` heading fonts with correct color and paragraph spacing
+    - [x] Paragraph blocks use body font with foreground color and standard paragraph style
+    - [x] Code blocks use monospaced font with code colors and background attribute; language label as separate run above code text
+    - [x] Mermaid blocks produce `NSTextAttachment` placeholders with estimated height, recorded in `AttachmentInfo` array
+    - [x] Blockquote blocks use indented paragraph style (`headIndent`, `firstLineHeadIndent`)
+    - [x] Ordered and unordered list blocks use paragraph indent attributes with number/bullet prefix text runs
+    - [x] Thematic break blocks produce `NSTextAttachment` for horizontal rule
+    - [x] Table blocks render as selectable text with column alignment
+    - [x] Image blocks produce `NSTextAttachment` placeholder recorded in `AttachmentInfo` array
+    - [x] HTML blocks use monospaced font with code-style background
+    - [x] Inline styles (bold, italic, code, links, strikethrough) from `MarkdownVisitor`'s `AttributedString` are preserved via `NSAttributedString(attributedString)` conversion
+    - [x] Blocks separated by `\n` with paragraph spacing attributes (not multiple newlines)
+    - [x] File passes SwiftLint strict mode and SwiftFormat
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Core/Markdown/MarkdownTextStorageBuilder.swift`, `mkdn/Core/Markdown/MarkdownTextStorageBuilder+Blocks.swift`, `mkdn/Core/Markdown/MarkdownTextStorageBuilder+Complex.swift`
+    - **Approach**: Split across three files to stay within SwiftLint file/type body length limits. Main file contains core API (`build`, `convertInlineContent`, `highlightSwiftCode`), paragraph style helpers, and `plainText` fallback. +Blocks extension handles simple block types (heading, paragraph, code, attachment, HTML). +Complex extension handles recursive/composite blocks (blockquote, lists, tables) with `ResolvedColors` and `BlockBuildContext` structs to reduce parameter counts below lint thresholds. Code blocks use `paragraphSpacing: 0` for tight internal lines with `setLastParagraphSpacing` for block separation. Lists use tab stops with `firstLineHeadIndent`/`headIndent` for bullet alignment. Tables use `NSTextTab` for column alignment.
+    - **Deviations**: Three files instead of one to comply with SwiftLint file_length (800) and type_body_length (500) limits. Added `ResolvedColors` and `BlockBuildContext` helper structs (not in design) to satisfy function_parameter_count limit (6 warning, 8 error).
+    - **Tests**: No dedicated tests for T2 (scheduled in T7); build passes, all existing tests pass
 
 ### Rendering Core
 
