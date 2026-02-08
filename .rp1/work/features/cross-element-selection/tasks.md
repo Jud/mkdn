@@ -2,7 +2,7 @@
 
 **Feature ID**: cross-element-selection
 **Status**: In Progress
-**Progress**: 17% (2 of 12 tasks)
+**Progress**: 25% (3 of 12 tasks)
 **Estimated Effort**: 5 days
 **Started**: 2026-02-08
 
@@ -108,9 +108,21 @@ Replace the preview pane's rendering layer from independent SwiftUI `Text` views
     - **Deviations**: Three files instead of one to comply with SwiftLint file_length (800) and type_body_length (500) limits. Added `ResolvedColors` and `BlockBuildContext` helper structs (not in design) to satisfy function_parameter_count limit (6 warning, 8 error).
     - **Tests**: No dedicated tests for T2 (scheduled in T7); build passes, all existing tests pass
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
 ### Rendering Core
 
-- [ ] **T3**: Create SelectableTextView as NSViewRepresentable wrapping NSTextView with TextKit 2 `[complexity:medium]`
+- [x] **T3**: Create SelectableTextView as NSViewRepresentable wrapping NSTextView with TextKit 2 `[complexity:medium]`
 
     **Reference**: [design.md#33-selectabletextview](design.md#33-selectabletextview)
 
@@ -118,17 +130,24 @@ Replace the preview pane's rendering layer from independent SwiftUI `Text` views
 
     **Acceptance Criteria**:
 
-    - [ ] New file `mkdn/Features/Viewer/Views/SelectableTextView.swift` created
-    - [ ] `SelectableTextView` conforms to `NSViewRepresentable`, accepts `attributedText`, `attachments`, `theme`, `isFullReload`, and `reduceMotion`
-    - [ ] `makeNSView` returns `NSScrollView` containing `NSTextView` configured with TextKit 2 (`NSTextLayoutManager`)
-    - [ ] NSTextView is non-editable (`isEditable = false`), selectable (`isSelectable = true`), with `drawsBackground = true`
-    - [ ] Background color set from theme, `textContainerInset` set to `NSSize(width: 24, height: 24)`
-    - [ ] `selectedTextAttributes` themed with accent color at ~30% opacity for background and theme foreground for text
-    - [ ] `usesFontPanel`, `usesRuler`, `allowsUndo`, `isAutomaticLinkDetectionEnabled` all disabled
-    - [ ] `Coordinator` class implements `NSTextViewportLayoutControllerDelegate` for entrance animation hooks
-    - [ ] `updateNSView` applies new attributed text to the text storage, clears selection, and triggers animation or not based on `isFullReload`
-    - [ ] Scroll view background matches theme background color
-    - [ ] File passes SwiftLint strict mode and SwiftFormat
+    - [x] New file `mkdn/Features/Viewer/Views/SelectableTextView.swift` created
+    - [x] `SelectableTextView` conforms to `NSViewRepresentable`, accepts `attributedText`, `attachments`, `theme`, `isFullReload`, and `reduceMotion`
+    - [x] `makeNSView` returns `NSScrollView` containing `NSTextView` configured with TextKit 2 (`NSTextLayoutManager`)
+    - [x] NSTextView is non-editable (`isEditable = false`), selectable (`isSelectable = true`), with `drawsBackground = true`
+    - [x] Background color set from theme, `textContainerInset` set to `NSSize(width: 24, height: 24)`
+    - [x] `selectedTextAttributes` themed with accent color at ~30% opacity for background and theme foreground for text
+    - [x] `usesFontPanel`, `usesRuler`, `allowsUndo`, `isAutomaticLinkDetectionEnabled` all disabled
+    - [x] `Coordinator` class implements `NSTextViewportLayoutControllerDelegate` for entrance animation hooks
+    - [x] `updateNSView` applies new attributed text to the text storage, clears selection, and triggers animation or not based on `isFullReload`
+    - [x] Scroll view background matches theme background color
+    - [x] File passes SwiftLint strict mode and SwiftFormat
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Features/Viewer/Views/SelectableTextView.swift`
+    - **Approach**: NSViewRepresentable struct with three MARK-delimited extensions (NSViewRepresentable, View Configuration, Coordinator). Uses `NSTextView.scrollableTextView()` for TextKit 2 setup on macOS 14+. Coordinator is `@MainActor` NSObject with `@preconcurrency NSTextViewportLayoutControllerDelegate` conformance. Theme applied via `applyTheme` helper setting background, selection highlight (accent at 30% opacity), and insertion point colors. Viewport layout controller delegate installed for T5 entrance animation hooks. Fragment tracking via `ObjectIdentifier` set prevents re-animation.
+    - **Deviations**: Used `@preconcurrency` protocol conformance instead of plain conformance due to SDK delegate methods being nonisolated (documented in field-notes.md).
+    - **Tests**: No dedicated tests for T3 (scheduled in T7); build passes, all existing tests pass
 
 ### Rendering Extensions
 
