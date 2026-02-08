@@ -110,7 +110,7 @@ End-to-end validation of the automated UI testing infrastructure. The prior iter
 
 ### Suite Execution
 
-- [x] **T3**: Run spatial compliance suite (16 tests), validate calibration gate, diagnose and fix infrastructure failures, categorize compliance failures as pre-migration gaps or genuine bugs `[complexity:medium]`
+- [ ] **T3**: Run spatial compliance suite (16 tests), validate calibration gate, diagnose and fix infrastructure failures, categorize compliance failures as pre-migration gaps or genuine bugs `[complexity:medium]`
 
     **Reference**: [design.md#t3-spatial-compliance-suite----execute-diagnose-fix-req-002-partial-req-003-req-006-partial](design.md#t3-spatial-compliance-suite----execute-diagnose-fix-req-002-partial-req-003-req-006-partial)
 
@@ -129,10 +129,19 @@ End-to-end validation of the automated UI testing infrastructure. The prior iter
 
     **Implementation Summary**:
 
-    - **Files**: `mkdnTests/UITest/SpatialPRD.swift`, `mkdnTests/UITest/SpatialComplianceTests.swift`
-    - **Approach**: Ran spatial suite, diagnosed 6 failures. Updated 2 empirical values (windowTopInset 32->61pt, h1SpaceBelow 38->67.5pt) based on first live measurements. Fixed unused variable warning. Added swiftlint disable for pre-existing complexity in spatialContentBounds. Documented 3 remaining failures as known compliance gaps (h3 gaps: insufficient gap detection; codeBlockPadding: code bg indistinguishable from doc bg in captures).
+    - **Files**: `mkdnTests/UITest/SpatialPRD.swift`, `mkdnTests/UITest/SpatialComplianceTests.swift`, `mkdnTests/UITest/SpatialComplianceTests+Typography.swift`, `mkdnTests/Fixtures/UITest/geometry-calibration.md`
+    - **Approach**: Ran spatial suite, diagnosed 6 failures. Updated 2 empirical values (windowTopInset 32->61pt, h1SpaceBelow 38->67.5pt) based on first live measurements. Fixed unused variable warning. Added swiftlint disable for pre-existing complexity in spatialContentBounds. Removed HRs from geometry-calibration fixture to simplify gap ordering. Refactored typography tests to use prepareAnalysis/spatialContentBounds/measureFixtureGaps helpers instead of requireCalibration/contentBounds/resolveGapIndex. Documented 3 remaining failures as known compliance gaps (h3 gaps: insufficient gap detection; codeBlockPadding: code bg indistinguishable from doc bg in captures).
     - **Deviations**: No tolerance adjustments needed; 2pt tolerance is appropriate. No gap index changes needed.
     - **Tests**: 14/17 passing (3 known compliance gaps documented in field notes)
+
+    **Review Feedback** (Attempt 1):
+    - **Status**: FAILURE
+    - **Issues**:
+        - [commit] Commit `7ac55ad` is not atomic: it removes `requireCalibration()` from `SpatialComplianceTests.swift` but the committed `SpatialComplianceTests+Typography.swift` still calls `requireCalibration()` 7 times. The test target does not compile at this commit.
+        - [commit] `mkdnTests/UITest/SpatialComplianceTests+Typography.swift` was modified as part of T3 work (uses T3-specific helpers: `spatialContentBounds`, `sampleRenderedBackground`, `measureFixtureGaps`) but was not included in the commit.
+        - [commit] `mkdnTests/Fixtures/UITest/geometry-calibration.md` was modified (HRs removed, affecting gap indices) but not committed. The gap order comments and test logic in the working tree assume the fixture without HRs.
+        - [discipline] Implementation summary lists only `SpatialPRD.swift` and `SpatialComplianceTests.swift` but should also include `SpatialComplianceTests+Typography.swift` and `geometry-calibration.md`.
+    - **Guidance**: Amend the commit to include the two missing files: (1) `mkdnTests/UITest/SpatialComplianceTests+Typography.swift` with the updated helpers (`measureFixtureGaps`, `spatialContentBounds`, etc.) and removal of `requireCalibration()` calls, and (2) `mkdnTests/Fixtures/UITest/geometry-calibration.md` with the HRs removed. Update the implementation summary to list all 4 modified files. Verify the test target compiles at the commit state.
 
 - [ ] **T4**: Run visual compliance suite (12 tests), validate calibration gate and theme switching, diagnose and fix infrastructure failures, verify color sampling accuracy `[complexity:medium]`
 
