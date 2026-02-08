@@ -2,7 +2,7 @@
 
 **Feature ID**: cross-element-selection
 **Status**: In Progress
-**Progress**: 42% (5 of 12 tasks)
+**Progress**: 50% (6 of 12 tasks)
 **Estimated Effort**: 5 days
 **Started**: 2026-02-08
 
@@ -235,9 +235,21 @@ Replace the preview pane's rendering layer from independent SwiftUI `Text` views
     - **Deviations**: Per-fragment opacity animation uses cover-layer fade (1 to 0) rather than direct fragment layer opacity (0 to 1) because `NSTextLayoutFragment` does not expose a `CALayer` property. Upward drift is applied as a whole-view transform rather than per-fragment transform for the same reason. Method signature is `animateFragment(_:)` without `at index:` parameter; index is tracked internally by the animator. These deviations are documented in field-notes.md.
     - **Tests**: No dedicated tests for T5 (scheduled in T7); build passes, all existing tests pass
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
 ### Integration
 
-- [ ] **T6**: Refactor MarkdownPreviewView to use SelectableTextView rendering pipeline `[complexity:medium]`
+- [x] **T6**: Refactor MarkdownPreviewView to use SelectableTextView rendering pipeline `[complexity:medium]`
 
     **Reference**: [design.md#36-updated-markdownpreviewview](design.md#36-updated-markdownpreviewview)
 
@@ -245,17 +257,24 @@ Replace the preview pane's rendering layer from independent SwiftUI `Text` views
 
     **Acceptance Criteria**:
 
-    - [ ] `mkdn/Features/Viewer/Views/MarkdownPreviewView.swift` modified to replace `ScrollView { VStack { ForEach ... } }` with `SelectableTextView`
-    - [ ] `@State` property `blockAppeared` removed (animation handled by `EntranceAnimator`)
-    - [ ] `MarkdownTextStorageBuilder.build(blocks:theme:)` called to produce `NSAttributedString` and `AttachmentInfo` from `renderedBlocks`
-    - [ ] `.task(id:)` debounce pattern preserved exactly as current implementation
-    - [ ] `.onChange(of: theme)` re-render pattern preserved
-    - [ ] `isFullReload` flag correctly wired: `true` for document load/reload, `false` for incremental edits in side-by-side mode
-    - [ ] Selection clears on file load, reload, and mode switch (handled by `updateNSView` content change)
-    - [ ] `MarkdownBlockView` dispatch code retained but no longer called from preview mode
-    - [ ] Mermaid diagrams render correctly at placeholder positions via `OverlayCoordinator`
-    - [ ] Theme switching triggers full re-render with updated colors, fonts, selection highlight, and background
-    - [ ] File passes SwiftLint strict mode and SwiftFormat
+    - [x] `mkdn/Features/Viewer/Views/MarkdownPreviewView.swift` modified to replace `ScrollView { VStack { ForEach ... } }` with `SelectableTextView`
+    - [x] `@State` property `blockAppeared` removed (animation handled by `EntranceAnimator`)
+    - [x] `MarkdownTextStorageBuilder.build(blocks:theme:)` called to produce `NSAttributedString` and `AttachmentInfo` from `renderedBlocks`
+    - [x] `.task(id:)` debounce pattern preserved exactly as current implementation
+    - [x] `.onChange(of: theme)` re-render pattern preserved
+    - [x] `isFullReload` flag correctly wired: `true` for document load/reload, `false` for incremental edits in side-by-side mode
+    - [x] Selection clears on file load, reload, and mode switch (handled by `updateNSView` content change)
+    - [x] `MarkdownBlockView` dispatch code retained but no longer called from preview mode
+    - [x] Mermaid diagrams render correctly at placeholder positions via `OverlayCoordinator`
+    - [x] Theme switching triggers full re-render with updated colors, fonts, selection highlight, and background
+    - [x] File passes SwiftLint strict mode and SwiftFormat
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Features/Viewer/Views/MarkdownPreviewView.swift`, `mkdn/Features/Viewer/Views/SelectableTextView.swift`
+    - **Approach**: Replaced `ScrollView { VStack { ForEach ... MarkdownBlockView } }` with `SelectableTextView`, wiring `MarkdownTextStorageBuilder.build(blocks:theme:)` to produce `NSAttributedString` and `AttachmentInfo`. Replaced `blockAppeared` dictionary with `knownBlockIDs` set for reload detection (same heuristic: animate when no existing block IDs match new content). Added `textStorageResult` and `isFullReload` state properties. `SelectableTextView` extended with `appSettings`/`documentState` parameters and `OverlayCoordinator` integrated into the Coordinator for Mermaid/image overlay positioning. Content-change detection via `NSAttributedString` reference identity (`!==`) prevents spurious re-renders from restarting animations or redundantly setting text storage. Theme-only updates (no content change) still apply via `applyTheme` call.
+    - **Deviations**: `SelectableTextView` modified to accept `appSettings`/`documentState` parameters and integrate `OverlayCoordinator` (design placed overlay wiring in T6 scope but did not specify which file hosts the coordinator instance). Added `lastAppliedText` tracking to Coordinator for content-change detection, preventing animation restarts on spurious SwiftUI re-renders.
+    - **Tests**: All existing tests pass (114+); no dedicated tests for T6 (scheduled in T7)
 
 ### Tests
 

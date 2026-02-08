@@ -18,6 +18,8 @@ struct SelectableTextView: NSViewRepresentable {
     let theme: AppTheme
     let isFullReload: Bool
     let reduceMotion: Bool
+    let appSettings: AppSettings
+    let documentState: DocumentState
 
     // MARK: - NSViewRepresentable
 
@@ -47,6 +49,14 @@ struct SelectableTextView: NSViewRepresentable {
 
         textView.textStorage?.setAttributedString(attributedText)
 
+        coordinator.overlayCoordinator.updateOverlays(
+            attachments: attachments,
+            appSettings: appSettings,
+            documentState: documentState,
+            in: textView
+        )
+        coordinator.lastAppliedText = attributedText
+
         return scrollView
     }
 
@@ -59,14 +69,25 @@ struct SelectableTextView: NSViewRepresentable {
 
         applyTheme(to: textView, scrollView: scrollView)
 
-        if isFullReload {
-            coordinator.animator.beginEntrance(reduceMotion: reduceMotion)
-        } else {
-            coordinator.animator.reset()
-        }
+        let isNewContent = coordinator.lastAppliedText !== attributedText
+        if isNewContent {
+            if isFullReload {
+                coordinator.animator.beginEntrance(reduceMotion: reduceMotion)
+            } else {
+                coordinator.animator.reset()
+            }
 
-        textView.textStorage?.setAttributedString(attributedText)
-        textView.setSelectedRange(NSRange(location: 0, length: 0))
+            textView.textStorage?.setAttributedString(attributedText)
+            textView.setSelectedRange(NSRange(location: 0, length: 0))
+
+            coordinator.overlayCoordinator.updateOverlays(
+                attachments: attachments,
+                appSettings: appSettings,
+                documentState: documentState,
+                in: textView
+            )
+            coordinator.lastAppliedText = attributedText
+        }
     }
 }
 
@@ -136,6 +157,8 @@ extension SelectableTextView {
     final class Coordinator: NSObject, @preconcurrency NSTextViewportLayoutControllerDelegate {
         weak var textView: NSTextView?
         let animator = EntranceAnimator()
+        let overlayCoordinator = OverlayCoordinator()
+        var lastAppliedText: NSAttributedString?
 
         // MARK: - NSTextViewportLayoutControllerDelegate
 
