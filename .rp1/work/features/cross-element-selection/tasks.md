@@ -2,7 +2,7 @@
 
 **Feature ID**: cross-element-selection
 **Status**: In Progress
-**Progress**: 25% (3 of 12 tasks)
+**Progress**: 33% (4 of 12 tasks)
 **Estimated Effort**: 5 days
 **Started**: 2026-02-08
 
@@ -156,9 +156,21 @@ Replace the preview pane's rendering layer from independent SwiftUI `Text` views
         - [comments] Lines 169-171 contain a placeholder comment ("Currently fragments appear with no animation") describing incomplete implementation state. This is a placeholder TODO without a ticket reference.
     - **Resolution** (Attempt 2): Removed all task ID references from docstrings, replacing with component-name-only references. Removed placeholder comment block from `configureRenderingSurfaceFor` delegate method (method name is self-documenting).
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
 ### Rendering Extensions
 
-- [ ] **T4**: Create OverlayCoordinator for non-text element positioning `[complexity:medium]`
+- [x] **T4**: Create OverlayCoordinator for non-text element positioning `[complexity:medium]`
 
     **Reference**: [design.md#34-overlaycoordinator](design.md#34-overlaycoordinator)
 
@@ -166,17 +178,24 @@ Replace the preview pane's rendering layer from independent SwiftUI `Text` views
 
     **Acceptance Criteria**:
 
-    - [ ] New file `mkdn/Features/Viewer/Views/OverlayCoordinator.swift` created
-    - [ ] `OverlayCoordinator` is `@MainActor`, holds weak reference to `NSTextView` and tracks overlay views by block index
-    - [ ] `updateOverlays(attachments:theme:in:)` creates, updates, or removes `NSHostingView` overlays for Mermaid and image blocks
-    - [ ] Positioning uses `NSTextLayoutManager.textLayoutFragment(for:)` to find attachment frame in text view coordinates
-    - [ ] Overlay width constrained to text container width minus insets
-    - [ ] Registers for `NSTextView.didChangeNotification` and `NSScrollView.didLiveScrollNotification` to reposition overlays on scroll/layout changes
-    - [ ] `repositionOverlays()` recalculates all overlay positions from current layout fragment geometry
-    - [ ] `removeAllOverlays()` cleans up all hosted views
-    - [ ] Mermaid `NSHostingView<MermaidBlockView>` overlays receive click events for click-to-focus interaction
-    - [ ] Dynamic height updates supported when Mermaid diagram finishes rendering
-    - [ ] File passes SwiftLint strict mode and SwiftFormat
+    - [x] New file `mkdn/Features/Viewer/Views/OverlayCoordinator.swift` created
+    - [x] `OverlayCoordinator` is `@MainActor`, holds weak reference to `NSTextView` and tracks overlay views by block index
+    - [x] `updateOverlays(attachments:theme:in:)` creates, updates, or removes `NSHostingView` overlays for Mermaid and image blocks
+    - [x] Positioning uses `NSTextLayoutManager.textLayoutFragment(for:)` to find attachment frame in text view coordinates
+    - [x] Overlay width constrained to text container width minus insets
+    - [x] Registers for `NSTextView.didChangeNotification` and `NSScrollView.didLiveScrollNotification` to reposition overlays on scroll/layout changes
+    - [x] `repositionOverlays()` recalculates all overlay positions from current layout fragment geometry
+    - [x] `removeAllOverlays()` cleans up all hosted views
+    - [x] Mermaid `NSHostingView<MermaidBlockView>` overlays receive click events for click-to-focus interaction
+    - [x] Dynamic height updates supported when Mermaid diagram finishes rendering
+    - [x] File passes SwiftLint strict mode and SwiftFormat
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Features/Viewer/Views/OverlayCoordinator.swift`
+    - **Approach**: `@MainActor` class with `OverlayEntry` struct tracking view, attachment reference, and block per index. `LayoutContext` struct groups positioning dependencies to keep function parameter counts within lint limits. Overlay reuse via `blocksMatch` comparison avoids recreating expensive WKWebView instances when only theme or layout changes. `NSHostingView` wraps `MermaidBlockView`/`ImageBlockView` with environment injection for `AppSettings` and `DocumentState`. Positioning uses TextKit 2 content manager to convert attachment character ranges to document locations, then reads layout fragment frames offset by `textContainerOrigin`. Frame change notifications on the text view trigger repositioning for window resize reflow. `updateAttachmentHeight` invalidates text storage attributes to trigger layout recalculation for dynamic Mermaid diagram sizing.
+    - **Deviations**: API signature uses `appSettings`/`documentState` parameters instead of `theme` alone (design specifies `theme: AppTheme` but hosted SwiftUI views require the full `@Observable` objects for environment injection). Uses `NSView.frameDidChangeNotification` instead of separate `didChangeNotification`/`didLiveScrollNotification` since overlays are subviews of the text view and scroll naturally with content.
+    - **Tests**: No dedicated tests for T4 (scheduled in T7); build passes, all existing tests pass
 
 - [ ] **T5**: Create EntranceAnimator for per-layout-fragment staggered animation `[complexity:medium]`
 
