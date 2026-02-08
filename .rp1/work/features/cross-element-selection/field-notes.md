@@ -14,4 +14,20 @@ The `NSTextViewportLayoutControllerDelegate` protocol methods (`viewportBounds(f
 
 ### Viewport Layout Controller Delegate Setup
 
-Setting a custom `NSTextViewportLayoutControllerDelegate` on the text view's layout manager does not interfere with NSTextView's own rendering. The delegate provides an extension point for customizing layout fragment rendering surfaces, used here as the hook for entrance animations (T5).
+Setting a custom `NSTextViewportLayoutControllerDelegate` on the text view's layout manager does not interfere with NSTextView's own rendering. The delegate provides an extension point for customizing layout fragment rendering surfaces, used here as the hook for entrance animations.
+
+## T5: EntranceAnimator
+
+### NSTextLayoutFragment does not expose a CALayer
+
+The design assumed per-fragment `CALayer` access for direct opacity and transform animation. In practice, `NSTextLayoutFragment` does not expose a `layer` property. NSTextView renders text through its backing store (via `drawRect:`), not through individual fragment sublayers.
+
+**Solution**: Cover-layer approach. For each fragment, a `CALayer` filled with the text view's background color is added as a sublayer at the fragment's frame. This cover layer starts opaque (hiding the text) and fades out with the stagger delay, revealing the text beneath. The visual effect is equivalent to the text fading in from opacity 0 to 1. For the upward drift, a single `CATransform3D` translation animation is applied to the text view's layer, giving all content a synchronized 8pt upward drift during the cascade. The combined visual closely matches the per-fragment SwiftUI entrance animation.
+
+### beginEntrance must precede setAttributedString
+
+Setting `NSTextView.textStorage?.setAttributedString()` may trigger an immediate layout pass, which calls `configureRenderingSurfaceFor` for visible fragments. If `beginEntrance()` has not been called yet, the animator's `isAnimating` flag is false and fragments miss their entrance animation. The fix is to call `beginEntrance()` before `setAttributedString()` in both `makeNSView` and `updateNSView`.
+
+### Cover layer cleanup
+
+Cover layers are temporary (they exist only during the entrance animation). A `Task.sleep`-based cleanup removes them after `staggerCap + fadeInDuration + 0.1s`. The cleanup also sets `isAnimating = false` so that fragments entering the viewport later (from scrolling) appear immediately without animation. The cleanup task is cancelled and re-created if a new entrance begins before the previous one completes.

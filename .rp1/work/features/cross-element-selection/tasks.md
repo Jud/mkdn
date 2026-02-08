@@ -2,7 +2,7 @@
 
 **Feature ID**: cross-element-selection
 **Status**: In Progress
-**Progress**: 33% (4 of 12 tasks)
+**Progress**: 42% (5 of 12 tasks)
 **Estimated Effort**: 5 days
 **Started**: 2026-02-08
 
@@ -197,7 +197,19 @@ Replace the preview pane's rendering layer from independent SwiftUI `Text` views
     - **Deviations**: API signature uses `appSettings`/`documentState` parameters instead of `theme` alone (design specifies `theme: AppTheme` but hosted SwiftUI views require the full `@Observable` objects for environment injection). Uses `NSView.frameDidChangeNotification` instead of separate `didChangeNotification`/`didLiveScrollNotification` since overlays are subviews of the text view and scroll naturally with content.
     - **Tests**: No dedicated tests for T4 (scheduled in T7); build passes, all existing tests pass
 
-- [ ] **T5**: Create EntranceAnimator for per-layout-fragment staggered animation `[complexity:medium]`
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
+- [x] **T5**: Create EntranceAnimator for per-layout-fragment staggered animation `[complexity:medium]`
 
     **Reference**: [design.md#35-entranceanimator](design.md#35-entranceanimator)
 
@@ -205,16 +217,23 @@ Replace the preview pane's rendering layer from independent SwiftUI `Text` views
 
     **Acceptance Criteria**:
 
-    - [ ] New file `mkdn/Features/Viewer/Views/EntranceAnimator.swift` created
-    - [ ] `EntranceAnimator` is `@MainActor` with `isAnimating` flag and `animatedFragments` tracking set
-    - [ ] `beginEntrance(reduceMotion:)` sets animation state, respecting Reduce Motion preference
-    - [ ] `animateFragment(_:at:)` applies `CABasicAnimation` for opacity (0 to 1, 0.5s, ease-out) and transform (8pt upward drift to identity)
-    - [ ] Stagger delay calculated as `min(index * 0.03, 0.5)` matching `AnimationConstants.staggerDelay` and `staggerCap`
-    - [ ] Each fragment animated only once (tracked via `ObjectIdentifier` in `animatedFragments` set)
-    - [ ] When `reduceMotion` is true, opacity set to 1 immediately with no animation
-    - [ ] `reset()` clears `animatedFragments` set and resets `isAnimating`
-    - [ ] `isAnimating` set to `true` only for full document loads/reloads, `false` for incremental edits
-    - [ ] File passes SwiftLint strict mode and SwiftFormat
+    - [x] New file `mkdn/Features/Viewer/Views/EntranceAnimator.swift` created
+    - [x] `EntranceAnimator` is `@MainActor` with `isAnimating` flag and `animatedFragments` tracking set
+    - [x] `beginEntrance(reduceMotion:)` sets animation state, respecting Reduce Motion preference
+    - [x] `animateFragment(_:at:)` applies `CABasicAnimation` for opacity (0 to 1, 0.5s, ease-out) and transform (8pt upward drift to identity)
+    - [x] Stagger delay calculated as `min(index * 0.03, 0.5)` matching `AnimationConstants.staggerDelay` and `staggerCap`
+    - [x] Each fragment animated only once (tracked via `ObjectIdentifier` in `animatedFragments` set)
+    - [x] When `reduceMotion` is true, opacity set to 1 immediately with no animation
+    - [x] `reset()` clears `animatedFragments` set and resets `isAnimating`
+    - [x] `isAnimating` set to `true` only for full document loads/reloads, `false` for incremental edits
+    - [x] File passes SwiftLint strict mode and SwiftFormat
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Features/Viewer/Views/EntranceAnimator.swift`, `mkdn/Features/Viewer/Views/SelectableTextView.swift`
+    - **Approach**: `@MainActor` class with MARK-delimited sections for lifecycle, fragment animation, cover layers, view drift, and cleanup. Per-fragment staggered fade uses background-colored cover CALayers that start opaque and fade out with stagger delay, revealing the text beneath. Upward drift uses a single CATransform3D translation animation on the text view's layer (8pt over staggerCap + fadeInDuration). `SelectableTextView.Coordinator` refactored to own an `EntranceAnimator` instance, delegating all animation state and logic. `wantsLayer = true` added to text view configuration. `beginEntrance` call reordered before `setAttributedString` to ensure animator is ready for layout-triggered delegate callbacks. Cleanup via cancellable `Task.sleep` removes cover layers and disables animation after the cascade completes.
+    - **Deviations**: Per-fragment opacity animation uses cover-layer fade (1 to 0) rather than direct fragment layer opacity (0 to 1) because `NSTextLayoutFragment` does not expose a `CALayer` property. Upward drift is applied as a whole-view transform rather than per-fragment transform for the same reason. Method signature is `animateFragment(_:)` without `at index:` parameter; index is tracked internally by the animator. These deviations are documented in field-notes.md.
+    - **Tests**: No dedicated tests for T5 (scheduled in T7); build passes, all existing tests pass
 
 ### Integration
 

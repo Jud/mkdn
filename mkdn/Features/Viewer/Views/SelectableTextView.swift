@@ -36,15 +36,16 @@ struct SelectableTextView: NSViewRepresentable {
 
         let coordinator = context.coordinator
         coordinator.textView = textView
+        coordinator.animator.textView = textView
         Self.installViewportDelegate(on: textView, coordinator: coordinator)
 
         applyTheme(to: textView, scrollView: scrollView)
-        textView.textStorage?.setAttributedString(attributedText)
 
-        coordinator.reduceMotion = reduceMotion
         if isFullReload {
-            coordinator.beginEntrance()
+            coordinator.animator.beginEntrance(reduceMotion: reduceMotion)
         }
+
+        textView.textStorage?.setAttributedString(attributedText)
 
         return scrollView
     }
@@ -55,15 +56,17 @@ struct SelectableTextView: NSViewRepresentable {
         }
 
         let coordinator = context.coordinator
-        coordinator.reduceMotion = reduceMotion
 
         applyTheme(to: textView, scrollView: scrollView)
-        textView.textStorage?.setAttributedString(attributedText)
-        textView.setSelectedRange(NSRange(location: 0, length: 0))
 
         if isFullReload {
-            coordinator.beginEntrance()
+            coordinator.animator.beginEntrance(reduceMotion: reduceMotion)
+        } else {
+            coordinator.animator.reset()
         }
+
+        textView.textStorage?.setAttributedString(attributedText)
+        textView.setSelectedRange(NSRange(location: 0, length: 0))
     }
 }
 
@@ -71,6 +74,7 @@ struct SelectableTextView: NSViewRepresentable {
 
 extension SelectableTextView {
     private static func configureTextView(_ textView: NSTextView) {
+        textView.wantsLayer = true
         textView.isEditable = false
         textView.isSelectable = true
         textView.drawsBackground = true
@@ -131,21 +135,7 @@ extension SelectableTextView {
     @MainActor
     final class Coordinator: NSObject, @preconcurrency NSTextViewportLayoutControllerDelegate {
         weak var textView: NSTextView?
-        var isAnimating = false
-        var reduceMotion = false
-        private var animatedFragments: Set<ObjectIdentifier> = []
-
-        /// Prepares the coordinator for a full document entrance animation.
-        func beginEntrance() {
-            animatedFragments.removeAll()
-            isAnimating = !reduceMotion
-        }
-
-        /// Resets animation state, clearing all fragment tracking.
-        func reset() {
-            animatedFragments.removeAll()
-            isAnimating = false
-        }
+        let animator = EntranceAnimator()
 
         // MARK: - NSTextViewportLayoutControllerDelegate
 
@@ -162,9 +152,7 @@ extension SelectableTextView {
             _: NSTextViewportLayoutController,
             configureRenderingSurfaceFor fragment: NSTextLayoutFragment
         ) {
-            let fragmentID = ObjectIdentifier(fragment)
-            guard !animatedFragments.contains(fragmentID) else { return }
-            animatedFragments.insert(fragmentID)
+            animator.animateFragment(fragment)
         }
     }
 }
