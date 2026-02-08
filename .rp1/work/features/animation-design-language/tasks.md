@@ -2,7 +2,7 @@
 
 **Feature ID**: animation-design-language
 **Status**: In Progress
-**Progress**: 69% (11 of 16 tasks)
+**Progress**: 75% (12 of 16 tasks)
 **Estimated Effort**: 5 days
 **Started**: 2026-02-07
 
@@ -275,6 +275,18 @@ Establish a unified animation design language for mkdn by expanding `AnimationCo
     - [x] System `.popover()` modifier is preserved (not replaced with custom overlay) -- animation is internal to content
     - [x] With Reduce Motion, popover content uses `reducedCrossfade` instead of spring-settle (AC-011a)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
 - [x] **T9**: Verify mode transition overlay and view mode transition consistency with primitives `[complexity:simple]`
 
     **Implementation Summary**:
@@ -296,6 +308,18 @@ Establish a unified animation design language for mkdn by expanding `AnimationCo
     - [x] Reduce Motion integration: overlay uses `reducedCrossfade` for entrance/exit (AC-011a)
     - [x] Content does not visibly re-layout or jump during view mode transition (AC-005b)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
 - [x] **T10**: Implement theme crossfade isolation via explicit withAnimation scoping `[complexity:simple]`
 
     **Implementation Summary**:
@@ -316,6 +340,18 @@ Establish a unified animation design language for mkdn by expanding `AnimationCo
     - [x] Crossfade duration (0.35s) masks any WKWebView theme update latency (AC-006c)
     - [x] With Reduce Motion, theme crossfade uses `reducedCrossfade` (0.15s) -- shortened but not eliminated (AC-011d)
     - [x] No broad `.animation()` modifiers added to root view hierarchy
+
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
 
 ### Dependent Features
 
@@ -355,7 +391,14 @@ Establish a unified animation design language for mkdn by expanding `AnimationCo
     | Commit | ✅ PASS |
     | Comments | ✅ PASS |
 
-- [ ] **T11**: Write unit tests for AnimationConstants values and MotionPreference resolution `[complexity:simple]`
+- [x] **T11**: Write unit tests for AnimationConstants values and MotionPreference resolution `[complexity:simple]`
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdnTests/Unit/UI/AnimationConstantsTests.swift`, `mkdnTests/Unit/UI/MotionPreferenceTests.swift`
+    - **Approach**: Created two test suites using Swift Testing. `AnimationConstantsTests` (9 tests) verifies stagger timing values, hover scale factor ranges, focus border dimensions, mermaid brightness range, and the relationship between stagger cap and delay. `MotionPreferenceTests` (7 tests) verifies `allowsContinuousAnimation` flag, `staggerDelay` resolution, and `resolved(_:)` mapping for all primitives in both reduceMotion states (continuous primitives nil with RM, non-continuous non-nil with RM, all non-nil without RM).
+    - **Deviations**: None
+    - **Tests**: 112/112 passing (pre-existing signal 5 exit code from @main in test process)
 
     **Reference**: [design.md#7-testing-strategy](design.md#7-testing-strategy)
 
@@ -363,13 +406,13 @@ Establish a unified animation design language for mkdn by expanding `AnimationCo
 
     **Acceptance Criteria**:
 
-    - [ ] New file `mkdnTests/Unit/UI/AnimationConstantsTests.swift` created with `@Suite("AnimationConstants")`
-    - [ ] Tests verify: `staggerDelay == 0.03`, `staggerCap == 0.5`, `hoverScaleFactor` in (1.0, 1.15), `focusBorderWidth == 2.0`
-    - [ ] New file `mkdnTests/Unit/UI/MotionPreferenceTests.swift` created with `@Suite("MotionPreference")`
-    - [ ] Tests verify: `allowsContinuousAnimation` is true when reduceMotion is false, false when true
-    - [ ] Tests verify: `staggerDelay` is 0 when reduceMotion is true, `AnimationConstants.staggerDelay` when false
-    - [ ] All tests use Swift Testing (`@Test`, `#expect`, `@Suite`) -- no XCTest
-    - [ ] All tests pass via `swift test`
+    - [x] New file `mkdnTests/Unit/UI/AnimationConstantsTests.swift` created with `@Suite("AnimationConstants")`
+    - [x] Tests verify: `staggerDelay == 0.03`, `staggerCap == 0.5`, `hoverScaleFactor` in (1.0, 1.15), `focusBorderWidth == 2.0`
+    - [x] New file `mkdnTests/Unit/UI/MotionPreferenceTests.swift` created with `@Suite("MotionPreference")`
+    - [x] Tests verify: `allowsContinuousAnimation` is true when reduceMotion is false, false when true
+    - [x] Tests verify: `staggerDelay` is 0 when reduceMotion is true, `AnimationConstants.staggerDelay` when false
+    - [x] All tests use Swift Testing (`@Test`, `#expect`, `@Suite`) -- no XCTest
+    - [x] All tests pass via `swift test`
 
 ### User Docs
 
