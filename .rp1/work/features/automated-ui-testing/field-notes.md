@@ -1,32 +1,32 @@
-# Field Notes: automated-ui-testing
+# Field Notes: Automated UI Testing -- End-to-End Validation
 
-## SwiftFormat `try await try` Corruption (T10)
+**Feature ID**: automated-ui-testing
+**Created**: 2026-02-08
 
-When SwiftFormat processes nested async calls like:
+## T1: Build Verification and Prerequisite Check
 
-```swift
-try extractAnimThemeColors(from: try await client.getThemeColors())
-```
+### Environment
 
-It can rewrite the expression to invalid syntax:
+- macOS 15.5 (Build 24F74), Apple Silicon (arm64)
+- Swift 6, SPM
+- Retina display (2x assumed)
 
-```swift
-try await try extractAnimThemeColors(from: client.getThemeColors())
-```
+### Findings
 
-**Workaround**: Always separate nested `try await` calls into two lines:
+1. **Build**: `swift build --product mkdn` succeeds in ~0.33s (incremental). SPM warns about 5 unhandled fixture `.md` files in `mkdnTests/Fixtures/UITest/` -- these are test data, not code resources. No action needed.
 
-```swift
-let resp = try await client.getThemeColors()
-let colors = try extractAnimThemeColors(from: resp)
-```
+2. **Fixtures**: All 5 required fixtures present:
+   - `canonical.md`
+   - `geometry-calibration.md`
+   - `long-document.md`
+   - `mermaid-focus.md`
+   - `theme-tokens.md`
 
-This pattern avoids the corruption and is also more readable.
+3. **Screen Recording Permission**: Confirmed via ScreenCaptureKit API (returned 20 on-screen windows). Note: `CGWindowListCreateImage` is marked `obsoleted` in macOS 15 SDK headers. The project compiles it successfully because `CaptureService.captureWindowImage(_:)` uses `@available(macOS, deprecated: 14.0)` annotation. Standalone Swift scripts cannot call it without similar annotation. This is not a blocking issue for the test infrastructure since it compiles within the SPM project context.
 
-## Private Members in Extensions Across Files
+4. **Test Harness**: `mkdn --test-harness` launches the app and binds the Unix domain socket at `/tmp/mkdn-test-harness-{pid}.sock` within ~1 second. Socket is a Unix domain socket (type `srwxr-xr-x`). Process terminates cleanly on SIGTERM.
 
-Swift `private` members are file-scoped. When splitting a struct across multiple files using extensions, any helper called from extension files must be `internal` (or `fileprivate` in the same file). This affects the compliance test pattern where the main struct has helpers used by extensions in separate files (e.g., `requireCalibration()`).
+### Observations for Downstream Tasks
 
-## Type Body Length Budget
-
-SwiftLint enforces `type_body_length: 350` warning threshold. The compliance test suites (Spatial, Visual, Animation) approach this limit. Extracted helpers and extension files are the primary strategy for staying under the limit. Free functions at file scope (like `extractWindowSize`, `extractAnimThemeColors`) also reduce type body count.
+- The `CGWindowListCreateImage` deprecation on macOS 15 is worth noting. If Apple removes the symbol entirely in a future SDK, `CaptureService` will need migration to ScreenCaptureKit for static captures too (currently only frame sequences use SCK). Not blocking for this iteration.
+- Socket binding latency of ~1s is well within the 20-attempt, 250ms retry window used by `TestHarnessClient.connect()`.

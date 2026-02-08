@@ -1,539 +1,196 @@
-# Development Tasks: Automated UI Testing
+# Development Tasks: Automated UI Testing -- End-to-End Validation
 
 **Feature ID**: automated-ui-testing
 **Status**: In Progress
-**Progress**: 73% (11 of 15 tasks)
-**Estimated Effort**: 9 days
+**Progress**: 8% (1 of 12 tasks)
+**Estimated Effort**: 6 days
 **Started**: 2026-02-08
 
 ## Overview
 
-Automated UI testing infrastructure for mkdn that enables an AI coding agent and the human developer to programmatically launch the application, exercise all user-facing interactions, capture rendered output as images and frame sequences, and verify compliance with spatial, visual, and animation design specifications. Uses a process-based test harness with app-side cooperation over a Unix domain socket, avoiding XCUITest dependency while maintaining full SPM compatibility.
-
-**Design Deviation (HYP-002 Rejected)**: The design specifies `CGWindowListCreateImage` with `DispatchSourceTimer` for animation frame capture at 60fps. This approach was proven impractical due to synchronous IPC overhead causing dropped frames and unreliable timing. Animation frame capture (T9) uses **ScreenCaptureKit (SCStream)** instead, which provides asynchronous, hardware-accelerated frame delivery. `CGWindowListCreateImage` remains valid for single-frame static captures (T2 CaptureService).
+End-to-end validation of the automated UI testing infrastructure. The prior iteration built the complete test harness, compliance suites (41 tests across 3 suites), and analysis tools but could not run them because Screen Recording permission was not enabled. This iteration executes the full infrastructure for the first time, diagnoses and fixes failures, verifies determinism, validates the JSON report pipeline, and documents the compliance baseline.
 
 ## Implementation DAG
 
 **Parallel Groups** (tasks with no inter-dependencies):
 
-1. [T1, T4] - Protocol schema and test fixtures are independent foundational artifacts
-2. [T2, T3, T5] - App harness depends on T1; client depends on T1; image analysis is independent
-3. [T6, T7, T8] - All compliance suites depend on T2+T3+T4+T5; reporter depends on nothing specific
-4. [T9] - Frame capture depends on T2 (app harness)
-5. [T10] - Animation suite depends on T9+T4
-6. [T11] - CI docs depend on all previous phases being functional
+1. [T1] - Build verification, prerequisite check (no dependencies)
+2. [T2] - Smoke test (validates harness infrastructure end-to-end)
+3. [T3, T4, T5] - Suite execution (independent suites, though recommended order is T3->T4->T5 for risk management)
+4. [T6] - JSON report validation (needs test results from suites)
+5. [T7, T8, T9] - Baseline, determinism, agent workflow (all need completed suite runs + report)
 
 **Dependencies**:
 
-- T2 -> T1 (interface: implements protocol defined in T1)
-- T3 -> T1 (interface: client implements protocol defined in T1)
-- T6 -> [T2, T3, T4, T5] (data+interface: needs running harness, fixtures, and image analysis)
-- T7 -> [T2, T3, T4, T5] (data+interface: needs running harness, fixtures, and image analysis)
-- T8 -> [T6, T7] (sequential: reporter wired after compliance suites exist)
-- T9 -> T2 (interface: frame capture uses harness server's capture service)
-- T10 -> [T9, T4] (data+interface: needs frame analyzer and test fixtures)
-- T11 -> [T6, T7, T10] (sequential: documents the complete test infrastructure)
+- T2 -> T1 (build must succeed before launching app)
+- T3 -> T2 (smoke test validates infrastructure before running suites)
+- T4 -> T2 (same infrastructure dependency)
+- T5 -> T2 (same infrastructure dependency)
+- T6 -> [T3, T4, T5] (report must contain real test results)
+- T7 -> [T3, T4, T5, T6] (baseline needs all suite results + validated report)
+- T8 -> [T3, T4, T5] (determinism needs passing suites)
+- T9 -> T6 (agent workflow needs parseable JSON report)
 
-**Critical Path**: T1 -> T2 -> T6 -> T8 -> T11
+**Recommended Execution Order**: T1 -> T2 -> T3 -> T4 -> T5 -> T6 -> [T7, T8, T9]
+
+**Critical Path**: T1 -> T2 -> T5 -> T6 -> T7
 
 ## Task Breakdown
 
-### Foundation - Protocol and Fixtures
+### Foundation
 
-- [x] **T1**: Define test harness protocol types and render completion signal `[complexity:medium]`
+- [x] **T1**: Verify build succeeds, test fixtures exist, Screen Recording permission is granted, and --test-harness flag launches the app `[complexity:simple]`
 
-    **Reference**: [design.md#31-command-schema](design.md#31-command-schema), [design.md#33-rendercompletionsignal](design.md#33-rendercompletionsignal)
-
-    **Effort**: 5 hours
-
-    **Acceptance Criteria**:
-
-    - [x] `HarnessCommand` enum with all cases (loadFile, switchMode, cycleTheme, setTheme, reloadFile, captureWindow, captureRegion, startFrameCapture, stopFrameCapture, getWindowInfo, getThemeColors, setReduceMotion, ping, quit) is defined as `Codable` in `mkdn/Core/TestHarness/HarnessProtocol.swift`
-    - [x] `HarnessResponse` struct with status, message, and `ResponseData` enum is defined as `Codable`
-    - [x] `CaptureResult`, `FrameCaptureResult`, `WindowInfoResult`, `ThemeColorsResult` response data types are defined as `Codable`
-    - [x] `CaptureRegion` struct is defined as `Codable`
-    - [x] `RenderCompletionSignal` is defined in `mkdn/Core/TestHarness/RenderCompletionSignal.swift` with `awaitRenderComplete(timeout:)` and `signalRenderComplete()` methods
-    - [x] Socket path convention (`/tmp/mkdn-test-harness-{pid}.sock`) is defined as a static function
-    - [x] All types round-trip through `JSONEncoder`/`JSONDecoder` correctly (unit tests in `mkdnTests/Unit/Support/`)
-    - [x] Code passes SwiftLint and SwiftFormat
-
-    **Implementation Summary**:
-
-    - **Files**: `mkdn/Core/TestHarness/HarnessCommand.swift`, `mkdn/Core/TestHarness/HarnessResponse.swift`, `mkdn/Core/TestHarness/HarnessError.swift`, `mkdn/Core/TestHarness/RenderCompletionSignal.swift`, `mkdnTests/Unit/Support/HarnessCommandTests.swift`, `mkdnTests/Unit/Support/HarnessResponseTests.swift`
-    - **Approach**: Split protocol types across multiple files to satisfy SwiftLint file_name rule. Used Swift auto-synthesized Codable for enums with associated values. RenderCompletionSignal uses CheckedContinuation with timeout Task for Swift 6 concurrency compatibility (avoids Sendable closure issues with task groups).
-    - **Deviations**: Design specified single `HarnessProtocol.swift` file; split into `HarnessCommand.swift`, `HarnessResponse.swift`, `HarnessError.swift` to satisfy SwiftLint strict mode `file_name` rule requiring file name to match a declared type.
-    - **Tests**: 34/34 passing
-
-    **Validation Summary**:
-
-    | Dimension | Status |
-    |-----------|--------|
-    | Discipline | PASS |
-    | Accuracy | PASS |
-    | Completeness | PASS |
-    | Quality | PASS |
-    | Testing | PASS |
-    | Commit | PASS |
-    | Comments | PASS |
-
-- [x] **T4**: Create standardized Markdown test fixtures `[complexity:simple]`
-
-    **Reference**: [design.md#38-test-fixture-structure](design.md#38-test-fixture-structure)
+    **Reference**: [design.md#t1-build-verification-and-prerequisite-check](design.md#t1-build-verification-and-prerequisite-check)
 
     **Effort**: 2 hours
 
     **Acceptance Criteria**:
 
-    - [x] `mkdnTests/Fixtures/UITest/canonical.md` exists with all Markdown element types: H1-H6 headings, paragraphs, fenced code blocks with Swift syntax, ordered and unordered lists, blockquotes, tables, thematic breaks, Mermaid diagrams (flowchart and sequence), inline formatting (bold, italic, code, links)
-    - [x] `mkdnTests/Fixtures/UITest/long-document.md` exists with 20+ blocks for stagger animation testing
-    - [x] `mkdnTests/Fixtures/UITest/mermaid-focus.md` exists with multiple Mermaid diagrams of varying types
-    - [x] `mkdnTests/Fixtures/UITest/theme-tokens.md` exists with code blocks containing known Swift tokens for syntax highlighting verification
-    - [x] `mkdnTests/Fixtures/UITest/geometry-calibration.md` exists with known-geometry elements suitable for spatial measurement calibration (headings followed by paragraphs with unambiguous expected spacing)
-    - [x] Each fixture file includes a comment header documenting its purpose and expected rendering characteristics
+    - [x] `swift build --product mkdn` completes without errors
+    - [x] Test fixtures exist in `mkdnTests/Fixtures/UITest/` (canonical.md, geometry-calibration.md, long-document.md, mermaid-focus.md, theme-tokens.md)
+    - [x] A minimal CGWindowListCreateImage call returns a non-nil image (Screen Recording permission confirmed)
+    - [x] Launching mkdn with `--test-harness` flag starts the app and binds the Unix domain socket
 
     **Implementation Summary**:
 
-    - **Files**: `mkdnTests/Fixtures/UITest/canonical.md`, `mkdnTests/Fixtures/UITest/long-document.md`, `mkdnTests/Fixtures/UITest/mermaid-focus.md`, `mkdnTests/Fixtures/UITest/theme-tokens.md`, `mkdnTests/Fixtures/UITest/geometry-calibration.md`
-    - **Approach**: Five static Markdown fixture files with HTML comment headers documenting purpose and expected rendering. canonical.md covers all MarkdownBlock cases (heading, paragraph, codeBlock, mermaidBlock, blockquote, orderedList, unorderedList, thematicBreak, table, image) plus all inline types (bold, italic, code, link, strikethrough). long-document.md has 31 top-level blocks for stagger testing. mermaid-focus.md has 4 diagram types (flowchart, sequence, class, state). theme-tokens.md isolates each SyntaxColors token type in separate code blocks. geometry-calibration.md provides minimal known-spacing elements with expected values documented.
-    - **Deviations**: None
-    - **Tests**: N/A (static content files; no code changes)
+    - **Files**: No code changes -- diagnostic verification only
+    - **Approach**: Ran `swift build --product mkdn` (completed in 0.33s). Verified all 5 fixtures exist via glob. Confirmed Screen Recording via ScreenCaptureKit API (20 windows returned; note: `CGWindowListCreateImage` is obsoleted in macOS 15.5 standalone scripts but works within the project via `@available` suppression in `CaptureService.swift`). Launched mkdn with `--test-harness` and confirmed socket at `/tmp/mkdn-test-harness-{pid}.sock` appeared within ~1s.
+    - **Deviations**: Screen Recording check used ScreenCaptureKit instead of direct CGWindowListCreateImage (macOS 15.5 marks CGWindowListCreateImage as unavailable for standalone compilation; the project code uses `@available(macOS, deprecated: 14.0)` annotation to compile it).
+    - **Tests**: N/A (verification task, no tests to run)
 
-    **Validation Summary**:
+### Infrastructure Validation
 
-    | Dimension | Status |
-    |-----------|--------|
-    | Discipline | PASS |
-    | Accuracy | PASS |
-    | Completeness | PASS |
-    | Quality | PASS |
-    | Testing | N/A |
-    | Commit | PASS |
-    | Comments | N/A |
+- [ ] **T2**: Execute full harness lifecycle smoke test -- build, launch, connect, ping, loadFile, captureWindow, quit -- and verify each step produces expected responses `[complexity:medium]`
 
-### Foundation - Harness and Analysis
+    **Reference**: [design.md#t2-harness-smoke-test-req-001](design.md#t2-harness-smoke-test-req-001)
 
-- [x] **T2**: Implement app-side test harness server and single-frame capture `[complexity:complex]`
+    **Effort**: 6 hours
 
-    **Reference**: [design.md#22-communication-protocol](design.md#22-communication-protocol), [design.md#23-test-mode-activation](design.md#23-test-mode-activation), [design.md#32-captureservice](design.md#32-captureservice), [design.md#24-integration-with-existing-architecture](design.md#24-integration-with-existing-architecture)
+    **Acceptance Criteria**:
+
+    - [ ] `AppLauncher.launch()` builds and launches mkdn with --test-harness within 60 seconds (AC-001a)
+    - [ ] `TestHarnessClient.ping()` returns a successful pong response (AC-001b)
+    - [ ] `TestHarnessClient.loadFile(path:)` loads a fixture and receives a success response with render completion signal (AC-001c)
+    - [ ] `TestHarnessClient.captureWindow(outputPath:)` produces a PNG with non-zero dimensions at Retina 2x scale (AC-001d)
+    - [ ] Captured PNG is loadable by ImageAnalyzer and contains real pixel data, not blank/black (AC-001e)
+    - [ ] `TestHarnessClient.quit()` terminates the app cleanly (AC-001f)
+    - [ ] Any infrastructure fixes applied are documented in field notes with symptom, cause, and resolution (BR-004)
+
+### Suite Execution
+
+- [ ] **T3**: Run spatial compliance suite (16 tests), validate calibration gate, diagnose and fix infrastructure failures, categorize compliance failures as pre-migration gaps or genuine bugs `[complexity:medium]`
+
+    **Reference**: [design.md#t3-spatial-compliance-suite----execute-diagnose-fix-req-002-partial-req-003-req-006-partial](design.md#t3-spatial-compliance-suite----execute-diagnose-fix-req-002-partial-req-003-req-006-partial)
+
+    **Effort**: 6 hours
+
+    **Acceptance Criteria**:
+
+    - [ ] Spatial calibration test passes: content bounds detected, vertical gaps measured, accuracy within 1pt (AC-002a)
+    - [ ] All 16 spatial tests execute without infrastructure errors -- no socket timeouts, capture failures, image load failures, or index-out-of-bounds (AC-003a)
+    - [ ] Calibration-dependent tests are correctly gated: skipped if calibration fails, not crashed (AC-003b)
+    - [ ] Passing tests confirm measured spatial values within 1pt of expected (AC-003c)
+    - [ ] Failing tests produce diagnostic messages with measured value, expected value, tolerance, and spatial-design-language FR reference (AC-003d)
+    - [ ] Pre-migration gaps (e.g., 24pt actual vs 32pt PRD document margin) are documented with migration comments (AC-003e, CL-001)
+    - [ ] Infrastructure fixes are minimal, preserve existing architecture, and are documented (AC-006a, AC-006b, AC-006e, BR-003, BR-004)
+    - [ ] Tolerance adjustments (if any) are justified by empirical measurement across multiple captures (BR-005)
+
+- [ ] **T4**: Run visual compliance suite (12 tests), validate calibration gate and theme switching, diagnose and fix infrastructure failures, verify color sampling accuracy `[complexity:medium]`
+
+    **Reference**: [design.md#t4-visual-compliance-suite----execute-diagnose-fix-req-002-partial-req-004-req-006-partial](design.md#t4-visual-compliance-suite----execute-diagnose-fix-req-002-partial-req-004-req-006-partial)
+
+    **Effort**: 5 hours
+
+    **Acceptance Criteria**:
+
+    - [ ] Visual calibration test passes: background color sampled from live capture matches ThemeColors.background (AC-002b)
+    - [ ] All 12 visual tests execute without infrastructure errors (AC-004a)
+    - [ ] Theme switching works: captures after setTheme("solarizedDark") and setTheme("solarizedLight") show distinct backgrounds matching ThemeColors (AC-004b)
+    - [ ] Background color tests pass for both themes within configured tolerance (AC-004c)
+    - [ ] Text color tests sample from text regions, not background (AC-004d)
+    - [ ] Syntax token tests detect at least 2 of 3 expected token colors in code block regions (AC-004e)
+    - [ ] Infrastructure fixes are minimal, documented with symptom/cause/resolution (AC-006a, AC-006b, AC-006e)
+
+- [ ] **T5**: Run animation compliance suite (13 tests), validate calibration gate (frame capture + crossfade timing), diagnose ScreenCaptureKit issues, verify animation parameter extraction from real frame sequences `[complexity:complex]`
+
+    **Reference**: [design.md#t5-animation-compliance-suite----execute-diagnose-fix-req-002-partial-req-005-req-006-partial](design.md#t5-animation-compliance-suite----execute-diagnose-fix-req-002-partial-req-005-req-006-partial)
 
     **Effort**: 10 hours
 
     **Acceptance Criteria**:
 
-    - [x] `TestHarnessServer` in `mkdn/Core/TestHarness/TestHarnessServer.swift` listens on a Unix domain socket, accepts connections, and dispatches JSON commands
-    - [x] `mkdnEntry/main.swift` detects `--test-harness` argument, skips normal CLI file-argument handling, launches SwiftUI app normally, and starts `TestHarnessServer` on a background thread
-    - [x] `--test-harness` flag is consumed before `MkdnCLI.parse()` to avoid argument parser conflicts
-    - [x] `RenderCompletionSignal.shared.signalRenderComplete()` is called from `SelectableTextView.Coordinator` after applying text content and overlays
-    - [x] `CaptureService` in `mkdn/Core/TestHarness/CaptureService.swift` captures window content via `CGWindowListCreateImage` with the app's own window ID for single-frame captures
-    - [x] `CaptureService.captureWindow(_:outputPath:)` writes PNG to disk and returns `CaptureResult` with metadata (dimensions, scale factor, timestamp, theme, view mode)
-    - [x] `CaptureService.captureRegion(_:region:outputPath:)` captures a specified CGRect region of the window
-    - [x] All `HarnessCommand` handlers are implemented: loadFile dispatches to `DocumentState`, switchMode/cycleTheme/setTheme dispatch to `AppSettings`, captureWindow/captureRegion invoke `CaptureService`, getWindowInfo returns window dimensions, getThemeColors returns current theme RGB values, setReduceMotion sets test-mode override, ping returns pong, quit terminates
-    - [x] Commands that trigger re-rendering (loadFile, switchMode, cycleTheme, setTheme, reloadFile) await `RenderCompletionSignal` before responding
-    - [x] Server cleans up socket file on termination
-    - [x] Code passes SwiftLint and SwiftFormat
-
-    **Implementation Summary**:
-
-    - **Files**: `mkdn/Core/TestHarness/TestHarnessServer.swift`, `mkdn/Core/TestHarness/TestHarnessHandler.swift`, `mkdn/Core/TestHarness/CaptureService.swift`, `mkdnEntry/main.swift`, `mkdn/Features/Viewer/Views/SelectableTextView.swift`, `mkdn/App/DocumentWindow.swift`
-    - **Approach**: Socket server uses dedicated DispatchQueue for blocking POSIX socket I/O with AsyncBridge (semaphore-based) to dispatch commands to @MainActor TestHarnessHandler. Command handler is a separate @MainActor enum with weak references to AppSettings and DocumentState. CaptureService uses CGWindowListCreateImage (deprecated but explicitly chosen per design D2) with NSBitmapImageRep for PNG output. TestHarnessMode uses nonisolated(unsafe) for startup config and ReduceMotionOverride enum to avoid optional boolean. DocumentWindow wires handler references and starts server on appear when test harness mode is enabled.
-    - **Deviations**: Design specified single TestHarnessServer file; split into TestHarnessServer.swift (socket I/O + mode config) and TestHarnessHandler.swift (command processing) to stay within SwiftLint file_length limits and separate concerns. Used ReduceMotionOverride enum instead of optional Bool to satisfy SwiftLint discouraged_optional_boolean rule. startFrameCapture/stopFrameCapture return stub errors pending T9 (ScreenCaptureKit implementation).
-    - **Tests**: 160/160 passing (all existing tests unaffected)
-
-    **Review Feedback** (Attempt 1):
-    - **Status**: FAILURE
-    - **Issues**:
-        - [quality] SwiftLint `let_var_whitespace` violation at `mkdnEntry/main.swift:42:1`. The `let rawArguments = CommandLine.arguments` declaration on line 41 is not separated by a blank line from the `if rawArguments.contains("--test-harness")` statement on line 42.
-    - **Guidance**: Add a blank line between `let rawArguments = CommandLine.arguments` and `if rawArguments.contains("--test-harness") {` in `mkdnEntry/main.swift` to satisfy SwiftLint's `let_var_whitespace` rule. Run `DEVELOPER_DIR=/Applications/Xcode-16.3.0.app/Contents/Developer swiftlint lint mkdnEntry/main.swift` to confirm zero violations before committing.
-
-    **Review Feedback Resolution** (Attempt 2):
-    - Added blank line between `let rawArguments` declaration and `if` statement in `mkdnEntry/main.swift`
-    - SwiftLint: 0 violations confirmed
-    - SwiftFormat: no changes needed
-    - Tests: 160/160 passing
-
-    **Validation Summary**:
-
-    | Dimension | Status |
-    |-----------|--------|
-    | Discipline | PASS |
-    | Accuracy | PASS |
-    | Completeness | PASS |
-    | Quality | PASS |
-    | Testing | N/A |
-    | Commit | PASS |
-    | Comments | PASS |
-
-- [x] **T3**: Implement test harness client and app launcher `[complexity:medium]`
-
-    **Reference**: [design.md#21-component-architecture](design.md#21-component-architecture)
-
-    **Effort**: 5 hours
-
-    **Acceptance Criteria**:
-
-    - [x] `TestHarnessClient` in `mkdnTests/Support/TestHarnessClient.swift` connects to the Unix domain socket, sends JSON commands, and awaits JSON responses
-    - [x] `TestHarnessClient` provides typed async methods for each command: `loadFile(path:)`, `switchMode(_:)`, `cycleTheme()`, `captureWindow(outputPath:)`, `captureRegion(_:outputPath:)`, `startFrameCapture(fps:duration:outputDir:)`, `getWindowInfo()`, `getThemeColors()`, `setReduceMotion(enabled:)`, `ping()`, `quit()`
-    - [x] `AppLauncher` in `mkdnTests/Support/AppLauncher.swift` builds the mkdn executable (via `swift build`), launches it with `--test-harness`, waits for socket readiness with configurable timeout, and returns a connected `TestHarnessClient`
-    - [x] `AppLauncher` provides teardown logic: sends `quit` command, waits for process termination, cleans up socket file
-    - [x] Connection retry logic handles race condition where test runner starts before server socket is ready
-    - [x] All client methods include configurable timeouts with descriptive timeout errors
-    - [x] Code passes SwiftLint and SwiftFormat
-
-    **Implementation Summary**:
-
-    - **Files**: `mkdnTests/Support/TestHarnessClient.swift`, `mkdnTests/Support/AppLauncher.swift`
-    - **Approach**: TestHarnessClient uses POSIX Unix domain socket with a dedicated serial DispatchQueue for blocking I/O, bridged to async via withCheckedThrowingContinuation. Line-delimited JSON protocol matches server (iso8601 date strategy, newline-terminated). Connect uses retry loop (20 attempts at 250ms) to handle server startup race. Read uses poll() for timeout control. AppLauncher finds package root via #filePath traversal, builds via swift build subprocess, launches mkdn --test-harness, derives socket path from process PID via HarnessSocket.path(forPID:), teardown sends quit then force-terminates after 1s grace period.
-    - **Deviations**: None
-    - **Tests**: 207/207 passing (all existing tests unaffected; no new unit tests added per testing discipline -- client/launcher are integration seams tested by downstream compliance suites T6/T7/T10)
-
-    **Validation Summary**:
-
-    | Dimension | Status |
-    |-----------|--------|
-    | Discipline | PASS |
-    | Accuracy | PASS |
-    | Completeness | PASS |
-    | Quality | PASS |
-    | Testing | N/A |
-    | Commit | PASS |
-    | Comments | PASS |
-
-- [x] **T5**: Implement image analysis library `[complexity:medium]`
-
-    **Reference**: [design.md#34-imageanalyzer](design.md#34-imageanalyzer)
-
-    **Effort**: 7 hours
-
-    **Acceptance Criteria**:
-
-    - [x] `ImageAnalyzer` in `mkdnTests/Support/ImageAnalyzer.swift` provides pixel-level access to `CGImage` data via `CGDataProvider`
-    - [x] `ImageAnalyzer.sampleColor(at:)` returns `PixelColor` at a given point, accounting for scale factor
-    - [x] `ImageAnalyzer.averageColor(in:)` returns average `PixelColor` in a CGRect region
-    - [x] `ImageAnalyzer.matchesColor(_:at:tolerance:)` compares colors with configurable tolerance for anti-aliasing
-    - [x] `SpatialMeasurement` utilities in `mkdnTests/Support/SpatialMeasurement.swift` provide `measureEdge(from:direction:targetColor:tolerance:)` and `measureDistance(between:and:along:at:)` for edge detection and distance measurement
-    - [x] `ColorExtractor` in `mkdnTests/Support/ColorExtractor.swift` provides `PixelColor.from(swiftUIColor:)` conversion and `PixelColor.distance(to:)` metric
-    - [x] `PixelColor` struct with red, green, blue, alpha as `UInt8` and Equatable conformance
-    - [x] `ImageAnalyzer.findColorBoundary(from:direction:sourceColor:tolerance:)` walks pixels to find color transition boundaries
-    - [x] `ImageAnalyzer.contentBounds(background:tolerance:)` finds bounding rect of non-background content
-    - [x] Unit tests in `mkdnTests/Unit/Support/ImageAnalyzerTests.swift` verify accuracy against synthetic test images with known geometry and colors
-    - [x] Spatial measurement accuracy is within 1pt at 2x Retina scale factor (verified by synthetic image tests)
-    - [x] Code passes SwiftLint and SwiftFormat
-
-    **Implementation Summary**:
-
-    - **Files**: `mkdnTests/Support/ColorExtractor.swift`, `mkdnTests/Support/ImageAnalyzer.swift`, `mkdnTests/Support/SpatialMeasurement.swift`, `mkdnTests/Unit/Support/SyntheticImage.swift`, `mkdnTests/Unit/Support/ImageAnalyzerTests.swift`, `mkdnTests/Unit/Support/SpatialMeasurementTests.swift`
-    - **Approach**: ImageAnalyzer reads raw pixel data directly from CGDataProvider (no normalization redraw) with comprehensive byte order detection handling 4 macOS pixel formats (big/little endian x alpha first/last) via pixelFromBytes. SyntheticImage factory creates CGImages with known geometry using deviceRGB color space and top-left coordinate flip for pixel-accurate test verification. SpatialMeasurement provides edge detection, distance, and gap measurement along cardinal directions. Tests split across 3 files (SyntheticImage, ImageAnalyzerTests, SpatialMeasurementTests) to stay within SwiftLint file_length limit.
-    - **Deviations**: Design specified `PixelColor.from(swiftUIColor:)` but implemented `PixelColor.from(red:green:blue:)` and `PixelColor.from(rgbColor:)` instead, since test infrastructure uses RGBColor from the harness protocol rather than SwiftUI Color (avoids importing SwiftUI in test support). Added `dominantColor(in:)` and `findRegion(matching:)` to ImageAnalyzer for downstream compliance suite needs. Added `measureGap` to SpatialMeasurement for gap measurement between color regions.
-    - **Tests**: 32/32 passing
-
-    **Validation Summary**:
-
-    | Dimension | Status |
-    |-----------|--------|
-    | Discipline | PASS |
-    | Accuracy | PASS |
-    | Completeness | PASS |
-    | Quality | PASS |
-    | Testing | PASS |
-    | Commit | PASS |
-    | Comments | PASS |
-
-### Compliance Suites
-
-- [x] **T6**: Implement spatial compliance test suite `[complexity:medium]`
-
-    **Implementation Summary**:
-
-    - **Files**: `mkdnTests/UITest/SpatialPRD.swift`, `mkdnTests/UITest/SpatialComplianceTests.swift`, `mkdnTests/UITest/SpatialComplianceTests+Typography.swift`
-    - **Approach**: Split into 3 files to satisfy SwiftLint file_length/type_body_length limits. SpatialPRD.swift holds PRD expected values with migration comments, shared harness management, and helper functions (fixture paths, response extraction, vertical gap scanner). SpatialComplianceTests.swift is the main @Suite with calibration gate, FR-2 document layout tests, FR-5 grid alignment, and FR-6 window chrome tests. Typography extension covers FR-3 heading spacing (H1-H3 above/below) and FR-4 component padding (code block). All tests use cached capture/theme for efficiency via nonisolated(unsafe) statics and .serialized trait.
-    - **Deviations**: Used PRD literal values in SpatialPRD enum (SpacingConstants.swift does not exist yet); each constant has a migration comment per design decision D7. Blockquote padding test not included (no blockquote background color in ThemeColorsResult).
-    - **Tests**: 16 spatial compliance tests (all require GUI environment with Screen Recording permissions; calibration gate correctly blocks downstream tests in headless CI)
-
-    **Validation Summary**:
-
-    | Dimension | Status |
-    |-----------|--------|
-    | Discipline | PASS |
-    | Accuracy | PASS |
-    | Completeness | PASS |
-    | Quality | PASS |
-    | Testing | PASS |
-    | Commit | PASS |
-    | Comments | PASS |
-
-    **Reference**: [design.md#implementation-plan](design.md#implementation-plan) (Phase 2, T6)
-
-    **Effort**: 7 hours
-
-    **Acceptance Criteria**:
-
-    - [x] `mkdnTests/UITest/SpatialComplianceTests.swift` exists as a `@Suite("SpatialCompliance")` struct
-    - [x] Calibration tests run first: load `geometry-calibration.md`, measure known-geometry elements, verify measurement accuracy within 1pt; calibration failure blocks remaining spatial tests
-    - [x] Tests verify document margins against SpacingConstants.documentMargin (32pt) or PRD value with migration comment
-    - [x] Tests verify block-to-block spacing against SpacingConstants.blockSpacing (16pt) or PRD value with migration comment
-    - [x] Tests verify heading spacing above and below for H1, H2, H3 against corresponding SpacingConstants heading values or PRD values
-    - [x] Tests verify code block and blockquote internal padding against SpacingConstants.componentPadding (12pt) or PRD value
-    - [x] Tests verify window chrome insets: top (32pt), sides (32pt), bottom (24pt)
-    - [x] Tests verify content width does not exceed contentMaxWidth (~680pt)
-    - [x] Tests verify 8pt grid alignment of all measured spatial values
-    - [x] Every test follows naming convention `test_spatialDesignLanguage_FR{N}_{aspect}`
-    - [x] Every test includes PRD reference comment with expected value source
-    - [x] Tests use `AppLauncher` + `TestHarnessClient` to launch app and capture window
-    - [x] Measurements account for Retina scale factor (2x: 32pt = 64px)
-    - [x] Code passes SwiftLint and SwiftFormat
-
-- [x] **T7**: Implement visual compliance test suite `[complexity:medium]`
-
-    **Reference**: [design.md#implementation-plan](design.md#implementation-plan) (Phase 2, T7)
-
-    **Effort**: 5 hours
-
-    **Acceptance Criteria**:
-
-    - [x] `mkdnTests/UITest/VisualComplianceTests.swift` exists as a `@Suite("VisualCompliance")` struct
-    - [x] Color calibration test runs first: capture with known theme, sample background at window center, verify exact RGB match to `ThemeColors.background`; calibration failure blocks remaining visual tests
-    - [x] Tests verify background color matches `ThemeColors.background` for Solarized Dark
-    - [x] Tests verify background color matches `ThemeColors.background` for Solarized Light
-    - [x] Tests verify heading text colors match `ThemeColors` heading specifications for both themes
-    - [x] Tests verify body text colors match `ThemeColors` body specifications for both themes
-    - [x] Tests verify code block syntax highlighting produces correct token colors against known Swift tokens in `theme-tokens.md` fixture
-    - [x] Color comparison uses configurable tolerance to account for anti-aliasing and sub-pixel rendering
-    - [x] Every test follows naming convention and includes PRD reference
-    - [x] Tests use theme cycling (`cycleTheme` or `setTheme` command) to verify both themes
-    - [x] Code passes SwiftLint and SwiftFormat
-
-    **Implementation Summary**:
-
-    - **Files**: `mkdnTests/UITest/VisualPRD.swift`, `mkdnTests/UITest/VisualComplianceTests.swift`, `mkdnTests/UITest/VisualComplianceTests+Syntax.swift`
-    - **Approach**: Split into 3 files to satisfy SwiftLint file_length/type_body_length limits. VisualPRD.swift holds expected Solarized syntax token colors, shared harness management, capture helpers (namespaced as VisualCapture enum to avoid collision with SpatialPRD free functions), content region scanner, dominant text color finder, syntax color presence checker, and color assertion helper. VisualComplianceTests.swift is the main @Suite with calibration gate, AC-004a background tests (dark+light), AC-004b heading color tests, AC-004c body text color tests, and AC-004a code block background tests. Syntax extension covers AC-004d syntax token presence verification using keyword/string/type colors. All tests use cached captures per theme via nonisolated(unsafe) statics and .serialized trait. Light theme tests lazily switch theme and capture on first access.
-    - **Deviations**: Syntax token verification uses canonical.md code block instead of theme-tokens.md (canonical.md has sufficient token variety for keyword/string/type detection; avoids separate fixture load). Comment color excluded from token checks (same value as foregroundSecondary, ambiguous). Token presence requires 2 of 3 colors found rather than exact match, accommodating rendering variation.
-    - **Tests**: 12 visual compliance tests (1 calibration + 11 compliance; all require GUI environment with Screen Recording permissions; calibration gate correctly blocks downstream tests in headless CI)
-
-    **Validation Summary**:
-
-    | Dimension | Status |
-    |-----------|--------|
-    | Discipline | PASS |
-    | Accuracy | PASS |
-    | Completeness | PASS |
-    | Quality | PASS |
-    | Testing | PASS |
-    | Commit | PASS |
-    | Comments | PASS |
-
-- [x] **T8**: Implement JSON test reporter and PRD coverage tracker `[complexity:medium]`
-
-    **Reference**: [design.md#36-jsonresultreporter](design.md#36-jsonresultreporter), [design.md#37-data-model-prd-coverage](design.md#37-data-model-prd-coverage)
-
-    **Effort**: 5 hours
-
-    **Acceptance Criteria**:
-
-    - [x] `JSONResultReporter` in `mkdnTests/Support/JSONResultReporter.swift` collects `TestResult` entries during suite execution
-    - [x] `TestResult` includes: name, status (pass/fail), prdReference (e.g., "spatial-design-language FR-3"), expected value, actual value, image paths, duration, message
-    - [x] `JSONResultReporter.writeReport(to:)` writes a valid JSON `TestReport` to `.build/test-results/mkdn-ui-test-report.json`
-    - [x] `TestReport` includes: timestamp, totalTests, passed, failed, results array, and PRD coverage report
-    - [x] `PRDCoverageTracker` in `mkdnTests/Support/PRDCoverageTracker.swift` maps test names to PRD FRs using naming convention `test_{prd}_{FR}_{aspect}`
-    - [x] `PRDCoverageReport` lists each PRD with totalFRs, coveredFRs, uncoveredFRs, and coveragePercent
-    - [x] Reporter is wired into spatial and visual compliance suites (T6, T7) to record results
-    - [x] Failure descriptions include expected value, actual measured value, and PRD reference (e.g., "spatial-design-language FR-3: headingSpaceAbove(H1) expected 48pt, measured 24pt")
-    - [x] Exit code is 0 when all tests pass, non-zero when any test fails
-    - [x] Code passes SwiftLint and SwiftFormat
-
-    **Implementation Summary**:
-
-    - **Files**: `mkdnTests/Support/JSONResultReporter.swift`, `mkdnTests/Support/PRDCoverageTracker.swift`, `mkdnTests/Unit/Support/JSONResultReporterTests.swift`, `mkdnTests/UITest/SpatialComplianceTests.swift` (modified), `mkdnTests/UITest/VisualPRD.swift` (modified), `mkdnTests/UITest/VisualComplianceTests+Syntax.swift` (modified)
-    - **Approach**: JSONResultReporter is a static enum with nonisolated(unsafe) storage following the existing SpatialHarness/VisualHarness pattern. Report file is rewritten after each record() call, ensuring on-disk report is always current even if the process terminates unexpectedly. PRDCoverageTracker parses prdReference strings ("prd-name FR-id" format) against a static registry of known PRD functional requirements. Reporter is wired into compliance suites by modifying assertSpatial and assertVisualColor helpers to record results alongside #expect assertions. Tests using #expect directly (contentMaxWidth, gridAlignment, syntaxTokens) have explicit record calls. verifySyntaxTokens was refactored into countSyntaxTokenMatches + recordSyntaxResult to stay within SwiftLint function_body_length limit.
-    - **Deviations**: Design specified @MainActor final class for JSONResultReporter; used static enum with nonisolated(unsafe) for consistency with existing test harness patterns and to avoid actor isolation overhead in sync assertion helpers. PRDCoverageTracker maps prdReference field (not test name) to PRD FRs, since prdReference is already present in all assertion helpers and provides cleaner parsing than test function names. Duration field is set to 0 in assertion-level recording (per-test timing would require wrapping every test body; total suite time is visible from swift test output).
-    - **Tests**: 12/12 passing (5 JSONResultReporter + 7 PRDCoverageTracker)
-
-    **Validation Summary**:
-
-    | Dimension | Status |
-    |-----------|--------|
-    | Discipline | PASS |
-    | Accuracy | PASS |
-    | Completeness | PASS |
-    | Quality | PASS |
-    | Testing | PASS |
-    | Commit | PASS |
-    | Comments | PASS |
-
-### Animation Capture and Compliance
-
-- [x] **T9**: Implement frame sequence capture with ScreenCaptureKit `[complexity:complex]`
-
-    **Reference**: [design.md#32-captureservice](design.md#32-captureservice), [design.md#35-frameanalyzer-animation-timing](design.md#35-frameanalyzer-animation-timing)
-
-    **Effort**: 10 hours
-
-    **Acceptance Criteria**:
-
-    - [x] Frame capture in `CaptureService` uses **ScreenCaptureKit (SCStream)** for asynchronous hardware-accelerated frame delivery, NOT `DispatchSourceTimer` + `CGWindowListCreateImage` (HYP-002 rejected: synchronous IPC overhead makes per-frame CGWindowListCreateImage impractical at 60fps)
-    - [x] `CaptureService.startFrameCapture(_:fps:duration:outputDir:)` creates an `SCStream` configured with `SCStreamConfiguration` at the target FPS, filtered to the app's window via `SCContentFilter`
-    - [x] `SCStreamOutput` delegate receives `CMSampleBuffer` frames, converts to `CGImage`, and writes numbered PNGs (`frame_0001.png`, `frame_0002.png`, ...) to the output directory
-    - [x] `CaptureService.stopFrameCapture()` stops the `SCStream` and returns `FrameCaptureResult` with frame count, actual FPS, duration, and frame paths
-    - [x] Frame capture supports configurable FPS (30-60) via `SCStreamConfiguration.minimumFrameInterval`
-    - [x] Frame capture does not cause frame drops in the application's own rendering (hardware-accelerated capture is decoupled from app rendering)
-    - [x] `FrameAnalyzer` in `mkdnTests/Support/FrameAnalyzer.swift` analyzes frame sequences for: pulse detection (`measureOrbPulse`), transition timing (`measureTransitionDuration`), spring curve fitting (`measureSpringCurve`), stagger delay measurement (`measureStaggerDelays`)
-    - [x] `PulseAnalysis`, `TransitionAnalysis`, `SpringAnalysis` result types capture measured animation parameters
-    - [x] ScreenCaptureKit permission requirement (Screen Recording) is documented in CaptureService
-    - [x] `startFrameCapture` / `stopFrameCapture` harness commands are wired through TestHarnessServer
-    - [x] Code passes SwiftLint and SwiftFormat
-
-    **Implementation Summary**:
-
-    - **Files**: `mkdn/Core/TestHarness/FrameCaptureSession.swift`, `mkdn/Core/TestHarness/CaptureService.swift`, `mkdn/Core/TestHarness/TestHarnessHandler.swift`, `mkdnTests/Support/FrameAnalyzer.swift`, `mkdnTests/Unit/Support/FrameAnalyzerTests.swift`
-    - **Approach**: FrameCaptureSession uses SCStream with SCStreamOutput delegate for hardware-accelerated frame delivery. CMSampleBuffer frames are converted to CGImage via CIContext, then written as numbered PNGs on a dedicated serial I/O queue with DispatchGroup tracking for completion. CaptureService orchestrates session lifecycle with startFrameCapture/stopFrameCapture. TestHarnessHandler wires frame capture commands through to CaptureService. FrameAnalyzer provides four analysis methods: measureOrbPulse (peak counting with hysteresis for sinusoidal frequency detection), measureTransitionDuration (10%-90% progress thresholds with color distance ratios), measureSpringCurve (directional overshoot detection with damping estimation from log-decrement formula), measureStaggerDelays (per-region appearance frame detection against background). Swift 6 concurrency compatibility achieved via @unchecked Sendable, NSLock for thread safety, and withCheckedContinuation for async bridging of DispatchGroup.notify.
-    - **Deviations**: Design specified stopFrameCapture as a separate action; implemented as a synchronous session cancellation (FrameCaptureSession captures for a fixed duration and stops automatically). The stopFrameCapture handler is a safety-net no-op that clears the active session reference. Spring settle threshold uses 5% of value range instead of 2% absolute, accommodating normalized property values (0-1 opacity).
-    - **Tests**: 5/5 passing (pulse detection, stationary orb, transition duration, stagger delays, spring overshoot)
-
-    **Validation Summary**:
-
-    | Dimension | Status |
-    |-----------|--------|
-    | Discipline | PASS |
-    | Accuracy | PASS |
-    | Completeness | PASS |
-    | Quality | PASS |
-    | Testing | PASS |
-    | Commit | PASS |
-    | Comments | PASS |
-
-- [x] **T10**: Implement animation compliance test suite `[complexity:medium]`
-
-    **Reference**: [design.md#implementation-plan](design.md#implementation-plan) (Phase 3, T10)
-
-    **Effort**: 7 hours
-
-    **Acceptance Criteria**:
-
-    - [x] `mkdnTests/UITest/AnimationComplianceTests.swift` exists as a `@Suite("AnimationCompliance")` struct
-    - [x] Timing calibration test runs first: capture a known-duration animation (crossfade at 0.35s), verify measured duration is within one frame of expected; calibration failure blocks remaining animation tests
-    - [x] Tests verify breathing orb rhythm: 30fps capture over one full cycle (~5s) shows sinusoidal opacity/scale variation at ~12 cycles/min
-    - [x] Tests verify spring-settle transitions: 60fps capture shows response consistent with `spring(response: 0.35, dampingFraction: 0.7)` using `AnimationConstants` values
-    - [x] Tests verify fade durations: 30fps capture confirms crossfade (0.35s), fadeIn (0.5s), fadeOut (0.4s) match `AnimationConstants`
-    - [x] Tests verify content load stagger: 60fps capture of `long-document.md` load shows per-block stagger delay of 30ms with fade+drift animation
-    - [x] Tests verify Reduce Motion compliance: `setReduceMotion(enabled: true)` command, then capture orb over 5s confirms static (no breathing), transitions use reduced durations (0.15s or instant)
-    - [x] All tests use curve-fitting across multiple frames per BR-004 rather than single-frame timing assertions
-    - [x] Animation expected values reference `AnimationConstants` static properties, not hardcoded numbers
-    - [x] Timing measurements are accurate to within one frame at the capture framerate (16.7ms at 60fps, 33.3ms at 30fps)
-    - [x] Frame capture uses ScreenCaptureKit (SCStream) via T9's implementation
-    - [x] Code passes SwiftLint and SwiftFormat
-
-    **Implementation Summary**:
-
-    - **Files**: `mkdnTests/UITest/AnimationPRD.swift`, `mkdnTests/UITest/AnimationComplianceTests.swift`, `mkdnTests/UITest/AnimationComplianceTests+ReduceMotion.swift`, `mkdnTests/UITest/AnimationComplianceTests+FadeDurations.swift`
-    - **Approach**: Created 4-file animation compliance suite following existing SpatialCompliance/VisualCompliance patterns. AnimationPRD.swift holds PRD expected values, shared harness, fixture helpers, assertion utilities, and calibration helpers. Main struct covers calibration gate (two-phase: infra check + crossfade timing accuracy) + FR-1 through FR-4 (breathing orb rhythm, spring-settle, crossfade duration, stagger delays/constants). FadeDurations extension covers FR-3 fadeIn and fadeOut duration tests with content region transition measurement. ReduceMotion extension covers FR-5 (orb static under RM, reduced transition durations). Tests trigger animations via harness IPC then immediately capture frames for curve-fitting analysis via FrameAnalyzer.
-    - **Deviations**: Calibration uses `try #require` (not `#expect`) to ensure calibrationPassed is only set when all checks pass. fadeIn/fadeOut tests use 3-frame tolerance (matching crossfade test) to account for IPC latency between animation trigger and frame capture start. fadeIn end-color reference derived from last captured frame (not theme colors) because text content creates a mixed-color region.
-    - **Tests**: 257/257 unit tests passing; 13 UI compliance tests correctly gated behind calibration (require GUI environment with Screen Recording permissions)
-
-    **Review Feedback** (Attempt 1):
-    - **Status**: FAILURE
-    - **Issues**:
-        - [completeness] Missing fadeIn (0.5s) and fadeOut (0.4s) duration tests. AC states "Tests verify fade durations: 30fps capture confirms crossfade (0.35s), fadeIn (0.5s), fadeOut (0.4s) match AnimationConstants." Only crossfade is tested. `AnimationPRD.fadeInDuration` and `AnimationPRD.fadeOutDuration` constants are defined but never used in any test assertion.
-        - [completeness] Calibration test does not match AC. AC states "capture a known-duration animation (crossfade at 0.35s), verify measured duration is within one frame of expected." The actual calibration (`calibrationFrameCapture`) only verifies frame capture infrastructure (frameCount > 0, fps == 30) but never captures a crossfade or verifies timing accuracy. This means timing measurement accuracy is not validated before running compliance tests.
-    - **Guidance**:
-        1. Add a `test_animationDesignLanguage_FR3_fadeInDuration` test: trigger a file load (which causes block entrance via fadeIn animation), capture frames at 30fps, and measure the opacity transition duration of a content block using `FrameAnalyzer.measureTransitionDuration`. Assert against `AnimationPRD.fadeInDuration` (0.5s) with `animTolerance30fps` tolerance.
-        2. Add a `test_animationDesignLanguage_FR3_fadeOutDuration` test: load a file, then switch to a different file (or reload) to trigger block exit via fadeOut animation. Capture frames and measure the opacity transition. Assert against `AnimationPRD.fadeOutDuration` (0.4s).
-        3. Strengthen the calibration test: after verifying frame capture infrastructure, perform a theme switch (dark to light), capture frames at 30fps, measure the crossfade duration via `FrameAnalyzer.measureTransitionDuration`, and verify the measured value is within one frame (`animTolerance30fps`) of `AnimationPRD.crossfadeDuration` (0.35s). Only set `calibrationPassed = true` if this timing check also passes.
-        4. Uncheck the two ACs that are not fully satisfied: "Tests verify fade durations" and "Timing calibration test runs first."
-
-    **Review Feedback Resolution** (Attempt 2):
-    - Added `test_animationDesignLanguage_FR3_fadeInDuration` in new `AnimationComplianceTests+FadeDurations.swift` extension: loads minimal file, then content-rich file to trigger block entrance fadeIn, captures 30fps frames, measures content region opacity transition against `AnimationPRD.fadeInDuration` (0.5s)
-    - Added `test_animationDesignLanguage_FR3_fadeOutDuration` in same extension: loads content-rich file, captures settled content color, loads minimal file to trigger block exit fadeOut, measures transition back to background against `AnimationPRD.fadeOutDuration` (0.4s)
-    - Enhanced calibration to two-phase: Phase 1 verifies frame capture infrastructure (frameCount, fps, image loading) via `verifyFrameCaptureInfra`; Phase 2 measures crossfade timing accuracy via `verifyCrossfadeTimingAccuracy` (dark-to-light switch, 30fps capture, duration within `animTolerance30fps` of 0.35s). `calibrationPassed` only set if both phases pass.
-    - Changed calibration assertions from `#expect` to `try #require` to ensure downstream tests are properly blocked on calibration failure
-    - SwiftLint: 0 violations; SwiftFormat: no changes; Tests: 257/257 passing
-
-    **Validation Summary**:
-
-    | Dimension | Status |
-    |-----------|--------|
-    | Discipline | PASS |
-    | Accuracy | PASS |
-    | Completeness | PASS |
-    | Quality | PASS |
-    | Testing | PASS |
-    | Commit | PASS |
-    | Comments | PASS |
-
-### CI and Documentation
-
-- [x] **T11**: Document CI configuration and test execution workflow `[complexity:simple]`
-
-    **Reference**: [design.md#deployment-design](design.md#deployment-design)
+    - [ ] Animation calibration passes both phases: frame capture infrastructure delivers frames at target FPS, and crossfade timing measurement is within 1 frame of expected 0.35s (AC-002c, AC-005a)
+    - [ ] ScreenCaptureKit SCStream captures frame sequences at 30fps and 60fps (AC-005b)
+    - [ ] Captured frames contain real pixel data reflecting mkdn window content, not blank/black (AC-005c)
+    - [ ] Breathing orb test produces meaningful pulse analysis: detects ~12 CPM or provides diagnostic failure with measured CPM (AC-005d)
+    - [ ] Fade duration tests (crossfade, fadeIn, fadeOut) measure within configured tolerance of AnimationConstants, or produce diagnostic failures with measured vs expected (AC-005e)
+    - [ ] Reduce Motion tests detect orb stationarity and reduced transition durations when RM override is enabled (AC-005f)
+    - [ ] Infrastructure fixes preserve existing architecture and are documented (AC-006a, AC-006b, AC-006e)
+    - [ ] Timing/tolerance adjustments are justified by empirical measurement (BR-005)
+
+### Report Validation
+
+- [ ] **T6**: Validate JSON report at `.build/test-results/mkdn-ui-test-report.json` -- verify structure, completeness, PRD references, failure diagnostics, image paths, and coverage accuracy `[complexity:simple]`
+
+    **Reference**: [design.md#t6-json-report-validation-req-007](design.md#t6-json-report-validation-req-007)
 
     **Effort**: 2 hours
 
     **Acceptance Criteria**:
 
-    - [x] CI setup requirements are documented: macOS runner with window server session, screen resolution requirements, Screen Recording permission for the CI agent/Terminal
-    - [x] CI-specific tolerance configuration is documented and configurable (e.g., WKWebView rendering variation thresholds)
-    - [x] Test execution workflow documented for both agent and human developer: `swift test --filter UITest` (full suite), `--filter SpatialCompliance`, `--filter VisualCompliance`, `--filter AnimationCompliance`
-    - [x] ScreenCaptureKit permission requirements documented alongside CGWindowListCreateImage permissions
-    - [x] JSON report output location and schema documented
-    - [x] Captured image and frame sequence artifact paths documented
-    - [x] Known limitations and environment-specific considerations documented
+    - [ ] Report file exists at `.build/test-results/mkdn-ui-test-report.json` after test run (AC-007a)
+    - [ ] Report is valid JSON parseable by standard tools (AC-007b)
+    - [ ] `totalTests` matches the number of tests that actually executed (AC-007c)
+    - [ ] Each TestResult has a non-empty `prdReference` field (AC-007d)
+    - [ ] Failed results have `expected` and `actual` fields with meaningful values (AC-007e)
+    - [ ] Image paths in results point to files that exist on disk (AC-007f)
+    - [ ] Coverage section contains entries for spatial-design-language, animation-design-language, and automated-ui-testing PRDs with accurate coveredFRs counts (AC-007g)
+    - [ ] JSONResultReporter or PRDCoverageTracker are fixed if report is incomplete or malformed
 
-    **Implementation Summary**:
+### Verification and Documentation
 
-    - **Files**: `docs/ui-testing.md`
-    - **Approach**: Comprehensive documentation covering architecture overview, test execution commands, test suite inventory, calibration gates, agent and human developer workflows, test fixture descriptions, output artifact paths and JSON schema, permission requirements (Screen Recording for both CGWindowListCreateImage and ScreenCaptureKit), CI runner setup steps, tolerance configuration tables with defaults and adjustment guidance, and known limitations (capture timing, render completion detection, platform dependencies, SpacingConstants migration, test isolation, temporary file cleanup). Harness command reference table included.
-    - **Deviations**: None
-    - **Tests**: N/A (documentation only; no code changes)
+- [ ] **T7**: Compile compliance baseline -- total tests, pass/fail counts, failure categories (infrastructure fix, pre-migration gap, genuine bug), and pre-migration gap details with PRD references and measured values `[complexity:simple]`
 
-    **Validation Summary**:
+    **Reference**: [design.md#t7-compliance-baseline-documentation-req-008](design.md#t7-compliance-baseline-documentation-req-008)
 
-    | Dimension | Status |
-    |-----------|--------|
-    | Discipline | PASS |
-    | Accuracy | PASS |
-    | Completeness | PASS |
-    | Quality | PASS |
-    | Testing | N/A |
-    | Commit | PASS |
-    | Comments | N/A |
+    **Effort**: 2 hours
+
+    **Acceptance Criteria**:
+
+    - [ ] Baseline summary documents total tests, passing count, failing count, and category of each failure (AC-008a)
+    - [ ] Pre-migration gaps listed with: test name, PRD reference, expected value, measured value, and migration dependency (AC-008b)
+    - [ ] Baseline recorded in field notes at `.rp1/work/features/automated-ui-testing/field-notes.md` (AC-008c)
+
+- [ ] **T8**: Run `swift test --filter UITest` 3 consecutive times, compare pass/fail results, flag flaky tests, diagnose root causes, fix or document mitigation `[complexity:medium]`
+
+    **Reference**: [design.md#t8-determinism-verification-req-010](design.md#t8-determinism-verification-req-010)
+
+    **Effort**: 6 hours
+
+    **Acceptance Criteria**:
+
+    - [ ] 3 consecutive runs produce identical pass/fail results for every test (AC-010a)
+    - [ ] Any flaky test has root cause diagnosed: timing race, tolerance too tight, render non-determinism (AC-010b)
+    - [ ] Flaky tests are either fixed (if minimal) or documented with mitigation plan (AC-010c)
+    - [ ] Tolerance adjustments for flakiness are justified by observed variance across runs (BR-005)
+
+- [ ] **T9**: Demonstrate complete agent workflow loop -- run suite via CLI, parse JSON report, identify failing test, trace to PRD requirement, make targeted fix, re-run, confirm fix `[complexity:medium]`
+
+    **Reference**: [design.md#t9-agent-workflow-validation-req-009](design.md#t9-agent-workflow-validation-req-009)
+
+    **Effort**: 4 hours
+
+    **Acceptance Criteria**:
+
+    - [ ] Agent runs `swift test --filter UITest` and receives structured output (AC-009a)
+    - [ ] Agent reads JSON report and identifies at least one failing test with PRD reference, expected value, and actual value (AC-009b)
+    - [ ] Agent makes a targeted change (code fix or tolerance adjustment) based on failure diagnostic (AC-009c)
+    - [ ] Re-running the specific test confirms the change resolved the failure (AC-009d)
 
 ### User Docs
 
-- [ ] **TD1**: Add Core/TestHarness module documentation to modules.md `[complexity:simple]`
-
-    **Reference**: [design.md#documentation-impact](design.md#documentation-impact)
-
-    **Type**: add
-
-    **Target**: `.rp1/context/modules.md`
-
-    **Section**: Core Layer
-
-    **KB Source**: modules.md:Core
-
-    **Effort**: 30 minutes
-
-    **Acceptance Criteria**:
-
-    - [ ] Core Layer section in modules.md includes TestHarness subsection with entries for TestHarnessServer, CaptureService, RenderCompletionSignal, HarnessCommand, and HarnessResponse
-
-- [ ] **TD2**: Update architecture.md with test harness mode documentation `[complexity:simple]`
-
-    **Reference**: [design.md#documentation-impact](design.md#documentation-impact)
-
-    **Type**: edit
-
-    **Target**: `.rp1/context/architecture.md`
-
-    **Section**: System Overview
-
-    **KB Source**: architecture.md:overview
-
-    **Effort**: 30 minutes
-
-    **Acceptance Criteria**:
-
-    - [ ] System Overview section describes test harness mode: `--test-harness` launch argument, Unix domain socket control flow, render completion signaling
-
-- [ ] **TD3**: Update patterns.md with UI test pattern documentation `[complexity:simple]`
+- [ ] **TD1**: Update patterns.md - UI Test Pattern with validated tolerances and discovered gotchas `[complexity:simple]`
 
     **Reference**: [design.md#documentation-impact](design.md#documentation-impact)
 
@@ -541,123 +198,127 @@ Automated UI testing infrastructure for mkdn that enables an AI coding agent and
 
     **Target**: `.rp1/context/patterns.md`
 
-    **Section**: Testing Pattern
+    **Section**: UI Test Pattern
 
-    **KB Source**: patterns.md:testing
+    **KB Source**: patterns.md:UI Test Pattern
 
     **Effort**: 30 minutes
 
     **Acceptance Criteria**:
 
-    - [ ] Testing Pattern section documents: harness-based UI testing pattern, PRD-anchored test naming convention, calibration-first test execution strategy
+    - [ ] UI Test Pattern section reflects empirically validated tolerance values
+    - [ ] Any gotchas discovered during validation are documented
 
-- [ ] **TD4**: Add mkdnTests UI test and support module documentation to modules.md `[complexity:simple]`
+- [ ] **TD2**: Update architecture.md - Test Harness Mode with empirically validated behavior and timing adjustments `[complexity:simple]`
 
     **Reference**: [design.md#documentation-impact](design.md#documentation-impact)
 
-    **Type**: add
+    **Type**: edit
 
-    **Target**: `.rp1/context/modules.md`
+    **Target**: `.rp1/context/architecture.md`
 
-    **Section**: Test Layer
+    **Section**: Test Harness Mode
 
-    **KB Source**: modules.md:dependencies
+    **KB Source**: architecture.md:Test Harness Mode
 
     **Effort**: 30 minutes
 
     **Acceptance Criteria**:
 
-    - [ ] Modules.md includes a Test Layer section documenting mkdnTests/UITest/ (SpatialComplianceTests, VisualComplianceTests, AnimationComplianceTests) and mkdnTests/Support/ (TestHarnessClient, AppLauncher, ImageAnalyzer, SpatialMeasurement, ColorExtractor, FrameAnalyzer, JSONResultReporter, PRDCoverageTracker)
+    - [ ] Test Harness Mode section reflects empirically validated behavior
+    - [ ] Any timing adjustments made during validation are documented
+
+- [ ] **TD3**: Update docs/ui-testing.md - Tolerances and Known Issues sections `[complexity:simple]`
+
+    **Reference**: [design.md#documentation-impact](design.md#documentation-impact)
+
+    **Type**: edit
+
+    **Target**: `docs/ui-testing.md`
+
+    **Section**: Tolerances, Known Issues
+
+    **KB Source**: -
+
+    **Effort**: 30 minutes
+
+    **Acceptance Criteria**:
+
+    - [ ] Tolerance values updated if adjusted during validation
+    - [ ] Known Issues section added with any discovered issues
 
 ## Acceptance Criteria Checklist
 
-### REQ-001: Programmatic Application Control
-- [ ] AC-001a: Harness launches mkdn with file path, app reaches rendered state within configurable timeout
-- [ ] AC-001b: Harness switches between Preview Only and Side-by-Side modes
-- [ ] AC-001c: Harness cycles themes (Solarized Dark/Light) and UI reflects change
-- [ ] AC-001d: Harness triggers file reload and content re-renders
-- [ ] AC-001e: Harness activates/deactivates Mermaid diagram focus
-- [ ] AC-001f: Render stability detection uses deterministic signal, not fixed delays
+### REQ-001: Test Harness Smoke Test
+- [ ] AC-001a: AppLauncher.launch() builds and launches mkdn with --test-harness within 60 seconds
+- [ ] AC-001b: TestHarnessClient.ping() returns successful pong response
+- [ ] AC-001c: TestHarnessClient.loadFile(path:) loads fixture with render completion signal
+- [ ] AC-001d: captureWindow produces PNG at Retina 2x with non-zero dimensions
+- [ ] AC-001e: Captured PNG is valid, loadable, and contains real content
+- [ ] AC-001f: quit() terminates app cleanly
 
-### REQ-002: Rendering Capture
-- [ ] AC-002a: Full window capture produces PNG at native Retina resolution
-- [ ] AC-002b: Region-of-interest capture isolates specific UI elements
-- [ ] AC-002c: Capture occurs only after render completion signal
-- [ ] AC-002d: Captured images include metadata (timestamp, file path, theme, mode, dimensions)
-- [ ] AC-002e: Same inputs produce pixel-identical captures across consecutive runs
+### REQ-002: Calibration Gate Validation
+- [ ] AC-002a: Spatial calibration passes (measurement accuracy within 1pt)
+- [ ] AC-002b: Visual calibration passes (background color matches ThemeColors)
+- [ ] AC-002c: Animation calibration passes (frame capture + crossfade timing within 1 frame)
 
-### REQ-003: Spatial Compliance Verification
-- [ ] AC-003a: Document margins verified against 32pt
-- [ ] AC-003b: Block-to-block spacing verified against 16pt
-- [ ] AC-003c: Heading spacing (H1-H3) verified against SpacingConstants/PRD values
-- [ ] AC-003d: Component padding verified against 12pt
-- [ ] AC-003e: Window chrome insets verified (top 32pt, sides 32pt, bottom 24pt)
-- [ ] AC-003f: Content width does not exceed ~680pt
-- [ ] AC-003g: All spatial values reported as multiples of 4pt sub-grid
-- [ ] AC-003h: Measurements accurate to within 1pt at Retina resolution
+### REQ-003: Spatial Compliance Suite
+- [ ] AC-003a: All 16 spatial tests execute without infrastructure errors
+- [ ] AC-003b: Calibration-dependent tests correctly gated
+- [ ] AC-003c: Passing tests confirm values within 1pt tolerance
+- [ ] AC-003d: Failing tests produce diagnostic messages with measured/expected/tolerance/FR reference
+- [ ] AC-003e: Pre-migration gaps identified and documented
 
-### REQ-004: Visual Compliance Verification
-- [ ] AC-004a: Background color matches ThemeColors.background
-- [ ] AC-004b: Heading text colors match ThemeColors
-- [ ] AC-004c: Body text colors match ThemeColors
-- [ ] AC-004d: Syntax highlighting produces correct token colors
-- [ ] AC-004e: Both Solarized Dark and Light pass all visual checks
-- [ ] AC-004f: Color comparison uses configurable tolerance
+### REQ-004: Visual Compliance Suite
+- [ ] AC-004a: All 12 visual tests execute without infrastructure errors
+- [ ] AC-004b: Theme switching produces distinct captures matching ThemeColors
+- [ ] AC-004c: Background color tests pass for both themes
+- [ ] AC-004d: Text color tests sample from text regions
+- [ ] AC-004e: Syntax token tests detect at least 2 of 3 expected token colors
 
-### REQ-005: Animation Timing Verification
-- [ ] AC-005a: Breathing orb shows sinusoidal variation at ~12 cycles/min
-- [ ] AC-005b: Spring-settle transitions match spring(response: 0.35, dampingFraction: 0.7)
-- [ ] AC-005c: Fade durations match AnimationConstants (crossfade: 0.35s, fadeIn: 0.5s, fadeOut: 0.4s)
-- [ ] AC-005d: Content load stagger shows 30ms per-block delay
-- [ ] AC-005e: Reduce Motion: orb static, transitions use reduced durations
-- [ ] AC-005f: Timing measurements accurate to within one frame
+### REQ-005: Animation Compliance Suite
+- [ ] AC-005a: Animation calibration passes both phases
+- [ ] AC-005b: SCStream captures at 30fps and 60fps
+- [ ] AC-005c: Captured frames contain real pixel data
+- [ ] AC-005d: Breathing orb test produces meaningful pulse analysis
+- [ ] AC-005e: Fade duration tests within configured tolerance or produce diagnostics
+- [ ] AC-005f: Reduce Motion tests detect stationarity and reduced durations
 
-### REQ-006: Structured Agent-Consumable Output
-- [ ] AC-006a: Test execution invocable via CLI
-- [ ] AC-006b: Output is valid JSON with consistent schema
-- [ ] AC-006c: Failure descriptions include expected, actual, and PRD reference
-- [ ] AC-006d: Exit code 0 on all pass, non-zero on any fail
-- [ ] AC-006e: Agent can parse JSON and identify which PRD requirement failed
+### REQ-006: Infrastructure Failure Diagnosis and Repair
+- [ ] AC-006a: Each infrastructure failure has root cause description
+- [ ] AC-006b: Fixes are minimal and targeted
+- [ ] AC-006c: Harness smoke test passes after fixes
+- [ ] AC-006d: All three calibration gates pass after fixes
+- [ ] AC-006e: Fixes documented in field notes
 
-### REQ-007: PRD-Anchored Test Specifications
-- [ ] AC-007a: Test names follow `test_{prd}_{FR}_{aspect}` pattern
-- [ ] AC-007b: Each test includes PRD name, FR number, expected value documentation
-- [ ] AC-007c: Suite produces coverage report listing covered and uncovered FRs
+### REQ-007: JSON Report Validation
+- [ ] AC-007a: Report file exists at expected path
+- [ ] AC-007b: Report is valid JSON
+- [ ] AC-007c: totalTests matches executed count
+- [ ] AC-007d: Each result has non-empty prdReference
+- [ ] AC-007e: Failed results have meaningful expected/actual values
+- [ ] AC-007f: Image paths point to existing files
+- [ ] AC-007g: Coverage section has accurate PRD entries
 
-### REQ-008: Test Fixture Management
-- [ ] AC-008a: Canonical test document exists with all Markdown element types
-- [ ] AC-008b: Focused test documents exist for long document, Mermaid, theme tokens
-- [ ] AC-008c: All fixtures checked into repository under known path
-- [ ] AC-008d: Fixtures include known-geometry elements for spatial calibration
+### REQ-008: Compliance Baseline Documentation
+- [ ] AC-008a: Baseline summary with totals and failure categories
+- [ ] AC-008b: Pre-migration gaps listed with full details
+- [ ] AC-008c: Baseline recorded in field notes
 
-### REQ-009: Test Isolation and Determinism
-- [ ] AC-009a: Each test launches fresh app instance or performs complete state reset
-- [ ] AC-009b: Tests produce identical results regardless of execution order
-- [ ] AC-009c: Tests can run in parallel with separate window instances
-- [ ] AC-009d: Ten consecutive runs produce zero flaky failures
+### REQ-009: Agent Workflow Validation
+- [ ] AC-009a: Agent runs suite and receives structured output
+- [ ] AC-009b: Agent identifies failing test from JSON report
+- [ ] AC-009c: Agent makes targeted change based on diagnostic
+- [ ] AC-009d: Re-run confirms fix
 
-### REQ-010: CI Environment Compatibility
-- [ ] AC-010a: Test suite runs on macOS CI runner with screen session
-- [ ] AC-010b: CI setup requirements documented
-- [ ] AC-010c: CI-specific tolerance configuration documented and configurable
-
-## Manual Verification
-
-Items requiring runtime validation in a GUI environment with Screen Recording permission:
-
-- [ ] **AC-002e**: Verify that same file + theme + mode + window size produces pixel-identical captures across consecutive runs
-- [ ] **AC-009d**: Verify ten consecutive runs of the full suite produce zero flaky failures
-- [ ] **AC-010a**: Verify the test suite runs successfully on a macOS CI runner with a screen session
-
-Known limitations (documented, not blocking):
-
-- **AC-001e**: No harness command for Mermaid diagram focus activation/deactivation (deferred to future iteration)
-- **AC-002c**: Render completion signal does not cover WKWebView Mermaid rendering (documented limitation)
-- **AC-003d**: Blockquote padding untested because ThemeColorsResult lacks blockquote background color
+### REQ-010: Test Determinism Verification
+- [ ] AC-010a: 3 consecutive runs produce identical results
+- [ ] AC-010b: Flaky test root causes diagnosed
+- [ ] AC-010c: Flaky tests fixed or documented with mitigation
 
 ## Definition of Done
 
-- [x] All tasks completed
-- [x] All AC verified (44/49; 3 manual, 3 known limitations)
+- [ ] All tasks completed
+- [ ] All acceptance criteria verified
 - [ ] Code reviewed
-- [x] Docs updated
+- [ ] Docs updated
