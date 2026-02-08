@@ -22,7 +22,12 @@
 - Theme definitions: `mkdn/UI/Theme/`
 - Animation constants: `mkdn/UI/Theme/AnimationConstants.swift`
 - Motion preference: `mkdn/UI/Theme/MotionPreference.swift`
-- Tests: `mkdnTests/Unit/`
+- Test harness (app-side): `mkdn/Core/TestHarness/`
+- Test harness (client-side): `mkdnTests/Support/`
+- UI compliance tests: `mkdnTests/UITest/`
+- UI test fixtures: `mkdnTests/Fixtures/UITest/`
+- UI testing docs: `docs/ui-testing.md`
+- Unit tests: `mkdnTests/Unit/`
 
 ## Critical Constraints
 

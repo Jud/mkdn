@@ -34,6 +34,18 @@
 |------|---------|
 | CLIHandler.swift | Argument parsing for `mkdn file.md` |
 
+### TestHarness (`Core/TestHarness/`)
+| File | Purpose |
+|------|---------|
+| HarnessCommand.swift | Command enum (14 cases: loadFile, captureWindow, captureRegion, switchMode, cycleTheme, setTheme, reloadFile, getWindowInfo, getThemeColors, setReduceMotion, ping, quit, startFrameCapture, stopFrameCapture), CaptureRegion struct, HarnessSocket path convention |
+| HarnessResponse.swift | Response struct with ResponseData enum (capture, frameCapture, windowInfo, themeColors, pong). Result types: CaptureResult, FrameCaptureResult, WindowInfoResult, ThemeColorsResult, RGBColor |
+| HarnessError.swift | Error enum: renderTimeout, connectionFailed, unexpectedResponse, unknownCommand, captureFailed, fileLoadFailed |
+| RenderCompletionSignal.swift | @MainActor singleton. CheckedContinuation-based render-done signaling. `awaitRenderComplete(timeout:)` suspends until `signalRenderComplete()` fires from SelectableTextView.Coordinator |
+| TestHarnessServer.swift | Unix domain socket listener on DispatchQueue. POSIX socket APIs (bind/listen/accept). Semaphore-based AsyncBridge for @MainActor dispatch. Line-delimited JSON protocol with iso8601 dates. Socket at `/tmp/mkdn-test-harness-{pid}.sock` |
+| TestHarnessHandler.swift | @MainActor command dispatch for all 14 cases. Weak refs to AppSettings + DocumentState. Delegates captures to CaptureService, uses RenderCompletionSignal for render-wait commands |
+| CaptureService.swift | @MainActor enum. CGWindowListCreateImage for static window/region captures. FrameCaptureSession lifecycle for animation frame sequences. PNG writing via NSBitmapImageRep |
+| FrameCaptureSession.swift | SCStream-based frame capture via ScreenCaptureKit. SCStreamOutput delegate for frame delivery on serial captureQueue. CIContext pixel buffer conversion. Serial ioQueue + DispatchGroup for non-blocking PNG writes |
+
 ## Features Layer (`mkdn/Features/`)
 
 ### Viewer (`Features/Viewer/`)
@@ -91,3 +103,37 @@
 | jectivex/JXKit | Swift JSC wrapper | Core/Mermaid |
 | apple/swift-argument-parser | CLI args | Core/CLI |
 | JohnSundell/Splash | Syntax highlighting | Features/Viewer |
+| ScreenCaptureKit (system) | SCStream frame capture for animation verification | Core/TestHarness |
+
+## Test Layer (`mkdnTests/`)
+
+### Support (`mkdnTests/Support/`)
+| File | Purpose |
+|------|---------|
+| TestHarnessClient.swift | POSIX socket client with typed async methods for every HarnessCommand. Retry-based connect (20 attempts, 250ms delay). Blocking I/O on serial ioQueue, poll()-based read with timeout |
+| AppLauncher.swift | `swift build --product mkdn` + Process launch with `--test-harness` flag. Connects TestHarnessClient, manages teardown (quit command + process termination + socket cleanup) |
+| ImageAnalyzer.swift | Pixel-level CGImage analysis. Handles 4 macOS byte orders (RGBA, ARGB, BGRA, ABGR). Point-to-pixel coordinate conversion via scaleFactor. Methods: sampleColor, averageColor, contentBounds, findColorBoundary, dominantColor, findRegion |
+| ColorExtractor.swift | PixelColor struct (UInt8 RGBA). Chebyshev distance matching (max per-channel delta) |
+| SpatialMeasurement.swift | Edge detection, distance measurement, gap measurement between rendered elements |
+| FrameAnalyzer.swift | Animation curve extraction from frame sequences. measureOrbPulse (peak counting, CPM), measureTransitionDuration (progress 10%--90%, curve inference), measureSpringCurve (overshoot peak, damping estimation, settle time), measureStaggerDelays (per-region appearance frame detection) |
+| JSONResultReporter.swift | Structured test result collection. Writes JSON report to `.build/test-results/mkdn-ui-test-report.json` |
+| PRDCoverageTracker.swift | Maps test results to PRD functional requirements. Reports covered/uncovered FRs per PRD |
+
+### UI Compliance Suites (`mkdnTests/UITest/`)
+| File | Purpose |
+|------|---------|
+| SpatialComplianceTests.swift + SpatialComplianceTests+Typography.swift | 16 spatial tests: margins, spacing, indentation. Calibration gate validates measurement accuracy within 1pt |
+| SpatialPRD.swift | PRD constants for spatial-design-language FR-1 through FR-6. Tolerance: 1.0pt spatial, 10 color |
+| VisualComplianceTests.swift + VisualComplianceTests+Syntax.swift | 12 visual tests: theme colors, syntax highlighting tokens. Calibration gate validates background color sampling |
+| VisualPRD.swift | PRD constants for automated-ui-testing AC-004. Tolerances: 10 color, 15 text, 25 syntax |
+| AnimationComplianceTests.swift + AnimationComplianceTests+FadeDurations.swift + AnimationComplianceTests+ReduceMotion.swift | 13 animation tests: orb pulse, fade durations, spring curves, stagger delays, reduce motion. Calibration gate validates frame capture + crossfade timing |
+| AnimationPRD.swift | PRD constants for animation-design-language FR-1 through FR-5. Tolerances: 33.3ms at 30fps, 16.7ms at 60fps, 25% CPM relative |
+
+### Fixtures (`mkdnTests/Fixtures/UITest/`)
+| File | Purpose |
+|------|---------|
+| canonical.md | All Markdown element types for comprehensive rendering verification |
+| long-document.md | 31 top-level blocks for stagger animation testing |
+| mermaid-focus.md | 4 Mermaid diagram types (flowchart, sequence, class, state) |
+| theme-tokens.md | Code blocks isolating each SyntaxColors token type |
+| geometry-calibration.md | Known-spacing elements for spatial measurement calibration |

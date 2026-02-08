@@ -3,12 +3,12 @@
 ## System Overview
 
 ```
-CLI (mkdn file.md)
-  |
-  v
-MkdnApp (SwiftUI App)
-  |
-  v
+CLI (mkdn file.md)          CLI (mkdn --test-harness)
+  |                            |
+  v                            v
+MkdnApp (SwiftUI App)       MkdnApp + TestHarnessServer
+  |                            |
+  v                            v
 AppState (@Observable, environment)
   |
   +---> ContentView
@@ -22,6 +22,12 @@ AppState (@Observable, environment)
   +---> Theme system (Solarized Dark/Light)
   |
   +---> Animation layer (AnimationConstants + MotionPreference)
+  |
+  +---> TestHarnessServer (Unix socket, test mode only)
+          |
+          +---> TestHarnessHandler (@MainActor command dispatch)
+          +---> CaptureService (CGWindowListCreateImage + ScreenCaptureKit)
+          +---> RenderCompletionSignal (CheckedContinuation-based)
 ```
 
 ## Rendering Pipeline
@@ -66,3 +72,43 @@ Code block with language tag
 - MermaidRenderer: actor (thread-safe JSC access + cache)
 - FileWatcher: DispatchQueue + @MainActor for UI updates
 - MotionPreference: value type, instantiated per-view from `@Environment(\.accessibilityReduceMotion)`. No shared state; resolves animation primitives locally.
+- TestHarnessServer: DispatchQueue for socket I/O + semaphore-based AsyncBridge to dispatch commands to @MainActor. The socket loop runs on `socketQueue`; each command is bridged to MainActor via `Task { @MainActor in ... }` + `DispatchSemaphore.wait()`.
+- TestHarnessHandler: @MainActor enum. All command handlers execute on MainActor. Render-wait commands suspend via `RenderCompletionSignal.awaitRenderComplete()`.
+- CaptureService: @MainActor enum. Static captures via CGWindowListCreateImage (synchronous). Frame captures delegate to FrameCaptureSession.
+- FrameCaptureSession: `@unchecked Sendable`. SCStream output arrives on serial `captureQueue`. PNG writes dispatched to serial `ioQueue` with DispatchGroup tracking. NSLock guards shared frame state.
+- RenderCompletionSignal: @MainActor singleton. CheckedContinuation stored/resumed on MainActor -- no concurrent access possible.
+
+## Test Harness Mode
+
+When launched with `--test-harness`, the app enters test harness mode:
+
+1. `TestHarnessMode.isEnabled` is set to `true`
+2. `TestHarnessServer.shared.start()` binds a Unix domain socket at `/tmp/mkdn-test-harness-{pid}.sock`
+3. The server accepts one client connection at a time on its socket queue
+4. Commands arrive as line-delimited JSON, are decoded to `HarnessCommand`, and dispatched to `TestHarnessHandler` on MainActor
+5. `RenderCompletionSignal` bridges the gap between command execution and render completion -- the `SelectableTextView.Coordinator` calls `signalRenderComplete()` after `makeNSView`/`updateNSView`, and render-wait commands (loadFile, switchMode, cycleTheme, setTheme, reloadFile) suspend until this signal fires or timeout expires
+6. `CaptureService` provides two capture paths:
+   - **Static**: `CGWindowListCreateImage` captures the window as a CGImage, cropped for region captures, written as PNG
+   - **Animation**: `FrameCaptureSession` uses ScreenCaptureKit `SCStream` filtered to the app window, delivering frames at configurable FPS (30--60) for a specified duration
+
+### Two-Process Test Architecture
+
+```
+swift test (test runner)          mkdn --test-harness (app under test)
+  |                                 |
+  AppLauncher                       TestHarnessServer
+    - swift build --product mkdn      - bind /tmp/mkdn-test-harness-{pid}.sock
+    - Process.run(--test-harness)     - accept() on socketQueue
+    |                                 |
+  TestHarnessClient                 TestHarnessHandler (@MainActor)
+    - connect() with retry            - dispatch HarnessCommand
+    - send JSON command               - execute on MainActor
+    - read JSON response              - await RenderCompletionSignal
+    |                                 |
+  ImageAnalyzer / FrameAnalyzer     CaptureService / FrameCaptureSession
+    - pixel-level analysis            - CGWindowListCreateImage
+    - color matching                  - SCStream frame capture
+    - animation curve fitting         - PNG output
+```
+
+No XCUITest dependency -- the app controls itself. No `.xcodeproj` required -- pure SPM project. The test harness client connects via POSIX sockets with retry logic (20 attempts, 250ms delay) to handle the race between process launch and socket readiness.
