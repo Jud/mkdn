@@ -2,7 +2,7 @@
 
 **Feature ID**: automated-ui-testing
 **Status**: In Progress
-**Progress**: 67% (10 of 15 tasks)
+**Progress**: 73% (11 of 15 tasks)
 **Estimated Effort**: 9 days
 **Started**: 2026-02-08
 
@@ -446,9 +446,21 @@ Automated UI testing infrastructure for mkdn that enables an AI coding agent and
     - Changed calibration assertions from `#expect` to `try #require` to ensure downstream tests are properly blocked on calibration failure
     - SwiftLint: 0 violations; SwiftFormat: no changes; Tests: 257/257 passing
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | PASS |
+    | Commit | PASS |
+    | Comments | PASS |
+
 ### CI and Documentation
 
-- [ ] **T11**: Document CI configuration and test execution workflow `[complexity:simple]`
+- [x] **T11**: Document CI configuration and test execution workflow `[complexity:simple]`
 
     **Reference**: [design.md#deployment-design](design.md#deployment-design)
 
@@ -456,13 +468,20 @@ Automated UI testing infrastructure for mkdn that enables an AI coding agent and
 
     **Acceptance Criteria**:
 
-    - [ ] CI setup requirements are documented: macOS runner with window server session, screen resolution requirements, Screen Recording permission for the CI agent/Terminal
-    - [ ] CI-specific tolerance configuration is documented and configurable (e.g., WKWebView rendering variation thresholds)
-    - [ ] Test execution workflow documented for both agent and human developer: `swift test --filter UITest` (full suite), `--filter SpatialCompliance`, `--filter VisualCompliance`, `--filter AnimationCompliance`
-    - [ ] ScreenCaptureKit permission requirements documented alongside CGWindowListCreateImage permissions
-    - [ ] JSON report output location and schema documented
-    - [ ] Captured image and frame sequence artifact paths documented
-    - [ ] Known limitations and environment-specific considerations documented
+    - [x] CI setup requirements are documented: macOS runner with window server session, screen resolution requirements, Screen Recording permission for the CI agent/Terminal
+    - [x] CI-specific tolerance configuration is documented and configurable (e.g., WKWebView rendering variation thresholds)
+    - [x] Test execution workflow documented for both agent and human developer: `swift test --filter UITest` (full suite), `--filter SpatialCompliance`, `--filter VisualCompliance`, `--filter AnimationCompliance`
+    - [x] ScreenCaptureKit permission requirements documented alongside CGWindowListCreateImage permissions
+    - [x] JSON report output location and schema documented
+    - [x] Captured image and frame sequence artifact paths documented
+    - [x] Known limitations and environment-specific considerations documented
+
+    **Implementation Summary**:
+
+    - **Files**: `docs/ui-testing.md`
+    - **Approach**: Comprehensive documentation covering architecture overview, test execution commands, test suite inventory, calibration gates, agent and human developer workflows, test fixture descriptions, output artifact paths and JSON schema, permission requirements (Screen Recording for both CGWindowListCreateImage and ScreenCaptureKit), CI runner setup steps, tolerance configuration tables with defaults and adjustment guidance, and known limitations (capture timing, render completion detection, platform dependencies, SpacingConstants migration, test isolation, temporary file cleanup). Harness command reference table included.
+    - **Deviations**: None
+    - **Tests**: N/A (documentation only; no code changes)
 
 ### User Docs
 
