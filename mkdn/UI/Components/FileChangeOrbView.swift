@@ -17,6 +17,11 @@ struct FileChangeOrbView: View {
         orbVisual
             .hoverScale()
             .onAppear {
+                guard !reduceMotion else {
+                    isPulsing = true
+                    isHaloExpanded = true
+                    return
+                }
                 withAnimation(AnimationConstants.fileChangeOrbPulse) {
                     isPulsing = true
                 }

@@ -18,6 +18,11 @@ struct DefaultHandlerHintView: View {
         orbVisual
             .hoverScale()
             .onAppear {
+                guard !reduceMotion else {
+                    isPulsing = true
+                    isHaloExpanded = true
+                    return
+                }
                 withAnimation(AnimationConstants.defaultHandlerOrbPulse) {
                     isPulsing = true
                 }

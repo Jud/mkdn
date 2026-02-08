@@ -140,12 +140,18 @@ Establish a unified animation design language for mkdn by expanding `AnimationCo
     - **Status**: RESOLVED (no code changes)
     - **Verification**: Git history confirms `DefaultHandlerHintView` had dimensions midGlow 18x18 (endRadius 8) and innerCore 8x8 (endRadius 5) at commit `9339c2a` (pre-T3). The T3 extraction at commit `6099500` unified both orbs to `FileChangeOrbView`'s 22x22/12x12 dimensions. This dimension unification is an **intentional design decision** per user direction -- both orbs should present identical visual geometry as instances of the same design element. The reviewer correctly identified the dimensional change, but the change is desired, not a defect.
 
+    **Review Feedback** (Attempt 3 -- Feature Verification):
+    - **Status**: RESOLVED
+    - **Issue**: AC-011b gap -- `FileChangeOrbView` and `DefaultHandlerHintView` `.onAppear` blocks did not guard breathing/halo animations against `accessibilityReduceMotion`. The `reduceMotion` environment value was declared (from T8) but not checked for the continuous animations.
+    - **Fix**: Added `guard !reduceMotion else { isPulsing = true; isHaloExpanded = true; return }` at the top of both views' `.onAppear` blocks. When Reduce Motion is enabled, orbs now display at static full state (isPulsing=true, isHaloExpanded=true) without animation. OrbVisual renders correctly at this static state: full opacity (1.0), full scale (1.0), expanded halo (1.1).
+    - **Tests**: 112/112 passing
+
     **Validation Summary**:
 
     | Dimension | Status |
     |-----------|--------|
     | Discipline | PASS |
-    | Accuracy | PASS (dimension unification intentional) |
+    | Accuracy | PASS (dimension unification intentional; AC-011b now addressed) |
     | Completeness | PASS |
     | Quality | PASS |
     | Testing | N/A |
@@ -413,6 +419,18 @@ Establish a unified animation design language for mkdn by expanding `AnimationCo
     - [x] Tests verify: `staggerDelay` is 0 when reduceMotion is true, `AnimationConstants.staggerDelay` when false
     - [x] All tests use Swift Testing (`@Test`, `#expect`, `@Suite`) -- no XCTest
     - [x] All tests pass via `swift test`
+
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ✅ PASS |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
 
 ### User Docs
 
