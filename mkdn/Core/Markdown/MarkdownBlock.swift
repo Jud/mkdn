@@ -55,6 +55,17 @@ enum MarkdownBlock: Identifiable {
     }
 }
 
+/// Pairs a MarkdownBlock with its position in the rendered document,
+/// producing a unique ID for SwiftUI view identity.
+struct IndexedBlock: Identifiable {
+    let index: Int
+    let block: MarkdownBlock
+
+    var id: String {
+        "\(index)-\(block.id)"
+    }
+}
+
 /// A list item containing child blocks.
 struct ListItem: Identifiable {
     let blocks: [MarkdownBlock]
