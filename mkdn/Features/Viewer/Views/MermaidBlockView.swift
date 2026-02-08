@@ -62,8 +62,10 @@ struct MermaidBlockView: View {
                 renderState: $renderState
             )
             .opacity(renderState == .rendered ? 1 : 0)
+            .animation(motion.resolved(.crossfade), value: renderState)
 
             overlay
+                .animation(motion.resolved(.crossfade), value: renderState)
         }
 
         if renderState == .rendered {
@@ -85,19 +87,20 @@ struct MermaidBlockView: View {
         switch renderState {
         case .loading:
             loadingView
+                .transition(.opacity)
 
         case .rendered:
             EmptyView()
 
         case let .error(message):
             errorView(message: message)
+                .transition(.opacity)
         }
     }
 
     private var loadingView: some View {
         VStack(spacing: 8) {
-            ProgressView()
-                .controlSize(.small)
+            PulsingSpinner()
             Text("Rendering diagram\u{2026}")
                 .font(.caption)
                 .foregroundColor(colors.foregroundSecondary)

@@ -2,7 +2,7 @@
 
 **Feature ID**: animation-design-language
 **Status**: In Progress
-**Progress**: 31% (5 of 16 tasks)
+**Progress**: 38% (6 of 16 tasks)
 **Estimated Effort**: 5 days
 **Started**: 2026-02-07
 
@@ -185,7 +185,14 @@ Establish a unified animation design language for mkdn by expanding `AnimationCo
     | Commit | ✅ PASS |
     | Comments | ✅ PASS |
 
-- [ ] **T5**: Add Mermaid state crossfade transitions and PulsingSpinner `[complexity:medium]`
+- [x] **T5**: Add Mermaid state crossfade transitions and PulsingSpinner `[complexity:medium]`
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Features/Viewer/Views/MermaidBlockView.swift`, `mkdn/UI/Components/PulsingSpinner.swift`
+    - **Approach**: Created `PulsingSpinner` view using `AnimationConstants.breathe` for orb-rhythm pulsing (scale 0.6-1.0 + opacity 0.4-1.0). Replaced `ProgressView` in `MermaidBlockView.loadingView` with `PulsingSpinner`. Added `.animation(motion.resolved(.crossfade), value: renderState)` to both the `MermaidWebView` opacity and the overlay in `diagramContent`, enabling smooth crossfade between all three render states. Added `.transition(.opacity)` to loading and error views so insertion/removal uses opacity transitions. Reduce Motion handled via existing `MotionPreference` -- crossfade resolves to `reducedCrossfade` (0.15s); PulsingSpinner guards against `reduceMotion` and displays static when enabled.
+    - **Deviations**: None
+    - **Tests**: 90/90 passing (pre-existing signal 5)
 
     **Reference**: [design.md#35-mermaid-state-crossfade](design.md#35-mermaid-state-crossfade)
 
@@ -193,14 +200,14 @@ Establish a unified animation design language for mkdn by expanding `AnimationCo
 
     **Acceptance Criteria**:
 
-    - [ ] New file `mkdn/UI/Components/PulsingSpinner.swift` created
-    - [ ] `PulsingSpinner` uses `AnimationConstants.breathe` for its pulse animation, matching the orb breathing rhythm (AC-008d)
-    - [ ] `PulsingSpinner` displays at static full-opacity state when Reduce Motion is enabled (AC-011b)
-    - [ ] Loading-to-rendered transition in `MermaidBlockView` uses `crossfade` animation: spinner fades out as diagram fades in (AC-008a)
-    - [ ] Loading-to-error transition uses `crossfade` animation (AC-008b)
-    - [ ] Error-to-loading (retry) transition uses `crossfade` animation (AC-008c)
-    - [ ] Standard `ProgressView` in Mermaid loading state is replaced with `PulsingSpinner`
-    - [ ] With Reduce Motion, crossfade uses `reducedCrossfade` (0.15s) (AC-011a)
+    - [x] New file `mkdn/UI/Components/PulsingSpinner.swift` created
+    - [x] `PulsingSpinner` uses `AnimationConstants.breathe` for its pulse animation, matching the orb breathing rhythm (AC-008d)
+    - [x] `PulsingSpinner` displays at static full-opacity state when Reduce Motion is enabled (AC-011b)
+    - [x] Loading-to-rendered transition in `MermaidBlockView` uses `crossfade` animation: spinner fades out as diagram fades in (AC-008a)
+    - [x] Loading-to-error transition uses `crossfade` animation (AC-008b)
+    - [x] Error-to-loading (retry) transition uses `crossfade` animation (AC-008c)
+    - [x] Standard `ProgressView` in Mermaid loading state is replaced with `PulsingSpinner`
+    - [x] With Reduce Motion, crossfade uses `reducedCrossfade` (0.15s) (AC-011a)
 
 - [ ] **T6**: Implement staggered content load animation in MarkdownPreviewView `[complexity:medium]`
 
