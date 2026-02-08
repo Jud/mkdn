@@ -2,7 +2,7 @@
 
 **A Mac-native Markdown viewer built entirely in SwiftUI.**
 
-No web views. No Electron. No compromise. Just pure native rendering -- from headings and code blocks to Mermaid diagrams -- all drawn with SwiftUI on macOS 14+.
+No Electron. No compromise. Native SwiftUI rendering for all Markdown -- headings, code blocks, tables, and more -- with lightweight embedded web views only for Mermaid diagrams. macOS 14+.
 
 Open this file in mkdn to see every feature in action.
 
@@ -10,7 +10,7 @@ Open this file in mkdn to see every feature in action.
 
 ## Why mkdn?
 
-Most Markdown previewers are web browsers in disguise. mkdn takes a different path: every pixel is rendered by SwiftUI. Mermaid diagrams run through JavaScriptCore in-process, producing native images without ever touching a web view. The result is a viewer that launches instantly, scrolls at 120fps, and feels like it belongs on your Mac.
+Most Markdown previewers are web browsers in disguise. mkdn takes a different path: every Markdown element is rendered by SwiftUI. Mermaid diagrams render in lightweight embedded web views -- one per diagram, shared process pool, no network requests. The result is a viewer that launches instantly, scrolls at 120fps, and feels like it belongs on your Mac.
 
 ---
 
@@ -22,15 +22,12 @@ Every Markdown element -- headings, paragraphs, lists, blockquotes, tables, them
 
 ### Mermaid Diagrams
 
-Flowcharts, sequence diagrams, state machines, class diagrams, and ER diagrams are rendered natively. The pipeline:
+Flowcharts, sequence diagrams, state machines, class diagrams, and ER diagrams render in lightweight embedded web views:
 
-1. Mermaid source is evaluated in JavaScriptCore via [beautiful-mermaid](https://github.com/nicokoenig/beautiful-mermaid)
-2. The resulting SVG is rasterized by [SwiftDraw](https://github.com/swhitty/SwiftDraw)
-3. The native `NSImage` is displayed as a SwiftUI `Image`
-4. Pinch-to-zoom with `MagnifyGesture` (0.5x to 4x)
-5. Click to activate pan-and-scroll; press Escape to deactivate
-
-All in-process. No WKWebView. No network requests.
+1. Each diagram gets its own `WKWebView` with bundled `mermaid.js` -- no network requests
+2. All diagram web views share a single `WKProcessPool` for efficiency
+3. Click a diagram to activate pinch-to-zoom and pan
+4. Press Escape to deactivate
 
 ### Syntax Highlighting
 
@@ -121,9 +118,8 @@ flowchart TD
     PV --> MB["MermaidBlockView"]
     PV --> CB["CodeBlockView"]
     PV --> TB["TableBlockView"]
-    MB --> ME["MermaidRenderer (actor)"]
-    ME --> JSC["JavaScriptCore"]
-    ME --> SD["SwiftDraw"]
+    MB --> MW["MermaidWebView (WKWebView)"]
+    MW --> MJS["mermaid.js"]
     CB --> SP["Splash"]
     MR --> SM["swift-markdown"]
 ```
@@ -137,8 +133,8 @@ sequenceDiagram
     participant Parser as MarkdownRenderer
     participant Visitor as MarkdownVisitor
     participant View as BlockView
-    participant Mermaid as MermaidRenderer
-    participant JSC as JavaScriptCore
+    participant MWV as MermaidWebView
+    participant MJS as mermaid.js
 
     User->>App: Open file.md
     App->>App: loadFile(at: url)
@@ -150,12 +146,9 @@ sequenceDiagram
     Note over View: Code blocks use Splash
     Note over View: Tables use native Grid
 
-    View->>Mermaid: renderToSVG(code)
-    Mermaid->>Mermaid: Check cache
-    Mermaid->>JSC: eval(beautiful-mermaid)
-    JSC-->>Mermaid: SVG string
-    Mermaid->>Mermaid: SwiftDraw rasterize
-    Mermaid-->>View: NSImage
+    View->>MWV: Display mermaid source
+    MWV->>MJS: Render diagram
+    MJS-->>MWV: Rendered diagram in WKWebView
 ```
 
 ---
@@ -256,7 +249,7 @@ mkdn/
     Theming/            Theme picker
   Core/
     Markdown/           swift-markdown parsing + SwiftUI rendering
-    Mermaid/            JavaScriptCore + beautiful-mermaid -> SVG -> Image
+    Mermaid/            WKWebView + mermaid.js diagram rendering
     FileWatcher/        Kernel-level file change detection
     CLI/                Argument parsing and validation
   UI/
@@ -278,8 +271,6 @@ mkdnTests/
 | Package | Purpose |
 |:--------|:--------|
 | [swift-markdown](https://github.com/apple/swift-markdown) | Markdown AST parsing |
-| [SwiftDraw](https://github.com/swhitty/SwiftDraw) | SVG rasterization to NSImage |
-| [JXKit](https://github.com/jectivex/JXKit) | JavaScriptCore wrapper for Mermaid |
 | [Splash](https://github.com/JohnSundell/Splash) | Swift syntax highlighting |
 | [swift-argument-parser](https://github.com/apple/swift-argument-parser) | CLI argument handling |
 
@@ -287,7 +278,7 @@ mkdnTests/
 
 ## Design Philosophy
 
-1. **Native over web.** Every view is SwiftUI. WKWebView is banned from the codebase.
+1. **Native over web.** Every Markdown element is rendered in SwiftUI. WKWebView is used only for Mermaid diagrams -- one per diagram, no network requests.
 2. **Keyboard-first.** Every action has a shortcut. The mouse is optional.
 3. **Calm feedback.** No modal alerts. A breathing orb for file changes. An ephemeral overlay for mode switches. Animations that feel physical, not decorative.
 4. **Terminal-friendly.** Launch from the command line, edit in your terminal editor, preview in mkdn. The file watcher keeps everything in sync.

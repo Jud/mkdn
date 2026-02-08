@@ -26,7 +26,7 @@
 
 ## Critical Constraints
 
-1. NO WKWebView anywhere
+1. WKWebView only for Mermaid diagrams (one per diagram)
 2. SwiftLint strict mode (all opt-in rules)
 3. Swift Testing for unit tests (not XCTest)
 4. `@Observable` macro (not ObservableObject)
