@@ -17,7 +17,7 @@ struct MarkdownPreviewView: View {
     @Environment(AppSettings.self) private var appSettings
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    @State private var renderedBlocks: [MarkdownBlock] = []
+    @State private var renderedBlocks: [IndexedBlock] = []
     @State private var isInitialRender = true
     @State private var blockAppeared: [String: Bool] = [:]
 
@@ -28,22 +28,23 @@ struct MarkdownPreviewView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                ForEach(Array(renderedBlocks.enumerated()), id: \.element.id) { index, block in
-                    MarkdownBlockView(block: block)
-                        .opacity(blockAppeared[block.id] ?? false ? 1.0 : 0)
-                        .offset(y: blockAppeared[block.id] ?? false ? 0 : 8)
+                ForEach(renderedBlocks) { indexedBlock in
+                    MarkdownBlockView(block: indexedBlock.block)
+                        .opacity(blockAppeared[indexedBlock.id] ?? false ? 1.0 : 0)
+                        .offset(y: blockAppeared[indexedBlock.id] ?? false ? 0 : 8)
                         .animation(
                             motion.resolved(.fadeIn)?
                                 .delay(min(
-                                    Double(index) * motion.staggerDelay,
+                                    Double(indexedBlock.index) * motion.staggerDelay,
                                     AnimationConstants.staggerCap
                                 )),
-                            value: blockAppeared[block.id] ?? false
+                            value: blockAppeared[indexedBlock.id] ?? false
                         )
                 }
             }
             .padding(24)
         }
+        .ignoresSafeArea()
         .background(appSettings.theme.colors.background)
         .task(id: documentState.markdownContent) {
             debugLog(
@@ -64,8 +65,8 @@ struct MarkdownPreviewView: View {
                 theme: appSettings.theme
             )
             debugLog("[PREVIEW] rendered \(newBlocks.count) blocks: \(newBlocks.map { type(of: $0) })")
-            let mermaidCount = newBlocks.filter { block in
-                if case .mermaidBlock = block { return true }
+            let mermaidCount = newBlocks.filter { indexedBlock in
+                if case .mermaidBlock = indexedBlock.block { return true }
                 return false
             }.count
             debugLog("[PREVIEW] mermaid blocks: \(mermaidCount)")

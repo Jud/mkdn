@@ -10,7 +10,7 @@ struct MarkdownRendererTests {
 
         #expect(!blocks.isEmpty)
 
-        guard case let .heading(level, _) = blocks.first else {
+        guard case let .heading(level, _) = blocks.first?.block else {
             Issue.record("Expected a heading block")
             return
         }
@@ -24,7 +24,7 @@ struct MarkdownRendererTests {
 
         #expect(!blocks.isEmpty)
 
-        guard case .paragraph = blocks.first else {
+        guard case .paragraph = blocks.first?.block else {
             Issue.record("Expected a paragraph block")
             return
         }
@@ -42,7 +42,7 @@ struct MarkdownRendererTests {
 
         #expect(!blocks.isEmpty)
 
-        guard case let .codeBlock(language, code) = blocks.first else {
+        guard case let .codeBlock(language, code) = blocks.first?.block else {
             Issue.record("Expected a code block")
             return
         }
@@ -64,7 +64,7 @@ struct MarkdownRendererTests {
 
         #expect(!blocks.isEmpty)
 
-        guard case let .mermaidBlock(code) = blocks.first else {
+        guard case let .mermaidBlock(code) = blocks.first?.block else {
             Issue.record("Expected a mermaid block")
             return
         }
@@ -78,7 +78,7 @@ struct MarkdownRendererTests {
 
         #expect(!blocks.isEmpty)
 
-        guard case let .blockquote(children) = blocks.first else {
+        guard case let .blockquote(children) = blocks.first?.block else {
             Issue.record("Expected a blockquote block")
             return
         }
@@ -98,7 +98,7 @@ struct MarkdownRendererTests {
 
         #expect(!blocks.isEmpty)
 
-        guard case let .unorderedList(items) = blocks.first else {
+        guard case let .unorderedList(items) = blocks.first?.block else {
             Issue.record("Expected an unordered list block")
             return
         }
@@ -118,7 +118,7 @@ struct MarkdownRendererTests {
 
         #expect(!blocks.isEmpty)
 
-        guard case let .orderedList(items) = blocks.first else {
+        guard case let .orderedList(items) = blocks.first?.block else {
             Issue.record("Expected an ordered list block")
             return
         }
@@ -132,7 +132,7 @@ struct MarkdownRendererTests {
 
         #expect(!blocks.isEmpty)
 
-        guard case .thematicBreak = blocks.first else {
+        guard case .thematicBreak = blocks.first?.block else {
             Issue.record("Expected a thematic break block")
             return
         }
@@ -151,7 +151,7 @@ struct MarkdownRendererTests {
 
         #expect(!blocks.isEmpty)
 
-        guard case let .table(columns, rows) = blocks.first else {
+        guard case let .table(columns, rows) = blocks.first?.block else {
             Issue.record("Expected a table block")
             return
         }
@@ -173,7 +173,7 @@ struct MarkdownRendererTests {
         #expect(blocks.count == 3)
 
         for (index, expectedLevel) in [1, 2, 3].enumerated() {
-            guard case let .heading(level, _) = blocks[index] else {
+            guard case let .heading(level, _) = blocks[index].block else {
                 Issue.record("Expected heading at index \(index)")
                 continue
             }

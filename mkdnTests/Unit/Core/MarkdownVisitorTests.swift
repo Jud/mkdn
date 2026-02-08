@@ -14,7 +14,7 @@ struct MarkdownVisitorTests {
             theme: .solarizedDark
         )
 
-        guard case let .image(source, alt) = blocks.first else {
+        guard case let .image(source, alt) = blocks.first?.block else {
             Issue.record("Expected an image block, got \(blocks.first.debugDescription)")
             return
         }
@@ -30,7 +30,7 @@ struct MarkdownVisitorTests {
             theme: .solarizedDark
         )
 
-        guard case let .image(source, alt) = blocks.first else {
+        guard case let .image(source, alt) = blocks.first?.block else {
             Issue.record("Expected an image block")
             return
         }
@@ -48,7 +48,7 @@ struct MarkdownVisitorTests {
             theme: .solarizedDark
         )
 
-        guard case let .paragraph(text) = blocks.first else {
+        guard case let .paragraph(text) = blocks.first?.block else {
             Issue.record("Expected a paragraph block")
             return
         }
@@ -66,7 +66,7 @@ struct MarkdownVisitorTests {
             theme: .solarizedDark
         )
 
-        guard case let .paragraph(text) = blocks.first else {
+        guard case let .paragraph(text) = blocks.first?.block else {
             Issue.record("Expected a paragraph block")
             return
         }
@@ -86,7 +86,7 @@ struct MarkdownVisitorTests {
 
         let blocks = MarkdownRenderer.render(text: markdown, theme: .solarizedDark)
 
-        guard case let .table(columns, rows) = blocks.first else {
+        guard case let .table(columns, rows) = blocks.first?.block else {
             Issue.record("Expected a table block")
             return
         }
@@ -113,7 +113,7 @@ struct MarkdownVisitorTests {
 
         let blocks = MarkdownRenderer.render(text: markdown, theme: .solarizedDark)
 
-        guard case let .table(_, rows) = blocks.first else {
+        guard case let .table(_, rows) = blocks.first?.block else {
             Issue.record("Expected a table block")
             return
         }
@@ -139,7 +139,7 @@ struct MarkdownVisitorTests {
             theme: .solarizedDark
         )
 
-        guard case let .paragraph(text) = blocks.first else {
+        guard case let .paragraph(text) = blocks.first?.block else {
             Issue.record("Expected a paragraph block")
             return
         }
@@ -158,7 +158,7 @@ struct MarkdownVisitorTests {
             theme: .solarizedDark
         )
 
-        guard case let .paragraph(text) = blocks.first else {
+        guard case let .paragraph(text) = blocks.first?.block else {
             Issue.record("Expected a paragraph block")
             return
         }
@@ -182,7 +182,7 @@ struct MarkdownVisitorTests {
 
         let blocks = MarkdownRenderer.render(text: markdown, theme: .solarizedDark)
 
-        guard case let .htmlBlock(content) = blocks.first else {
+        guard case let .htmlBlock(content) = blocks.first?.block else {
             Issue.record("Expected an htmlBlock, got \(blocks.first.debugDescription)")
             return
         }
@@ -200,7 +200,7 @@ struct MarkdownVisitorTests {
             theme: .solarizedDark
         )
 
-        guard case let .paragraph(text) = blocks.first else {
+        guard case let .paragraph(text) = blocks.first?.block else {
             Issue.record("Expected a paragraph block")
             return
         }
@@ -218,7 +218,7 @@ struct MarkdownVisitorTests {
             theme: .solarizedDark
         )
 
-        guard case let .paragraph(text) = blocks.first else {
+        guard case let .paragraph(text) = blocks.first?.block else {
             Issue.record("Expected a paragraph block")
             return
         }
@@ -241,7 +241,7 @@ struct MarkdownVisitorTests {
             theme: .solarizedDark
         )
 
-        guard case let .paragraph(text) = blocks.first else {
+        guard case let .paragraph(text) = blocks.first?.block else {
             Issue.record("Expected a paragraph block")
             return
         }
@@ -262,7 +262,7 @@ struct MarkdownVisitorTests {
 
         let blocks = MarkdownRenderer.render(text: markdown, theme: .solarizedDark)
 
-        guard case let .unorderedList(level1Items) = blocks.first else {
+        guard case let .unorderedList(level1Items) = blocks.first?.block else {
             Issue.record("Expected an unordered list at level 1")
             return
         }
@@ -316,7 +316,7 @@ struct MarkdownVisitorTests {
 
         let blocks = MarkdownRenderer.render(text: markdown, theme: .solarizedDark)
 
-        guard case let .orderedList(items) = blocks.first else {
+        guard case let .orderedList(items) = blocks.first?.block else {
             Issue.record("Expected an ordered list")
             return
         }

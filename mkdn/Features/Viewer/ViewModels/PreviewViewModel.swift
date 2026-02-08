@@ -7,7 +7,7 @@ import SwiftUI
 @Observable
 final class PreviewViewModel {
     /// Rendered Markdown blocks for display.
-    private(set) var blocks: [MarkdownBlock] = []
+    private(set) var blocks: [IndexedBlock] = []
 
     /// The raw Markdown text being rendered.
     var markdownText = "" {
