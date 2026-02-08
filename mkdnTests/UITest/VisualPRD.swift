@@ -258,18 +258,33 @@ func assertVisualColor(
     prdRef: String,
     aspect: String
 ) {
+    let passed = ColorExtractor.matches(
+        sampled,
+        expected: expected,
+        tolerance: tolerance
+    )
+
     #expect(
-        ColorExtractor.matches(
-            sampled,
-            expected: expected,
-            tolerance: tolerance
-        ),
+        passed,
         """
         \(prdRef): \(aspect) \
         expected \(expected), sampled \(sampled) \
         (tolerance: \(tolerance))
         """
     )
+
+    let failureMessage = "\(prdRef): \(aspect) expected \(expected), sampled \(sampled) (tolerance: \(tolerance))"
+
+    JSONResultReporter.record(TestResult(
+        name: "\(prdRef): \(aspect)",
+        status: passed ? .pass : .fail,
+        prdReference: prdRef,
+        expected: "\(expected)",
+        actual: "\(sampled)",
+        imagePaths: [],
+        duration: 0,
+        message: passed ? nil : failureMessage
+    ))
 }
 
 // MARK: - Private

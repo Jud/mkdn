@@ -2,7 +2,7 @@
 
 **Feature ID**: automated-ui-testing
 **Status**: In Progress
-**Progress**: 47% (7 of 15 tasks)
+**Progress**: 53% (8 of 15 tasks)
 **Estimated Effort**: 9 days
 **Started**: 2026-02-08
 
@@ -309,7 +309,19 @@ Automated UI testing infrastructure for mkdn that enables an AI coding agent and
     - **Deviations**: Syntax token verification uses canonical.md code block instead of theme-tokens.md (canonical.md has sufficient token variety for keyword/string/type detection; avoids separate fixture load). Comment color excluded from token checks (same value as foregroundSecondary, ambiguous). Token presence requires 2 of 3 colors found rather than exact match, accommodating rendering variation.
     - **Tests**: 12 visual compliance tests (1 calibration + 11 compliance; all require GUI environment with Screen Recording permissions; calibration gate correctly blocks downstream tests in headless CI)
 
-- [ ] **T8**: Implement JSON test reporter and PRD coverage tracker `[complexity:medium]`
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | PASS |
+    | Commit | PASS |
+    | Comments | PASS |
+
+- [x] **T8**: Implement JSON test reporter and PRD coverage tracker `[complexity:medium]`
 
     **Reference**: [design.md#36-jsonresultreporter](design.md#36-jsonresultreporter), [design.md#37-data-model-prd-coverage](design.md#37-data-model-prd-coverage)
 
@@ -317,16 +329,23 @@ Automated UI testing infrastructure for mkdn that enables an AI coding agent and
 
     **Acceptance Criteria**:
 
-    - [ ] `JSONResultReporter` in `mkdnTests/Support/JSONResultReporter.swift` collects `TestResult` entries during suite execution
-    - [ ] `TestResult` includes: name, status (pass/fail), prdReference (e.g., "spatial-design-language FR-3"), expected value, actual value, image paths, duration, message
-    - [ ] `JSONResultReporter.writeReport(to:)` writes a valid JSON `TestReport` to `.build/test-results/mkdn-ui-test-report.json`
-    - [ ] `TestReport` includes: timestamp, totalTests, passed, failed, results array, and PRD coverage report
-    - [ ] `PRDCoverageTracker` in `mkdnTests/Support/PRDCoverageTracker.swift` maps test names to PRD FRs using naming convention `test_{prd}_{FR}_{aspect}`
-    - [ ] `PRDCoverageReport` lists each PRD with totalFRs, coveredFRs, uncoveredFRs, and coveragePercent
-    - [ ] Reporter is wired into spatial and visual compliance suites (T6, T7) to record results
-    - [ ] Failure descriptions include expected value, actual measured value, and PRD reference (e.g., "spatial-design-language FR-3: headingSpaceAbove(H1) expected 48pt, measured 24pt")
-    - [ ] Exit code is 0 when all tests pass, non-zero when any test fails
-    - [ ] Code passes SwiftLint and SwiftFormat
+    - [x] `JSONResultReporter` in `mkdnTests/Support/JSONResultReporter.swift` collects `TestResult` entries during suite execution
+    - [x] `TestResult` includes: name, status (pass/fail), prdReference (e.g., "spatial-design-language FR-3"), expected value, actual value, image paths, duration, message
+    - [x] `JSONResultReporter.writeReport(to:)` writes a valid JSON `TestReport` to `.build/test-results/mkdn-ui-test-report.json`
+    - [x] `TestReport` includes: timestamp, totalTests, passed, failed, results array, and PRD coverage report
+    - [x] `PRDCoverageTracker` in `mkdnTests/Support/PRDCoverageTracker.swift` maps test names to PRD FRs using naming convention `test_{prd}_{FR}_{aspect}`
+    - [x] `PRDCoverageReport` lists each PRD with totalFRs, coveredFRs, uncoveredFRs, and coveragePercent
+    - [x] Reporter is wired into spatial and visual compliance suites (T6, T7) to record results
+    - [x] Failure descriptions include expected value, actual measured value, and PRD reference (e.g., "spatial-design-language FR-3: headingSpaceAbove(H1) expected 48pt, measured 24pt")
+    - [x] Exit code is 0 when all tests pass, non-zero when any test fails
+    - [x] Code passes SwiftLint and SwiftFormat
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdnTests/Support/JSONResultReporter.swift`, `mkdnTests/Support/PRDCoverageTracker.swift`, `mkdnTests/Unit/Support/JSONResultReporterTests.swift`, `mkdnTests/UITest/SpatialComplianceTests.swift` (modified), `mkdnTests/UITest/VisualPRD.swift` (modified), `mkdnTests/UITest/VisualComplianceTests+Syntax.swift` (modified)
+    - **Approach**: JSONResultReporter is a static enum with nonisolated(unsafe) storage following the existing SpatialHarness/VisualHarness pattern. Report file is rewritten after each record() call, ensuring on-disk report is always current even if the process terminates unexpectedly. PRDCoverageTracker parses prdReference strings ("prd-name FR-id" format) against a static registry of known PRD functional requirements. Reporter is wired into compliance suites by modifying assertSpatial and assertVisualColor helpers to record results alongside #expect assertions. Tests using #expect directly (contentMaxWidth, gridAlignment, syntaxTokens) have explicit record calls. verifySyntaxTokens was refactored into countSyntaxTokenMatches + recordSyntaxResult to stay within SwiftLint function_body_length limit.
+    - **Deviations**: Design specified @MainActor final class for JSONResultReporter; used static enum with nonisolated(unsafe) for consistency with existing test harness patterns and to avoid actor isolation overhead in sync assertion helpers. PRDCoverageTracker maps prdReference field (not test name) to PRD FRs, since prdReference is already present in all assertion helpers and provides cleaner parsing than test function names. Duration field is set to 0 in assertion-level recording (per-test timing would require wrapping every test body; total suite time is visible from swift test output).
+    - **Tests**: 12/12 passing (5 JSONResultReporter + 7 PRDCoverageTracker)
 
 ### Animation Capture and Compliance
 

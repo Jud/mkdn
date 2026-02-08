@@ -58,6 +58,35 @@ extension VisualComplianceTests {
             "Must find code block region for syntax verification"
         )
 
+        let found = countSyntaxTokenMatches(
+            analyzer: analyzer,
+            region: codeRegion,
+            theme: theme
+        )
+
+        let passed = found >= 2
+
+        #expect(
+            passed,
+            """
+            automated-ui-testing AC-004d: \(theme) \
+            expected at least 2 of 3 syntax colors, \
+            found \(found)
+            """
+        )
+
+        recordSyntaxResult(
+            passed: passed,
+            found: found,
+            theme: theme
+        )
+    }
+
+    private func countSyntaxTokenMatches(
+        analyzer: ImageAnalyzer,
+        region: CGRect,
+        theme: String
+    ) -> Int {
         let tokenChecks: [(String, PixelColor)] = [
             ("keyword", VisualPRD.syntaxKeyword),
             ("string", VisualPRD.syntaxString),
@@ -65,11 +94,12 @@ extension VisualComplianceTests {
         ]
 
         var found = 0
+
         for (name, expected) in tokenChecks {
             if containsSyntaxColor(
                 expected,
                 in: analyzer,
-                region: codeRegion,
+                region: region,
                 tolerance: visualSyntaxTolerance
             ) {
                 found += 1
@@ -84,13 +114,25 @@ extension VisualComplianceTests {
             }
         }
 
-        #expect(
-            found >= 2,
-            """
-            automated-ui-testing AC-004d: \(theme) \
-            expected at least 2 of 3 syntax colors, \
-            found \(found)
-            """
-        )
+        return found
+    }
+
+    private func recordSyntaxResult(
+        passed: Bool,
+        found: Int,
+        theme: String
+    ) {
+        let msg = "automated-ui-testing AC-004d: \(theme) expected at least 2 of 3 syntax colors, found \(found)"
+
+        JSONResultReporter.record(TestResult(
+            name: "automated-ui-testing AC-004d: syntaxTokens \(theme)",
+            status: passed ? .pass : .fail,
+            prdReference: "automated-ui-testing AC-004d",
+            expected: ">= 2 of 3 syntax colors",
+            actual: "\(found) of 3 found",
+            imagePaths: [],
+            duration: 0,
+            message: passed ? nil : msg
+        ))
     }
 }

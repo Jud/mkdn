@@ -161,14 +161,31 @@ struct SpatialComplianceTests {
             tolerance: spatialColorTolerance
         )
 
+        let passed = bounds.width
+            <= SpatialPRD.contentMaxWidth + spatialTolerance
+
         #expect(
-            bounds.width <= SpatialPRD.contentMaxWidth + spatialTolerance,
+            passed,
             """
             spatial-design-language FR-2: contentMaxWidth \
             expected <= \(SpatialPRD.contentMaxWidth)pt, \
             measured \(bounds.width)pt
             """
         )
+
+        JSONResultReporter.record(TestResult(
+            name: "spatial-design-language FR-2: contentMaxWidth",
+            status: passed ? .pass : .fail,
+            prdReference: "spatial-design-language FR-2",
+            expected: "<= \(SpatialPRD.contentMaxWidth)pt",
+            actual: "\(bounds.width)pt",
+            imagePaths: [],
+            duration: 0,
+            message: passed
+                ? nil
+                :
+                "spatial-design-language FR-2: contentMaxWidth expected <= \(SpatialPRD.contentMaxWidth)pt, measured \(bounds.width)pt"
+        ))
     }
 
     // MARK: - FR-6: Window Chrome Spacing
@@ -246,17 +263,36 @@ struct SpatialComplianceTests {
             ("windowBottomInset", analyzer.pointHeight - bounds.maxY),
         ]
 
+        var allPassed = true
+
         for (name, value) in values {
             let rounded = (value / grid).rounded() * grid
+
+            let passed = abs(value - rounded) <= spatialTolerance
+
             #expect(
-                abs(value - rounded) <= spatialTolerance,
+                passed,
                 """
                 spatial-design-language FR-5: \(name) \
                 (\(value)pt) must align to \(grid)pt grid; \
                 nearest grid value is \(rounded)pt
                 """
             )
+            if !passed { allPassed = false }
         }
+
+        JSONResultReporter.record(TestResult(
+            name: "spatial-design-language FR-5: gridAlignment",
+            status: allPassed ? .pass : .fail,
+            prdReference: "spatial-design-language FR-5",
+            expected: "\(grid)pt grid alignment",
+            actual: allPassed ? "all aligned" : "misaligned",
+            imagePaths: [],
+            duration: 0,
+            message: allPassed
+                ? nil
+                : "spatial-design-language FR-5: one or more values not aligned to \(grid)pt grid"
+        ))
     }
 
     // MARK: - Private Helpers
@@ -302,13 +338,29 @@ struct SpatialComplianceTests {
         prdRef: String,
         aspect: String
     ) {
+        let passed = abs(measured - expected) <= spatialTolerance
+
         #expect(
-            abs(measured - expected) <= spatialTolerance,
+            passed,
             """
             \(prdRef): \(aspect) \
             expected \(expected)pt, measured \(measured)pt \
             (tolerance: \(spatialTolerance)pt)
             """
         )
+
+        let failureMessage =
+            "\(prdRef): \(aspect) expected \(expected)pt, measured \(measured)pt (tolerance: \(spatialTolerance)pt)"
+
+        JSONResultReporter.record(TestResult(
+            name: "\(prdRef): \(aspect)",
+            status: passed ? .pass : .fail,
+            prdReference: prdRef,
+            expected: "\(expected)pt",
+            actual: "\(measured)pt",
+            imagePaths: [],
+            duration: 0,
+            message: passed ? nil : failureMessage
+        ))
     }
 }
