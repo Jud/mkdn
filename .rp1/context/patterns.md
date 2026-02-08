@@ -82,6 +82,60 @@ struct MarkdownRendererTests {
 }
 ```
 
+## Animation Pattern
+
+All animations use named primitives from `AnimationConstants`. Never use inline
+`.animation(.easeInOut(duration: 0.3))` -- reference the named constant instead.
+
+### Named Primitives
+
+| Primitive | Type | Use |
+|-----------|------|-----|
+| `breathe` | Continuous | Orb core pulse, loading spinner |
+| `haloBloom` | Continuous | Orb outer halo (phase-offset from breathe) |
+| `springSettle` | Spring | Prominent entrances (overlays, focus borders) |
+| `gentleSpring` | Spring | Layout transitions (mode switch, split pane) |
+| `quickSettle` | Spring | Hover feedback, micro-interactions |
+| `fadeIn` / `fadeOut` | Fade | Element appear/disappear |
+| `crossfade` | Fade | State transitions (theme change, loading->rendered) |
+| `quickFade` | Fade | Fast exits (popover dismiss, hover exit) |
+
+### MotionPreference (Reduce Motion)
+
+Instantiate from the SwiftUI environment, then resolve primitives:
+```swift
+@Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+private var motion: MotionPreference {
+    MotionPreference(reduceMotion: reduceMotion)
+}
+
+// Resolve to standard or reduced alternative:
+withAnimation(motion.resolved(.springSettle)) { ... }
+```
+
+Resolution rules:
+- Continuous primitives (breathe, haloBloom) -> `nil` (disabled)
+- Spring/fade primitives -> `reducedInstant` (0.01s)
+- Crossfade -> `reducedCrossfade` (0.15s, preserves continuity)
+
+Use `motion.allowsContinuousAnimation` to guard `onAppear` animation triggers.
+Use `motion.staggerDelay` (returns 0 when RM on) for cascading entrances.
+
+### Hover Modifiers
+
+Two reusable hover feedback modifiers:
+```swift
+// Scale feedback for interactive elements (orbs, buttons):
+.hoverScale()                                    // default 1.06
+.hoverScale(AnimationConstants.toolbarHoverScale) // toolbar: 1.05
+
+// Brightness feedback for content areas (Mermaid diagrams):
+.hoverBrightness()  // 0.03 white overlay
+```
+
+Both use `quickSettle` animation and disable animation (not feedback) for RM.
+
 ## Anti-Patterns
 
 - **NO WKWebView** -- ever, for any reason

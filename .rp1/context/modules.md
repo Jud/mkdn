@@ -66,6 +66,11 @@
 | OutdatedIndicator.swift | File-changed badge |
 | ViewModePicker.swift | Mode toggle toolbar item |
 | WelcomeView.swift | Empty state screen |
+| OrbVisual.swift | Reusable 3-layer orb (outerHalo, midGlow, innerCore) with RadialGradient. Params: color, isPulsing, isHaloExpanded. Visual-only -- no animation state. |
+| PulsingSpinner.swift | Orb-rhythm loading spinner using `AnimationConstants.breathe`. Static full-opacity when Reduce Motion is on. |
+| HoverFeedbackModifier.swift | `HoverFeedbackModifier` (scale) and `BrightnessHoverModifier` (brightness overlay). View extensions `.hoverScale(_:)` and `.hoverBrightness()`. Uses quickSettle animation, nil for RM. |
+| FileChangeOrbView.swift | File-changed pulsing orb. Delegates to `OrbVisual`, owns animation state, hover feedback via `.hoverScale()`, tap-to-reload popover. |
+| ModeTransitionOverlay.swift | Ephemeral mode-name overlay. Spring-settle entrance, quick-fade exit, auto-dismiss after 1.5s. RM uses reducedCrossfade for both. |
 
 ### Theme (`UI/Theme/`)
 | File | Purpose |
@@ -74,6 +79,8 @@
 | ThemeColors.swift | Color palette struct |
 | SolarizedDark.swift | Dark theme values |
 | SolarizedLight.swift | Light theme values |
+| AnimationConstants.swift | Named animation primitives (breathe, haloBloom, springSettle, gentleSpring, quickSettle, fadeIn, fadeOut, crossfade, quickFade), stagger/hover/focus constants, orb colors, overlay timing, reduce-motion alternatives. MARK-delimited groups. |
+| MotionPreference.swift | Reduce Motion resolver. `MotionPreference(reduceMotion:)` struct with `Primitive` enum. `resolved(_:)` returns `Animation?` (nil for continuous when RM on). `allowsContinuousAnimation` bool, `staggerDelay` accessor. |
 
 ## Dependencies
 

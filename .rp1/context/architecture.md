@@ -20,6 +20,8 @@ AppState (@Observable, environment)
   +---> FileWatcher (DispatchSource)
   |
   +---> Theme system (Solarized Dark/Light)
+  |
+  +---> Animation layer (AnimationConstants + MotionPreference)
 ```
 
 ## Rendering Pipeline
@@ -63,3 +65,4 @@ Code block with language tag
 - AppState: @MainActor (UI state)
 - MermaidRenderer: actor (thread-safe JSC access + cache)
 - FileWatcher: DispatchQueue + @MainActor for UI updates
+- MotionPreference: value type, instantiated per-view from `@Environment(\.accessibilityReduceMotion)`. No shared state; resolves animation primitives locally.

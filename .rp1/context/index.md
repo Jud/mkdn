@@ -20,6 +20,8 @@
 - Markdown pipeline: `mkdn/Core/Markdown/`
 - Mermaid pipeline: `mkdn/Core/Mermaid/`
 - Theme definitions: `mkdn/UI/Theme/`
+- Animation constants: `mkdn/UI/Theme/AnimationConstants.swift`
+- Motion preference: `mkdn/UI/Theme/MotionPreference.swift`
 - Tests: `mkdnTests/Unit/`
 
 ## Critical Constraints
