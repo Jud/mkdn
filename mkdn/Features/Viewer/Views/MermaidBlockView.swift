@@ -29,6 +29,7 @@ struct MermaidBlockView: View {
     var body: some View {
         diagramContent
             .background(colors.backgroundSecondary)
+            .hoverBrightness()
             .clipShape(RoundedRectangle(cornerRadius: 6))
             .overlay(focusBorder)
             .contentShape(Rectangle())

@@ -29,3 +29,24 @@ The deprecated `overlayFadeOut` alias now returns `quickFade` (0.2s easeOut) ins
 its original value (0.3s easeOut). This subtly shortens the overlay fade-out by 100ms.
 T9 will align the `ModeTransitionOverlay` with the proper primitive and update the
 `overlayFadeOutDuration` scheduling constant if needed.
+
+## T7: Hover Feedback
+
+### ViewModePicker Does Not Exist
+
+The task spec and design reference `ViewModePicker.swift` for toolbar button hover
+(AC-009c: `.hoverScale(AnimationConstants.toolbarHoverScale)` on toolbar buttons).
+This file does not exist in the codebase. The `modules.md` lists it under
+`UI/Components/ViewModePicker.swift`, but no such file has been created.
+
+The closest equivalents are:
+- `MkdnCommands.swift`: System menu commands -- these are native AppKit menu items that
+  do not support SwiftUI ViewModifier application.
+- `ThemePickerView.swift`: A `.pickerStyle(.segmented)` control -- applying `.hoverScale()`
+  to a native segmented picker would scale the entire control rather than individual
+  segments, producing an awkward visual effect.
+
+AC-009c cannot be fulfilled until a custom toolbar button view is added to the codebase.
+The `toolbarHoverScale` constant (1.05) remains defined in `AnimationConstants` and the
+`.hoverScale(_:)` API accepts it, so the hover can be applied when toolbar buttons are
+introduced.

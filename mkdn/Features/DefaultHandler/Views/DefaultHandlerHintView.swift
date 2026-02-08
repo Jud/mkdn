@@ -14,6 +14,7 @@ struct DefaultHandlerHintView: View {
 
     var body: some View {
         orbVisual
+            .hoverScale()
             .onAppear {
                 withAnimation(AnimationConstants.defaultHandlerOrbPulse) {
                     isPulsing = true

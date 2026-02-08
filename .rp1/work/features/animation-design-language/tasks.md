@@ -2,7 +2,7 @@
 
 **Feature ID**: animation-design-language
 **Status**: In Progress
-**Progress**: 44% (7 of 16 tasks)
+**Progress**: 50% (8 of 16 tasks)
 **Estimated Effort**: 5 days
 **Started**: 2026-02-07
 
@@ -243,6 +243,18 @@ Establish a unified animation design language for mkdn by expanding `AnimationCo
     - [x] On file reload (file change), stagger animation replays from the first block -- dictionary is reset before new blocks are set (AC-007d)
     - [x] With Reduce Motion enabled, all blocks appear immediately with no stagger and no animation (AC-011c)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
 - [ ] **T8**: Add spring-settle entrance animation to popover content views `[complexity:simple]`
 
     **Reference**: [design.md#39-popover-spring-entrance](design.md#39-popover-spring-entrance)
@@ -286,7 +298,14 @@ Establish a unified animation design language for mkdn by expanding `AnimationCo
 
 ### Dependent Features
 
-- [ ] **T7**: Create hover feedback modifiers and apply to interactive elements `[complexity:medium]`
+- [x] **T7**: Create hover feedback modifiers and apply to interactive elements `[complexity:medium]`
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/UI/Components/HoverFeedbackModifier.swift`, `mkdn/UI/Components/FileChangeOrbView.swift`, `mkdn/Features/DefaultHandler/Views/DefaultHandlerHintView.swift`, `mkdn/Features/Viewer/Views/MermaidBlockView.swift`
+    - **Approach**: Created `HoverFeedbackModifier` (scale-based with configurable `scaleFactor`) and `BrightnessHoverModifier` (white overlay at `mermaidHoverBrightness` opacity) as reusable ViewModifiers with `View.hoverScale(_:)` and `View.hoverBrightness()` extensions. Both use `AnimationConstants.quickSettle` for animation with `nil` when Reduce Motion is enabled. Applied `.hoverScale()` to orb visuals in both orb views; applied `.hoverBrightness()` to Mermaid diagram content before `.clipShape()` so the overlay is clipped to the rounded rectangle.
+    - **Deviations**: `ViewModePicker.swift` does not exist in the codebase -- AC-009c (toolbar button hover) cannot be fulfilled. The `toolbarHoverScale` constant and `.hoverScale(_:)` API are ready for use when custom toolbar buttons are introduced. See field-notes.md for details.
+    - **Tests**: 103/103 passing
 
     **Reference**: [design.md#38-hover-feedback](design.md#38-hover-feedback)
 
@@ -294,14 +313,14 @@ Establish a unified animation design language for mkdn by expanding `AnimationCo
 
     **Acceptance Criteria**:
 
-    - [ ] New file `mkdn/UI/Components/HoverFeedbackModifier.swift` created with `HoverFeedbackModifier` (scale) and `BrightnessHoverModifier` (brightness overlay)
-    - [ ] `View.hoverScale(_:)` extension method applies `HoverFeedbackModifier` with default scale of `AnimationConstants.hoverScaleFactor` (1.06)
-    - [ ] `View.hoverBrightness()` extension method applies `BrightnessHoverModifier` with opacity of `AnimationConstants.mermaidHoverBrightness` (0.03)
-    - [ ] `.hoverScale()` applied to orbs in `FileChangeOrbView` and `DefaultHandlerHintView` (AC-009a)
-    - [ ] `.hoverBrightness()` applied to unfocused Mermaid diagrams in `MermaidBlockView` (AC-009b)
-    - [ ] `.hoverScale(AnimationConstants.toolbarHoverScale)` applied to toolbar buttons in `ViewModePicker` (AC-009c)
-    - [ ] All hover animations use `AnimationConstants.quickSettle` spring (AC-009d)
-    - [ ] With Reduce Motion, hover animation is nil (instant state change, no motion) (AC-011a)
+    - [x] New file `mkdn/UI/Components/HoverFeedbackModifier.swift` created with `HoverFeedbackModifier` (scale) and `BrightnessHoverModifier` (brightness overlay)
+    - [x] `View.hoverScale(_:)` extension method applies `HoverFeedbackModifier` with default scale of `AnimationConstants.hoverScaleFactor` (1.06)
+    - [x] `View.hoverBrightness()` extension method applies `BrightnessHoverModifier` with opacity of `AnimationConstants.mermaidHoverBrightness` (0.03)
+    - [x] `.hoverScale()` applied to orbs in `FileChangeOrbView` and `DefaultHandlerHintView` (AC-009a)
+    - [x] `.hoverBrightness()` applied to unfocused Mermaid diagrams in `MermaidBlockView` (AC-009b)
+    - [ ] `.hoverScale(AnimationConstants.toolbarHoverScale)` applied to toolbar buttons in `ViewModePicker` (AC-009c) -- BLOCKED: `ViewModePicker.swift` does not exist
+    - [x] All hover animations use `AnimationConstants.quickSettle` spring (AC-009d)
+    - [x] With Reduce Motion, hover animation is nil (instant state change, no motion) (AC-011a)
 
 - [ ] **T11**: Write unit tests for AnimationConstants values and MotionPreference resolution `[complexity:simple]`
 

@@ -13,6 +13,7 @@ struct FileChangeOrbView: View {
 
     var body: some View {
         orbVisual
+            .hoverScale()
             .onAppear {
                 withAnimation(AnimationConstants.fileChangeOrbPulse) {
                     isPulsing = true
