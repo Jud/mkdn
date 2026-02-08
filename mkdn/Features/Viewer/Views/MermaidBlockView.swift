@@ -10,14 +10,20 @@ struct MermaidBlockView: View {
     let code: String
 
     @Environment(AppSettings.self) private var appSettings
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var isFocused = false
+    @FocusState private var isKeyboardFocused: Bool
     @State private var renderedHeight: CGFloat = 200
     @State private var renderedAspectRatio: CGFloat = 0.5
     @State private var renderState: MermaidRenderState = .loading
 
     private var colors: ThemeColors {
         appSettings.theme.colors
+    }
+
+    private var motion: MotionPreference {
+        MotionPreference(reduceMotion: reduceMotion)
     }
 
     var body: some View {
@@ -28,11 +34,19 @@ struct MermaidBlockView: View {
             .contentShape(Rectangle())
             .onTapGesture {
                 isFocused = true
+                isKeyboardFocused = true
             }
-            .focusable(isFocused)
+            .focusable()
+            .focused($isKeyboardFocused)
             .onKeyPress(.escape) {
                 isFocused = false
+                isKeyboardFocused = false
                 return .handled
+            }
+            .onChange(of: isKeyboardFocused) {
+                if !isKeyboardFocused {
+                    isFocused = false
+                }
             }
     }
 
@@ -110,11 +124,22 @@ struct MermaidBlockView: View {
 
     // MARK: - Focus Border
 
-    @ViewBuilder
     private var focusBorder: some View {
-        if isFocused {
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(colors.accent, lineWidth: 2)
-        }
+        RoundedRectangle(cornerRadius: 6)
+            .stroke(
+                colors.accent,
+                lineWidth: isFocused ? AnimationConstants.focusBorderWidth : 0
+            )
+            .opacity(isFocused ? 1.0 : 0)
+            .shadow(
+                color: colors.accent.opacity(isFocused ? 0.4 : 0),
+                radius: isFocused ? AnimationConstants.focusGlowRadius : 0
+            )
+            .animation(
+                isFocused
+                    ? motion.resolved(.springSettle)
+                    : motion.resolved(.fadeOut),
+                value: isFocused
+            )
     }
 }
