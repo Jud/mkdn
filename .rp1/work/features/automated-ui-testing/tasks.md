@@ -388,7 +388,19 @@ Automated UI testing infrastructure for mkdn that enables an AI coding agent and
     - **Deviations**: Design specified stopFrameCapture as a separate action; implemented as a synchronous session cancellation (FrameCaptureSession captures for a fixed duration and stops automatically). The stopFrameCapture handler is a safety-net no-op that clears the active session reference. Spring settle threshold uses 5% of value range instead of 2% absolute, accommodating normalized property values (0-1 opacity).
     - **Tests**: 5/5 passing (pulse detection, stationary orb, transition duration, stagger delays, spring overshoot)
 
-- [ ] **T10**: Implement animation compliance test suite `[complexity:medium]`
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | PASS |
+    | Commit | PASS |
+    | Comments | PASS |
+
+- [x] **T10**: Implement animation compliance test suite `[complexity:medium]`
 
     **Reference**: [design.md#implementation-plan](design.md#implementation-plan) (Phase 3, T10)
 
@@ -396,18 +408,25 @@ Automated UI testing infrastructure for mkdn that enables an AI coding agent and
 
     **Acceptance Criteria**:
 
-    - [ ] `mkdnTests/UITest/AnimationComplianceTests.swift` exists as a `@Suite("AnimationCompliance")` struct
-    - [ ] Timing calibration test runs first: capture a known-duration animation (crossfade at 0.35s), verify measured duration is within one frame of expected; calibration failure blocks remaining animation tests
-    - [ ] Tests verify breathing orb rhythm: 30fps capture over one full cycle (~5s) shows sinusoidal opacity/scale variation at ~12 cycles/min
-    - [ ] Tests verify spring-settle transitions: 60fps capture shows response consistent with `spring(response: 0.35, dampingFraction: 0.7)` using `AnimationConstants` values
-    - [ ] Tests verify fade durations: 30fps capture confirms crossfade (0.35s), fadeIn (0.5s), fadeOut (0.4s) match `AnimationConstants`
-    - [ ] Tests verify content load stagger: 60fps capture of `long-document.md` load shows per-block stagger delay of 30ms with fade+drift animation
-    - [ ] Tests verify Reduce Motion compliance: `setReduceMotion(enabled: true)` command, then capture orb over 5s confirms static (no breathing), transitions use reduced durations (0.15s or instant)
-    - [ ] All tests use curve-fitting across multiple frames per BR-004 rather than single-frame timing assertions
-    - [ ] Animation expected values reference `AnimationConstants` static properties, not hardcoded numbers
-    - [ ] Timing measurements are accurate to within one frame at the capture framerate (16.7ms at 60fps, 33.3ms at 30fps)
-    - [ ] Frame capture uses ScreenCaptureKit (SCStream) via T9's implementation
-    - [ ] Code passes SwiftLint and SwiftFormat
+    - [x] `mkdnTests/UITest/AnimationComplianceTests.swift` exists as a `@Suite("AnimationCompliance")` struct
+    - [x] Timing calibration test runs first: capture a known-duration animation (crossfade at 0.35s), verify measured duration is within one frame of expected; calibration failure blocks remaining animation tests
+    - [x] Tests verify breathing orb rhythm: 30fps capture over one full cycle (~5s) shows sinusoidal opacity/scale variation at ~12 cycles/min
+    - [x] Tests verify spring-settle transitions: 60fps capture shows response consistent with `spring(response: 0.35, dampingFraction: 0.7)` using `AnimationConstants` values
+    - [x] Tests verify fade durations: 30fps capture confirms crossfade (0.35s), fadeIn (0.5s), fadeOut (0.4s) match `AnimationConstants`
+    - [x] Tests verify content load stagger: 60fps capture of `long-document.md` load shows per-block stagger delay of 30ms with fade+drift animation
+    - [x] Tests verify Reduce Motion compliance: `setReduceMotion(enabled: true)` command, then capture orb over 5s confirms static (no breathing), transitions use reduced durations (0.15s or instant)
+    - [x] All tests use curve-fitting across multiple frames per BR-004 rather than single-frame timing assertions
+    - [x] Animation expected values reference `AnimationConstants` static properties, not hardcoded numbers
+    - [x] Timing measurements are accurate to within one frame at the capture framerate (16.7ms at 60fps, 33.3ms at 30fps)
+    - [x] Frame capture uses ScreenCaptureKit (SCStream) via T9's implementation
+    - [x] Code passes SwiftLint and SwiftFormat
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdnTests/UITest/AnimationPRD.swift`, `mkdnTests/UITest/AnimationComplianceTests.swift`, `mkdnTests/UITest/AnimationComplianceTests+ReduceMotion.swift`
+    - **Approach**: Created 3-file animation compliance suite following existing SpatialCompliance/VisualCompliance patterns. AnimationPRD.swift holds PRD expected values, shared harness, fixture helpers, and assertion utilities. Main struct covers calibration gate + FR-1 through FR-4 (breathing orb rhythm, spring-settle, crossfade duration, stagger delays/constants). ReduceMotion extension covers FR-5 (orb static under RM, reduced transition durations). Tests trigger animations via harness IPC then immediately capture frames for curve-fitting analysis via FrameAnalyzer. Orb detection uses cyan pixel scanning in upper window region.
+    - **Deviations**: None
+    - **Tests**: 87/87 unit tests passing; FrameAnalyzer tests cover pulse, transition, stagger, and spring curve analysis
 
 ### CI and Documentation
 

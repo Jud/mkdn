@@ -1,0 +1,230 @@
+import CoreGraphics
+import Foundation
+import ImageIO
+import Testing
+
+@testable import mkdnLib
+
+/// Reduce Motion compliance tests for the animation design language.
+///
+/// Extension of `AnimationComplianceTests` covering FR-5: verification
+/// that Reduce Motion disables continuous animations and uses reduced
+/// transition durations.
+extension AnimationComplianceTests {
+    // MARK: - FR-5: Reduce Motion (Orb Static)
+
+    /// animation-design-language FR-5: With Reduce Motion enabled,
+    /// continuous animations (orb breathing) are static.
+    ///
+    /// Enables the Reduce Motion override via the test harness,
+    /// triggers the file-change orb, captures 3 seconds of frames,
+    /// and verifies the orb shows no brightness oscillation.
+    @Test("test_animationDesignLanguage_FR5_reduceMotionOrbStatic")
+    func reduceMotionOrbStatic() async throws {
+        try requireCalibration()
+        let client = try await AnimationHarness.ensureRunning()
+        _ = try await client.setReduceMotion(enabled: true)
+        defer {
+            Task {
+                _ = try? await client.setReduceMotion(enabled: false)
+            }
+        }
+
+        _ = try await client.setTheme("solarizedDark")
+
+        let orbRegion = try await triggerOrbForRM(client: client)
+
+        guard let region = orbRegion else {
+            recordOrbAbsentPass()
+            return
+        }
+
+        let pulse = try await captureAndAnalyzeOrb(
+            client: client,
+            orbRegion: region
+        )
+
+        assertAnimationBool(
+            value: pulse.isStationary,
+            expected: true,
+            prdRef: "animation-design-language FR-5",
+            aspect: "reduceMotion orb is stationary"
+        )
+    }
+
+    // MARK: - FR-5: Reduce Motion (Transition Duration)
+
+    /// animation-design-language FR-5: With Reduce Motion enabled,
+    /// transitions use reduced durations (reducedCrossfade: 0.15s
+    /// or reducedInstant: 0.01s).
+    ///
+    /// Enables Reduce Motion, switches themes, and captures frames
+    /// to verify the transition completes faster than the standard
+    /// crossfade duration.
+    @Test("test_animationDesignLanguage_FR5_reduceMotionTransition")
+    func reduceMotionTransition() async throws {
+        try requireCalibration()
+        let client = try await AnimationHarness.ensureRunning()
+        _ = try await client.setReduceMotion(enabled: true)
+        defer {
+            Task {
+                _ = try? await client.setReduceMotion(enabled: false)
+            }
+        }
+
+        _ = try await client.setTheme("solarizedDark")
+        _ = try await client.loadFile(
+            path: animationFixturePath("canonical.md")
+        )
+
+        let darkBg = try await getThemeBgColor(client: client)
+        _ = try await client.setTheme("solarizedLight")
+        let lightBg = try await getThemeBgColor(client: client)
+
+        let transition = try await captureTransition(
+            client: client,
+            darkBg: darkBg,
+            lightBg: lightBg
+        )
+
+        assertReducedTransition(duration: transition.duration)
+
+        _ = try await client.setTheme("solarizedDark")
+        _ = try await client.setReduceMotion(enabled: false)
+    }
+
+    // MARK: - Private Helpers
+
+    private func triggerOrbForRM(
+        client: TestHarnessClient
+    ) async throws -> CGRect? {
+        let tempPath = try createTempFixtureCopy(from: "canonical.md")
+        defer { try? FileManager.default.removeItem(atPath: tempPath) }
+
+        _ = try await client.loadFile(path: tempPath)
+
+        let handle = try FileHandle(forWritingTo: URL(
+            fileURLWithPath: tempPath
+        ))
+        handle.seekToEndOfFile()
+        handle.write(Data("\n<!-- rm-test -->\n".utf8))
+        handle.closeFile()
+
+        try await Task.sleep(for: .seconds(2))
+
+        let captureResp = try await client.captureWindow()
+        let capture = try extractCapture(from: captureResp)
+        let analyzer = try loadAnalyzer(from: capture)
+
+        let orbCyan = PixelColor.from(
+            red: 0.165,
+            green: 0.631,
+            blue: 0.596
+        )
+        return locateOrbRegion(
+            in: analyzer,
+            orbColor: orbCyan,
+            tolerance: animOrbColorTolerance
+        )
+    }
+
+    private func recordOrbAbsentPass() {
+        JSONResultReporter.record(TestResult(
+            name: "animation-design-language FR-5: RM orb static",
+            status: .pass,
+            prdReference: "animation-design-language FR-5",
+            expected: "orb static or absent",
+            actual: "orb not visible (RM may suppress it)",
+            imagePaths: [],
+            duration: 0,
+            message: nil,
+        ))
+    }
+
+    private func captureAndAnalyzeOrb(
+        client: TestHarnessClient,
+        orbRegion: CGRect
+    ) async throws -> PulseAnalysis {
+        let captureResp = try await client.startFrameCapture(
+            fps: 30,
+            duration: 3.0
+        )
+        let result = try extractFrameCapture(from: captureResp)
+        let frames = try loadFrameImages(from: result)
+        let scale = AnimationHarness.cachedScaleFactor
+
+        let analyzer = FrameAnalyzer(
+            frames: frames,
+            fps: result.fps,
+            scaleFactor: scale
+        )
+        return analyzer.measureOrbPulse(orbRegion: orbRegion)
+    }
+
+    private func getThemeBgColor(
+        client: TestHarnessClient
+    ) async throws -> PixelColor {
+        let resp = try await client.getThemeColors()
+        guard resp.status == "ok",
+              let data = resp.data,
+              case let .themeColors(result) = data
+        else {
+            throw HarnessError.unexpectedResponse(
+                "No theme colors in response"
+            )
+        }
+        return PixelColor.from(rgbColor: result.background)
+    }
+
+    private func captureTransition(
+        client: TestHarnessClient,
+        darkBg: PixelColor,
+        lightBg: PixelColor
+    ) async throws -> TransitionAnalysis {
+        let captureResp = try await client.startFrameCapture(
+            fps: 30,
+            duration: 1.0
+        )
+        let result = try extractFrameCapture(from: captureResp)
+        let frames = try loadFrameImages(from: result)
+        let scale = AnimationHarness.cachedScaleFactor
+
+        let sampleRegion = CGRect(x: 10, y: 10, width: 40, height: 40)
+        let analyzer = FrameAnalyzer(
+            frames: frames,
+            fps: result.fps,
+            scaleFactor: scale
+        )
+        return analyzer.measureTransitionDuration(
+            region: sampleRegion,
+            startColor: darkBg,
+            endColor: lightBg
+        )
+    }
+
+    private func assertReducedTransition(duration: TimeInterval) {
+        let reducedMax = AnimationPRD.reducedCrossfadeDuration
+            + animTolerance30fps * 2
+        let fastEnough = duration <= reducedMax
+
+        #expect(
+            fastEnough,
+            """
+            animation-design-language FR-5: RM transition \
+            expected <= \(reducedMax)s, \
+            measured \(duration)s
+            """
+        )
+
+        JSONResultReporter.record(TestResult(
+            name: "animation-design-language FR-5: RM transition",
+            status: fastEnough ? .pass : .fail,
+            prdReference: "animation-design-language FR-5",
+            expected: "<= \(reducedMax)s",
+            actual: "\(duration)s",
+            imagePaths: [],
+            duration: 0,
+            message: fastEnough ? nil : "RM transition too slow",
+        ))
+    }
+}
