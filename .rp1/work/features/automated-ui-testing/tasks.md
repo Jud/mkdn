@@ -2,7 +2,7 @@
 
 **Feature ID**: automated-ui-testing
 **Status**: In Progress
-**Progress**: 27% (4 of 15 tasks)
+**Progress**: 33% (5 of 15 tasks)
 **Estimated Effort**: 9 days
 **Started**: 2026-02-08
 
@@ -76,7 +76,7 @@ Automated UI testing infrastructure for mkdn that enables an AI coding agent and
     | Commit | PASS |
     | Comments | PASS |
 
-- [ ] **T4**: Create standardized Markdown test fixtures `[complexity:simple]`
+- [x] **T4**: Create standardized Markdown test fixtures `[complexity:simple]`
 
     **Reference**: [design.md#38-test-fixture-structure](design.md#38-test-fixture-structure)
 
@@ -84,12 +84,19 @@ Automated UI testing infrastructure for mkdn that enables an AI coding agent and
 
     **Acceptance Criteria**:
 
-    - [ ] `mkdnTests/Fixtures/UITest/canonical.md` exists with all Markdown element types: H1-H6 headings, paragraphs, fenced code blocks with Swift syntax, ordered and unordered lists, blockquotes, tables, thematic breaks, Mermaid diagrams (flowchart and sequence), inline formatting (bold, italic, code, links)
-    - [ ] `mkdnTests/Fixtures/UITest/long-document.md` exists with 20+ blocks for stagger animation testing
-    - [ ] `mkdnTests/Fixtures/UITest/mermaid-focus.md` exists with multiple Mermaid diagrams of varying types
-    - [ ] `mkdnTests/Fixtures/UITest/theme-tokens.md` exists with code blocks containing known Swift tokens for syntax highlighting verification
-    - [ ] `mkdnTests/Fixtures/UITest/geometry-calibration.md` exists with known-geometry elements suitable for spatial measurement calibration (headings followed by paragraphs with unambiguous expected spacing)
-    - [ ] Each fixture file includes a comment header documenting its purpose and expected rendering characteristics
+    - [x] `mkdnTests/Fixtures/UITest/canonical.md` exists with all Markdown element types: H1-H6 headings, paragraphs, fenced code blocks with Swift syntax, ordered and unordered lists, blockquotes, tables, thematic breaks, Mermaid diagrams (flowchart and sequence), inline formatting (bold, italic, code, links)
+    - [x] `mkdnTests/Fixtures/UITest/long-document.md` exists with 20+ blocks for stagger animation testing
+    - [x] `mkdnTests/Fixtures/UITest/mermaid-focus.md` exists with multiple Mermaid diagrams of varying types
+    - [x] `mkdnTests/Fixtures/UITest/theme-tokens.md` exists with code blocks containing known Swift tokens for syntax highlighting verification
+    - [x] `mkdnTests/Fixtures/UITest/geometry-calibration.md` exists with known-geometry elements suitable for spatial measurement calibration (headings followed by paragraphs with unambiguous expected spacing)
+    - [x] Each fixture file includes a comment header documenting its purpose and expected rendering characteristics
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdnTests/Fixtures/UITest/canonical.md`, `mkdnTests/Fixtures/UITest/long-document.md`, `mkdnTests/Fixtures/UITest/mermaid-focus.md`, `mkdnTests/Fixtures/UITest/theme-tokens.md`, `mkdnTests/Fixtures/UITest/geometry-calibration.md`
+    - **Approach**: Five static Markdown fixture files with HTML comment headers documenting purpose and expected rendering. canonical.md covers all MarkdownBlock cases (heading, paragraph, codeBlock, mermaidBlock, blockquote, orderedList, unorderedList, thematicBreak, table, image) plus all inline types (bold, italic, code, link, strikethrough). long-document.md has 31 top-level blocks for stagger testing. mermaid-focus.md has 4 diagram types (flowchart, sequence, class, state). theme-tokens.md isolates each SyntaxColors token type in separate code blocks. geometry-calibration.md provides minimal known-spacing elements with expected values documented.
+    - **Deviations**: None
+    - **Tests**: N/A (static content files; no code changes)
 
 ### Foundation - Harness and Analysis
 
@@ -166,6 +173,18 @@ Automated UI testing infrastructure for mkdn that enables an AI coding agent and
     - **Approach**: TestHarnessClient uses POSIX Unix domain socket with a dedicated serial DispatchQueue for blocking I/O, bridged to async via withCheckedThrowingContinuation. Line-delimited JSON protocol matches server (iso8601 date strategy, newline-terminated). Connect uses retry loop (20 attempts at 250ms) to handle server startup race. Read uses poll() for timeout control. AppLauncher finds package root via #filePath traversal, builds via swift build subprocess, launches mkdn --test-harness, derives socket path from process PID via HarnessSocket.path(forPID:), teardown sends quit then force-terminates after 1s grace period.
     - **Deviations**: None
     - **Tests**: 207/207 passing (all existing tests unaffected; no new unit tests added per testing discipline -- client/launcher are integration seams tested by downstream compliance suites T6/T7/T10)
+
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | N/A |
+    | Commit | PASS |
+    | Comments | PASS |
 
 - [ ] **T5**: Implement image analysis library `[complexity:medium]`
 
