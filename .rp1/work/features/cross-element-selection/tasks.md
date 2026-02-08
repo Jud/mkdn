@@ -145,9 +145,16 @@ Replace the preview pane's rendering layer from independent SwiftUI `Text` views
     **Implementation Summary**:
 
     - **Files**: `mkdn/Features/Viewer/Views/SelectableTextView.swift`
-    - **Approach**: NSViewRepresentable struct with three MARK-delimited extensions (NSViewRepresentable, View Configuration, Coordinator). Uses `NSTextView.scrollableTextView()` for TextKit 2 setup on macOS 14+. Coordinator is `@MainActor` NSObject with `@preconcurrency NSTextViewportLayoutControllerDelegate` conformance. Theme applied via `applyTheme` helper setting background, selection highlight (accent at 30% opacity), and insertion point colors. Viewport layout controller delegate installed for T5 entrance animation hooks. Fragment tracking via `ObjectIdentifier` set prevents re-animation.
+    - **Approach**: NSViewRepresentable struct with three MARK-delimited extensions (NSViewRepresentable, View Configuration, Coordinator). Uses `NSTextView.scrollableTextView()` for TextKit 2 setup on macOS 14+. Coordinator is `@MainActor` NSObject with `@preconcurrency NSTextViewportLayoutControllerDelegate` conformance. Theme applied via `applyTheme` helper setting background, selection highlight (accent at 30% opacity), and insertion point colors. Viewport layout controller delegate installed for EntranceAnimator animation hooks. Fragment tracking via `ObjectIdentifier` set prevents re-animation. Docstrings reference component names (OverlayCoordinator, EntranceAnimator) without task IDs.
     - **Deviations**: Used `@preconcurrency` protocol conformance instead of plain conformance due to SDK delegate methods being nonisolated (documented in field-notes.md).
     - **Tests**: No dedicated tests for T3 (scheduled in T7); build passes, all existing tests pass
+
+    **Review Feedback** (Attempt 1):
+    - **Status**: FAILURE
+    - **Issues**:
+        - [comments] Task IDs embedded in code comments: `(T4)` at line 12 of docstring, `(T5)` at line 14 of docstring, and `(T5)` at line 169 of inline comment. Task/feature IDs are not allowed in code comments.
+        - [comments] Lines 169-171 contain a placeholder comment ("Currently fragments appear with no animation") describing incomplete implementation state. This is a placeholder TODO without a ticket reference.
+    - **Resolution** (Attempt 2): Removed all task ID references from docstrings, replacing with component-name-only references. Removed placeholder comment block from `configureRenderingSurfaceFor` delegate method (method name is self-documenting).
 
 ### Rendering Extensions
 

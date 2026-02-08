@@ -8,10 +8,10 @@ import SwiftUI
 /// ``MarkdownTextStorageBuilder`` and supports native macOS selection behaviors:
 /// click-drag, Shift-click, Cmd+A, Cmd+C. Non-text elements (Mermaid diagrams,
 /// images) are represented by `NSTextAttachment` placeholders; overlays are
-/// positioned by the ``OverlayCoordinator`` (T4).
+/// positioned by the ``OverlayCoordinator``.
 ///
 /// The ``Coordinator`` implements `NSTextViewportLayoutControllerDelegate` to
-/// provide per-layout-fragment animation hooks used by the entrance animator (T5).
+/// provide per-layout-fragment animation hooks for the ``EntranceAnimator``.
 struct SelectableTextView: NSViewRepresentable {
     let attributedText: NSAttributedString
     let attachments: [AttachmentInfo]
@@ -165,10 +165,6 @@ extension SelectableTextView {
             let fragmentID = ObjectIdentifier(fragment)
             guard !animatedFragments.contains(fragmentID) else { return }
             animatedFragments.insert(fragmentID)
-
-            // Entrance animation hook. The EntranceAnimator (T5) will add
-            // per-fragment CALayer opacity and transform animations here.
-            // Currently fragments appear with no animation.
         }
     }
 }
