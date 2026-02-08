@@ -346,6 +346,9 @@ final class TestHarnessClient: @unchecked Sendable {
 
         guard fd >= 0 else { return false }
 
+        var noSigPipe: Int32 = 1
+        setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &noSigPipe, socklen_t(MemoryLayout<Int32>.size))
+
         var addr = sockaddr_un()
         addr.sun_family = sa_family_t(AF_UNIX)
 

@@ -2,7 +2,7 @@
 
 **Feature ID**: automated-ui-testing
 **Status**: In Progress
-**Progress**: 8% (1 of 12 tasks)
+**Progress**: 17% (2 of 12 tasks)
 **Estimated Effort**: 6 days
 **Started**: 2026-02-08
 
@@ -59,9 +59,21 @@ End-to-end validation of the automated UI testing infrastructure. The prior iter
     - **Deviations**: Screen Recording check used ScreenCaptureKit instead of direct CGWindowListCreateImage (macOS 15.5 marks CGWindowListCreateImage as unavailable for standalone compilation; the project code uses `@available(macOS, deprecated: 14.0)` annotation to compile it).
     - **Tests**: N/A (verification task, no tests to run)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ⏭️ N/A |
+
 ### Infrastructure Validation
 
-- [ ] **T2**: Execute full harness lifecycle smoke test -- build, launch, connect, ping, loadFile, captureWindow, quit -- and verify each step produces expected responses `[complexity:medium]`
+- [x] **T2**: Execute full harness lifecycle smoke test -- build, launch, connect, ping, loadFile, captureWindow, quit -- and verify each step produces expected responses `[complexity:medium]`
 
     **Reference**: [design.md#t2-harness-smoke-test-req-001](design.md#t2-harness-smoke-test-req-001)
 
@@ -69,13 +81,20 @@ End-to-end validation of the automated UI testing infrastructure. The prior iter
 
     **Acceptance Criteria**:
 
-    - [ ] `AppLauncher.launch()` builds and launches mkdn with --test-harness within 60 seconds (AC-001a)
-    - [ ] `TestHarnessClient.ping()` returns a successful pong response (AC-001b)
-    - [ ] `TestHarnessClient.loadFile(path:)` loads a fixture and receives a success response with render completion signal (AC-001c)
-    - [ ] `TestHarnessClient.captureWindow(outputPath:)` produces a PNG with non-zero dimensions at Retina 2x scale (AC-001d)
-    - [ ] Captured PNG is loadable by ImageAnalyzer and contains real pixel data, not blank/black (AC-001e)
-    - [ ] `TestHarnessClient.quit()` terminates the app cleanly (AC-001f)
-    - [ ] Any infrastructure fixes applied are documented in field notes with symptom, cause, and resolution (BR-004)
+    - [x] `AppLauncher.launch()` builds and launches mkdn with --test-harness within 60 seconds (AC-001a)
+    - [x] `TestHarnessClient.ping()` returns a successful pong response (AC-001b)
+    - [x] `TestHarnessClient.loadFile(path:)` loads a fixture and receives a success response with render completion signal (AC-001c)
+    - [x] `TestHarnessClient.captureWindow(outputPath:)` produces a PNG with non-zero dimensions at Retina 2x scale (AC-001d)
+    - [x] Captured PNG is loadable by ImageAnalyzer and contains real pixel data, not blank/black (AC-001e)
+    - [x] `TestHarnessClient.quit()` terminates the app cleanly (AC-001f)
+    - [x] Any infrastructure fixes applied are documented in field notes with symptom, cause, and resolution (BR-004)
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdnTests/UITest/HarnessSmokeTests.swift` (new), `mkdnTests/Support/TestHarnessClient.swift` (fix)
+    - **Approach**: Created 6-test smoke suite exercising full harness lifecycle. Fixed SIGPIPE crash by adding SO_NOSIGPIPE to client socket.
+    - **Deviations**: None
+    - **Tests**: 6/6 passing
 
 ### Suite Execution
 
