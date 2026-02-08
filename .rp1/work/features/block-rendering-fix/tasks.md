@@ -51,6 +51,18 @@ Fix two rendering bugs in the Markdown preview pipeline: (1) duplicate block IDs
     - **Deviations**: None
     - **Tests**: Existing tests pass
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | N/A |
+    | Commit | PASS |
+    | Comments | PASS |
+
 - [x] **T4**: Fix whitespace foreground color in `ThemeOutputFormat.Builder.addWhitespace` `[complexity:simple]`
 
     **Reference**: [design.md#34-whitespace-foreground-color-fix](design.md#34-whitespace-foreground-color-fix)
@@ -69,6 +81,18 @@ Fix two rendering bugs in the Markdown preview pipeline: (1) duplicate block IDs
     - **Approach**: Changed `addWhitespace` to create a local `AttributedString`, set `foregroundColor = plainTextColor`, then append. Updated existing test assertion from `nil` to `red` (the plainTextColor).
     - **Deviations**: Updated the existing whitespace test (T5 scope) to match the new behavior, as it would otherwise fail.
     - **Tests**: ThemeOutputFormat suite 6/6 passing
+
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | PASS |
+    | Commit | PASS |
+    | Comments | PASS |
 
 ### Renderer Update (Parallel Group 2)
 
@@ -91,6 +115,18 @@ Fix two rendering bugs in the Markdown preview pipeline: (1) duplicate block IDs
     - **Approach**: Changed both `render` methods to return `[IndexedBlock]` with `.enumerated().map` wrapping. Updated all call-site consumers (MarkdownPreviewView, PreviewViewModel) and test pattern matches (`blocks.first?.block`, `blocks[index].block`) to compile with the new return type.
     - **Deviations**: Also updated MarkdownPreviewView (T3 scope) and test pattern matches (T5 scope) as required for compilation. MarkdownPreviewView now uses simplified `ForEach(renderedBlocks)` with `indexedBlock.block`/`.id`/`.index` accessors. PreviewViewModel (not in any task) updated from `[MarkdownBlock]` to `[IndexedBlock]`.
     - **Tests**: All 85 tests passing
+
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | PASS |
+    | Commit | PASS |
+    | Comments | PASS |
 
 ### Consumer and Tests (Parallel Group 3)
 
@@ -117,6 +153,18 @@ Fix two rendering bugs in the Markdown preview pipeline: (1) duplicate block IDs
     - **Approach**: Implemented as part of T2 (API return type change required all consumer updates for compilation). Changed `renderedBlocks` to `[IndexedBlock]`, simplified `ForEach` to use `IndexedBlock.Identifiable`, updated all `blockAppeared` and stagger logic to use `indexedBlock.id`/`.index`/`.block`.
     - **Deviations**: Implemented alongside T2 rather than separately, as the API change and consumer update are inseparable.
     - **Tests**: All tests passing; visual AC (001b, 005a) require manual verification
+
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | PASS |
+    | Commit | PASS (committed with T2 - 53982c6) |
+    | Comments | PASS |
 
 - [ ] **T5**: Update and add unit tests for `IndexedBlock`, renderer, and whitespace color `[complexity:medium]`
 
