@@ -1,8 +1,8 @@
 # Development Tasks: Automated UI Testing
 
 **Feature ID**: automated-ui-testing
-**Status**: Not Started
-**Progress**: 20% (3 of 15 tasks)
+**Status**: In Progress
+**Progress**: 27% (4 of 15 tasks)
 **Estimated Effort**: 9 days
 **Started**: 2026-02-08
 
@@ -132,7 +132,19 @@ Automated UI testing infrastructure for mkdn that enables an AI coding agent and
     - SwiftFormat: no changes needed
     - Tests: 160/160 passing
 
-- [ ] **T3**: Implement test harness client and app launcher `[complexity:medium]`
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | N/A |
+    | Commit | PASS |
+    | Comments | PASS |
+
+- [x] **T3**: Implement test harness client and app launcher `[complexity:medium]`
 
     **Reference**: [design.md#21-component-architecture](design.md#21-component-architecture)
 
@@ -140,13 +152,20 @@ Automated UI testing infrastructure for mkdn that enables an AI coding agent and
 
     **Acceptance Criteria**:
 
-    - [ ] `TestHarnessClient` in `mkdnTests/Support/TestHarnessClient.swift` connects to the Unix domain socket, sends JSON commands, and awaits JSON responses
-    - [ ] `TestHarnessClient` provides typed async methods for each command: `loadFile(path:)`, `switchMode(_:)`, `cycleTheme()`, `captureWindow(outputPath:)`, `captureRegion(_:outputPath:)`, `startFrameCapture(fps:duration:outputDir:)`, `getWindowInfo()`, `getThemeColors()`, `setReduceMotion(enabled:)`, `ping()`, `quit()`
-    - [ ] `AppLauncher` in `mkdnTests/Support/AppLauncher.swift` builds the mkdn executable (via `swift build`), launches it with `--test-harness`, waits for socket readiness with configurable timeout, and returns a connected `TestHarnessClient`
-    - [ ] `AppLauncher` provides teardown logic: sends `quit` command, waits for process termination, cleans up socket file
-    - [ ] Connection retry logic handles race condition where test runner starts before server socket is ready
-    - [ ] All client methods include configurable timeouts with descriptive timeout errors
-    - [ ] Code passes SwiftLint and SwiftFormat
+    - [x] `TestHarnessClient` in `mkdnTests/Support/TestHarnessClient.swift` connects to the Unix domain socket, sends JSON commands, and awaits JSON responses
+    - [x] `TestHarnessClient` provides typed async methods for each command: `loadFile(path:)`, `switchMode(_:)`, `cycleTheme()`, `captureWindow(outputPath:)`, `captureRegion(_:outputPath:)`, `startFrameCapture(fps:duration:outputDir:)`, `getWindowInfo()`, `getThemeColors()`, `setReduceMotion(enabled:)`, `ping()`, `quit()`
+    - [x] `AppLauncher` in `mkdnTests/Support/AppLauncher.swift` builds the mkdn executable (via `swift build`), launches it with `--test-harness`, waits for socket readiness with configurable timeout, and returns a connected `TestHarnessClient`
+    - [x] `AppLauncher` provides teardown logic: sends `quit` command, waits for process termination, cleans up socket file
+    - [x] Connection retry logic handles race condition where test runner starts before server socket is ready
+    - [x] All client methods include configurable timeouts with descriptive timeout errors
+    - [x] Code passes SwiftLint and SwiftFormat
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdnTests/Support/TestHarnessClient.swift`, `mkdnTests/Support/AppLauncher.swift`
+    - **Approach**: TestHarnessClient uses POSIX Unix domain socket with a dedicated serial DispatchQueue for blocking I/O, bridged to async via withCheckedThrowingContinuation. Line-delimited JSON protocol matches server (iso8601 date strategy, newline-terminated). Connect uses retry loop (20 attempts at 250ms) to handle server startup race. Read uses poll() for timeout control. AppLauncher finds package root via #filePath traversal, builds via swift build subprocess, launches mkdn --test-harness, derives socket path from process PID via HarnessSocket.path(forPID:), teardown sends quit then force-terminates after 1s grace period.
+    - **Deviations**: None
+    - **Tests**: 207/207 passing (all existing tests unaffected; no new unit tests added per testing discipline -- client/launcher are integration seams tested by downstream compliance suites T6/T7/T10)
 
 - [ ] **T5**: Implement image analysis library `[complexity:medium]`
 
