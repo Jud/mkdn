@@ -186,4 +186,13 @@ struct MarkdownRendererTests {
         let blocks = MarkdownRenderer.render(text: "", theme: .solarizedDark)
         #expect(blocks.isEmpty)
     }
+
+    @Test("Multiple thematic breaks produce unique IDs")
+    func multipleThematicBreaksUniqueIDs() {
+        let markdown = "---\n\n---\n\n---"
+        let blocks = MarkdownRenderer.render(text: markdown, theme: .solarizedDark)
+        #expect(blocks.count == 3)
+        let ids = Set(blocks.map(\.id))
+        #expect(ids.count == 3)
+    }
 }

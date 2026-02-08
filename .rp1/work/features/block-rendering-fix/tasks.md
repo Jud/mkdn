@@ -2,7 +2,7 @@
 
 **Feature ID**: block-rendering-fix
 **Status**: In Progress
-**Progress**: 57% (4 of 7 tasks)
+**Progress**: 71% (5 of 7 tasks)
 **Estimated Effort**: 2 days
 **Started**: 2026-02-07
 
@@ -162,11 +162,11 @@ Fix two rendering bugs in the Markdown preview pipeline: (1) duplicate block IDs
     | Accuracy | PASS |
     | Completeness | PASS |
     | Quality | PASS |
-    | Testing | PASS |
+    | Testing | N/A |
     | Commit | PASS (committed with T2 - 53982c6) |
     | Comments | PASS |
 
-- [ ] **T5**: Update and add unit tests for `IndexedBlock`, renderer, and whitespace color `[complexity:medium]`
+- [x] **T5**: Update and add unit tests for `IndexedBlock`, renderer, and whitespace color `[complexity:medium]`
 
     **Reference**: [design.md#t5-update-and-add-tests](design.md#t5-update-and-add-tests)
 
@@ -174,14 +174,21 @@ Fix two rendering bugs in the Markdown preview pipeline: (1) duplicate block IDs
 
     **Acceptance Criteria**:
 
-    - [ ] New test: `IndexedBlock` produces unique IDs for thematic breaks at different indices (AC-001a)
-    - [ ] New test: `IndexedBlock` produces unique IDs for identical paragraphs at different indices (AC-002a)
-    - [ ] New test: `IndexedBlock` ID is deterministic for same content and index (AC-003a)
-    - [ ] New test: Multiple thematic breaks produce unique IDs through full renderer pipeline
-    - [ ] Updated test: `addWhitespace` asserts `foregroundColor == plainTextColor` (was `nil`)
-    - [ ] All existing `MarkdownRendererTests` pattern matches updated: `blocks.first?.block`, `blocks[index].block` (~10 sites)
-    - [ ] All existing `MarkdownVisitorTests` pattern matches updated: `blocks.first?.block`, `blocks[index].block` (~15 sites)
-    - [ ] All tests pass with `swift test`
+    - [x] New test: `IndexedBlock` produces unique IDs for thematic breaks at different indices (AC-001a)
+    - [x] New test: `IndexedBlock` produces unique IDs for identical paragraphs at different indices (AC-002a)
+    - [x] New test: `IndexedBlock` ID is deterministic for same content and index (AC-003a)
+    - [x] New test: Multiple thematic breaks produce unique IDs through full renderer pipeline
+    - [x] Updated test: `addWhitespace` asserts `foregroundColor == plainTextColor` (was `nil`)
+    - [x] All existing `MarkdownRendererTests` pattern matches updated: `blocks.first?.block`, `blocks[index].block` (~10 sites)
+    - [x] All existing `MarkdownVisitorTests` pattern matches updated: `blocks.first?.block`, `blocks[index].block` (~15 sites)
+    - [x] All tests pass with `swift test`
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdnTests/Unit/Core/MarkdownBlockTests.swift`, `mkdnTests/Unit/Core/MarkdownRendererTests.swift`
+    - **Approach**: Added 3 IndexedBlock tests (thematic break uniqueness, paragraph uniqueness, determinism) to MarkdownBlockTests and 1 pipeline test (multi-thematic-break uniqueness) to MarkdownRendererTests. Pattern match updates and whitespace test update were completed in T2/T4.
+    - **Deviations**: None
+    - **Tests**: 89/89 passing
 
 ### User Docs
 
