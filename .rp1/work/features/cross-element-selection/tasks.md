@@ -2,7 +2,7 @@
 
 **Feature ID**: cross-element-selection
 **Status**: In Progress
-**Progress**: 50% (6 of 12 tasks)
+**Progress**: 58% (7 of 12 tasks)
 **Estimated Effort**: 5 days
 **Started**: 2026-02-08
 
@@ -276,9 +276,21 @@ Replace the preview pane's rendering layer from independent SwiftUI `Text` views
     - **Deviations**: `SelectableTextView` modified to accept `appSettings`/`documentState` parameters and integrate `OverlayCoordinator` (design placed overlay wiring in T6 scope but did not specify which file hosts the coordinator instance). Added `lastAppliedText` tracking to Coordinator for content-change detection, preventing animation restarts on spurious SwiftUI re-renders.
     - **Tests**: All existing tests pass (114+); no dedicated tests for T6 (scheduled in T7)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
 ### Tests
 
-- [ ] **T7**: Create unit and integration tests for new components `[complexity:medium]`
+- [x] **T7**: Create unit and integration tests for new components `[complexity:medium]`
 
     **Reference**: [design.md#t7-tests](design.md#t7-tests)
 
@@ -286,23 +298,30 @@ Replace the preview pane's rendering layer from independent SwiftUI `Text` views
 
     **Acceptance Criteria**:
 
-    - [ ] New file `mkdnTests/Unit/Core/PlatformTypeConverterTests.swift` created using Swift Testing (`@Test`, `#expect`, `@Suite`)
-    - [ ] Tests verify each heading level font produces correct size and weight
-    - [ ] Tests verify body font matches system body text style
-    - [ ] Tests verify monospaced font produces monospaced design
-    - [ ] Tests verify color conversion from ThemeColors round-trips correctly
-    - [ ] Tests verify paragraph style spacing and alignment are set correctly
-    - [ ] New file `mkdnTests/Unit/Core/MarkdownTextStorageBuilderTests.swift` created using Swift Testing
-    - [ ] Tests verify heading block produces correct font, heading color, and paragraph spacing attributes
-    - [ ] Tests verify paragraph block produces correct body font and foreground color
-    - [ ] Tests verify code block produces monospaced font, code colors, and background attribute
-    - [ ] Tests verify Mermaid block produces `NSTextAttachment` in attributed string
-    - [ ] Tests verify list blocks have correct indentation and bullet/number prefix
-    - [ ] Tests verify blockquote has correct indentation and visual styling
-    - [ ] Tests verify block separation uses single `\n` with paragraph spacing (not double newlines)
-    - [ ] Tests verify inline styles (bold, italic, code, link, strikethrough) preserved in NSAttributedString
-    - [ ] Integration test: build attributed string from multi-block document and verify `.string` plain text extraction produces correct content with clean line breaks
-    - [ ] All tests pass with `swift test`
+    - [x] New file `mkdnTests/Unit/Core/PlatformTypeConverterTests.swift` created using Swift Testing (`@Test`, `#expect`, `@Suite`)
+    - [x] Tests verify each heading level font produces correct size and weight
+    - [x] Tests verify body font matches system body text style
+    - [x] Tests verify monospaced font produces monospaced design
+    - [x] Tests verify color conversion from ThemeColors round-trips correctly
+    - [x] Tests verify paragraph style spacing and alignment are set correctly
+    - [x] New file `mkdnTests/Unit/Core/MarkdownTextStorageBuilderTests.swift` created using Swift Testing
+    - [x] Tests verify heading block produces correct font, heading color, and paragraph spacing attributes
+    - [x] Tests verify paragraph block produces correct body font and foreground color
+    - [x] Tests verify code block produces monospaced font, code colors, and background attribute
+    - [x] Tests verify Mermaid block produces `NSTextAttachment` in attributed string
+    - [x] Tests verify list blocks have correct indentation and bullet/number prefix
+    - [x] Tests verify blockquote has correct indentation and visual styling
+    - [x] Tests verify block separation uses single `\n` with paragraph spacing (not double newlines)
+    - [x] Tests verify inline styles (bold, italic, code, link, strikethrough) preserved in NSAttributedString
+    - [x] Integration test: build attributed string from multi-block document and verify `.string` plain text extraction produces correct content with clean line breaks
+    - [x] All tests pass with `swift test`
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdnTests/Unit/Core/PlatformTypeConverterTests.swift`, `mkdnTests/Unit/Core/MarkdownTextStorageBuilderTests.swift`
+    - **Approach**: PlatformTypeConverterTests: 14 tests covering heading font sizes (parameterized), heading font weights (bold, semibold, medium), out-of-range fallback, body font, monospaced fonts (size and fixed-pitch trait), caption monospaced, color conversion, and paragraph style properties. MarkdownTextStorageBuilderTests: 30 tests covering all block types (heading, paragraph, code, mermaid, image, thematic break, unordered list, ordered list, blockquote, HTML, table), inline style preservation (bold, italic, code, link, strikethrough), block separation, and integration tests for multi-block plain text extraction and mermaid attachment behavior.
+    - **Deviations**: None
+    - **Tests**: 44/44 passing (14 PlatformTypeConverter + 30 MarkdownTextStorageBuilder)
 
 ### User Docs
 
