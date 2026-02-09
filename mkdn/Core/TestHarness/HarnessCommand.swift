@@ -65,6 +65,9 @@ public enum HarnessCommand: Codable, Sendable {
     /// Override the Reduce Motion preference for testing.
     case setReduceMotion(enabled: Bool)
 
+    /// Scroll the content view to a specific vertical offset (in points).
+    case scrollTo(yOffset: Double)
+
     /// Connectivity check. The server responds with `pong`.
     case ping
 

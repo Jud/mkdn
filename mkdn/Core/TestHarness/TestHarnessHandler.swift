@@ -34,6 +34,8 @@ enum TestHarnessHandler {
             handleGetThemeColors()
         case let .setReduceMotion(enabled):
             handleSetReduceMotion(enabled)
+        case let .scrollTo(yOffset):
+            await handleScrollTo(yOffset)
         case .ping:
             .ok(data: .pong)
         case .quit:
@@ -267,6 +269,40 @@ enum TestHarnessHandler {
     ) -> HarnessResponse {
         TestHarnessMode.reduceMotion = enabled ? .forceEnabled : .forceDisabled
         return .ok(message: "Reduce motion override: \(enabled)")
+    }
+
+    // MARK: - Scroll Commands
+
+    private static func handleScrollTo(
+        _ yOffset: Double
+    ) async -> HarnessResponse {
+        guard let window = findMainWindow() else {
+            return .error("No visible window found")
+        }
+        guard let scrollView = findScrollView(in: window.contentView) else {
+            return .error("No scroll view found in window hierarchy")
+        }
+        let point = NSPoint(x: 0, y: yOffset)
+        scrollView.contentView.scroll(to: point)
+        scrollView.reflectScrolledClipView(scrollView.contentView)
+        try? await Task.sleep(for: .milliseconds(50))
+        let actualY = scrollView.contentView.bounds.origin.y
+        return .ok(message: "Scrolled to y=\(actualY)")
+    }
+
+    private static func findScrollView(in view: NSView?) -> NSScrollView? {
+        guard let view else { return nil }
+        if let scrollView = view as? NSScrollView,
+           scrollView.documentView is NSTextView
+        {
+            return scrollView
+        }
+        for subview in view.subviews {
+            if let found = findScrollView(in: subview) {
+                return found
+            }
+        }
+        return nil
     }
 
     // MARK: - Lifecycle Commands

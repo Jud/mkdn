@@ -201,6 +201,16 @@ final class TestHarnessClient: @unchecked Sendable {
         )
     }
 
+    // MARK: - Scroll Commands
+
+    /// Scroll the content view to a specific y offset (in points).
+    func scrollTo(
+        yOffset: Double,
+        timeout: Duration = .seconds(10)
+    ) async throws -> HarnessResponse {
+        try await send(.scrollTo(yOffset: yOffset), timeout: timeout)
+    }
+
     // MARK: - Lifecycle Commands
 
     /// Connectivity check. Expects a pong response.
