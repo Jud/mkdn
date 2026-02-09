@@ -497,6 +497,39 @@ Three implementation layers: shell scripts in `scripts/visual-verification/` tha
     - **Deviations**: None
     - **Tests**: bash -n syntax check, --help output verification, validation error test (no feature-id), dry-run bypass test
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
+- [x] **TX-fix-loadfile-error**: Fix VisionCapture test loadFile error reporting and add warm-up step `[complexity:simple]`
+
+    **Reference**: Review feedback (VisionCapture loadFile error)
+
+    **Effort**: 1 hour
+
+    **Acceptance Criteria**:
+
+    - [x] VisionCaptureTests includes loadResp.message in error output when loadFile fails
+    - [x] VisionCaptureTests includes setResp.message in error output when setTheme fails
+    - [x] VisionCaptureExtract separates status check from data check for clearer error messages on captureWindow failures
+    - [x] Warm-up step added before main capture loop to initialize the rendering pipeline
+    - [x] Code compiles, passes swiftlint and swiftformat
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdnTests/UITest/VisionCompliance/VisionCaptureTests.swift`, `mkdnTests/UITest/VisionCompliance/VisionCapturePRD.swift`
+    - **Approach**: (1) Changed `#require` messages for setTheme and loadFile to include `resp.message` so the actual error from TestHarnessHandler is visible (e.g., "Render timeout after loading file", "No document state available", "Load failed: ..."). (2) Added a `warmUp(client:)` method that loads the first fixture and waits for entrance animation before the main capture loop, matching the implicit warm-up that other compliance suites get through their calibration flow. (3) Separated VisionCaptureExtract.extractResult into two guard clauses (status check, then data check) matching the SpatialPRD pattern, so "No capture data in response" is distinguishable from "Capture returned error status".
+    - **Deviations**: None
+    - **Tests**: Compiles, lints clean, formats clean
+
 ## Acceptance Criteria Checklist
 
 - [ ] REQ-001: Vision-based evaluation produces structured JSON assessments for each screenshot, considering both concrete PRD requirements and qualitative design judgment, with deterministic prompt construction

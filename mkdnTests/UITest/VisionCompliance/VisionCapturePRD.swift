@@ -118,13 +118,15 @@ enum VisionCaptureExtract {
     static func extractResult(
         from response: HarnessResponse
     ) throws -> CaptureResult {
-        guard response.status == "ok",
-              let data = response.data,
-              case let .capture(result) = data
-        else {
+        guard response.status == "ok" else {
             throw HarnessError.captureFailed(
                 response.message ?? "Capture returned error status"
             )
+        }
+        guard let data = response.data,
+              case let .capture(result) = data
+        else {
+            throw HarnessError.captureFailed("No capture data in response")
         }
         return result
     }
