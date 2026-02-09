@@ -253,3 +253,11 @@ None externally imposed. This is driven by the charter's success criterion: "per
 | A-5 | `accessibilityReduceMotion` is sufficient for compliance; no additional motion preferences need to be respected. | May need per-animation user toggles in settings. | Design Philosophy: inclusive by default |
 | A-6 | Explicit `animation(_:value:)` scoping will prevent theme crossfade from interfering with spring animations. | May need to use SwiftUI `Transaction` overrides for finer control. | Design Philosophy: "no element is too small to get right" |
 
+---
+
+## Discoveries
+
+- **Codebase Discovery: Unmigrated inline animation values**: Three files (`UnsavedIndicator.swift`, `MarkdownEditorView.swift`, `ResizableSplitView.swift`) contain inline animation timing values not yet referencing AnimationConstants primitives, leaving AC-012b incomplete. -- *Ref: [field-notes.md](archives/features/animation-design-language/field-notes.md)*
+- **Design Deviation: overlayFadeOut behavior change**: The deprecated `overlayFadeOut` alias now returns `quickFade` (0.2s easeOut) instead of its original 0.3s easeOut, subtly shortening the overlay fade-out by 100ms. -- *Ref: [field-notes.md](archives/features/animation-design-language/field-notes.md)*
+- **Codebase Discovery: ViewModePicker does not exist**: `modules.md` references `UI/Components/ViewModePicker.swift` but this file does not exist in the codebase; AC-009c (toolbar button hover) cannot be fulfilled until a custom toolbar button view is created. -- *Ref: [field-notes.md](archives/features/animation-design-language/field-notes.md)*
+

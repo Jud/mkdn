@@ -1,0 +1,51 @@
+CHANGE_ID: 001
+FILE: mkdn/Features/Viewer/Views/MermaidBlockView.swift:117-149
+TYPE: debug_logging
+DESCRIPTION: Added [INVESTIGATE] print statements to renderDiagram() to trace execution
+CHANGE: Added 10 print("[INVESTIGATE]...") statements throughout renderDiagram()
+REVERT: Removed all print statements, restored original renderDiagram()
+STATUS: reverted
+
+CHANGE_ID: 002
+FILE: mkdnTests/Unit/Core/JXKitPromiseTests.swift (NEW)
+TYPE: diagnostic_test
+DESCRIPTION: Test JXKit awaitPromise with simple async function
+CHANGE: Created new test file
+REVERT: Deleted file
+STATUS: reverted
+
+CHANGE_ID: 003
+FILE: mkdnTests/Unit/Core/JXKitPromiseDetailTests.swift (NEW)
+TYPE: diagnostic_test
+DESCRIPTION: Test JXKit awaitPromise with IIFE pattern matching beautiful-mermaid
+CHANGE: Created new test file
+REVERT: Deleted file
+STATUS: reverted
+
+CHANGE_ID: 004
+FILE: mkdnTests/Unit/Core/SingletonMermaidRendererTests.swift (NEW)
+TYPE: diagnostic_test
+DESCRIPTION: Test singleton MermaidRenderer.shared with concurrent access
+CHANGE: Created new test file
+REVERT: Deleted file
+STATUS: reverted
+
+CHANGE_ID: 005
+FILE: mkdnTests/Unit/Core/TaskIDTests.swift (NEW)
+TYPE: diagnostic_test
+DESCRIPTION: Test TaskID Hashable equality semantics
+CHANGE: Created new test file
+REVERT: Deleted file
+STATUS: reverted
+
+CHANGE_ID: 006
+FILE: mkdnTests/Unit/Core/MainActorRenderingTests.swift (NEW)
+TYPE: diagnostic_test
+DESCRIPTION: Test full rendering pipeline from @MainActor context
+CHANGE: Created new test file
+REVERT: Deleted file
+STATUS: reverted
+
+VERIFICATION: All debug changes reverted
+COMMAND: grep -r "[INVESTIGATE]" mkdn/
+RESULT: No investigation artifacts found

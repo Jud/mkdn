@@ -1,0 +1,9 @@
+# Debug Changes Log - blank-window-001
+
+No temporary debugging modifications were made during this investigation.
+The root cause was identified through static code analysis and existing debug log review.
+
+## Pre-existing Debug Artifacts Found
+- `/Users/jud/Projects/mkdn/mkdn/Core/DebugLog.swift` - Debug logging utility writing to /tmp/mkdn-debug.log
+- Debug log calls in `MarkdownPreviewView.swift` lines 46, 62, 67, 79
+- These pre-date this investigation and were used as evidence sources.
