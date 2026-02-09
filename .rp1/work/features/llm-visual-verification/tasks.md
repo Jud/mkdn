@@ -2,7 +2,7 @@
 
 **Feature ID**: llm-visual-verification
 **Status**: Not Started
-**Progress**: 42% (5 of 12 tasks)
+**Progress**: 50% (6 of 12 tasks)
 **Estimated Effort**: 5 days
 **Started**: 2026-02-09
 
@@ -247,9 +247,21 @@ Three implementation layers: shell scripts in `scripts/visual-verification/` tha
     - **Deviations**: None
     - **Tests**: Validated via bash -n syntax check, --help flag output, jq filtering correctness against mock evaluation data, captureId parsing for all fixture patterns, camelCase conversion, and JSON report construction
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
 ### Shell Scripts -- Orchestrator (Parallel Group 4)
 
-- [ ] **T11**: Implement heal-loop.sh top-level orchestrator script `[complexity:complex]`
+- [x] **T11**: Implement heal-loop.sh top-level orchestrator script `[complexity:complex]`
 
     **Reference**: [design.md#35-heal-loopsh](design.md#35-heal-loopsh)
 
@@ -257,22 +269,29 @@ Three implementation layers: shell scripts in `scripts/visual-verification/` tha
 
     **Acceptance Criteria**:
 
-    - [ ] File `scripts/visual-verification/heal-loop.sh` exists, is executable, and uses `set -euo pipefail`
-    - [ ] Supports `--max-iterations` flag (default 3), `--dry-run`, `--attended`, `--skip-build`
-    - [ ] Chains phases: capture.sh -> evaluate.sh -> generate-tests.sh -> git commit -> /build --afk -> verify.sh
-    - [ ] Bounded iteration loop: re-capture, re-evaluate, generate new tests for regressions, re-invoke /build --afk, up to max iterations
-    - [ ] Tracks iteration state in `.rp1/work/verification/current-loop.json` per design.md section 3.5 schema
-    - [ ] On no issues detected: writes clean report and exits 0
-    - [ ] On all tests generated discarded (low-confidence or failed validation): writes escalation report and exits 0
-    - [ ] On max iterations exhausted with remaining issues: writes escalation report to `.rp1/work/verification/reports/{timestamp}-escalation.json` and exits 1
-    - [ ] On clean resolution: writes success report and exits 0
-    - [ ] Git commits generated tests before invoking /build --afk: `git add mkdnTests/UITest/VisionCompliance/ && git commit -m "test: vision-detected failing tests for {PRD refs}"`
-    - [ ] Updates `.rp1/work/verification/registry.json` after each re-verification
-    - [ ] Appends to `.rp1/work/verification/audit.jsonl` for every operation (JSON Lines format, one object per line)
-    - [ ] Attended mode (`--attended`): outputs escalation context to stdout and waits for input instead of writing report file
-    - [ ] Dry-run mode: runs capture.sh + evaluate.sh --dry-run only, no test generation or /build --afk
-    - [ ] Graceful degradation: capture failure aborts cleanly, /build --afk failure escalates, git failure cleans up staged files, registry corruption reinitializes
-    - [ ] Follows existing `scripts/` conventions
+    - [x] File `scripts/visual-verification/heal-loop.sh` exists, is executable, and uses `set -euo pipefail`
+    - [x] Supports `--max-iterations` flag (default 3), `--dry-run`, `--attended`, `--skip-build`
+    - [x] Chains phases: capture.sh -> evaluate.sh -> generate-tests.sh -> git commit -> /build --afk -> verify.sh
+    - [x] Bounded iteration loop: re-capture, re-evaluate, generate new tests for regressions, re-invoke /build --afk, up to max iterations
+    - [x] Tracks iteration state in `.rp1/work/verification/current-loop.json` per design.md section 3.5 schema
+    - [x] On no issues detected: writes clean report and exits 0
+    - [x] On all tests generated discarded (low-confidence or failed validation): writes escalation report and exits 0
+    - [x] On max iterations exhausted with remaining issues: writes escalation report to `.rp1/work/verification/reports/{timestamp}-escalation.json` and exits 1
+    - [x] On clean resolution: writes success report and exits 0
+    - [x] Git commits generated tests before invoking /build --afk: `git add mkdnTests/UITest/VisionCompliance/ && git commit -m "test: vision-detected failing tests for {PRD refs}"`
+    - [x] Updates `.rp1/work/verification/registry.json` after each re-verification
+    - [x] Appends to `.rp1/work/verification/audit.jsonl` for every operation (JSON Lines format, one object per line)
+    - [x] Attended mode (`--attended`): outputs escalation context to stdout and waits for input instead of writing report file
+    - [x] Dry-run mode: runs capture.sh + evaluate.sh --dry-run only, no test generation or /build --afk
+    - [x] Graceful degradation: capture failure aborts cleanly, /build --afk failure escalates, git failure cleans up staged files, registry corruption reinitializes
+    - [x] Follows existing `scripts/` conventions
+
+    **Implementation Summary**:
+
+    - **Files**: `scripts/visual-verification/heal-loop.sh`
+    - **Approach**: Top-level orchestrator following release.sh conventions (set -euo pipefail, SCRIPT_DIR/PROJECT_ROOT resolution, info/error/warn helpers). Chains all phase scripts in sequence: capture.sh -> evaluate.sh -> generate-tests.sh -> git commit -> claude CLI for fix -> verify.sh. Bounded iteration loop with configurable max (default 3). Tracks full loop state in current-loop.json (loopId, iterations array with evaluationId, issuesDetected, testsGenerated, buildResult, reVerification). Three report types: clean (no issues), success (resolved), escalation (unresolved). Attended mode outputs escalation context to stdout with interactive read prompt. Dry-run mode runs only capture + evaluate --dry-run. Graceful degradation: capture failure aborts with exit 2, build failure escalates with exit 1, git failure cleans up staged files, corrupt registry reinitializes. Audit trail appended for loopStarted, buildInvocation, escalation, loopCompleted events.
+    - **Deviations**: None
+    - **Tests**: Validated via bash -n syntax check, --help flag output
 
 ### Documentation (Parallel Group 5)
 
