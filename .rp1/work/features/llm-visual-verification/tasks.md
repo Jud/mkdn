@@ -2,7 +2,7 @@
 
 **Feature ID**: llm-visual-verification
 **Status**: Not Started
-**Progress**: 50% (6 of 12 tasks)
+**Progress**: 67% (8 of 12 tasks)
 **Estimated Effort**: 5 days
 **Started**: 2026-02-09
 
@@ -156,7 +156,7 @@ Three implementation layers: shell scripts in `scripts/visual-verification/` tha
     | Commit | ✅ PASS |
     | Comments | ✅ PASS |
 
-- [ ] **T12**: Implement the shared test harness for vision-detected generated tests `[complexity:simple]`
+- [x] **T12**: Implement the shared test harness for vision-detected generated tests `[complexity:simple]`
 
     **Reference**: [design.md#312-test-generation](design.md#312-test-generation)
 
@@ -164,13 +164,20 @@ Three implementation layers: shell scripts in `scripts/visual-verification/` tha
 
     **Acceptance Criteria**:
 
-    - [ ] File `mkdnTests/UITest/VisionCompliance/VisionCompliancePRD.swift` exists with `VisionComplianceHarness` singleton (following existing SpatialHarness/VisualHarness pattern)
-    - [ ] Harness provides `ensureRunning()` async method returning `TestHarnessClient`
-    - [ ] Helper function `visionFixturePath(_:)` resolves fixture file paths for generated tests
-    - [ ] Helper function `visionExtractCapture(from:)` extracts capture data from harness response
-    - [ ] Helper function `visionLoadAnalyzer(from:)` creates an ImageAnalyzer from capture data
-    - [ ] File compiles with `swift build`
-    - [ ] Code passes `swiftlint lint` and `swiftformat .`
+    - [x] File `mkdnTests/UITest/VisionCompliance/VisionCompliancePRD.swift` exists with `VisionComplianceHarness` singleton (following existing SpatialHarness/VisualHarness pattern)
+    - [x] Harness provides `ensureRunning()` async method returning `TestHarnessClient`
+    - [x] Helper function `visionFixturePath(_:)` resolves fixture file paths for generated tests
+    - [x] Helper function `visionExtractCapture(from:)` extracts capture data from harness response
+    - [x] Helper function `visionLoadAnalyzer(from:)` creates an ImageAnalyzer from capture data
+    - [x] File compiles with `swift build`
+    - [x] Code passes `swiftlint lint` and `swiftformat .`
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdnTests/UITest/VisionCompliance/VisionCompliancePRD.swift`
+    - **Approach**: Followed existing SpatialHarness/VisualHarness singleton pattern exactly. VisionComplianceHarness provides ensureRunning() with ping health check and shutdown(). Free functions visionFixturePath (project-root walk), visionExtractCapture (response validation + .capture extraction), and visionLoadAnalyzer (CGImageSource load + ImageAnalyzer init with scale factor). VisionCompliancePRD empty enum as namespace marker.
+    - **Deviations**: None
+    - **Tests**: Compiles and links; no runtime test needed (infrastructure file)
 
 ### Shell Scripts -- Phase Scripts (Parallel Group 3)
 
@@ -293,9 +300,21 @@ Three implementation layers: shell scripts in `scripts/visual-verification/` tha
     - **Deviations**: None
     - **Tests**: Validated via bash -n syntax check, --help flag output
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
 ### Documentation (Parallel Group 5)
 
-- [ ] **T13**: Add visual verification workflow section to CLAUDE.md `[complexity:simple]`
+- [x] **T13**: Add visual verification workflow section to CLAUDE.md `[complexity:simple]`
 
     **Reference**: [design.md#320-claudemd-integration](design.md#320-claudemd-integration)
 
@@ -303,11 +322,18 @@ Three implementation layers: shell scripts in `scripts/visual-verification/` tha
 
     **Acceptance Criteria**:
 
-    - [ ] CLAUDE.md contains a "Visual Verification Workflow" section under the project documentation
-    - [ ] Section includes quick reference with all script invocations: heal-loop.sh, capture.sh, evaluate.sh, generate-tests.sh, verify.sh
-    - [ ] Section includes flags: `--dry-run`, `--attended`, `--max-iterations`, `--skip-build`, `--batch-size`
-    - [ ] Section includes artifact locations: captures, reports, registry, audit, generated tests, prompt templates
-    - [ ] All script invocations documented with examples
+    - [x] CLAUDE.md contains a "Visual Verification Workflow" section under the project documentation
+    - [x] Section includes quick reference with all script invocations: heal-loop.sh, capture.sh, evaluate.sh, generate-tests.sh, verify.sh
+    - [x] Section includes flags: `--dry-run`, `--attended`, `--max-iterations`, `--skip-build`, `--batch-size`
+    - [x] Section includes artifact locations: captures, reports, registry, audit, generated tests, prompt templates
+    - [x] All script invocations documented with examples
+
+    **Implementation Summary**:
+
+    - **Files**: `CLAUDE.md`
+    - **Approach**: Added "Visual Verification Workflow" section after "rp1 Workflow" section. Includes overview paragraph, Quick Reference with bash code block showing all five scripts (heal-loop.sh, capture.sh, evaluate.sh, generate-tests.sh, verify.sh), Flags table covering all flags across all scripts (--max-iterations, --dry-run, --attended, --skip-build, --batch-size, --force-fresh, positional args), and Artifacts table mapping eight locations to their purposes.
+    - **Deviations**: Added --force-fresh flag for evaluate.sh (implemented in T9 but not in original AC list); included positional argument documentation for generate-tests.sh and verify.sh
+    - **Tests**: N/A (documentation only)
 
 ### User Docs
 
