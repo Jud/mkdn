@@ -66,11 +66,23 @@ extension MarkdownTextStorageBuilder {
         theme: AppTheme
     ) {
         let trimmedCode = code.trimmingCharacters(in: .whitespacesAndNewlines)
-        let codeBackground = PlatformTypeConverter.nsColor(from: colors.codeBackground)
         let codeForeground = PlatformTypeConverter.nsColor(from: colors.codeForeground)
         let monoFont = PlatformTypeConverter.monospacedFont()
 
-        appendCodeLabel(to: result, language: language, codeBackground: codeBackground, colors: colors)
+        let blockID = UUID().uuidString
+        let colorInfo = CodeBlockColorInfo(
+            background: PlatformTypeConverter.nsColor(from: colors.codeBackground),
+            border: PlatformTypeConverter.nsColor(from: colors.border)
+        )
+
+        let hasLabel = !(language ?? "").isEmpty
+        appendCodeLabel(
+            to: result,
+            language: language,
+            blockID: blockID,
+            colorInfo: colorInfo,
+            colors: colors
+        )
 
         let codeContent: NSMutableAttributedString
         if language == "swift" {
@@ -84,15 +96,23 @@ extension MarkdownTextStorageBuilder {
         }
 
         let fullRange = NSRange(location: 0, length: codeContent.length)
-        codeContent.addAttribute(.backgroundColor, value: codeBackground, range: fullRange)
+        codeContent.addAttribute(CodeBlockAttributes.range, value: blockID, range: fullRange)
+        codeContent.addAttribute(CodeBlockAttributes.colors, value: colorInfo, range: fullRange)
 
-        let tightStyle = makeParagraphStyle(paragraphSpacing: 0)
-        codeContent.addAttribute(.paragraphStyle, value: tightStyle, range: fullRange)
+        let codeStyle = makeCodeBlockParagraphStyle()
+        codeContent.addAttribute(.paragraphStyle, value: codeStyle, range: fullRange)
+
+        let spacingBefore: CGFloat = hasLabel ? codeBlockTopPaddingWithLabel : codeBlockPadding
+        setFirstParagraphSpacing(codeContent, spacingBefore: spacingBefore)
+
         codeContent.append(NSAttributedString(string: "\n", attributes: [
-            .font: monoFont, .backgroundColor: codeBackground,
+            .font: monoFont,
+            CodeBlockAttributes.range: blockID,
+            CodeBlockAttributes.colors: colorInfo,
+            .paragraphStyle: codeStyle,
         ]))
 
-        setLastParagraphSpacing(codeContent, spacing: blockSpacing, baseStyle: tightStyle)
+        setLastParagraphSpacing(codeContent, spacing: blockSpacing, baseStyle: codeStyle)
         result.append(codeContent)
     }
 
@@ -157,19 +177,56 @@ extension MarkdownTextStorageBuilder {
 
     // MARK: - Code Block Helpers
 
+    private static func makeCodeBlockParagraphStyle() -> NSParagraphStyle {
+        makeParagraphStyle(
+            paragraphSpacing: 0,
+            headIndent: codeBlockPadding,
+            firstLineHeadIndent: codeBlockPadding,
+            tailIndent: -codeBlockPadding
+        )
+    }
+
+    private static func setFirstParagraphSpacing(
+        _ attrStr: NSMutableAttributedString,
+        spacingBefore: CGFloat
+    ) {
+        guard attrStr.length > 0 else { return }
+        // swiftlint:disable:next legacy_objc_type
+        let firstParaRange = (attrStr.string as NSString)
+            .paragraphRange(for: NSRange(location: 0, length: 0))
+        guard let baseStyle = attrStr.attribute(
+            .paragraphStyle,
+            at: 0,
+            effectiveRange: nil
+        ) as? NSParagraphStyle
+        else { return }
+        // swiftlint:disable:next force_cast
+        let mutable = baseStyle.mutableCopy() as! NSMutableParagraphStyle
+        mutable.paragraphSpacingBefore = spacingBefore
+        attrStr.addAttribute(.paragraphStyle, value: mutable, range: firstParaRange)
+    }
+
     private static func appendCodeLabel(
         to result: NSMutableAttributedString,
         language: String?,
-        codeBackground: NSColor,
+        blockID: String,
+        colorInfo: CodeBlockColorInfo,
         colors: ThemeColors
     ) {
         guard let language, !language.isEmpty else { return }
-        let labelStyle = makeParagraphStyle(paragraphSpacing: codeLabelSpacing)
+        let labelStyle = makeParagraphStyle(
+            paragraphSpacing: codeLabelSpacing,
+            paragraphSpacingBefore: codeBlockPadding,
+            headIndent: codeBlockPadding,
+            firstLineHeadIndent: codeBlockPadding,
+            tailIndent: -codeBlockPadding
+        )
         let labelAttrs: [NSAttributedString.Key: Any] = [
             .font: PlatformTypeConverter.captionMonospacedFont(),
             .foregroundColor: PlatformTypeConverter.nsColor(from: colors.foregroundSecondary),
-            .backgroundColor: codeBackground,
             .paragraphStyle: labelStyle,
+            CodeBlockAttributes.range: blockID,
+            CodeBlockAttributes.colors: colorInfo,
         ]
         result.append(NSAttributedString(string: language + "\n", attributes: labelAttrs))
     }

@@ -22,6 +22,8 @@ enum MarkdownTextStorageBuilder {
     // MARK: - Constants
 
     static let blockSpacing: CGFloat = 12
+    static let codeBlockPadding: CGFloat = 12
+    static let codeBlockTopPaddingWithLabel: CGFloat = 8
     static let codeLabelSpacing: CGFloat = 4
     static let listItemSpacing: CGFloat = 4
     static let listPrefixWidth: CGFloat = 32
@@ -192,6 +194,7 @@ enum MarkdownTextStorageBuilder {
         paragraphSpacingBefore: CGFloat = 0,
         headIndent: CGFloat = 0,
         firstLineHeadIndent: CGFloat = 0,
+        tailIndent: CGFloat = 0,
         alignment: NSTextAlignment = .left,
         tabStops: [NSTextTab] = []
     ) -> NSParagraphStyle {
@@ -201,6 +204,7 @@ enum MarkdownTextStorageBuilder {
         style.paragraphSpacingBefore = paragraphSpacingBefore
         style.headIndent = headIndent
         style.firstLineHeadIndent = firstLineHeadIndent
+        style.tailIndent = tailIndent
         style.alignment = alignment
         if !tabStops.isEmpty {
             style.tabStops = tabStops

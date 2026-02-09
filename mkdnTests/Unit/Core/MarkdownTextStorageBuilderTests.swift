@@ -98,20 +98,20 @@ struct MarkdownTextStorageBuilderTests {
         #expect(found)
     }
 
-    @Test("Code block has background color attribute")
+    @Test("Code block carries code block color info attribute")
     func codeBlockBackgroundColor() {
         let result = buildSingle(.codeBlock(language: nil, code: "let x = 1"))
         let str = result.attributedString
-        var hasBackground = false
+        var hasColorInfo = false
         str.enumerateAttribute(
-            .backgroundColor,
+            CodeBlockAttributes.colors,
             in: NSRange(location: 0, length: str.length)
         ) { value, _, _ in
-            if value is NSColor {
-                hasBackground = true
+            if value is CodeBlockColorInfo {
+                hasColorInfo = true
             }
         }
-        #expect(hasBackground)
+        #expect(hasColorInfo)
     }
 
     @Test("Code block with language label includes label text")

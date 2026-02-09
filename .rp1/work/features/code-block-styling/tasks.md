@@ -2,7 +2,7 @@
 
 **Feature ID**: code-block-styling
 **Status**: Not Started
-**Progress**: 12% (1 of 8 tasks)
+**Progress**: 25% (2 of 8 tasks)
 **Estimated Effort**: 3 days
 **Started**: 2026-02-09
 
@@ -56,7 +56,19 @@ Replace the current per-run `NSAttributedString.Key.backgroundColor` approach fo
     - **Deviations**: None
     - **Tests**: N/A (drawing code; tested visually in T5)
 
-- [ ] **T2**: Update MarkdownTextStorageBuilder to produce code block custom attributes `[complexity:medium]`
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
+- [x] **T2**: Update MarkdownTextStorageBuilder to produce code block custom attributes `[complexity:medium]`
 
     **Reference**: [design.md#33-markdowntextstoragebuilder-changes](design.md#33-markdowntextstoragebuilder-changes)
 
@@ -64,17 +76,24 @@ Replace the current per-run `NSAttributedString.Key.backgroundColor` approach fo
 
     **Acceptance Criteria**:
 
-    - [ ] `appendCodeBlock` in `MarkdownTextStorageBuilder+Blocks.swift` no longer applies per-run `.backgroundColor` to code block content
-    - [ ] `appendCodeBlock` applies `CodeBlockAttributes.range` with a unique ID string to all code block characters (label + body + trailing newline)
-    - [ ] `appendCodeBlock` applies `CodeBlockAttributes.colors` with resolved `CodeBlockColorInfo(background:, border:)` from the active theme
-    - [ ] Paragraph style sets `headIndent` and `firstLineHeadIndent` to 12pt (container padding) for left inset
-    - [ ] Paragraph style sets `tailIndent` to -12pt for right inset
-    - [ ] `paragraphSpacingBefore` set to 8pt on first code paragraph (with language label) or 12pt (without label) for top padding
-    - [ ] `appendCodeLabel` no longer applies per-run `.backgroundColor`; applies same `.codeBlockRange` and `.codeBlockColors` attributes as the code body
-    - [ ] Language label has matching `headIndent` / `firstLineHeadIndent` paragraph indents
-    - [ ] Existing syntax highlighting (Splash) foreground colors still apply correctly to Swift code blocks
-    - [ ] Non-Swift code blocks use `codeForeground` color within the container
-    - [ ] Container padding constant (12pt) defined as a static constant following existing builder pattern
+    - [x] `appendCodeBlock` in `MarkdownTextStorageBuilder+Blocks.swift` no longer applies per-run `.backgroundColor` to code block content
+    - [x] `appendCodeBlock` applies `CodeBlockAttributes.range` with a unique ID string to all code block characters (label + body + trailing newline)
+    - [x] `appendCodeBlock` applies `CodeBlockAttributes.colors` with resolved `CodeBlockColorInfo(background:, border:)` from the active theme
+    - [x] Paragraph style sets `headIndent` and `firstLineHeadIndent` to 12pt (container padding) for left inset
+    - [x] Paragraph style sets `tailIndent` to -12pt for right inset
+    - [x] `paragraphSpacingBefore` set to 8pt on first code paragraph (with language label) or 12pt (without label) for top padding
+    - [x] `appendCodeLabel` no longer applies per-run `.backgroundColor`; applies same `.codeBlockRange` and `.codeBlockColors` attributes as the code body
+    - [x] Language label has matching `headIndent` / `firstLineHeadIndent` paragraph indents
+    - [x] Existing syntax highlighting (Splash) foreground colors still apply correctly to Swift code blocks
+    - [x] Non-Swift code blocks use `codeForeground` color within the container
+    - [x] Container padding constant (12pt) defined as a static constant following existing builder pattern
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Core/Markdown/MarkdownTextStorageBuilder.swift`, `mkdn/Core/Markdown/MarkdownTextStorageBuilder+Blocks.swift`, `mkdnTests/Unit/Core/MarkdownTextStorageBuilderTests.swift`
+    - **Approach**: Replaced per-run `.backgroundColor` with `CodeBlockAttributes.range` (UUID-based block ID) and `CodeBlockAttributes.colors` (CodeBlockColorInfo carrying background/border NSColor). Added `codeBlockPadding` (12pt) and `codeBlockTopPaddingWithLabel` (8pt) constants. Applied paragraph indents (headIndent: 12, firstLineHeadIndent: 12, tailIndent: -12) via `makeCodeBlockParagraphStyle()` helper. Extracted `setFirstParagraphSpacing()` helper for first-paragraph spacing. Updated `appendCodeLabel` to carry same block ID and color info with matching indents. Added `tailIndent` parameter to `makeParagraphStyle`. Updated broken existing test to verify `CodeBlockAttributes.colors` instead of `.backgroundColor`.
+    - **Deviations**: None
+    - **Tests**: 32/32 passing (MarkdownTextStorageBuilderTests)
 
 ### Integration (Parallel Group 2)
 
