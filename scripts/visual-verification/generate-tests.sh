@@ -146,23 +146,25 @@ ISSUES_JSON=$(jq -c '[.issues[] | select(.confidence == "medium" or .confidence 
     "${EVAL_REPORT}" 2>/dev/null || echo "[]")
 ISSUE_COUNT=$(echo "${ISSUES_JSON}" | jq 'length')
 
-# Qualitative findings with medium/high confidence
-QUALITATIVE_JSON=$(jq -c '[.qualitativeFindings[] | select(.confidence == "medium" or .confidence == "high")]' \
-    "${EVAL_REPORT}" 2>/dev/null || echo "[]")
-QUALITATIVE_COUNT=$(echo "${QUALITATIVE_JSON}" | jq 'length')
+# Qualitative findings are subjective quality impressions (both positive and
+# negative) that don't translate well into automated failing tests. Concrete
+# issues already capture specific, measurable PRD deviations. Qualitative
+# findings are preserved in the evaluation report for human review only.
+QUALITATIVE_JSON="[]"
+QUALITATIVE_COUNT=0
+QUALITATIVE_TOTAL=$(jq '[.qualitativeFindings[] | select(.confidence == "medium" or .confidence == "high")] | length' \
+    "${EVAL_REPORT}" 2>/dev/null || echo "0")
 
 # Count low-confidence items for reporting
 LOW_ISSUES=$(jq '[.issues[] | select(.confidence == "low")] | length' \
     "${EVAL_REPORT}" 2>/dev/null || echo "0")
-LOW_QUALITATIVE=$(jq '[.qualitativeFindings[] | select(.confidence == "low")] | length' \
-    "${EVAL_REPORT}" 2>/dev/null || echo "0")
-LOW_TOTAL=$((LOW_ISSUES + LOW_QUALITATIVE))
+LOW_TOTAL="${LOW_ISSUES}"
 
-TOTAL_ACTIONABLE=$((ISSUE_COUNT + QUALITATIVE_COUNT))
+TOTAL_ACTIONABLE="${ISSUE_COUNT}"
 
 info "  ${ISSUE_COUNT} concrete issues (medium/high confidence)"
-info "  ${QUALITATIVE_COUNT} qualitative findings (medium/high confidence)"
-info "  ${LOW_TOTAL} low-confidence items skipped (flagged for human review)"
+info "  ${QUALITATIVE_TOTAL} qualitative findings skipped (human review only)"
+info "  ${LOW_TOTAL} low-confidence issues skipped (flagged for human review)"
 
 if [ "${TOTAL_ACTIONABLE}" -eq 0 ]; then
     info "No medium/high confidence issues to generate tests for"
@@ -426,16 +428,8 @@ if [ "${ISSUE_COUNT}" -gt 0 ]; then
     done
 fi
 
-# ---------------------------------------------------------------------------
-# Phase 3b: Process qualitative findings
-# ---------------------------------------------------------------------------
-
-if [ "${QUALITATIVE_COUNT}" -gt 0 ]; then
-    info "Processing ${QUALITATIVE_COUNT} qualitative findings"
-    for i in $(seq 0 $((QUALITATIVE_COUNT - 1))); do
-        generate_test_for_issue "$i" "qualitative" || true
-    done
-fi
+# Phase 3b: Qualitative findings are skipped (human review only).
+# See Phase 1 comment for rationale.
 
 # ---------------------------------------------------------------------------
 # Phase 4: Clean up staging
