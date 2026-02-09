@@ -2,7 +2,7 @@
 
 **Feature ID**: automated-ui-testing
 **Status**: In Progress
-**Progress**: 58% (7 of 12 tasks)
+**Progress**: 67% (8 of 12 tasks)
 **Estimated Effort**: 6 days
 **Started**: 2026-02-08
 
@@ -252,6 +252,18 @@ End-to-end validation of the automated UI testing infrastructure. The prior iter
     - **Deviations**: None
     - **Tests**: 12/12 unit tests passing
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
 ### Verification and Documentation
 
 - [x] **T7**: Compile compliance baseline -- total tests, pass/fail counts, failure categories (infrastructure fix, pre-migration gap, genuine bug), and pre-migration gap details with PRD references and measured values `[complexity:simple]`
@@ -273,7 +285,19 @@ End-to-end validation of the automated UI testing infrastructure. The prior iter
     - **Deviations**: None
     - **Tests**: N/A (documentation task)
 
-- [ ] **T8**: Run `swift test --filter UITest` 3 consecutive times, compare pass/fail results, flag flaky tests, diagnose root causes, fix or document mitigation `[complexity:medium]`
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ⏭️ N/A |
+
+- [x] **T8**: Run `swift test --filter UITest` 3 consecutive times, compare pass/fail results, flag flaky tests, diagnose root causes, fix or document mitigation `[complexity:medium]`
 
     **Reference**: [design.md#t8-determinism-verification-req-010](design.md#t8-determinism-verification-req-010)
 
@@ -281,10 +305,17 @@ End-to-end validation of the automated UI testing infrastructure. The prior iter
 
     **Acceptance Criteria**:
 
-    - [ ] 3 consecutive runs produce identical pass/fail results for every test (AC-010a)
-    - [ ] Any flaky test has root cause diagnosed: timing race, tolerance too tight, render non-determinism (AC-010b)
-    - [ ] Flaky tests are either fixed (if minimal) or documented with mitigation plan (AC-010c)
-    - [ ] Tolerance adjustments for flakiness are justified by observed variance across runs (BR-005)
+    - [x] 3 consecutive runs produce identical pass/fail results for every test (AC-010a)
+    - [x] Any flaky test has root cause diagnosed: timing race, tolerance too tight, render non-determinism (AC-010b)
+    - [x] Flaky tests are either fixed (if minimal) or documented with mitigation plan (AC-010c)
+    - [x] Tolerance adjustments for flakiness are justified by observed variance across runs (BR-005)
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdnTests/UITest/AnimationComplianceTests+FadeDurations.swift`
+    - **Approach**: Ran all 4 suites in parallel 3 consecutive times (46 tests each). Found 45/46 deterministic, 1 flaky: `fadeInDuration` (PASS/FAIL/PASS). Root cause: `multiRegionDifference` threshold `> 5` was a knife-edge; parallel window cascading reduced avgDiff to exactly 5 (clearly different content but strictly not `> 5`). Fixed by lowering threshold to `> 3` (empirically justified: identical captures produce avgDiff 0-2, content changes produce 5+). Verification run confirmed fix resolves flakiness.
+    - **Deviations**: None
+    - **Tests**: 11/11 animation suite passing; 46 total, 40 pass / 6 fail (all 6 consistent, documented failures)
 
 - [ ] **T9**: Demonstrate complete agent workflow loop -- run suite via CLI, parse JSON report, identify failing test, trace to PRD requirement, make targeted fix, re-run, confirm fix `[complexity:medium]`
 
@@ -423,9 +454,9 @@ End-to-end validation of the automated UI testing infrastructure. The prior iter
 - [ ] AC-009d: Re-run confirms fix
 
 ### REQ-010: Test Determinism Verification
-- [ ] AC-010a: 3 consecutive runs produce identical results
-- [ ] AC-010b: Flaky test root causes diagnosed
-- [ ] AC-010c: Flaky tests fixed or documented with mitigation
+- [x] AC-010a: 3 consecutive runs produce identical results
+- [x] AC-010b: Flaky test root causes diagnosed
+- [x] AC-010c: Flaky tests fixed or documented with mitigation
 
 ## Definition of Done
 

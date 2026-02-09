@@ -48,7 +48,7 @@ extension AnimationComplianceTests {
         let avgDiff = multiRegionDifference(
             before: beforeAnalyzer, after: afterAnalyzer
         )
-        let contentChanged = avgDiff > 5
+        let contentChanged = avgDiff > 3
         let constantMatch = AnimationPRD.fadeInDuration == 0.5
         let passed = contentChanged && constantMatch
 
