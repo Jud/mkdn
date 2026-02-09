@@ -2,7 +2,7 @@
 
 **Feature ID**: llm-visual-verification
 **Status**: In Progress
-**Progress**: 77% (17 of 22 tasks)
+**Progress**: 82% (18 of 22 tasks)
 **Estimated Effort**: 7.5 days
 **Started**: 2026-02-09
 
@@ -401,7 +401,19 @@ v3 scope additions (SA-1 through SA-5) address gaps in runtime verification conf
     - **Deviations**: REQ-SA1-002 not met -- image hashes are not bitwise identical across runs. This is an inherent characteristic of CGWindowListCreateImage capture on macOS and does not affect the evaluation workflow (which uses LLM vision, not hash comparison, for image assessment).
     - **Tests**: 2/2 runs passed (17.360s and 17.384s respectively)
 
-- [ ] **T15**: SA-3 Registry-Based Regression Detection -- Enhance verify.sh with historical regression detection `[complexity:medium]`
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | N/A |
+    | Commit | PASS |
+    | Comments | N/A |
+
+- [x] **T15**: SA-3 Registry-Based Regression Detection -- Enhance verify.sh with historical regression detection `[complexity:medium]`
 
     **Reference**: [design.md#36-verifysh-updated-for-sa-3](design.md#36-verifysh-updated-for-sa-3), [design.md#361-sa-3-registry-historical-comparison](design.md#361-sa-3-registry-historical-comparison)
 
@@ -409,15 +421,22 @@ v3 scope additions (SA-1 through SA-5) address gaps in runtime verification conf
 
     **Acceptance Criteria**:
 
-    - [ ] verify.sh reads `registry.json` for each capture in the new evaluation
-    - [ ] After existing Phase 3 (previous-eval comparison), Phase 3b performs registry history scan
-    - [ ] For each new-eval issue not already classified, script checks if that PRD reference was previously resolved in any prior evaluation in the registry
-    - [ ] Matches classified as "reintroduced regression" with original resolution timestamp attached
-    - [ ] Re-verification report JSON includes `reintroducedRegressions` section with `prdReference`, `previouslyResolvedAt`, `currentObservation`, `severity`, `confidence` fields
-    - [ ] Re-verification report `summary` includes `reintroducedRegressions` count
-    - [ ] `REINTRODUCED_REGRESSIONS` count exported in stdout key=value output for heal-loop.sh consumption
-    - [ ] `reVerification` audit entry includes `reintroducedRegressions` array
-    - [ ] Script handles missing/empty registry gracefully (no crash, no false regressions)
+    - [x] verify.sh reads `registry.json` for each capture in the new evaluation
+    - [x] After existing Phase 3 (previous-eval comparison), Phase 3b performs registry history scan
+    - [x] For each new-eval issue not already classified, script checks if that PRD reference was previously resolved in any prior evaluation in the registry
+    - [x] Matches classified as "reintroduced regression" with original resolution timestamp attached
+    - [x] Re-verification report JSON includes `reintroducedRegressions` section with `prdReference`, `previouslyResolvedAt`, `currentObservation`, `severity`, `confidence` fields
+    - [x] Re-verification report `summary` includes `reintroducedRegressions` count
+    - [x] `REINTRODUCED_REGRESSIONS` count exported in stdout key=value output for heal-loop.sh consumption
+    - [x] `reVerification` audit entry includes `reintroducedRegressions` array
+    - [x] Script handles missing/empty registry gracefully (no crash, no false regressions)
+
+    **Implementation Summary**:
+
+    - **Files**: `scripts/visual-verification/verify.sh`
+    - **Approach**: Added Phase 3b after existing Phase 3 (previous-eval comparison). Phase 3b reads registry.json, iterates all issues in the new evaluation that were classified as regressions from the previous-eval comparison, looks up each issue's captureId in the registry, scans all historical evaluations for the same PRD reference with status "resolved", and reclassifies matches as "reintroduced regression" with the original resolution timestamp. Reintroduced regressions are removed from the REGRESSION_ISSUES array and placed in a separate REINTRODUCED_REGRESSIONS array. The re-verification report includes a `reintroducedRegressions` section with full detail (prdReference, previouslyResolvedAt, currentObservation, severity, confidence) and the summary includes the reintroducedRegressions count. Registry entries for reintroduced regressions are recorded with status "reintroduced". The audit trail entry includes the reintroducedRegressions array. Missing/empty/corrupt registry is handled gracefully with an info message and no false regressions. The exit code and stdout key=value output include reintroduced regressions in the issue detection logic.
+    - **Deviations**: None
+    - **Tests**: bash -n syntax check, --help output, 6 isolated jq query tests (previously resolved match, never-resolved issue, remaining-status issue, non-existent captureId, empty registry, JSON construction), 3 reclassification logic tests (partial reclassification, all reclassified, no reintroduced), full report and audit entry construction verification
 
 - [ ] **T16**: SA-5 Attended Mode Continuation -- Implement "Continue with manual guidance" in heal-loop.sh `[complexity:medium]`
 
