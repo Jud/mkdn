@@ -524,7 +524,7 @@ v3 scope additions (SA-1 through SA-5) address gaps in runtime verification conf
     - **Status**: PASS
     - **Fix Applied**: Removed stale `(T18 will enhance the audit entry)` parenthetical from line 804 comment. No other changes.
 
-- [ ] **T18**: SA-4 Audit Completeness -- Enhanced buildInvocation audit entry with testPaths and filesModified `[complexity:simple]`
+- [x] **T18**: SA-4 Audit Completeness -- Enhanced buildInvocation audit entry with testPaths and filesModified `[complexity:simple]`
 
     **Reference**: [design.md#353-sa-4-enhanced-audit-entry](design.md#353-sa-4-enhanced-audit-entry)
 
@@ -532,14 +532,21 @@ v3 scope additions (SA-1 through SA-5) address gaps in runtime verification conf
 
     **Acceptance Criteria**:
 
-    - [ ] `buildInvocation` audit entry includes `testPaths` array of project-relative paths to generated test files
-    - [ ] `buildInvocation` audit entry includes `filesModified` array from `git diff --name-only` (computed in T17)
-    - [ ] `buildInvocation` audit entry includes `testsFixed` array of test suite names that now pass
-    - [ ] `buildInvocation` audit entry includes `testsRemaining` array of test suite names that still fail
-    - [ ] `TEST_PATHS` converted to project-relative paths (stripping `${PROJECT_ROOT}/` prefix)
-    - [ ] All arrays properly embedded via `jq --argjson` for correct JSON array construction
-    - [ ] No absolute paths in audit entry arrays (all project-relative)
-    - [ ] Existing audit entry fields (type, timestamp, loopId, iteration, result, prdRefs) preserved
+    - [x] `buildInvocation` audit entry includes `testPaths` array of project-relative paths to generated test files
+    - [x] `buildInvocation` audit entry includes `filesModified` array from `git diff --name-only` (computed in T17)
+    - [x] `buildInvocation` audit entry includes `testsFixed` array of test suite names that now pass
+    - [x] `buildInvocation` audit entry includes `testsRemaining` array of test suite names that still fail
+    - [x] `TEST_PATHS` converted to project-relative paths (stripping `${PROJECT_ROOT}/` prefix)
+    - [x] All arrays properly embedded via `jq --argjson` for correct JSON array construction
+    - [x] No absolute paths in audit entry arrays (all project-relative)
+    - [x] Existing audit entry fields (type, timestamp, loopId, iteration, result, prdRefs) preserved
+
+    **Implementation Summary**:
+
+    - **Files**: `scripts/visual-verification/heal-loop.sh` (no changes -- T17 already implemented)
+    - **Approach**: Verified that T17's implementation already satisfies all T18 acceptance criteria. The buildInvocation audit entry (heal-loop.sh lines 812-826) includes testPaths (project-relative via sed stripping of PROJECT_ROOT prefix), filesModified (from git diff --name-only, inherently project-relative), testsFixed and testsRemaining (suite name arrays). All four arrays use jq --argjson for proper JSON embedding. Existing fields (type, timestamp, loopId, iteration, result, prdRefs) are preserved. Verification via simulated jq construction with populated and empty arrays confirms correct JSON output, no absolute paths, and graceful degradation on empty data.
+    - **Deviations**: No code changes required -- T17 included the SA-4 audit fields in its implementation because the JSON conversion logic is tightly coupled to the data computation (PRE_BUILD_HEAD, FILES_MODIFIED, TESTS_FIXED, TESTS_REMAINING). T18 is verification-only.
+    - **Tests**: Full jq audit entry simulation (populated arrays + empty arrays), project-relative path stripping verification, git diff output format confirmation, field presence and type checks (all 10 fields verified)
 
 ### User Docs
 
