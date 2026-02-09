@@ -2,7 +2,7 @@
 
 **Feature ID**: llm-visual-verification
 **Status**: Not Started
-**Progress**: 33% (4 of 12 tasks)
+**Progress**: 42% (5 of 12 tasks)
 **Estimated Effort**: 5 days
 **Started**: 2026-02-09
 
@@ -204,7 +204,19 @@ Three implementation layers: shell scripts in `scripts/visual-verification/` tha
     - **Deviations**: Added --force-fresh flag to evaluate.sh (bypasses cache) for debugging convenience; not in original AC but supports the caching workflow. Cache entry includes inputHashes per design schema section 3.10.
     - **Tests**: Validated via bash -n syntax check, --help flag output, and full --dry-run execution with 8-capture test manifest producing correct 4-batch composition
 
-- [ ] **T10**: Implement generate-tests.sh and verify.sh orchestration scripts `[complexity:medium]`
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
+- [x] **T10**: Implement generate-tests.sh and verify.sh orchestration scripts `[complexity:medium]`
 
     **Reference**: [design.md#34-generate-testssh](design.md#34-generate-testssh), [design.md#36-verifysh](design.md#36-verifysh)
 
@@ -212,21 +224,28 @@ Three implementation layers: shell scripts in `scripts/visual-verification/` tha
 
     **Acceptance Criteria**:
 
-    - [ ] File `scripts/visual-verification/generate-tests.sh` exists, is executable, and uses `set -euo pipefail`
-    - [ ] generate-tests.sh reads evaluation report JSON and filters for medium/high confidence issues
-    - [ ] generate-tests.sh reads appropriate test template from `scripts/visual-verification/prompts/test-template-{type}.md` for each issue
-    - [ ] generate-tests.sh writes generated test files to staging directory (`.rp1/work/verification/staging/`) first
-    - [ ] generate-tests.sh validates compilation (`swift build`) for each generated test; discards on failure
-    - [ ] generate-tests.sh validates failure (`swift test --filter {testName}`) for each generated test; discards if test passes (false positive)
-    - [ ] generate-tests.sh moves validated tests from staging to `mkdnTests/UITest/VisionCompliance/`
-    - [ ] generate-tests.sh follows naming convention `VisionDetected_{PRD}_{FR}_{aspect}.swift`
-    - [ ] generate-tests.sh appends audit trail entries for each generation attempt
-    - [ ] File `scripts/visual-verification/verify.sh` exists, is executable, and uses `set -euo pipefail`
-    - [ ] verify.sh accepts previous evaluation path as argument
-    - [ ] verify.sh runs capture.sh with `--skip-build`, then evaluate.sh (fresh, bypasses cache)
-    - [ ] verify.sh compares new evaluation against previous: resolved, regression, remaining
-    - [ ] verify.sh writes re-verification report and updates registry with resolution status
-    - [ ] Both scripts follow existing `scripts/` conventions
+    - [x] File `scripts/visual-verification/generate-tests.sh` exists, is executable, and uses `set -euo pipefail`
+    - [x] generate-tests.sh reads evaluation report JSON and filters for medium/high confidence issues
+    - [x] generate-tests.sh reads appropriate test template from `scripts/visual-verification/prompts/test-template-{type}.md` for each issue
+    - [x] generate-tests.sh writes generated test files to staging directory (`.rp1/work/verification/staging/`) first
+    - [x] generate-tests.sh validates compilation (`swift build`) for each generated test; discards on failure
+    - [x] generate-tests.sh validates failure (`swift test --filter {testName}`) for each generated test; discards if test passes (false positive)
+    - [x] generate-tests.sh moves validated tests from staging to `mkdnTests/UITest/VisionCompliance/`
+    - [x] generate-tests.sh follows naming convention `VisionDetected_{PRD}_{FR}_{aspect}.swift`
+    - [x] generate-tests.sh appends audit trail entries for each generation attempt
+    - [x] File `scripts/visual-verification/verify.sh` exists, is executable, and uses `set -euo pipefail`
+    - [x] verify.sh accepts previous evaluation path as argument
+    - [x] verify.sh runs capture.sh with `--skip-build`, then evaluate.sh (fresh, bypasses cache)
+    - [x] verify.sh compares new evaluation against previous: resolved, regression, remaining
+    - [x] verify.sh writes re-verification report and updates registry with resolution status
+    - [x] Both scripts follow existing `scripts/` conventions
+
+    **Implementation Summary**:
+
+    - **Files**: `scripts/visual-verification/generate-tests.sh`, `scripts/visual-verification/verify.sh`
+    - **Approach**: Both scripts follow release.sh/capture.sh conventions (set -euo pipefail, SCRIPT_DIR/PROJECT_ROOT resolution, info/error/append_audit helpers). generate-tests.sh: reads evaluation report, filters medium/high confidence issues via jq, determines test type from suggestedAssertion.type or PRD reference inference, reads corresponding test template, invokes Claude Code CLI per issue to generate Swift test files into staging dir, validates compilation (swift build) and failure (swift test --filter), discards invalid tests with audit logging, promotes validated tests to VisionCompliance/. Uses perl for macOS-compatible camelCase conversion. verify.sh: invokes capture.sh --skip-build then evaluate.sh --force-fresh, compares previous vs new evaluation by prdReference (issues) and reference (qualitative findings) to classify resolved/regression/remaining, writes re-verification report JSON, upserts registry entries per capture with status tracking, appends reVerification audit entry. Both scripts output structured key=value summary for caller parsing.
+    - **Deviations**: None
+    - **Tests**: Validated via bash -n syntax check, --help flag output, jq filtering correctness against mock evaluation data, captureId parsing for all fixture patterns, camelCase conversion, and JSON report construction
 
 ### Shell Scripts -- Orchestrator (Parallel Group 4)
 
