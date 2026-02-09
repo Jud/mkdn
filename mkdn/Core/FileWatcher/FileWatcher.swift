@@ -47,17 +47,11 @@ final class FileWatcher {
 
         let (stream, continuation) = AsyncStream.makeStream(of: Void.self)
 
-        source.setEventHandler {
-            continuation.yield()
-        }
-
-        let fd = fileDescriptor
-        source.setCancelHandler {
-            continuation.finish()
-            if fd >= 0 {
-                close(fd)
-            }
-        }
+        Self.installHandlers(
+            on: source,
+            fd: fileDescriptor,
+            continuation: continuation
+        )
 
         source.resume()
         dispatchSource = source
@@ -81,6 +75,29 @@ final class FileWatcher {
         watchedURL = nil
         isOutdated = false
         fileDescriptor = -1
+    }
+
+    /// Installs event and cancel handlers on the dispatch source.
+    ///
+    /// Must be `nonisolated` so that the handler closures do not
+    /// inherit `@MainActor` isolation. DispatchSource fires handlers
+    /// on its target queue (utility), and Swift 6 strict concurrency
+    /// would otherwise insert a runtime MainActor assertion that
+    /// crashes when the handler executes off the main thread.
+    private nonisolated static func installHandlers(
+        on source: any DispatchSourceFileSystemObject,
+        fd: Int32,
+        continuation: AsyncStream<Void>.Continuation
+    ) {
+        source.setEventHandler {
+            continuation.yield()
+        }
+        source.setCancelHandler {
+            continuation.finish()
+            if fd >= 0 {
+                close(fd)
+            }
+        }
     }
 
     /// Acknowledge the outdated state (e.g., after reload).
