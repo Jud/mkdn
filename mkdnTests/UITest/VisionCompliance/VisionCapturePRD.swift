@@ -42,10 +42,10 @@ enum VisionCaptureHarness {
 
 enum VisionCaptureConfig {
     static let fixtures = [
-        "canonical.md",
-        "theme-tokens.md",
-        "mermaid-focus.md",
         "geometry-calibration.md",
+        "theme-tokens.md",
+        "canonical.md",
+        "mermaid-focus.md",
     ]
 
     static let themes = [

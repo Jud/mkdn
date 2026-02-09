@@ -530,6 +530,25 @@ Three implementation layers: shell scripts in `scripts/visual-verification/` tha
     - **Deviations**: None
     - **Tests**: Compiles, lints clean, formats clean
 
+- [x] **TX-fix-fixture-order**: Reorder VisionCaptureConfig.fixtures so simpler fixtures come first to warm up renderer before Mermaid content `[complexity:simple]`
+
+    **Reference**: Review feedback (VisionCapture render timeout on cold start)
+
+    **Effort**: 30 minutes
+
+    **Acceptance Criteria**:
+
+    - [x] VisionCaptureConfig.fixtures ordered: geometry-calibration.md, theme-tokens.md, canonical.md, mermaid-focus.md
+    - [x] Warm-up step automatically uses geometry-calibration.md (first fixture) via fixtures[0]
+    - [x] Code compiles, passes swiftlint and swiftformat
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdnTests/UITest/VisionCompliance/VisionCapturePRD.swift`
+    - **Approach**: Reordered the fixtures array so non-Mermaid fixtures (geometry-calibration.md, theme-tokens.md) come before Mermaid-containing fixtures (canonical.md, mermaid-focus.md). The warm-up method already references fixtures[0], so reordering the array ensures the renderer warms up on geometry-calibration.md (pure spatial layout, no WKWebView needed) before encountering Mermaid diagrams that require WKWebView initialization time.
+    - **Deviations**: None
+    - **Tests**: Compiles, lints clean, formats clean
+
 ## Acceptance Criteria Checklist
 
 - [ ] REQ-001: Vision-based evaluation produces structured JSON assessments for each screenshot, considering both concrete PRD requirements and qualitative design judgment, with deterministic prompt construction
