@@ -2,7 +2,7 @@
 
 **Feature ID**: llm-visual-verification
 **Status**: In Progress
-**Progress**: 86% (19 of 22 tasks)
+**Progress**: 91% (20 of 22 tasks)
 **Estimated Effort**: 7.5 days
 **Started**: 2026-02-09
 
@@ -476,7 +476,19 @@ v3 scope additions (SA-1 through SA-5) address gaps in runtime verification conf
     - **Deviations**: None
     - **Tests**: bash -n syntax check, --help output, jq multi-line guidance serialization test
 
-- [ ] **T17**: SA-2 Build Invocation Fidelity -- Restructure /build --afk prompt with multi-test context and iteration instructions `[complexity:medium]`
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
+- [x] **T17**: SA-2 Build Invocation Fidelity -- Restructure /build --afk prompt with multi-test context and iteration instructions `[complexity:medium]`
 
     **Reference**: [design.md#351-sa-2-multi-test-build-prompt-structure](design.md#351-sa-2-multi-test-build-prompt-structure), [design.md#352-sa-2-build-result-detail-capture](design.md#352-sa-2-build-result-detail-capture)
 
@@ -484,16 +496,23 @@ v3 scope additions (SA-1 through SA-5) address gaps in runtime verification conf
 
     **Acceptance Criteria**:
 
-    - [ ] `BUILD_PROMPT` replaced with structured multi-test prompt per design section 3.5.1 format
-    - [ ] Prompt includes per-test file path, PRD reference, specification excerpt, and observation for each failing test
-    - [ ] Prompt includes explicit iteration instructions: run `swift test --filter VisionDetected`, fix failures, re-run, repeat until all pass or unfixable
-    - [ ] Prompt includes test filter command: `swift test --filter VisionDetected`
-    - [ ] `MANUAL_GUIDANCE` (from T16) incorporated into prompt under "Developer Guidance" section when non-empty
-    - [ ] `PRE_BUILD_HEAD` recorded via `git rev-parse HEAD` before build invocation
-    - [ ] After build: `FILES_MODIFIED` captured via `git diff --name-only ${PRE_BUILD_HEAD} HEAD` as JSON array
-    - [ ] After build: each test run individually to determine `TESTS_FIXED` vs `TESTS_REMAINING` arrays
-    - [ ] `TESTS_FIXED` and `TESTS_REMAINING` arrays available for audit entry (T18) and loop state
-    - [ ] Graceful degradation: `git diff` failure logs `filesModified: []` and continues (per design section 3.19)
+    - [x] `BUILD_PROMPT` replaced with structured multi-test prompt per design section 3.5.1 format
+    - [x] Prompt includes per-test file path, PRD reference, specification excerpt, and observation for each failing test
+    - [x] Prompt includes explicit iteration instructions: run `swift test --filter VisionDetected`, fix failures, re-run, repeat until all pass or unfixable
+    - [x] Prompt includes test filter command: `swift test --filter VisionDetected`
+    - [x] `MANUAL_GUIDANCE` (from T16) incorporated into prompt under "Developer Guidance" section when non-empty
+    - [x] `PRE_BUILD_HEAD` recorded via `git rev-parse HEAD` before build invocation
+    - [x] After build: `FILES_MODIFIED` captured via `git diff --name-only ${PRE_BUILD_HEAD} HEAD` as JSON array
+    - [x] After build: each test run individually to determine `TESTS_FIXED` vs `TESTS_REMAINING` arrays
+    - [x] `TESTS_FIXED` and `TESTS_REMAINING` arrays available for audit entry (T18) and loop state
+    - [x] Graceful degradation: `git diff` failure logs `filesModified: []` and continues (per design section 3.19)
+
+    **Implementation Summary**:
+
+    - **Files**: `scripts/visual-verification/heal-loop.sh`
+    - **Approach**: Replaced the simple BUILD_PROMPT with a structured multi-test prompt per design section 3.5.1. For each generated test file: extracts PRD reference from test content via grep (supports both `prd-name FR-N` and `charter:ref` patterns), looks up specificationExcerpt and observation from the evaluation report via jq, and constructs a per-test section with file path, PRD reference, specification, and issue description. Prompt includes explicit iteration instructions with `swift test --filter VisionDetected` command. MANUAL_GUIDANCE from T16 incorporated under "Developer Guidance" section when non-empty. PRE_BUILD_HEAD recorded before build; FILES_MODIFIED captured via git diff --name-only piped through jq for JSON array construction, with `|| FILES_MODIFIED="[]"` fallback. Post-build test verification runs each test individually via @Suite name extraction to populate TESTS_FIXED and TESTS_REMAINING arrays. All arrays converted to JSON via printf+jq pipeline for audit entry consumption. TEST_PATHS_JSON uses project-relative paths (strips PROJECT_ROOT prefix). The enhanced audit entry includes all SA-4 fields (testPaths, filesModified, testsFixed, testsRemaining) alongside existing fields, anticipating T18.
+    - **Deviations**: The enhanced audit entry (testPaths, filesModified, testsFixed, testsRemaining) was included directly in the T17 implementation rather than deferring to T18, because the JSON conversion logic and audit entry construction are tightly coupled to the data computation and would be artificial to separate.
+    - **Tests**: bash -n syntax check, --help output, jq audit entry construction with populated arrays, jq audit entry with empty arrays (graceful degradation), project-relative path conversion pipeline, PRD reference extraction regex (concrete and qualitative), jq issue lookup queries against mock evaluation data
 
 - [ ] **T18**: SA-4 Audit Completeness -- Enhanced buildInvocation audit entry with testPaths and filesModified `[complexity:simple]`
 

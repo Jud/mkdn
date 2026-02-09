@@ -667,16 +667,95 @@ while [ "${ITERATION}" -lt "${MAX_ITERATIONS}" ]; do
         fi
     done <<< "${GEN_OUTPUT}"
 
-    # Invoke the rp1 /build pipeline with AFK mode for autonomous fix.
-    # This uses the full build pipeline (requirements -> design -> tasks -> build -> verify)
-    # rather than a raw prompt, passing the evaluation report and failing tests as context.
+    # Convert space-separated TEST_PATHS to array for iteration
+    TEST_PATHS_ARRAY=()
+    for tp in ${TEST_PATHS}; do
+        TEST_PATHS_ARRAY+=("${tp}")
+    done
+
+    # SA-2: Record HEAD before build for file diff (design section 3.5.2)
+    PRE_BUILD_HEAD=$(git -C "${PROJECT_ROOT}" rev-parse HEAD 2>/dev/null) || PRE_BUILD_HEAD=""
+
+    # SA-2: Build structured multi-test prompt (design section 3.5.1)
+    # Each failing test gets a section with file path, PRD reference,
+    # specification excerpt, and observation from the evaluation report.
+    FAILING_TESTS_SECTION=""
+    TEST_NUM=0
+
+    for tp in "${TEST_PATHS_ARRAY[@]+"${TEST_PATHS_ARRAY[@]}"}"; do
+        TEST_NUM=$((TEST_NUM + 1))
+        tp_basename=$(basename "${tp}")
+
+        # Extract PRD reference from the test file content
+        ISSUE_PRD=""
+        ISSUE_PRD=$(grep -oE '[a-z][-a-z]* FR-[0-9]+' "${tp}" 2>/dev/null | head -1) || true
+        if [ -z "${ISSUE_PRD}" ]; then
+            ISSUE_PRD=$(grep -oE 'charter:[a-z-]+' "${tp}" 2>/dev/null | head -1) || true
+        fi
+
+        # Look up issue details from evaluation report by PRD reference
+        ISSUE_SPEC=""
+        ISSUE_OBS=""
+        if [ -n "${ISSUE_PRD}" ]; then
+            ISSUE_SPEC=$(jq -r --arg prd "${ISSUE_PRD}" \
+                '([.issues[] | select(.prdReference == $prd)])[0].specificationExcerpt // ""' \
+                "${CURRENT_EVAL_REPORT}" 2>/dev/null) || true
+            ISSUE_OBS=$(jq -r --arg prd "${ISSUE_PRD}" \
+                '([.issues[] | select(.prdReference == $prd)])[0].observation // ""' \
+                "${CURRENT_EVAL_REPORT}" 2>/dev/null) || true
+            # Try qualitative findings if no match in concrete issues
+            if [ -z "${ISSUE_OBS}" ] || [ "${ISSUE_OBS}" = "null" ]; then
+                ISSUE_OBS=$(jq -r --arg ref "${ISSUE_PRD}" \
+                    '([.qualitativeFindings[] | select(.reference == $ref)])[0].observation // ""' \
+                    "${CURRENT_EVAL_REPORT}" 2>/dev/null) || true
+                ISSUE_SPEC=$(jq -r --arg ref "${ISSUE_PRD}" \
+                    '([.qualitativeFindings[] | select(.reference == $ref)])[0].assessment // ""' \
+                    "${CURRENT_EVAL_REPORT}" 2>/dev/null) || true
+            fi
+        fi
+
+        FAILING_TESTS_SECTION="${FAILING_TESTS_SECTION}
+### Test ${TEST_NUM}: ${tp_basename}
+- **File**: ${tp}
+- **PRD Reference**: ${ISSUE_PRD:-See evaluation report}
+- **Specification**: ${ISSUE_SPEC:-See evaluation report for details}
+- **Issue**: ${ISSUE_OBS:-See evaluation report for details}
+"
+    done
+
+    # SA-5: Include manual guidance section if set (from T16)
+    GUIDANCE_SECTION=""
+    if [ -n "${MANUAL_GUIDANCE}" ]; then
+        GUIDANCE_SECTION="
+## Developer Guidance
+
+${MANUAL_GUIDANCE}"
+    fi
+
+    # SA-2: Structured multi-test prompt with iteration instructions
     BUILD_PROMPT="/build ${FEATURE_ID} AFK=true
 
-Fix the following vision-detected failing tests. These tests encode design deviations detected by LLM visual verification.
+## Task
 
-Evaluation report: ${CURRENT_EVAL_REPORT}
-PRD references: ${PRD_REFS}
-Failing test files:${TEST_PATHS}"
+Fix the following vision-detected design compliance test failures.
+These tests encode visual deviations detected by LLM visual verification.
+
+## Failing Tests
+${FAILING_TESTS_SECTION}
+## Iteration Instructions
+
+Fix all failing tests listed above. After making changes:
+
+1. Run \`swift test --filter VisionDetected\` to check which tests now pass.
+2. If any tests still fail, analyze the failure and make additional fixes.
+3. Repeat until all listed tests pass or you determine a test cannot be fixed
+   without changing the specification.
+4. Report which tests you fixed and which remain failing.
+
+## Evaluation Report
+
+${CURRENT_EVAL_REPORT}
+${GUIDANCE_SECTION}"
 
     BUILD_RESULT="unknown"
     if command -v claude > /dev/null 2>&1; then
@@ -693,6 +772,43 @@ Failing test files:${TEST_PATHS}"
         warn "  claude CLI not found -- skipping /build --afk"
     fi
 
+    # SA-2: Capture files modified after build (design section 3.5.2)
+    FILES_MODIFIED="[]"
+    if [ -n "${PRE_BUILD_HEAD}" ]; then
+        POST_BUILD_HEAD=$(git -C "${PROJECT_ROOT}" rev-parse HEAD 2>/dev/null) || POST_BUILD_HEAD=""
+        if [ -n "${POST_BUILD_HEAD}" ] && [ "${PRE_BUILD_HEAD}" != "${POST_BUILD_HEAD}" ]; then
+            FILES_MODIFIED=$(git -C "${PROJECT_ROOT}" diff --name-only "${PRE_BUILD_HEAD}" HEAD 2>/dev/null | \
+                jq -R . | jq -s . 2>/dev/null) || FILES_MODIFIED="[]"
+        fi
+    fi
+
+    # SA-2: Check which tests now pass vs still fail (design section 3.5.2)
+    TESTS_FIXED=()
+    TESTS_REMAINING=()
+    for tp in "${TEST_PATHS_ARRAY[@]+"${TEST_PATHS_ARRAY[@]}"}"; do
+        suite_name=$(grep -oE '@Suite\("VisionDetected_[^"]*"' "${tp}" 2>/dev/null | \
+            sed 's/@Suite("//;s/"//' | head -1) || true
+        if [ -n "${suite_name}" ]; then
+            if swift test --filter "${suite_name}" 2>&1 | tail -1 | grep -q "passed"; then
+                TESTS_FIXED+=("${suite_name}")
+            else
+                TESTS_REMAINING+=("${suite_name}")
+            fi
+        fi
+    done
+
+    info "  Tests fixed: ${#TESTS_FIXED[@]}"
+    info "  Tests remaining: ${#TESTS_REMAINING[@]}"
+    info "  Files modified: $(echo "${FILES_MODIFIED}" | jq 'length' 2>/dev/null || echo 0)"
+
+    # Convert arrays to JSON for audit and loop state (T18 will enhance the audit entry)
+    TEST_PATHS_JSON=$(printf '%s\n' "${TEST_PATHS_ARRAY[@]+"${TEST_PATHS_ARRAY[@]}"}" | \
+        sed "s|${PROJECT_ROOT}/||" | grep -v '^$' | jq -R . | jq -s . 2>/dev/null || echo "[]")
+    TESTS_FIXED_JSON=$(printf '%s\n' "${TESTS_FIXED[@]+"${TESTS_FIXED[@]}"}" | \
+        grep -v '^$' | jq -R . | jq -s . 2>/dev/null || echo "[]")
+    TESTS_REMAINING_JSON=$(printf '%s\n' "${TESTS_REMAINING[@]+"${TESTS_REMAINING[@]}"}" | \
+        grep -v '^$' | jq -R . | jq -s . 2>/dev/null || echo "[]")
+
     append_audit "$(jq -cn \
         --arg type "buildInvocation" \
         --arg ts "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
@@ -700,7 +816,14 @@ Failing test files:${TEST_PATHS}"
         --argjson iter "${ITERATION}" \
         --arg result "${BUILD_RESULT}" \
         --arg prds "${PRD_REFS}" \
-        '{type: $type, timestamp: $ts, loopId: $lid, iteration: $iter, result: $result, prdRefs: $prds}')"
+        --argjson testPaths "${TEST_PATHS_JSON}" \
+        --argjson filesModified "${FILES_MODIFIED}" \
+        --argjson testsFixed "${TESTS_FIXED_JSON}" \
+        --argjson testsRemaining "${TESTS_REMAINING_JSON}" \
+        '{type: $type, timestamp: $ts, loopId: $lid, iteration: $iter,
+         result: $result, prdRefs: $prds, testPaths: $testPaths,
+         filesModified: $filesModified, testsFixed: $testsFixed,
+         testsRemaining: $testsRemaining}')"
 
     if [ "${BUILD_RESULT}" = "failure" ]; then
         update_loop_state "${ITERATION}" "${CURRENT_EVAL_ID}" "${ISSUE_COUNT}" \
