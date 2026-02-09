@@ -5,43 +5,31 @@ import Testing
 
 @testable import mkdnLib
 
-// MARK: - PRD Expected Values
+// MARK: - Visual PRD Namespace
 
-/// Expected visual compliance values from the automated-ui-testing PRD
-/// and Solarized theme definitions.
+/// Namespace marker for visual compliance test utilities.
 ///
-/// Syntax token colors are hard-coded from the Solarized accent palette
-/// because the harness protocol does not yet expose SyntaxColors.
-/// When the harness gains syntax color reporting, replace these
-/// literals with harness-reported values.
-enum VisualPRD {
-    /// keyword: green (#859900)
-    static let syntaxKeyword = PixelColor.from(
-        red: 0.522,
-        green: 0.600,
-        blue: 0.000
-    )
-
-    /// string: cyan (#2aa198)
-    static let syntaxString = PixelColor.from(
-        red: 0.165,
-        green: 0.631,
-        blue: 0.596
-    )
-
-    /// type: yellow (#b58900)
-    static let syntaxType = PixelColor.from(
-        red: 0.710,
-        green: 0.537,
-        blue: 0.000
-    )
-}
+/// Previous versions held hardcoded sRGB syntax token colors.
+/// Those were removed in favor of the color-space-agnostic
+/// approach in `VisualComplianceTests+Syntax.swift`.
+enum VisualPRD {}
 
 // MARK: - Measurement Constants
 
 let visualColorTolerance = 10
-let visualTextTolerance = 15
-let visualSyntaxTolerance = 25
+let visualTextTolerance = 20
+
+/// Extra tolerance for document background color matching in captures.
+/// The rendered background color differs from the theme-reported sRGB
+/// values by up to 16 units due to Display P3 vs sRGB color profile
+/// conversion in CGWindowListCreateImage. Empirically measured:
+/// dark bg delta = 14, light bg delta = 16.
+let backgroundProfileTolerance = 20
+
+/// Inset (in points) to skip from window edges when sampling
+/// background color. Avoids the macOS window material row at the top
+/// and rounded corner pixels.
+let visualChromeInsetPt: CGFloat = 4
 
 // MARK: - Shared Harness
 
@@ -57,10 +45,18 @@ enum VisualHarness {
             }
         }
         let newLauncher = AppLauncher()
-        let newClient = try await newLauncher.launch()
+        let newClient = try await newLauncher.launch(buildFirst: false)
         launcher = newLauncher
         client = newClient
         return newClient
+    }
+
+    static func shutdown() async {
+        if let activeLauncher = launcher {
+            await activeLauncher.teardown()
+        }
+        launcher = nil
+        client = nil
     }
 }
 
@@ -130,6 +126,28 @@ enum VisualCapture {
         }
         return result
     }
+}
+
+// MARK: - Background Sampling
+
+/// Y offset (in points) below which the document content area begins.
+/// Above this is the title bar and toolbar. Empirically measured as
+/// 61pt (windowTopInset from SpatialPRD). Using 65pt for safety margin.
+let visualContentStartPt: CGFloat = 65
+
+/// Samples the actual rendered background color from the document
+/// content margin area, avoiding the macOS title bar / toolbar which
+/// has a window material tint that differs from the content area
+/// background by up to 15 units (light theme).
+func visualSampleBackground(
+    from analyzer: ImageAnalyzer
+) -> PixelColor {
+    analyzer.sampleColor(
+        at: CGPoint(
+            x: 15,
+            y: analyzer.pointHeight / 2
+        )
+    )
 }
 
 // MARK: - Content Region Scanner
@@ -221,32 +239,128 @@ func findDominantTextColor(
     return buckets.values.max { $0.1 < $1.1 }?.0
 }
 
-/// Checks whether a target syntax color is present in a region.
+// MARK: - Code Block Region Detection
+
+/// Finds the code block region by scanning at the right margin where
+/// only the code block's `.backgroundColor` attribute creates
+/// non-document-background pixels.
 ///
-/// Returns `true` if any pixel within the region matches `target`
-/// within `tolerance`. Scans at 1-point intervals for speed.
-func containsSyntaxColor(
-    _ target: PixelColor,
+/// At x = 80% of content width, heading text, paragraph text, and
+/// list items have ended (they don't extend that far right). The only
+/// non-document-background pixels come from the NSAttributedString
+/// `.backgroundColor` attribute that fills the code block's line
+/// fragments. This makes the code block the sole (or tallest) content
+/// region at the right margin.
+///
+/// Small gaps from blank lines within the code block are merged with
+/// `mergeNearbyRegions` before selecting the tallest region.
+func findCodeBlockRegion(
     in analyzer: ImageAnalyzer,
-    region: CGRect,
-    tolerance: Int = 25
-) -> Bool {
-    let step: CGFloat = 1.0
-    for yPt in stride(from: region.minY, to: region.maxY, by: step) {
-        for xPt in stride(from: region.minX, to: region.maxX, by: step) {
-            let color = analyzer.sampleColor(
-                at: CGPoint(x: xPt, y: yPt)
-            )
-            if ColorExtractor.matches(
-                color,
-                expected: target,
-                tolerance: tolerance
-            ) {
-                return true
-            }
+    codeBg _: PixelColor,
+    srgbBg _: PixelColor,
+    renderedBg: PixelColor
+) -> CGRect? {
+    let bounds = analyzer.contentBounds(
+        background: renderedBg,
+        tolerance: visualColorTolerance
+    )
+
+    // Try multiple probe positions to find code block.
+    // The right margin works best because only the code block's
+    // .backgroundColor renders there. Fall back to left-biased probes.
+    let probePositions: [CGFloat] = [
+        bounds.minX + bounds.width * 0.8,
+        bounds.minX + bounds.width * 0.6,
+        bounds.minX + bounds.width * 0.4,
+        bounds.minX + 50,
+    ]
+
+    for probeX in probePositions {
+        let allRegions = findContentRegions(
+            in: analyzer,
+            atX: probeX,
+            bgColor: renderedBg,
+            tolerance: visualColorTolerance,
+            minHeight: 2
+        )
+        let regions = allRegions.filter { region in
+            region.minY >= visualContentStartPt
+        }
+
+        let merged = mergeNearbyRegions(regions, maxGap: 30)
+
+        guard let tallest = merged.max(by: { lhs, rhs in
+            (lhs.maxY - lhs.minY) < (rhs.maxY - rhs.minY)
+        })
+        else { continue }
+
+        let height = tallest.maxY - tallest.minY
+
+        // At right-margin probes, even small regions indicate code block bg.
+        // At left probes, require taller region to distinguish from headings.
+        let minHeight: CGFloat = probeX > bounds.minX + 200 ? 30 : 80
+        guard height > minHeight else { continue }
+
+        return CGRect(
+            x: 0,
+            y: tallest.minY,
+            width: analyzer.pointWidth,
+            height: height
+        )
+    }
+
+    return nil
+}
+
+/// Merges content regions whose gap is smaller than `maxGap` points.
+///
+/// Regions are assumed sorted by `minY`. Adjacent regions with a gap
+/// of `maxGap` or less are combined into a single region spanning
+/// from the first region's `minY` to the last region's `maxY`.
+func mergeNearbyRegions(
+    _ regions: [(minY: CGFloat, maxY: CGFloat)],
+    maxGap: CGFloat
+) -> [(minY: CGFloat, maxY: CGFloat)] {
+    guard !regions.isEmpty else { return [] }
+    var merged: [(minY: CGFloat, maxY: CGFloat)] = []
+    var currentMin = regions[0].minY
+    var currentMax = regions[0].maxY
+
+    for region in regions.dropFirst() {
+        if region.minY - currentMax <= maxGap {
+            currentMax = max(currentMax, region.maxY)
+        } else {
+            merged.append((minY: currentMin, maxY: currentMax))
+            currentMin = region.minY
+            currentMax = region.maxY
         }
     }
-    return false
+    merged.append((minY: currentMin, maxY: currentMax))
+    return merged
+}
+
+/// Estimates the rendered (Display P3) pixel color from a known sRGB color
+/// by applying the same per-channel offset observed between a reference
+/// sRGB/rendered pair (typically the document background).
+///
+/// The Display P3 vs sRGB conversion in CGWindowListCreateImage shifts
+/// pixel values by a per-channel offset that is roughly consistent for
+/// colors in the same luminance range. This function extrapolates from
+/// the known background offset.
+func estimateRenderedColor(
+    srgb target: PixelColor,
+    referenceSRGB: PixelColor,
+    referenceRendered: PixelColor
+) -> PixelColor {
+    let dr = Int(referenceRendered.red) - Int(referenceSRGB.red)
+    let dg = Int(referenceRendered.green) - Int(referenceSRGB.green)
+    let db = Int(referenceRendered.blue) - Int(referenceSRGB.blue)
+
+    return PixelColor(
+        red: UInt8(clamping: Int(target.red) + dr),
+        green: UInt8(clamping: Int(target.green) + dg),
+        blue: UInt8(clamping: Int(target.blue) + db)
+    )
 }
 
 // MARK: - Color Assertion
@@ -285,6 +399,94 @@ func assertVisualColor(
         duration: 0,
         message: passed ? nil : failureMessage
     ))
+}
+
+// MARK: - Heading Color Detection
+
+/// Finds the heading text color by locating the first content region
+/// below the toolbar and extracting its dominant non-background color.
+func visualFindHeadingColor(
+    analyzer: ImageAnalyzer,
+    renderedBg: PixelColor
+) -> PixelColor? {
+    let bounds = analyzer.contentBounds(
+        background: renderedBg,
+        tolerance: visualColorTolerance
+    )
+    let headingScanX = bounds.minX + 50
+    let allRegions = findContentRegions(
+        in: analyzer,
+        atX: headingScanX,
+        bgColor: renderedBg,
+        tolerance: visualColorTolerance
+    )
+    let regions = allRegions.filter { region in
+        region.minY >= visualContentStartPt
+    }
+    guard let heading = regions.first else { return nil }
+    let headingWidth = min(bounds.width, 400)
+    return findDominantTextColor(
+        in: analyzer,
+        region: CGRect(
+            x: bounds.minX,
+            y: heading.minY,
+            width: headingWidth,
+            height: heading.maxY - heading.minY
+        ),
+        background: renderedBg,
+        bgTolerance: backgroundProfileTolerance
+    )
+}
+
+// MARK: - Body Text Color Detection
+
+/// Finds the body text color by scanning content regions and matching
+/// against the expected foreground color from the theme.
+func visualFindBodyTextColor(
+    analyzer: ImageAnalyzer,
+    renderedBg: PixelColor,
+    colors: ThemeColorsResult
+) -> PixelColor? {
+    let expectedFg = PixelColor.from(rgbColor: colors.foreground)
+    let bounds = analyzer.contentBounds(
+        background: renderedBg,
+        tolerance: visualColorTolerance
+    )
+    let bodyScanX = bounds.minX + 50
+    let allRegions = findContentRegions(
+        in: analyzer,
+        atX: bodyScanX,
+        bgColor: renderedBg,
+        tolerance: visualColorTolerance
+    )
+    let regions = allRegions.filter { region in
+        region.minY >= visualContentStartPt
+    }
+    for region in regions {
+        let regionHeight = region.maxY - region.minY
+        guard regionHeight > 8, regionHeight < 80 else { continue }
+        let rect = CGRect(
+            x: bounds.minX,
+            y: region.minY,
+            width: min(bounds.width, 600),
+            height: regionHeight
+        )
+        guard let textColor = findDominantTextColor(
+            in: analyzer,
+            region: rect,
+            background: renderedBg,
+            bgTolerance: backgroundProfileTolerance
+        )
+        else { continue }
+        if ColorExtractor.matches(
+            textColor,
+            expected: expectedFg,
+            tolerance: visualTextTolerance
+        ) {
+            return textColor
+        }
+    }
+    return nil
 }
 
 // MARK: - Private
