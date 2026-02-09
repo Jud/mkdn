@@ -2,7 +2,7 @@
 
 **Feature ID**: llm-visual-verification
 **Status**: In Progress
-**Progress**: 91% (20 of 22 tasks)
+**Progress**: 95% (21 of 22 tasks)
 **Estimated Effort**: 7.5 days
 **Started**: 2026-02-09
 
@@ -513,6 +513,16 @@ v3 scope additions (SA-1 through SA-5) address gaps in runtime verification conf
     - **Approach**: Replaced the simple BUILD_PROMPT with a structured multi-test prompt per design section 3.5.1. For each generated test file: extracts PRD reference from test content via grep (supports both `prd-name FR-N` and `charter:ref` patterns), looks up specificationExcerpt and observation from the evaluation report via jq, and constructs a per-test section with file path, PRD reference, specification, and issue description. Prompt includes explicit iteration instructions with `swift test --filter VisionDetected` command. MANUAL_GUIDANCE from T16 incorporated under "Developer Guidance" section when non-empty. PRE_BUILD_HEAD recorded before build; FILES_MODIFIED captured via git diff --name-only piped through jq for JSON array construction, with `|| FILES_MODIFIED="[]"` fallback. Post-build test verification runs each test individually via @Suite name extraction to populate TESTS_FIXED and TESTS_REMAINING arrays. All arrays converted to JSON via printf+jq pipeline for audit entry consumption. TEST_PATHS_JSON uses project-relative paths (strips PROJECT_ROOT prefix). The enhanced audit entry includes all SA-4 fields (testPaths, filesModified, testsFixed, testsRemaining) alongside existing fields, anticipating T18.
     - **Deviations**: The enhanced audit entry (testPaths, filesModified, testsFixed, testsRemaining) was included directly in the T17 implementation rather than deferring to T18, because the JSON conversion logic and audit entry construction are tightly coupled to the data computation and would be artificial to separate.
     - **Tests**: bash -n syntax check, --help output, jq audit entry construction with populated arrays, jq audit entry with empty arrays (graceful degradation), project-relative path conversion pipeline, PRD reference extraction regex (concrete and qualitative), jq issue lookup queries against mock evaluation data
+
+    **Review Feedback** (Attempt 1):
+    - **Status**: FAILURE
+    - **Issues**:
+        - [comments] Line 804 of `scripts/visual-verification/heal-loop.sh` contains `(T18 will enhance the audit entry)` -- a task ID reference that is also factually stale since T17 already includes the T18 audit fields. This is a REMOVE-category comment (task ID reference / stale forward-looking placeholder).
+    - **Guidance**: On line 804, change the comment from `# Convert arrays to JSON for audit and loop state (T18 will enhance the audit entry)` to `# Convert arrays to JSON for audit and loop state`. Remove only the parenthetical; keep the rest of the comment. No other changes needed -- all other dimensions pass.
+
+    **Review Feedback** (Attempt 2):
+    - **Status**: PASS
+    - **Fix Applied**: Removed stale `(T18 will enhance the audit entry)` parenthetical from line 804 comment. No other changes.
 
 - [ ] **T18**: SA-4 Audit Completeness -- Enhanced buildInvocation audit entry with testPaths and filesModified `[complexity:simple]`
 

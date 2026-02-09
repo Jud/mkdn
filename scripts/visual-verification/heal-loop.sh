@@ -801,7 +801,7 @@ ${GUIDANCE_SECTION}"
     info "  Tests remaining: ${#TESTS_REMAINING[@]}"
     info "  Files modified: $(echo "${FILES_MODIFIED}" | jq 'length' 2>/dev/null || echo 0)"
 
-    # Convert arrays to JSON for audit and loop state (T18 will enhance the audit entry)
+    # Convert arrays to JSON for audit and loop state
     TEST_PATHS_JSON=$(printf '%s\n' "${TEST_PATHS_ARRAY[@]+"${TEST_PATHS_ARRAY[@]}"}" | \
         sed "s|${PROJECT_ROOT}/||" | grep -v '^$' | jq -R . | jq -s . 2>/dev/null || echo "[]")
     TESTS_FIXED_JSON=$(printf '%s\n' "${TESTS_FIXED[@]+"${TESTS_FIXED[@]}"}" | \
