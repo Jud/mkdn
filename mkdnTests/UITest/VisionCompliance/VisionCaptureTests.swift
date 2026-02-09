@@ -29,8 +29,6 @@ struct VisionCaptureTests {
             withIntermediateDirectories: true
         )
 
-        try await warmUp(client: client)
-
         var entries: [CaptureManifestEntry] = []
 
         for fixture in VisionCaptureConfig.fixtures {
@@ -51,19 +49,6 @@ struct VisionCaptureTests {
         validateCaptureResults(entries: entries, projectRoot: projectRoot)
 
         recordCaptureResult(entries: entries)
-    }
-
-    // MARK: - Warm-Up
-
-    private func warmUp(client: TestHarnessClient) async throws {
-        let warmUpFixture = VisionCaptureConfig.fixtures[0]
-        let warmUpPath = visionCaptureFixturePath(warmUpFixture)
-        let warmUpResp = try await client.loadFile(path: warmUpPath)
-        try #require(
-            warmUpResp.status == "ok",
-            "Warm-up loadFile(\(warmUpFixture)) failed: \(warmUpResp.message ?? "unknown error")"
-        )
-        try await Task.sleep(for: .milliseconds(1_500))
     }
 
     // MARK: - Per-Fixture Capture

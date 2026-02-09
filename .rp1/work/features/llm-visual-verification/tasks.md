@@ -549,6 +549,26 @@ Three implementation layers: shell scripts in `scripts/visual-verification/` tha
     - **Deviations**: None
     - **Tests**: Compiles, lints clean, formats clean
 
+- [x] **TX-fix-warmup-removal**: Remove warm-up step from VisionCaptureTests that causes render timeout on duplicate loadFile `[complexity:simple]`
+
+    **Reference**: Review feedback (VisionCapture warm-up causes @Observable no-op on identical content)
+
+    **Effort**: 30 minutes
+
+    **Acceptance Criteria**:
+
+    - [x] warmUp() method removed entirely from VisionCaptureTests.swift
+    - [x] warmUp(client:) call removed from captureAllFixtures()
+    - [x] No changes to VisionCapturePRD.swift or any other files
+    - [x] Code compiles, passes swiftlint and swiftformat
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdnTests/UITest/VisionCompliance/VisionCaptureTests.swift`
+    - **Approach**: Removed the warmUp() method and its invocation from captureAllFixtures(). The warm-up was loading geometry-calibration.md (fixtures[0]), then the main loop's first iteration also loaded geometry-calibration.md. Since @Observable does not notify when setting an identical value, RenderCompletionSignal never fired and the 10s timeout was reached. The reordered fixtures (geometry-calibration.md first from TX-fix-fixture-order) work without warm-up since the setTheme + loadFile pattern is sufficient, matching how SpatialComplianceTests loads the same fixture in its calibration step.
+    - **Deviations**: None
+    - **Tests**: Compiles, lints clean, formats clean
+
 ## Acceptance Criteria Checklist
 
 - [ ] REQ-001: Vision-based evaluation produces structured JSON assessments for each screenshot, considering both concrete PRD requirements and qualitative design judgment, with deterministic prompt construction
