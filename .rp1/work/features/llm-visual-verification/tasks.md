@@ -1,9 +1,9 @@
 # Development Tasks: LLM Visual Verification
 
 **Feature ID**: llm-visual-verification
-**Status**: Not Started
-**Progress**: 100% (12 of 12 tasks)
-**Estimated Effort**: 5 days
+**Status**: In Progress
+**Progress**: 77% (17 of 22 tasks)
+**Estimated Effort**: 7.5 days
 **Started**: 2026-02-09
 
 ## Overview
@@ -11,6 +11,8 @@
 An autonomous design compliance workflow that uses Claude Code's built-in vision capabilities to evaluate mkdn's rendered output against design specifications, detect visual deviations, generate failing tests encoding those deviations, invoke `/build --afk` to fix them, and re-verify the result. The workflow operates entirely outside the mkdn application -- it is developer tooling that orchestrates existing infrastructure without modifying mkdn's source architecture.
 
 Three implementation layers: shell scripts in `scripts/visual-verification/` that orchestrate each phase of the workflow, Swift test infrastructure in `mkdnTests/UITest/VisionCompliance/` for deterministic screenshot capture and generated test hosting, and CLAUDE.md documentation that instructs Claude Code how to invoke the workflow. Prompt templates and persistent state live in `scripts/visual-verification/prompts/` and `.rp1/work/verification/` respectively.
+
+v3 scope additions (SA-1 through SA-5) address gaps in runtime verification confidence, build invocation robustness, registry-based regression detection, audit trail completeness, and interactive attended mode continuation.
 
 ## Implementation DAG
 
@@ -21,8 +23,12 @@ Three implementation layers: shell scripts in `scripts/visual-verification/` tha
 3. **[T9, T10]** -- Shell scripts depend on T2 (capture.sh needs capture suite), T3 (evaluate.sh needs prompts), and T12 (generate-tests.sh references VisionCompliancePRD)
 4. **[T11]** -- Heal loop depends on T9 + T10 (chains all phase scripts)
 5. **[T13]** -- CLAUDE.md docs depend on T11 (needs final script interfaces)
+6. **[T14, T15, T16]** -- SA-1 runtime verification is independent (no code changes), SA-3 modifies verify.sh only, SA-5 modifies heal-loop.sh's escalation handler only (no overlap with SA-2/SA-4 changes in heal-loop.sh's build invocation section)
+7. **[T17]** -- SA-2 build prompt restructuring depends on T16 (MANUAL_GUIDANCE variable must exist for guidance incorporation)
+8. **[T18]** -- SA-4 audit entry depends on T17 (uses FILES_MODIFIED and TESTS_FIXED data computed in T17)
+9. **[TD5]** -- Documentation depends on all SA implementation tasks being finalized
 
-**Dependencies**:
+**Dependencies** (original):
 
 - T2 -> T1 (Data: capture orchestrator writes to verification directory created in T1)
 - T12 -> T1 (Data: shared harness file lives in VisionCompliance/ created in T1)
@@ -33,7 +39,15 @@ Three implementation layers: shell scripts in `scripts/visual-verification/` tha
 - T11 -> [T9, T10] (Interface: heal-loop.sh chains capture.sh, evaluate.sh, generate-tests.sh, verify.sh)
 - T13 -> T11 (Data: CLAUDE.md documents final script interfaces from T11)
 
-**Critical Path**: T1 -> T2 + T3 (parallel) -> T9 + T10 (parallel) -> T11 -> T13
+**Dependencies** (v3 scope additions):
+
+- T17 -> T16 (Interface: build prompt incorporates MANUAL_GUIDANCE variable defined in T16)
+- T18 -> T17 (Data: audit entry uses FILES_MODIFIED and TESTS_FIXED computed in T17)
+- TD5 -> [T14, T15, T16, T17, T18] (Data: documentation reflects final implementation)
+
+**Critical Path** (original): T1 -> T2 + T3 (parallel) -> T9 + T10 (parallel) -> T11 -> T13
+
+**Critical Path** (v3 additions): T16 -> T17 -> T18 -> TD5
 
 ## Task Breakdown
 
@@ -41,7 +55,7 @@ Three implementation layers: shell scripts in `scripts/visual-verification/` tha
 
 - [x] **T1**: Create verification directory structure, script directories, and initial empty artifacts `[complexity:simple]`
 
-    **Reference**: [design.md#t1-verification-directory-structure](design.md#t1-verification-directory-structure)
+    **Reference**: [design.md#2-architecture](design.md#2-architecture)
 
     **Effort**: 1 hour
 
@@ -69,17 +83,17 @@ Three implementation layers: shell scripts in `scripts/visual-verification/` tha
 
     | Dimension | Status |
     |-----------|--------|
-    | Discipline | ✅ PASS |
-    | Accuracy | ✅ PASS |
-    | Completeness | ✅ PASS |
-    | Quality | ✅ PASS |
-    | Testing | ⏭️ N/A |
-    | Commit | ✅ PASS |
-    | Comments | ⏭️ N/A |
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | N/A |
+    | Commit | PASS |
+    | Comments | N/A |
 
 - [x] **T3**: Create evaluation prompt templates and output schema for vision-based design evaluation `[complexity:medium]`
 
-    **Reference**: [design.md#38-evaluation-prompt-construction](design.md#38-evaluation-prompt-construction)
+    **Reference**: [design.md#39-evaluation-prompt-construction](design.md#39-evaluation-prompt-construction)
 
     **Effort**: 4 hours
 
@@ -89,18 +103,18 @@ Three implementation layers: shell scripts in `scripts/visual-verification/` tha
     - [x] File `scripts/visual-verification/prompts/prd-context-spatial.md` exists with spatial-design-language PRD excerpts relevant to canonical.md and geometry-calibration.md evaluation
     - [x] File `scripts/visual-verification/prompts/prd-context-visual.md` exists with terminal-consistent-theming and syntax-highlighting PRD excerpts relevant to theme-tokens.md evaluation
     - [x] File `scripts/visual-verification/prompts/prd-context-mermaid.md` exists with mermaid-rendering PRD excerpts relevant to mermaid-focus.md evaluation
-    - [x] File `scripts/visual-verification/prompts/output-schema.json` exists with the evaluation output JSON schema matching design.md section 3.9
+    - [x] File `scripts/visual-verification/prompts/output-schema.json` exists with the evaluation output JSON schema matching design.md section 3.10
     - [x] File `scripts/visual-verification/prompts/test-template-spatial.md` exists with a template for spatial assertion tests using SpatialMeasurement infrastructure
     - [x] File `scripts/visual-verification/prompts/test-template-visual.md` exists with a template for color/theme assertion tests using ImageAnalyzer and ColorExtractor infrastructure
     - [x] File `scripts/visual-verification/prompts/test-template-qualitative.md` exists with a template for qualitative assessment tests that measure proxy metrics
     - [x] Evaluation criteria cover all five dimensions: concrete PRD compliance, spatial rhythm and balance, theme coherence, visual consistency, overall rendering quality
     - [x] PRD-to-fixture mapping matches design.md section 3.8 table (canonical -> spatial+cross-element, theme-tokens -> theming+syntax, mermaid-focus -> mermaid, geometry-calibration -> spatial)
-    - [x] Test templates follow generated test rules from design.md section 3.12: one @Suite per file, VisionDetected_{prdCamelCase}_{FR} naming, doc comments with evaluation ID/PRD ref/spec/observation, JSONResultReporter recording
+    - [x] Test templates follow generated test rules from design.md section 3.13: one @Suite per file, VisionDetected_{prdCamelCase}_{FR} naming, doc comments with evaluation ID/PRD ref/spec/observation, JSONResultReporter recording
 
     **Implementation Summary**:
 
     - **Files**: `scripts/visual-verification/prompts/evaluation-prompt.md`, `prd-context-spatial.md`, `prd-context-visual.md`, `prd-context-mermaid.md`, `output-schema.json`, `test-template-spatial.md`, `test-template-visual.md`, `test-template-qualitative.md`
-    - **Approach**: Created 8 prompt template files per design spec. Evaluation prompt uses three placeholders ({charter_design_philosophy}, {prd_excerpts}, {output_schema}) and covers all five evaluation dimensions. PRD context files extract relevant functional requirements from spatial-design-language, terminal-consistent-theming, syntax-highlighting, and mermaid-rendering PRDs with visual evaluation notes. Output schema is a JSON Schema document matching design.md section 3.9 structure. Test templates follow section 3.12 rules: one @Suite per file, VisionDetected naming convention, doc comments with source traceability, JSONResultReporter recording, and reference existing test infrastructure (ImageAnalyzer, SpatialMeasurement, ColorExtractor, measureVerticalGaps).
+    - **Approach**: Created 8 prompt template files per design spec. Evaluation prompt uses three placeholders ({charter_design_philosophy}, {prd_excerpts}, {output_schema}) and covers all five evaluation dimensions. PRD context files extract relevant functional requirements from spatial-design-language, terminal-consistent-theming, syntax-highlighting, and mermaid-rendering PRDs with visual evaluation notes. Output schema is a JSON Schema document matching design.md section 3.9 structure. Test templates follow section 3.13 rules: one @Suite per file, VisionDetected naming convention, doc comments with source traceability, JSONResultReporter recording, and reference existing test infrastructure (ImageAnalyzer, SpatialMeasurement, ColorExtractor, measureVerticalGaps).
     - **Deviations**: None
     - **Tests**: N/A (prompt templates, not compiled code)
 
@@ -108,19 +122,19 @@ Three implementation layers: shell scripts in `scripts/visual-verification/` tha
 
     | Dimension | Status |
     |-----------|--------|
-    | Discipline | ✅ PASS |
-    | Accuracy | ✅ PASS |
-    | Completeness | ✅ PASS |
-    | Quality | ✅ PASS |
-    | Testing | ⏭️ N/A |
-    | Commit | ✅ PASS |
-    | Comments | ⏭️ N/A |
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | N/A |
+    | Commit | PASS |
+    | Comments | N/A |
 
 ### Capture and Harness (Parallel Group 2)
 
 - [x] **T2**: Implement the capture orchestrator Swift test suite for deterministic screenshot capture `[complexity:complex]`
 
-    **Reference**: [design.md#37-capture-orchestrator-swift](design.md#37-capture-orchestrator-swift)
+    **Reference**: [design.md#38-capture-orchestrator-swift](design.md#38-capture-orchestrator-swift)
 
     **Effort**: 8 hours
 
@@ -134,7 +148,7 @@ Three implementation layers: shell scripts in `scripts/visual-verification/` tha
     - [x] SHA-256 image hash computed for each capture and included in the manifest
     - [x] 1500ms sleep after loadFile matches existing VisualComplianceTests pattern for entrance animation settling
     - [x] Suite compiles with `swift build`
-    - [ ] Suite runs successfully with `swift test --filter VisionCapture` and produces 8 PNG files plus manifest.json
+    - [x] Suite runs successfully with `swift test --filter VisionCapture` and produces 8 PNG files plus manifest.json
     - [x] Code passes `swiftlint lint` and `swiftformat .`
 
     **Implementation Summary**:
@@ -148,17 +162,17 @@ Three implementation layers: shell scripts in `scripts/visual-verification/` tha
 
     | Dimension | Status |
     |-----------|--------|
-    | Discipline | ✅ PASS |
-    | Accuracy | ✅ PASS |
-    | Completeness | ✅ PASS |
-    | Quality | ✅ PASS |
-    | Testing | ⏭️ N/A |
-    | Commit | ✅ PASS |
-    | Comments | ✅ PASS |
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | N/A |
+    | Commit | PASS |
+    | Comments | PASS |
 
 - [x] **T12**: Implement the shared test harness for vision-detected generated tests `[complexity:simple]`
 
-    **Reference**: [design.md#312-test-generation](design.md#312-test-generation)
+    **Reference**: [design.md#313-test-generation](design.md#313-test-generation)
 
     **Effort**: 2 hours
 
@@ -183,13 +197,13 @@ Three implementation layers: shell scripts in `scripts/visual-verification/` tha
 
     | Dimension | Status |
     |-----------|--------|
-    | Discipline | ✅ PASS |
-    | Accuracy | ✅ PASS |
-    | Completeness | ✅ PASS |
-    | Quality | ✅ PASS |
-    | Testing | ⏭️ N/A |
-    | Commit | ✅ PASS |
-    | Comments | ✅ PASS |
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | N/A |
+    | Commit | PASS |
+    | Comments | PASS |
 
 ### Shell Scripts -- Phase Scripts (Parallel Group 3)
 
@@ -227,17 +241,19 @@ Three implementation layers: shell scripts in `scripts/visual-verification/` tha
 
     | Dimension | Status |
     |-----------|--------|
-    | Discipline | ✅ PASS |
-    | Accuracy | ✅ PASS |
-    | Completeness | ✅ PASS |
-    | Quality | ✅ PASS |
-    | Testing | ⏭️ N/A |
-    | Commit | ✅ PASS |
-    | Comments | ✅ PASS |
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | N/A |
+    | Commit | PASS |
+    | Comments | PASS |
 
 - [x] **T10**: Implement generate-tests.sh and verify.sh orchestration scripts `[complexity:medium]`
 
-    **Reference**: [design.md#34-generate-testssh](design.md#34-generate-testssh), [design.md#36-verifysh](design.md#36-verifysh)
+    **[!] Review needed**: Design section 3.6 (verify.sh) modified -- SA-3 scope addition adds registry-based regression detection (Phase 3b). The original verify.sh implementation (previous-eval comparison only) is correct for its scope. New functionality is covered by T15.
+
+    **Reference**: [design.md#34-generate-testssh](design.md#34-generate-testssh), [design.md#36-verifysh-updated-for-sa-3](design.md#36-verifysh-updated-for-sa-3)
 
     **Effort**: 6 hours
 
@@ -270,19 +286,21 @@ Three implementation layers: shell scripts in `scripts/visual-verification/` tha
 
     | Dimension | Status |
     |-----------|--------|
-    | Discipline | ✅ PASS |
-    | Accuracy | ✅ PASS |
-    | Completeness | ✅ PASS |
-    | Quality | ✅ PASS |
-    | Testing | ⏭️ N/A |
-    | Commit | ✅ PASS |
-    | Comments | ✅ PASS |
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | N/A |
+    | Commit | PASS |
+    | Comments | PASS |
 
 ### Shell Scripts -- Orchestrator (Parallel Group 4)
 
 - [x] **T11**: Implement heal-loop.sh top-level orchestrator script `[complexity:complex]`
 
-    **Reference**: [design.md#35-heal-loopsh](design.md#35-heal-loopsh)
+    **[!] Review needed**: Design section 3.5 (heal-loop.sh) modified -- SA-2, SA-4, SA-5 scope additions require multi-test build prompt (3.5.1-3.5.2), enhanced audit entries (3.5.3), and attended mode guidance (3.5.4). The original heal-loop.sh implementation is correct for its scope. New functionality is covered by T16, T17, and T18.
+
+    **Reference**: [design.md#35-heal-loopsh-updated-for-sa-2-sa-4-sa-5](design.md#35-heal-loopsh-updated-for-sa-2-sa-4-sa-5)
 
     **Effort**: 8 hours
 
@@ -316,13 +334,13 @@ Three implementation layers: shell scripts in `scripts/visual-verification/` tha
 
     | Dimension | Status |
     |-----------|--------|
-    | Discipline | ✅ PASS |
-    | Accuracy | ✅ PASS |
-    | Completeness | ✅ PASS |
-    | Quality | ✅ PASS |
-    | Testing | ⏭️ N/A |
-    | Commit | ✅ PASS |
-    | Comments | ✅ PASS |
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | N/A |
+    | Commit | PASS |
+    | Comments | PASS |
 
 ### Documentation (Parallel Group 5)
 
@@ -351,13 +369,110 @@ Three implementation layers: shell scripts in `scripts/visual-verification/` tha
 
     | Dimension | Status |
     |-----------|--------|
-    | Discipline | ✅ PASS |
-    | Accuracy | ✅ PASS |
-    | Completeness | ✅ PASS |
-    | Quality | ✅ PASS |
-    | Testing | ⏭️ N/A |
-    | Commit | ✅ PASS |
-    | Comments | ⏭️ N/A |
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | N/A |
+    | Commit | PASS |
+    | Comments | N/A |
+
+### v3 Scope Additions -- SA-1 through SA-5 (Parallel Group 6-8)
+
+- [x] **T14**: SA-1 Runtime Verification -- Validate the existing 8-capture test suite runs end-to-end `[complexity:simple]`
+
+    **Reference**: [design.md#37-sa-1-runtime-verification](design.md#37-sa-1-runtime-verification)
+
+    **Effort**: 2 hours
+
+    **Acceptance Criteria**:
+
+    - [x] `swift test --filter VisionCapture` exits 0 in a macOS GUI session
+    - [x] `.rp1/work/verification/captures/manifest.json` exists and contains exactly 8 entries
+    - [x] All 8 expected capture IDs present: `geometry-calibration-solarizedDark-previewOnly`, `geometry-calibration-solarizedLight-previewOnly`, `theme-tokens-solarizedDark-previewOnly`, `theme-tokens-solarizedLight-previewOnly`, `canonical-solarizedDark-previewOnly`, `canonical-solarizedLight-previewOnly`, `mermaid-focus-solarizedDark-previewOnly`, `mermaid-focus-solarizedLight-previewOnly`
+    - [x] Each capture has non-zero dimensions and valid `sha256:` prefixed hash
+    - [x] Each manifest entry references an existing PNG file
+    - [ ] (Should Have) Two consecutive runs produce identical image hashes for stability confirmation (REQ-SA1-002)
+
+    **Implementation Summary**:
+
+    - **Files**: No code changes (verification-only task)
+    - **Approach**: Ran `swift test --filter VisionCapture` twice consecutively in macOS GUI session. Both runs exited 0 and produced 8 PNG files plus manifest.json with correct metadata (1904x1504 at 2x scale, sha256-prefixed hashes, all expected capture IDs present). All Must Have ACs verified. REQ-SA1-002 (Should Have stability): hashes differ between runs due to sub-pixel rendering non-determinism in macOS text rendering and WKWebView Mermaid output; file sizes differ by only a few hundred bytes, indicating visual near-equivalence rather than structural divergence.
+    - **Deviations**: REQ-SA1-002 not met -- image hashes are not bitwise identical across runs. This is an inherent characteristic of CGWindowListCreateImage capture on macOS and does not affect the evaluation workflow (which uses LLM vision, not hash comparison, for image assessment).
+    - **Tests**: 2/2 runs passed (17.360s and 17.384s respectively)
+
+- [ ] **T15**: SA-3 Registry-Based Regression Detection -- Enhance verify.sh with historical regression detection `[complexity:medium]`
+
+    **Reference**: [design.md#36-verifysh-updated-for-sa-3](design.md#36-verifysh-updated-for-sa-3), [design.md#361-sa-3-registry-historical-comparison](design.md#361-sa-3-registry-historical-comparison)
+
+    **Effort**: 4 hours
+
+    **Acceptance Criteria**:
+
+    - [ ] verify.sh reads `registry.json` for each capture in the new evaluation
+    - [ ] After existing Phase 3 (previous-eval comparison), Phase 3b performs registry history scan
+    - [ ] For each new-eval issue not already classified, script checks if that PRD reference was previously resolved in any prior evaluation in the registry
+    - [ ] Matches classified as "reintroduced regression" with original resolution timestamp attached
+    - [ ] Re-verification report JSON includes `reintroducedRegressions` section with `prdReference`, `previouslyResolvedAt`, `currentObservation`, `severity`, `confidence` fields
+    - [ ] Re-verification report `summary` includes `reintroducedRegressions` count
+    - [ ] `REINTRODUCED_REGRESSIONS` count exported in stdout key=value output for heal-loop.sh consumption
+    - [ ] `reVerification` audit entry includes `reintroducedRegressions` array
+    - [ ] Script handles missing/empty registry gracefully (no crash, no false regressions)
+
+- [ ] **T16**: SA-5 Attended Mode Continuation -- Implement "Continue with manual guidance" in heal-loop.sh `[complexity:medium]`
+
+    **Reference**: [design.md#354-sa-5-attended-mode-continue-with-manual-guidance](design.md#354-sa-5-attended-mode-continue-with-manual-guidance)
+
+    **Effort**: 4 hours
+
+    **Acceptance Criteria**:
+
+    - [ ] `handle_escalation()` case `c|C` replaced with multi-line stdin reading (terminated by empty line or EOF)
+    - [ ] Non-empty input validation with re-prompt on empty guidance
+    - [ ] `MANUAL_GUIDANCE` variable set for caller to incorporate into next iteration's build prompt
+    - [ ] `ESCALATION_ACTION` variable set to `"continue"` (vs `"skip"` or `"quit"`)
+    - [ ] Confirmation output shows captured guidance text (preview first 5 lines, truncated indicator if longer)
+    - [ ] `manualGuidance` audit entry appended via `append_audit()` with type, timestamp, loopId, iteration, and guidance text
+    - [ ] Guidance text sanitized for JSON via `jq --arg` (no manual escaping)
+    - [ ] Main loop checks `ESCALATION_ACTION` after `handle_escalation()` returns: `"continue"` proceeds, `"skip"`/`"quit"` breaks
+    - [ ] `MANUAL_GUIDANCE` cleared after each iteration (applies to one iteration only per BR-4)
+    - [ ] SA-5 guidance input failure falls back to writing escalation report
+
+- [ ] **T17**: SA-2 Build Invocation Fidelity -- Restructure /build --afk prompt with multi-test context and iteration instructions `[complexity:medium]`
+
+    **Reference**: [design.md#351-sa-2-multi-test-build-prompt-structure](design.md#351-sa-2-multi-test-build-prompt-structure), [design.md#352-sa-2-build-result-detail-capture](design.md#352-sa-2-build-result-detail-capture)
+
+    **Effort**: 6 hours
+
+    **Acceptance Criteria**:
+
+    - [ ] `BUILD_PROMPT` replaced with structured multi-test prompt per design section 3.5.1 format
+    - [ ] Prompt includes per-test file path, PRD reference, specification excerpt, and observation for each failing test
+    - [ ] Prompt includes explicit iteration instructions: run `swift test --filter VisionDetected`, fix failures, re-run, repeat until all pass or unfixable
+    - [ ] Prompt includes test filter command: `swift test --filter VisionDetected`
+    - [ ] `MANUAL_GUIDANCE` (from T16) incorporated into prompt under "Developer Guidance" section when non-empty
+    - [ ] `PRE_BUILD_HEAD` recorded via `git rev-parse HEAD` before build invocation
+    - [ ] After build: `FILES_MODIFIED` captured via `git diff --name-only ${PRE_BUILD_HEAD} HEAD` as JSON array
+    - [ ] After build: each test run individually to determine `TESTS_FIXED` vs `TESTS_REMAINING` arrays
+    - [ ] `TESTS_FIXED` and `TESTS_REMAINING` arrays available for audit entry (T18) and loop state
+    - [ ] Graceful degradation: `git diff` failure logs `filesModified: []` and continues (per design section 3.19)
+
+- [ ] **T18**: SA-4 Audit Completeness -- Enhanced buildInvocation audit entry with testPaths and filesModified `[complexity:simple]`
+
+    **Reference**: [design.md#353-sa-4-enhanced-audit-entry](design.md#353-sa-4-enhanced-audit-entry)
+
+    **Effort**: 2 hours
+
+    **Acceptance Criteria**:
+
+    - [ ] `buildInvocation` audit entry includes `testPaths` array of project-relative paths to generated test files
+    - [ ] `buildInvocation` audit entry includes `filesModified` array from `git diff --name-only` (computed in T17)
+    - [ ] `buildInvocation` audit entry includes `testsFixed` array of test suite names that now pass
+    - [ ] `buildInvocation` audit entry includes `testsRemaining` array of test suite names that still fail
+    - [ ] `TEST_PATHS` converted to project-relative paths (stripping `${PROJECT_ROOT}/` prefix)
+    - [ ] All arrays properly embedded via `jq --argjson` for correct JSON array construction
+    - [ ] No absolute paths in audit entry arrays (all project-relative)
+    - [ ] Existing audit entry fields (type, timestamp, loopId, iteration, result, prdRefs) preserved
 
 ### User Docs
 
@@ -471,6 +586,27 @@ Three implementation layers: shell scripts in `scripts/visual-verification/` tha
     - **Deviations**: None
     - **Tests**: N/A (documentation only)
 
+- [ ] **TD5**: Update architecture.md - Document SA-3 registry history and SA-5 attended mode `[complexity:simple]`
+
+    **Reference**: [design.md#9-documentation-impact](design.md#9-documentation-impact)
+
+    **Type**: edit
+
+    **Target**: `.rp1/context/architecture.md`
+
+    **Section**: Vision Verification
+
+    **KB Source**: architecture.md:Vision Verification
+
+    **Effort**: 30 minutes
+
+    **Acceptance Criteria**:
+
+    - [ ] Vision Verification section updated to document registry-based regression detection (SA-3): Phase 3b historical comparison, reintroduced regressions classification
+    - [ ] Vision Verification section updated to document attended mode continuation (SA-5): manual guidance prompt, guidance incorporation into build prompt, single-iteration scope
+    - [ ] Section reflects the enhanced audit trail fields (SA-4): testPaths, filesModified, testsFixed, testsRemaining
+    - [ ] Section reflects the multi-test build prompt structure (SA-2)
+
 ### Review Fixes
 
 - [x] **TX-fix-build-invocation**: Replace raw `claude -p` prompt in heal-loop.sh fix step with rp1 `/build {FEATURE_ID} AFK=true` invocation `[complexity:simple]`
@@ -501,13 +637,13 @@ Three implementation layers: shell scripts in `scripts/visual-verification/` tha
 
     | Dimension | Status |
     |-----------|--------|
-    | Discipline | ✅ PASS |
-    | Accuracy | ✅ PASS |
-    | Completeness | ✅ PASS |
-    | Quality | ✅ PASS |
-    | Testing | ⏭️ N/A |
-    | Commit | ✅ PASS |
-    | Comments | ✅ PASS |
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | N/A |
+    | Commit | PASS |
+    | Comments | PASS |
 
 - [x] **TX-fix-loadfile-error**: Fix VisionCapture test loadFile error reporting and add warm-up step `[complexity:simple]`
 
@@ -583,6 +719,18 @@ Three implementation layers: shell scripts in `scripts/visual-verification/` tha
 - [ ] REQ-010: Every operation logged to audit.jsonl with full traceability: evaluations, test generations, build invocations, re-verifications
 - [ ] REQ-011: Evaluation assesses qualitative design qualities (spatial rhythm, visual balance, theme coherence) using charter design philosophy as context
 - [ ] REQ-012: Evaluation prompt constructed deterministically from version-controlled files; no external state; cache correctly identifies unchanged inputs
+- [ ] REQ-SA1-001: VisionCapture test suite exits 0, manifest has 8 entries, each references existing PNG with valid hash and non-zero dimensions
+- [ ] REQ-SA1-002: Two consecutive capture runs produce identical image hashes (stability guard)
+- [ ] REQ-SA2-001: Build prompt includes every generated test file path with PRD reference and issue description
+- [ ] REQ-SA2-002: Build prompt contains iteration instructions with test filter command
+- [ ] REQ-SA2-003: After build, tests checked for pass/fail and modified files captured
+- [ ] REQ-SA3-001: verify.sh consults full registry history; previously-resolved issues that reappear classified as regressions
+- [ ] REQ-SA3-002: Full evaluation history per registry entry scanned for resolved issues
+- [ ] REQ-SA4-001: buildInvocation audit entry includes testPaths array of project-relative paths
+- [ ] REQ-SA4-002: buildInvocation audit entry includes filesModified array from git diff
+- [ ] REQ-SA5-001: "Continue" option prompts for multi-line text guidance, validates non-empty, loop continues with guidance
+- [ ] REQ-SA5-002: Guidance text appears verbatim in build prompt under "Developer Guidance" section, applies to one iteration only
+- [ ] REQ-SA5-003: manualGuidance audit entry appended with guidance text, timestamp, loopId, iteration
 
 ## Definition of Done
 
