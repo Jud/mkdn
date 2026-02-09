@@ -25,8 +25,8 @@ final class AppLauncher: @unchecked Sendable {
     // MARK: - Process Registry
 
     private static let registryLock = NSLock()
-    private static var trackedPIDs: [pid_t] = []
-    private static var atexitRegistered = false
+    private nonisolated(unsafe) static var trackedPIDs: [pid_t] = []
+    private nonisolated(unsafe) static var atexitRegistered = false
 
     private static func trackPID(_ pid: pid_t) {
         registryLock.lock()
@@ -34,9 +34,8 @@ final class AppLauncher: @unchecked Sendable {
         trackedPIDs.append(pid)
         if !atexitRegistered {
             atexitRegistered = true
-            atexit {
-                AppLauncher.killAllTracked()
-            }
+            // swiftlint:disable:next prefer_self_in_static_references
+            atexit { AppLauncher.killAllTracked() }
         }
     }
 
