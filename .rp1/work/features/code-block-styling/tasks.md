@@ -2,7 +2,7 @@
 
 **Feature ID**: code-block-styling
 **Status**: Not Started
-**Progress**: 37% (3 of 8 tasks)
+**Progress**: 50% (4 of 8 tasks)
 **Estimated Effort**: 3 days
 **Started**: 2026-02-09
 
@@ -131,7 +131,19 @@ Replace the current per-run `NSAttributedString.Key.backgroundColor` approach fo
     - **Deviations**: None
     - **Tests**: 32/32 passing (MarkdownTextStorageBuilder); all unit tests pass
 
-- [ ] **T4**: Write unit tests for code block attribute generation `[complexity:medium]`
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
+- [x] **T4**: Write unit tests for code block attribute generation `[complexity:medium]`
 
     **Reference**: [design.md#t4-unit-tests](design.md#t4-unit-tests), [design.md#7-testing-strategy](design.md#7-testing-strategy)
 
@@ -139,15 +151,22 @@ Replace the current per-run `NSAttributedString.Key.backgroundColor` approach fo
 
     **Acceptance Criteria**:
 
-    - [ ] Test file in `mkdnTests/Unit/` using `@Suite("CodeBlockStyling")` with Swift Testing framework
-    - [ ] Test: code block text carries `CodeBlockAttributes.range` attribute with a non-empty string value
-    - [ ] Test: code block text carries `CodeBlockAttributes.colors` with correct `background` and `border` NSColor values for both Solarized Dark and Solarized Light themes
-    - [ ] Test: code block paragraph style has `headIndent` of 12pt and `tailIndent` of -12pt
-    - [ ] Test: code block content does NOT have per-run `.backgroundColor` attribute
-    - [ ] Test: Swift code block has syntax highlighting foreground colors (not all the same color)
-    - [ ] Test: non-Swift code block uses `codeForeground` color
-    - [ ] Test: language label carries same `CodeBlockAttributes.range` value as the code body
-    - [ ] All tests pass via `swift test`
+    - [x] Test file in `mkdnTests/Unit/` using `@Suite("CodeBlockStyling")` with Swift Testing framework
+    - [x] Test: code block text carries `CodeBlockAttributes.range` attribute with a non-empty string value
+    - [x] Test: code block text carries `CodeBlockAttributes.colors` with correct `background` and `border` NSColor values for both Solarized Dark and Solarized Light themes
+    - [x] Test: code block paragraph style has `headIndent` of 12pt and `tailIndent` of -12pt
+    - [x] Test: code block content does NOT have per-run `.backgroundColor` attribute
+    - [x] Test: Swift code block has syntax highlighting foreground colors (not all the same color)
+    - [x] Test: non-Swift code block uses `codeForeground` color
+    - [x] Test: language label carries same `CodeBlockAttributes.range` value as the code body
+    - [x] All tests pass via `swift test`
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdnTests/Unit/Core/CodeBlockStylingTests.swift`
+    - **Approach**: Created 7 tests in `@Suite("CodeBlockStyling")` using Swift Testing. Tests verify: codeBlockRange attribute presence with non-empty string, codeBlockColors attribute with correct background/border NSColor for both themes (parameterized), paragraph style headIndent/tailIndent values, absence of per-run .backgroundColor, syntax highlighting producing multiple attribute runs for Swift code vs plain code, non-Swift codeForeground color, and language label sharing the same block ID as the code body.
+    - **Deviations**: Swift syntax highlighting test uses attribute run count comparison (Swift code block vs plain code block) instead of direct NSColor enumeration, because Splash's SwiftUI AttributedString foreground colors use a bridged attribute key representation.
+    - **Tests**: 7/7 passing (CodeBlockStylingTests); 39/39 total MarkdownTextStorageBuilder + CodeBlockStyling
 
 ### Verification (Parallel Group 3)
 
