@@ -129,3 +129,38 @@ scripts/visual-verification/
   heal-loop.sh        -> full loop: capture -> evaluate -> generate -> fix -> verify
   verify.sh           -> re-capture + re-evaluate after fix
 ```
+
+#### Multi-Test Build Prompt (SA-2)
+
+When the heal-loop invokes `/build --afk` to fix vision-detected failures, it constructs a structured multi-test prompt containing per-test details and explicit iteration instructions. For each generated test file, the prompt includes the file path, PRD reference, specification excerpt, and observation from the evaluation report. The prompt instructs the build agent to run `swift test --filter VisionDetected`, fix failures, re-run, and repeat until all listed tests pass. This allows the build agent to address multiple failures in a single invocation rather than requiring the outer heal-loop to re-iterate for each individual fix.
+
+#### Registry-Based Regression Detection (SA-3)
+
+The `verify.sh` script performs two levels of regression detection when comparing a new evaluation against prior state:
+
+1. **Phase 3 (previous-evaluation comparison)**: Compares the new evaluation against the immediately-previous evaluation to classify issues as resolved, regression, or remaining.
+2. **Phase 3b (registry history scan)**: For each issue in the new evaluation not already classified by Phase 3, the script reads the capture's entry in `registry.json` and scans all historical evaluations. If the same PRD reference was previously marked as `"status": "resolved"` in any prior evaluation, the issue is classified as a **reintroduced regression** with the original resolution timestamp attached. This catches issues that were resolved several iterations ago but reappear after an unrelated fix.
+
+The re-verification report includes a `reintroducedRegressions` section alongside the existing `resolvedIssues`, `newRegressions`, and `remainingIssues` sections. Registry entries for reintroduced regressions are recorded with status `"reintroduced"`.
+
+#### Enhanced Audit Trail (SA-4)
+
+The `buildInvocation` audit entry in `audit.jsonl` records the full context of each `/build --afk` invocation:
+
+- `testPaths`: array of project-relative paths to the generated test files passed to the build agent
+- `filesModified`: array of project-relative file paths changed by the build step (captured via `git diff --name-only` between pre-build and post-build HEAD)
+- `testsFixed`: array of test suite names that now pass after the build
+- `testsRemaining`: array of test suite names that still fail after the build
+
+These fields supplement the existing `type`, `timestamp`, `loopId`, `iteration`, `result`, and `prdRefs` fields. If `git diff` fails, `filesModified` gracefully defaults to an empty array.
+
+#### Attended Mode Continuation (SA-5)
+
+When `heal-loop.sh` is invoked with `--attended` and reaches an escalation point, the interactive menu offers three options: continue with manual guidance (`c`), skip remaining issues (`s`), or quit and write an escalation report (`q`).
+
+Selecting `c` prompts the developer to enter multi-line guidance text (terminated by an empty line or Ctrl-D). The guidance is validated as non-empty (with up to 3 retries before falling back to an escalation report), confirmed via a preview of the first 5 lines, and then:
+
+1. Stored in the `MANUAL_GUIDANCE` variable for the next iteration's build prompt
+2. Incorporated verbatim under a "Developer Guidance" section in the `/build --afk` prompt
+3. Recorded as a `manualGuidance` audit entry (with the guidance text sanitized via `jq --arg`)
+4. Cleared after the next iteration completes (guidance applies to one iteration only)

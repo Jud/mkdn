@@ -2,7 +2,7 @@
 
 **Feature ID**: llm-visual-verification
 **Status**: In Progress
-**Progress**: 95% (21 of 22 tasks)
+**Progress**: 100% (22 of 22 tasks)
 **Estimated Effort**: 7.5 days
 **Started**: 2026-02-09
 
@@ -548,6 +548,18 @@ v3 scope additions (SA-1 through SA-5) address gaps in runtime verification conf
     - **Deviations**: No code changes required -- T17 included the SA-4 audit fields in its implementation because the JSON conversion logic is tightly coupled to the data computation (PRE_BUILD_HEAD, FILES_MODIFIED, TESTS_FIXED, TESTS_REMAINING). T18 is verification-only.
     - **Tests**: Full jq audit entry simulation (populated arrays + empty arrays), project-relative path stripping verification, git diff output format confirmation, field presence and type checks (all 10 fields verified)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ⏭️ N/A |
+
 ### User Docs
 
 - [x] **TD1**: Update modules.md - Test Layer `[complexity:simple]`
@@ -660,7 +672,7 @@ v3 scope additions (SA-1 through SA-5) address gaps in runtime verification conf
     - **Deviations**: None
     - **Tests**: N/A (documentation only)
 
-- [ ] **TD5**: Update architecture.md - Document SA-3 registry history and SA-5 attended mode `[complexity:simple]`
+- [x] **TD5**: Update architecture.md - Document SA-3 registry history and SA-5 attended mode `[complexity:simple]`
 
     **Reference**: [design.md#9-documentation-impact](design.md#9-documentation-impact)
 
@@ -676,10 +688,17 @@ v3 scope additions (SA-1 through SA-5) address gaps in runtime verification conf
 
     **Acceptance Criteria**:
 
-    - [ ] Vision Verification section updated to document registry-based regression detection (SA-3): Phase 3b historical comparison, reintroduced regressions classification
-    - [ ] Vision Verification section updated to document attended mode continuation (SA-5): manual guidance prompt, guidance incorporation into build prompt, single-iteration scope
-    - [ ] Section reflects the enhanced audit trail fields (SA-4): testPaths, filesModified, testsFixed, testsRemaining
-    - [ ] Section reflects the multi-test build prompt structure (SA-2)
+    - [x] Vision Verification section updated to document registry-based regression detection (SA-3): Phase 3b historical comparison, reintroduced regressions classification
+    - [x] Vision Verification section updated to document attended mode continuation (SA-5): manual guidance prompt, guidance incorporation into build prompt, single-iteration scope
+    - [x] Section reflects the enhanced audit trail fields (SA-4): testPaths, filesModified, testsFixed, testsRemaining
+    - [x] Section reflects the multi-test build prompt structure (SA-2)
+
+    **Implementation Summary**:
+
+    - **Files**: `.rp1/context/architecture.md`
+    - **Approach**: Added four subsections under the existing Vision Verification section: "Multi-Test Build Prompt (SA-2)" documenting the structured per-test prompt with iteration instructions, "Registry-Based Regression Detection (SA-3)" documenting Phase 3 and Phase 3b two-level regression detection with reintroduced regression classification, "Enhanced Audit Trail (SA-4)" documenting the four new buildInvocation audit fields (testPaths, filesModified, testsFixed, testsRemaining) with graceful degradation, and "Attended Mode Continuation (SA-5)" documenting the interactive guidance prompt, input validation, single-iteration scope, and audit recording
+    - **Deviations**: None
+    - **Tests**: N/A (documentation only)
 
 ### Review Fixes
 
