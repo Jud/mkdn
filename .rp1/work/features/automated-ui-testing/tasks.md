@@ -2,7 +2,7 @@
 
 **Feature ID**: automated-ui-testing
 **Status**: In Progress
-**Progress**: 50% (6 of 12 tasks)
+**Progress**: 58% (7 of 12 tasks)
 **Estimated Effort**: 6 days
 **Started**: 2026-02-08
 
@@ -214,9 +214,21 @@ End-to-end validation of the automated UI testing infrastructure. The prior iter
     - **Deviations**: AC-002c/AC-005a changed from "crossfade timing within 1 frame" to "frame count accuracy within 20% + theme state detection" because SCStream startup latency makes transition-duration measurement architecturally impossible with the single-command socket protocol.
     - **Tests**: 11/11 passing
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
 ### Report Validation
 
-- [ ] **T6**: Validate JSON report at `.build/test-results/mkdn-ui-test-report.json` -- verify structure, completeness, PRD references, failure diagnostics, image paths, and coverage accuracy `[complexity:simple]`
+- [x] **T6**: Validate JSON report at `.build/test-results/mkdn-ui-test-report.json` -- verify structure, completeness, PRD references, failure diagnostics, image paths, and coverage accuracy `[complexity:simple]`
 
     **Reference**: [design.md#t6-json-report-validation-req-007](design.md#t6-json-report-validation-req-007)
 
@@ -224,18 +236,25 @@ End-to-end validation of the automated UI testing infrastructure. The prior iter
 
     **Acceptance Criteria**:
 
-    - [ ] Report file exists at `.build/test-results/mkdn-ui-test-report.json` after test run (AC-007a)
-    - [ ] Report is valid JSON parseable by standard tools (AC-007b)
-    - [ ] `totalTests` matches the number of tests that actually executed (AC-007c)
-    - [ ] Each TestResult has a non-empty `prdReference` field (AC-007d)
-    - [ ] Failed results have `expected` and `actual` fields with meaningful values (AC-007e)
-    - [ ] Image paths in results point to files that exist on disk (AC-007f)
-    - [ ] Coverage section contains entries for spatial-design-language, animation-design-language, and automated-ui-testing PRDs with accurate coveredFRs counts (AC-007g)
-    - [ ] JSONResultReporter or PRDCoverageTracker are fixed if report is incomplete or malformed
+    - [x] Report file exists at `.build/test-results/mkdn-ui-test-report.json` after test run (AC-007a)
+    - [x] Report is valid JSON parseable by standard tools (AC-007b)
+    - [x] `totalTests` matches the number of tests that actually executed (AC-007c)
+    - [x] Each TestResult has a non-empty `prdReference` field (AC-007d)
+    - [x] Failed results have `expected` and `actual` fields with meaningful values (AC-007e)
+    - [x] Image paths in results point to files that exist on disk (AC-007f)
+    - [x] Coverage section contains entries for spatial-design-language, animation-design-language, and automated-ui-testing PRDs with accurate coveredFRs counts (AC-007g)
+    - [x] JSONResultReporter or PRDCoverageTracker are fixed if report is incomplete or malformed
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdnTests/Support/PRDCoverageTracker.swift`, `mkdnTests/UITest/SpatialComplianceTests+Typography.swift`
+    - **Approach**: Ran full suite, validated all AC-007 criteria. Fixed PRDCoverageTracker coveredFRs inflation (counted non-registry FRs). Fixed 3 early-exit tests missing from JSON report by adding JSONResultReporter.record() calls before guard/return. Extracted recordCodeBlockFailure() helper for SwiftLint compliance.
+    - **Deviations**: None
+    - **Tests**: 12/12 unit tests passing
 
 ### Verification and Documentation
 
-- [ ] **T7**: Compile compliance baseline -- total tests, pass/fail counts, failure categories (infrastructure fix, pre-migration gap, genuine bug), and pre-migration gap details with PRD references and measured values `[complexity:simple]`
+- [x] **T7**: Compile compliance baseline -- total tests, pass/fail counts, failure categories (infrastructure fix, pre-migration gap, genuine bug), and pre-migration gap details with PRD references and measured values `[complexity:simple]`
 
     **Reference**: [design.md#t7-compliance-baseline-documentation-req-008](design.md#t7-compliance-baseline-documentation-req-008)
 
@@ -243,9 +262,16 @@ End-to-end validation of the automated UI testing infrastructure. The prior iter
 
     **Acceptance Criteria**:
 
-    - [ ] Baseline summary documents total tests, passing count, failing count, and category of each failure (AC-008a)
-    - [ ] Pre-migration gaps listed with: test name, PRD reference, expected value, measured value, and migration dependency (AC-008b)
-    - [ ] Baseline recorded in field notes at `.rp1/work/features/automated-ui-testing/field-notes.md` (AC-008c)
+    - [x] Baseline summary documents total tests, passing count, failing count, and category of each failure (AC-008a)
+    - [x] Pre-migration gaps listed with: test name, PRD reference, expected value, measured value, and migration dependency (AC-008b)
+    - [x] Baseline recorded in field notes at `.rp1/work/features/automated-ui-testing/field-notes.md` (AC-008c)
+
+    **Implementation Summary**:
+
+    - **Files**: `.rp1/work/features/automated-ui-testing/field-notes.md`
+    - **Approach**: Documented full baseline in field-notes.md T7 section: 46 total tests (38 pass / 8 fail in parallel; 42-43 pass / 3-4 fail in single-suite mode). Categorized all failures: 7 infrastructure fixes (resolved in T2-T5), 3 measurement gaps (h3SpaceAbove/Below, codeBlockPadding), 3 parallel execution artifacts, 1 SCStream diagnostic, 0 pre-migration gaps, 0 genuine bugs. Included PRD coverage summary (animation 100%, spatial 83.3%, automated-ui-testing 33.3%).
+    - **Deviations**: None
+    - **Tests**: N/A (documentation task)
 
 - [ ] **T8**: Run `swift test --filter UITest` 3 consecutive times, compare pass/fail results, flag flaky tests, diagnose root causes, fix or document mitigation `[complexity:medium]`
 

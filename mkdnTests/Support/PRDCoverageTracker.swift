@@ -71,15 +71,17 @@ enum PRDCoverageTracker {
         var prds: [PRDCoverage] = registry.map { prdName, allFRs in
             let covered = coveredByPRD[prdName] ?? Set()
             let uncovered = allFRs.filter { !covered.contains($0) }
+            let registryCovered = allFRs.filter { covered.contains($0) }
 
             let percent = allFRs.isEmpty
                 ? 0.0
-                : (Double(covered.count) / Double(allFRs.count)) * 100.0
+                : (Double(registryCovered.count) / Double(allFRs.count))
+                * 100.0
 
             return PRDCoverage(
                 prdName: prdName,
                 totalFRs: allFRs.count,
-                coveredFRs: covered.count,
+                coveredFRs: registryCovered.count,
                 uncoveredFRs: uncovered.sorted(),
                 coveragePercent: (percent * 10).rounded() / 10
             )

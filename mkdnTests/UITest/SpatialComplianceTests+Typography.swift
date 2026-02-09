@@ -93,13 +93,25 @@ extension SpatialComplianceTests {
     @Test("test_spatialDesignLanguage_FR3_h3SpaceAbove")
     func h3SpaceAbove() async throws {
         let gaps = try await measureFixtureGaps()
-        let measured = try #require(
-            gaps.count > 5 ? gaps[5] : nil,
-            "Need gap[5] for h3SpaceAbove. gaps=\(gaps)"
-        )
+        guard gaps.count > 5 else {
+            JSONResultReporter.record(TestResult(
+                name: "spatial-design-language FR-3: headingSpaceAbove(H3)",
+                status: .fail,
+                prdReference: "spatial-design-language FR-3",
+                expected: "\(SpatialPRD.h3SpaceAbove)pt",
+                actual: "unmeasurable (only \(gaps.count) gaps found, need 6)",
+                imagePaths: [],
+                duration: 0,
+                message: "Gap scanner finds only \(gaps.count) gaps; H3 gap requires fixture redesign"
+            ))
+            Issue.record(
+                "Need gap[5] for h3SpaceAbove. gaps=\(gaps)"
+            )
+            return
+        }
 
         assertSpatial(
-            measured: measured,
+            measured: gaps[5],
             expected: SpatialPRD.h3SpaceAbove,
             prdRef: "spatial-design-language FR-3",
             aspect: "headingSpaceAbove(H3)"
@@ -109,13 +121,25 @@ extension SpatialComplianceTests {
     @Test("test_spatialDesignLanguage_FR3_h3SpaceBelow")
     func h3SpaceBelow() async throws {
         let gaps = try await measureFixtureGaps()
-        let measured = try #require(
-            gaps.count > 6 ? gaps[6] : nil,
-            "Need gap[6] for h3SpaceBelow. gaps=\(gaps)"
-        )
+        guard gaps.count > 6 else {
+            JSONResultReporter.record(TestResult(
+                name: "spatial-design-language FR-3: headingSpaceBelow(H3)",
+                status: .fail,
+                prdReference: "spatial-design-language FR-3",
+                expected: "\(SpatialPRD.h3SpaceBelow)pt",
+                actual: "unmeasurable (only \(gaps.count) gaps found, need 7)",
+                imagePaths: [],
+                duration: 0,
+                message: "Gap scanner finds only \(gaps.count) gaps; H3 gap requires fixture redesign"
+            ))
+            Issue.record(
+                "Need gap[6] for h3SpaceBelow. gaps=\(gaps)"
+            )
+            return
+        }
 
         assertSpatial(
-            measured: measured,
+            measured: gaps[6],
             expected: SpatialPRD.h3SpaceBelow,
             prdRef: "spatial-design-language FR-3",
             aspect: "headingSpaceBelow(H3)"
@@ -130,40 +154,23 @@ extension SpatialComplianceTests {
         let themeColors = try #require(Self.cachedThemeColors)
         let codeBg = codeBackgroundColor(from: themeColors)
         let sampledBg = sampleRenderedBackground(from: analyzer)
-
-        // The code block background differs from the document background
-        // by only ~12 Chebyshev units (Solarized Dark base02 vs base03).
-        // Use a tolerance that's high enough to match code bg pixels in
-        // the capture but low enough to exclude document bg pixels.
-        // Code bg tolerance: halfway between the bg distance (~12) and
-        // the full color tolerance (20), i.e., ~8.
         let codeBgTolerance = 8
 
-        // Verify there's enough contrast to distinguish code bg from doc bg
         let bgDistance = codeBg.distance(to: sampledBg)
         guard bgDistance > codeBgTolerance else {
-            Issue.record(
-                """
-                Code bg too similar to doc bg for padding measurement. \
-                codeBg=\(codeBg), docBg=\(sampledBg), \
-                distance=\(bgDistance), tolerance=\(codeBgTolerance)
-                """
+            recordCodeBlockFailure(
+                "unmeasurable (code bg distance=\(bgDistance) <= tolerance=\(codeBgTolerance))"
             )
             return
         }
 
         let codeRegion = analyzer.findRegion(
-            matching: codeBg,
-            tolerance: codeBgTolerance
+            matching: codeBg, tolerance: codeBgTolerance
         )
-        let region = try #require(
-            codeRegion,
-            """
-            Must find code block background region. \
-            codeBg=\(codeBg), docBg=\(sampledBg), \
-            distance=\(bgDistance)
-            """
-        )
+        guard let region = codeRegion else {
+            recordCodeBlockFailure("unmeasurable (code block region not found)")
+            return
+        }
 
         let leftBoundary = analyzer.findColorBoundary(
             from: CGPoint(x: region.minX + 1, y: region.midY),
@@ -172,12 +179,7 @@ extension SpatialComplianceTests {
             tolerance: codeBgTolerance
         )
         guard let textStart = leftBoundary else {
-            Issue.record(
-                """
-                Cannot find code text within code block region. \
-                region=\(region)
-                """
-            )
+            recordCodeBlockFailure("unmeasurable (text boundary not found)")
             return
         }
 
@@ -187,6 +189,20 @@ extension SpatialComplianceTests {
             prdRef: "spatial-design-language FR-4",
             aspect: "componentPadding (code block)"
         )
+    }
+
+    private func recordCodeBlockFailure(_ actual: String) {
+        JSONResultReporter.record(TestResult(
+            name: "spatial-design-language FR-4: componentPadding (code block)",
+            status: .fail,
+            prdReference: "spatial-design-language FR-4",
+            expected: "\(SpatialPRD.componentPadding)pt",
+            actual: actual,
+            imagePaths: [],
+            duration: 0,
+            message: actual
+        ))
+        Issue.record("\(actual)")
     }
 
     // MARK: - Gap Measurement Helper
