@@ -26,6 +26,7 @@ struct CodeBlockView: View {
             ScrollView(.horizontal, showsIndicators: true) {
                 Text(highlightedCode)
                     .font(.system(.body, design: .monospaced))
+                    .foregroundColor(colors.codeForeground)
                     .textSelection(.enabled)
                     .padding(12)
             }

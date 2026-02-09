@@ -1,4 +1,5 @@
 import AppKit
+import Carbon
 import SwiftUI
 
 /// Transparent NSView helper that configures the hosting NSWindow
@@ -34,7 +35,13 @@ public final class WindowAccessorView: NSView {
         DispatchQueue.main.async {
             window.makeKeyAndOrderFront(nil)
             window.orderFrontRegardless()
-            NSApp.activate(ignoringOtherApps: true)
+            if IsSecureEventInputEnabled() {
+                EnableSecureEventInput()
+                NSApp.activate(ignoringOtherApps: true)
+                DisableSecureEventInput()
+            } else {
+                NSApp.activate(ignoringOtherApps: true)
+            }
         }
     }
 }

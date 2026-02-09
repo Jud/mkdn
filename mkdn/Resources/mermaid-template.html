@@ -9,6 +9,12 @@
         body { overflow: visible; }
         #diagram { display: block; width: 100%; }
         #diagram svg { display: block; width: 100%; height: auto; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(128, 128, 128, 0.3); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(128, 128, 128, 0.5); }
+        ::-webkit-scrollbar-corner { background: transparent; }
+        foreignObject div { overflow: hidden !important; }
     </style>
     <script src="mermaid.min.js"></script>
 </head>
