@@ -2,7 +2,7 @@
 
 **Feature ID**: llm-visual-verification
 **Status**: In Progress
-**Progress**: 82% (18 of 22 tasks)
+**Progress**: 86% (19 of 22 tasks)
 **Estimated Effort**: 7.5 days
 **Started**: 2026-02-09
 
@@ -438,7 +438,19 @@ v3 scope additions (SA-1 through SA-5) address gaps in runtime verification conf
     - **Deviations**: None
     - **Tests**: bash -n syntax check, --help output, 6 isolated jq query tests (previously resolved match, never-resolved issue, remaining-status issue, non-existent captureId, empty registry, JSON construction), 3 reclassification logic tests (partial reclassification, all reclassified, no reintroduced), full report and audit entry construction verification
 
-- [ ] **T16**: SA-5 Attended Mode Continuation -- Implement "Continue with manual guidance" in heal-loop.sh `[complexity:medium]`
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
+- [x] **T16**: SA-5 Attended Mode Continuation -- Implement "Continue with manual guidance" in heal-loop.sh `[complexity:medium]`
 
     **Reference**: [design.md#354-sa-5-attended-mode-continue-with-manual-guidance](design.md#354-sa-5-attended-mode-continue-with-manual-guidance)
 
@@ -446,16 +458,23 @@ v3 scope additions (SA-1 through SA-5) address gaps in runtime verification conf
 
     **Acceptance Criteria**:
 
-    - [ ] `handle_escalation()` case `c|C` replaced with multi-line stdin reading (terminated by empty line or EOF)
-    - [ ] Non-empty input validation with re-prompt on empty guidance
-    - [ ] `MANUAL_GUIDANCE` variable set for caller to incorporate into next iteration's build prompt
-    - [ ] `ESCALATION_ACTION` variable set to `"continue"` (vs `"skip"` or `"quit"`)
-    - [ ] Confirmation output shows captured guidance text (preview first 5 lines, truncated indicator if longer)
-    - [ ] `manualGuidance` audit entry appended via `append_audit()` with type, timestamp, loopId, iteration, and guidance text
-    - [ ] Guidance text sanitized for JSON via `jq --arg` (no manual escaping)
-    - [ ] Main loop checks `ESCALATION_ACTION` after `handle_escalation()` returns: `"continue"` proceeds, `"skip"`/`"quit"` breaks
-    - [ ] `MANUAL_GUIDANCE` cleared after each iteration (applies to one iteration only per BR-4)
-    - [ ] SA-5 guidance input failure falls back to writing escalation report
+    - [x] `handle_escalation()` case `c|C` replaced with multi-line stdin reading (terminated by empty line or EOF)
+    - [x] Non-empty input validation with re-prompt on empty guidance
+    - [x] `MANUAL_GUIDANCE` variable set for caller to incorporate into next iteration's build prompt
+    - [x] `ESCALATION_ACTION` variable set to `"continue"` (vs `"skip"` or `"quit"`)
+    - [x] Confirmation output shows captured guidance text (preview first 5 lines, truncated indicator if longer)
+    - [x] `manualGuidance` audit entry appended via `append_audit()` with type, timestamp, loopId, iteration, and guidance text
+    - [x] Guidance text sanitized for JSON via `jq --arg` (no manual escaping)
+    - [x] Main loop checks `ESCALATION_ACTION` after `handle_escalation()` returns: `"continue"` proceeds, `"skip"`/`"quit"` breaks
+    - [x] `MANUAL_GUIDANCE` cleared after each iteration (applies to one iteration only per BR-4)
+    - [x] SA-5 guidance input failure falls back to writing escalation report
+
+    **Implementation Summary**:
+
+    - **Files**: `scripts/visual-verification/heal-loop.sh`
+    - **Approach**: Replaced the `c|C` stub in `handle_escalation()` with full multi-line stdin reading (terminated by empty line or EOF), non-empty validation with 3-retry fallback to escalation report, confirmation preview (first 5 lines with truncation indicator), and `manualGuidance` audit entry via `jq --arg` for JSON sanitization. Added `MANUAL_GUIDANCE` and `ESCALATION_ACTION` global variables. The main loop checks `ESCALATION_ACTION` after `handle_escalation()`: "continue" proceeds with guidance set, "skip" exits 0 with escalation report, "quit" exits 1. `MANUAL_GUIDANCE` is cleared after each iteration (BR-4 single-iteration scope). An outer `while true` loop wraps the iteration loop to support "continue" at maxIterationsExhausted by incrementing `MAX_ITERATIONS`. Post-loop exit handling dispatches on `LOOP_BREAK` (skip/quit/maxIterationsExhausted) with appropriate audit entries.
+    - **Deviations**: None
+    - **Tests**: bash -n syntax check, --help output, jq multi-line guidance serialization test
 
 - [ ] **T17**: SA-2 Build Invocation Fidelity -- Restructure /build --afk prompt with multi-test context and iteration instructions `[complexity:medium]`
 

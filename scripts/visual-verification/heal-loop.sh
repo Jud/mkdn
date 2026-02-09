@@ -36,6 +36,8 @@ MAX_ITERATIONS=3
 DRY_RUN=false
 ATTENDED=false
 SKIP_BUILD=false
+MANUAL_GUIDANCE=""
+ESCALATION_ACTION=""
 
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 TIMESTAMP_COMPACT=$(date -u +"%Y%m%d-%H%M%S")
@@ -238,10 +240,14 @@ write_escalation_report() {
 }
 
 # Handle escalation (report file or interactive depending on --attended).
+# Sets ESCALATION_ACTION: "continue" (with guidance), "skip", or "quit".
+# Sets MANUAL_GUIDANCE when ESCALATION_ACTION is "continue".
 handle_escalation() {
     local reason="$1"
     local eval_report="$2"
     local reverify_report="${3:-}"
+
+    ESCALATION_ACTION="quit"
 
     if [ "${ATTENDED}" = true ]; then
         info "ESCALATION (attended mode): ${reason}"
@@ -278,14 +284,85 @@ handle_escalation() {
 
         case "${choice}" in
             c|C)
-                info "Continuing with manual guidance (not yet implemented -- writing report)"
-                write_escalation_report "${reason}" "${eval_report}" "${reverify_report}"
+                # SA-5: Read multi-line guidance from stdin
+                local guidance_retries=0
+                local max_guidance_retries=3
+                local guidance_text=""
+
+                while true; do
+                    echo ""
+                    echo "Enter your guidance for the next fix iteration."
+                    echo "The text will be included verbatim in the build prompt."
+                    echo "Finish with an empty line or Ctrl-D."
+                    echo ""
+
+                    guidance_text=""
+                    while IFS= read -r line; do
+                        if [ -z "${line}" ] && [ -n "${guidance_text}" ]; then
+                            break
+                        fi
+                        if [ -n "${guidance_text}" ]; then
+                            guidance_text="${guidance_text}
+${line}"
+                        else
+                            guidance_text="${line}"
+                        fi
+                    done
+
+                    if [ -z "${guidance_text}" ]; then
+                        guidance_retries=$((guidance_retries + 1))
+                        if [ "${guidance_retries}" -ge "${max_guidance_retries}" ]; then
+                            warn "Max guidance retries reached -- falling back to escalation report"
+                            write_escalation_report "${reason}" "${eval_report}" "${reverify_report}"
+                            ESCALATION_ACTION="quit"
+
+                            append_audit "$(jq -cn \
+                                --arg type "escalation" \
+                                --arg ts "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+                                --arg lid "${LOOP_ID}" \
+                                --arg reason "${reason}" \
+                                '{type: $type, timestamp: $ts, loopId: $lid, reason: $reason}')"
+                            return
+                        fi
+                        warn "Empty guidance -- please provide guidance text"
+                        continue
+                    fi
+
+                    break
+                done
+
+                # Show confirmation (preview first 5 lines)
+                echo ""
+                local guidance_lines
+                guidance_lines=$(echo "${guidance_text}" | wc -l | tr -d ' ')
+                info "Guidance captured (${#guidance_text} chars):"
+                echo "${guidance_text}" | head -5
+                if [ "${guidance_lines}" -gt 5 ]; then
+                    echo "  ... (truncated in preview)"
+                fi
+                echo ""
+
+                MANUAL_GUIDANCE="${guidance_text}"
+                ESCALATION_ACTION="continue"
+
+                # SA-5: Append manualGuidance audit entry (sanitized via jq --arg)
+                append_audit "$(jq -cn \
+                    --arg type "manualGuidance" \
+                    --arg ts "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+                    --arg lid "${LOOP_ID}" \
+                    --argjson iter "${ITERATION}" \
+                    --arg guidance "${guidance_text}" \
+                    '{type: $type, timestamp: $ts, loopId: $lid, iteration: $iter, guidance: $guidance}')"
+
+                return
                 ;;
             s|S)
                 info "Skipping remaining issues"
+                ESCALATION_ACTION="skip"
                 write_escalation_report "${reason}" "${eval_report}" "${reverify_report}"
                 ;;
             *)
+                ESCALATION_ACTION="quit"
                 write_escalation_report "${reason}" "${eval_report}" "${reverify_report}"
                 ;;
         esac
@@ -491,6 +568,9 @@ ITERATION=0
 CURRENT_EVAL_REPORT="${EVAL_REPORT}"
 CURRENT_EVAL_ID="${EVAL_ID}"
 LATEST_REVERIFY_REPORT=""
+LOOP_BREAK=""
+
+while true; do  # outer loop: allows extension via "continue" at maxIterationsExhausted
 
 while [ "${ITERATION}" -lt "${MAX_ITERATIONS}" ]; do
     ITERATION=$((ITERATION + 1))
@@ -708,8 +788,36 @@ Failing test files:${TEST_PATHS}"
 
     ISSUE_COUNT="${TOTAL_OUTSTANDING}"
 
+    # Clear manual guidance (BR-4: single-iteration scope)
+    MANUAL_GUIDANCE=""
+
+    # SA-5: If attended and issues remain, prompt for guidance
+    if [ "${ATTENDED}" = true ]; then
+        ESCALATION_ACTION=""
+        handle_escalation "unresolvedIssues" "${CURRENT_EVAL_REPORT}" "${LATEST_REVERIFY_REPORT}"
+
+        case "${ESCALATION_ACTION}" in
+            continue)
+                info "  Continuing with manual guidance for next iteration"
+                ;;
+            skip)
+                LOOP_BREAK="skip"
+                break
+                ;;
+            *)
+                LOOP_BREAK="quit"
+                break
+                ;;
+        esac
+    fi
+
     info "  ${TOTAL_OUTSTANDING} issue(s) remain -- continuing to next iteration"
 done
+
+# Check if inner loop was broken by user action (attended mode)
+if [ -n "${LOOP_BREAK}" ]; then
+    break
+fi
 
 # ---------------------------------------------------------------------------
 # Max iterations exhausted
@@ -717,8 +825,54 @@ done
 
 info "Max iterations exhausted (${MAX_ITERATIONS}) with ${ISSUE_COUNT} issue(s) remaining"
 
+MANUAL_GUIDANCE=""
+ESCALATION_ACTION=""
 handle_escalation "maxIterationsExhausted" "${CURRENT_EVAL_REPORT}" "${LATEST_REVERIFY_REPORT}"
 
+# SA-5: Allow continuation if user provides guidance at maxIterationsExhausted
+if [ "${ESCALATION_ACTION}" = "continue" ]; then
+    MAX_ITERATIONS=$((MAX_ITERATIONS + 1))
+    info "Extending max iterations to ${MAX_ITERATIONS}"
+    continue  # re-enter outer loop -> inner while loop runs one more iteration
+fi
+
+break
+
+done  # outer while true: allows extension via "continue" at maxIterationsExhausted
+
+# ---------------------------------------------------------------------------
+# Post-loop exit handling
+# ---------------------------------------------------------------------------
+
+case "${LOOP_BREAK}" in
+    skip)
+        write_escalation_report "userSkipped" "${CURRENT_EVAL_REPORT}" "${LATEST_REVERIFY_REPORT}"
+
+        append_audit "$(jq -cn \
+            --arg type "loopCompleted" \
+            --arg ts "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+            --arg lid "${LOOP_ID}" \
+            --arg result "skipped" \
+            '{type: $type, timestamp: $ts, loopId: $lid, result: $result}')"
+
+        info "Heal-loop complete (user skipped remaining issues)"
+        exit 0
+        ;;
+    quit)
+        append_audit "$(jq -cn \
+            --arg type "loopCompleted" \
+            --arg ts "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+            --arg lid "${LOOP_ID}" \
+            --arg result "escalated" \
+            --arg reason "userQuit" \
+            '{type: $type, timestamp: $ts, loopId: $lid, result: $result, reason: $reason}')"
+
+        info "Heal-loop complete (user quit)"
+        exit 1
+        ;;
+esac
+
+# Max iterations exhausted (quit or non-attended at maxIterationsExhausted)
 append_audit "$(jq -cn \
     --arg type "loopCompleted" \
     --arg ts "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
