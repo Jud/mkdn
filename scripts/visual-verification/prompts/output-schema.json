@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "VisionEvaluationResult",
+  "description": "Structured output from LLM vision-based design evaluation of mkdn screenshots.",
+  "type": "object",
+  "required": ["evaluationId", "promptHash", "captures", "issues", "qualitativeFindings", "summary"],
+  "properties": {
+    "evaluationId": {
+      "type": "string",
+      "description": "Unique evaluation identifier in the format eval-YYYY-MM-DD-HHMMSS.",
+      "pattern": "^eval-\\d{4}-\\d{2}-\\d{2}-\\d{6}$"
+    },
+    "promptHash": {
+      "type": "string",
+      "description": "SHA-256 hash of the evaluation prompt, prefixed with 'sha256:'.",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "captures": {
+      "type": "array",
+      "description": "List of captures included in this evaluation batch.",
+      "items": {
+        "type": "object",
+        "required": ["captureId", "imageHash"],
+        "properties": {
+          "captureId": {
+            "type": "string",
+            "description": "Capture identifier matching the manifest entry.",
+            "pattern": "^[a-z0-9-]+-[a-zA-Z]+-[a-zA-Z]+$"
+          },
+          "imageHash": {
+            "type": "string",
+            "description": "SHA-256 hash of the image file, prefixed with 'sha256:'.",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "issues": {
+      "type": "array",
+      "description": "Concrete PRD compliance issues detected in the screenshots.",
+      "items": {
+        "type": "object",
+        "required": ["issueId", "captureId", "prdReference", "specificationExcerpt", "observation", "deviation", "severity", "confidence"],
+        "properties": {
+          "issueId": {
+            "type": "string",
+            "description": "Unique issue identifier in the format ISS-NNN.",
+            "pattern": "^ISS-\\d{3}$"
+          },
+          "captureId": {
+            "type": "string",
+            "description": "The capture in which this issue was observed."
+          },
+          "prdReference": {
+            "type": "string",
+            "description": "PRD name and functional requirement number (e.g., 'spatial-design-language FR-3')."
+          },
+          "specificationExcerpt": {
+            "type": "string",
+            "description": "The exact specification text that defines expected behavior."
+          },
+          "observation": {
+            "type": "string",
+            "description": "What was actually observed in the screenshot."
+          },
+          "deviation": {
+            "type": "string",
+            "description": "How the observation deviates from the specification."
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "major", "minor"],
+            "description": "Impact severity. critical: blocks daily-driver use. major: noticeable design regression. minor: subtle polish issue."
+          },
+          "confidence": {
+            "type": "string",
+            "enum": ["high", "medium", "low"],
+            "description": "Detection confidence. high: clearly visible deviation from a specific value. medium: likely deviation but cannot measure precisely. low: subtle qualitative impression."
+          },
+          "suggestedAssertion": {
+            "type": "object",
+            "description": "Optional suggested test assertion for automated verification.",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["spatial", "visual", "qualitative"],
+                "description": "The type of test assertion to generate."
+              },
+              "metric": {
+                "type": "string",
+                "description": "The specific metric to measure (e.g., 'h1SpaceAbove', 'backgroundColor', 'blockSpacing')."
+              },
+              "expected": {
+                "description": "The expected value from the PRD specification.",
+                "oneOf": [
+                  { "type": "number" },
+                  { "type": "string" }
+                ]
+              },
+              "tolerance": {
+                "type": "number",
+                "description": "Acceptable deviation from the expected value."
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "qualitativeFindings": {
+      "type": "array",
+      "description": "Qualitative design judgment findings not tied to specific PRD functional requirements.",
+      "items": {
+        "type": "object",
+        "required": ["findingId", "captureId", "reference", "observation", "assessment", "severity", "confidence"],
+        "properties": {
+          "findingId": {
+            "type": "string",
+            "description": "Unique finding identifier in the format QF-NNN.",
+            "pattern": "^QF-\\d{3}$"
+          },
+          "captureId": {
+            "type": "string",
+            "description": "The capture in which this finding was observed."
+          },
+          "reference": {
+            "type": "string",
+            "description": "Charter section or design principle reference (e.g., 'charter:design-philosophy')."
+          },
+          "observation": {
+            "type": "string",
+            "description": "What was observed in the screenshot."
+          },
+          "assessment": {
+            "type": "string",
+            "description": "Qualitative assessment of the observation against the design philosophy."
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "major", "minor"],
+            "description": "Impact severity."
+          },
+          "confidence": {
+            "type": "string",
+            "enum": ["high", "medium", "low"],
+            "description": "Assessment confidence."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["totalCaptures", "issuesDetected", "qualitativeFindings", "bySeverity", "byConfidence"],
+      "description": "Summary statistics for the evaluation.",
+      "properties": {
+        "totalCaptures": {
+          "type": "integer",
+          "description": "Number of captures evaluated in this batch."
+        },
+        "issuesDetected": {
+          "type": "integer",
+          "description": "Total number of concrete PRD compliance issues."
+        },
+        "qualitativeFindings": {
+          "type": "integer",
+          "description": "Total number of qualitative design findings."
+        },
+        "bySeverity": {
+          "type": "object",
+          "required": ["critical", "major", "minor"],
+          "properties": {
+            "critical": { "type": "integer" },
+            "major": { "type": "integer" },
+            "minor": { "type": "integer" }
+          },
+          "additionalProperties": false
+        },
+        "byConfidence": {
+          "type": "object",
+          "required": ["high", "medium", "low"],
+          "properties": {
+            "high": { "type": "integer" },
+            "medium": { "type": "integer" },
+            "low": { "type": "integer" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

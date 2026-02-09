@@ -2,7 +2,7 @@
 
 **Feature ID**: llm-visual-verification
 **Status**: Not Started
-**Progress**: 17% (2 of 12 tasks)
+**Progress**: 25% (3 of 12 tasks)
 **Estimated Effort**: 5 days
 **Started**: 2026-02-09
 
@@ -77,7 +77,7 @@ Three implementation layers: shell scripts in `scripts/visual-verification/` tha
     | Commit | ✅ PASS |
     | Comments | ⏭️ N/A |
 
-- [ ] **T3**: Create evaluation prompt templates and output schema for vision-based design evaluation `[complexity:medium]`
+- [x] **T3**: Create evaluation prompt templates and output schema for vision-based design evaluation `[complexity:medium]`
 
     **Reference**: [design.md#38-evaluation-prompt-construction](design.md#38-evaluation-prompt-construction)
 
@@ -85,17 +85,24 @@ Three implementation layers: shell scripts in `scripts/visual-verification/` tha
 
     **Acceptance Criteria**:
 
-    - [ ] File `scripts/visual-verification/prompts/evaluation-prompt.md` exists with the base evaluation prompt template containing placeholders for `{charter_design_philosophy}`, `{prd_excerpts}`, and `{output_schema}`
-    - [ ] File `scripts/visual-verification/prompts/prd-context-spatial.md` exists with spatial-design-language PRD excerpts relevant to canonical.md and geometry-calibration.md evaluation
-    - [ ] File `scripts/visual-verification/prompts/prd-context-visual.md` exists with terminal-consistent-theming and syntax-highlighting PRD excerpts relevant to theme-tokens.md evaluation
-    - [ ] File `scripts/visual-verification/prompts/prd-context-mermaid.md` exists with mermaid-rendering PRD excerpts relevant to mermaid-focus.md evaluation
-    - [ ] File `scripts/visual-verification/prompts/output-schema.json` exists with the evaluation output JSON schema matching design.md section 3.9
-    - [ ] File `scripts/visual-verification/prompts/test-template-spatial.md` exists with a template for spatial assertion tests using SpatialMeasurement infrastructure
-    - [ ] File `scripts/visual-verification/prompts/test-template-visual.md` exists with a template for color/theme assertion tests using ImageAnalyzer and ColorExtractor infrastructure
-    - [ ] File `scripts/visual-verification/prompts/test-template-qualitative.md` exists with a template for qualitative assessment tests that measure proxy metrics
-    - [ ] Evaluation criteria cover all five dimensions: concrete PRD compliance, spatial rhythm and balance, theme coherence, visual consistency, overall rendering quality
-    - [ ] PRD-to-fixture mapping matches design.md section 3.8 table (canonical -> spatial+cross-element, theme-tokens -> theming+syntax, mermaid-focus -> mermaid, geometry-calibration -> spatial)
-    - [ ] Test templates follow generated test rules from design.md section 3.12: one @Suite per file, VisionDetected_{prdCamelCase}_{FR} naming, doc comments with evaluation ID/PRD ref/spec/observation, JSONResultReporter recording
+    - [x] File `scripts/visual-verification/prompts/evaluation-prompt.md` exists with the base evaluation prompt template containing placeholders for `{charter_design_philosophy}`, `{prd_excerpts}`, and `{output_schema}`
+    - [x] File `scripts/visual-verification/prompts/prd-context-spatial.md` exists with spatial-design-language PRD excerpts relevant to canonical.md and geometry-calibration.md evaluation
+    - [x] File `scripts/visual-verification/prompts/prd-context-visual.md` exists with terminal-consistent-theming and syntax-highlighting PRD excerpts relevant to theme-tokens.md evaluation
+    - [x] File `scripts/visual-verification/prompts/prd-context-mermaid.md` exists with mermaid-rendering PRD excerpts relevant to mermaid-focus.md evaluation
+    - [x] File `scripts/visual-verification/prompts/output-schema.json` exists with the evaluation output JSON schema matching design.md section 3.9
+    - [x] File `scripts/visual-verification/prompts/test-template-spatial.md` exists with a template for spatial assertion tests using SpatialMeasurement infrastructure
+    - [x] File `scripts/visual-verification/prompts/test-template-visual.md` exists with a template for color/theme assertion tests using ImageAnalyzer and ColorExtractor infrastructure
+    - [x] File `scripts/visual-verification/prompts/test-template-qualitative.md` exists with a template for qualitative assessment tests that measure proxy metrics
+    - [x] Evaluation criteria cover all five dimensions: concrete PRD compliance, spatial rhythm and balance, theme coherence, visual consistency, overall rendering quality
+    - [x] PRD-to-fixture mapping matches design.md section 3.8 table (canonical -> spatial+cross-element, theme-tokens -> theming+syntax, mermaid-focus -> mermaid, geometry-calibration -> spatial)
+    - [x] Test templates follow generated test rules from design.md section 3.12: one @Suite per file, VisionDetected_{prdCamelCase}_{FR} naming, doc comments with evaluation ID/PRD ref/spec/observation, JSONResultReporter recording
+
+    **Implementation Summary**:
+
+    - **Files**: `scripts/visual-verification/prompts/evaluation-prompt.md`, `prd-context-spatial.md`, `prd-context-visual.md`, `prd-context-mermaid.md`, `output-schema.json`, `test-template-spatial.md`, `test-template-visual.md`, `test-template-qualitative.md`
+    - **Approach**: Created 8 prompt template files per design spec. Evaluation prompt uses three placeholders ({charter_design_philosophy}, {prd_excerpts}, {output_schema}) and covers all five evaluation dimensions. PRD context files extract relevant functional requirements from spatial-design-language, terminal-consistent-theming, syntax-highlighting, and mermaid-rendering PRDs with visual evaluation notes. Output schema is a JSON Schema document matching design.md section 3.9 structure. Test templates follow section 3.12 rules: one @Suite per file, VisionDetected naming convention, doc comments with source traceability, JSONResultReporter recording, and reference existing test infrastructure (ImageAnalyzer, SpatialMeasurement, ColorExtractor, measureVerticalGaps).
+    - **Deviations**: None
+    - **Tests**: N/A (prompt templates, not compiled code)
 
 ### Capture and Harness (Parallel Group 2)
 
@@ -124,6 +131,18 @@ Three implementation layers: shell scripts in `scripts/visual-verification/` tha
     - **Approach**: Followed existing SpatialHarness/VisualHarness/AnimationHarness singleton pattern. VisionCapturePRD provides harness, config, fixture paths, SHA-256 hash (CryptoKit), manifest types, and manifest writing. VisionCaptureTests iterates 4 fixtures x 2 themes, captures with 1500ms settle delay, computes hashes, and writes manifest.json. Test validates 8 captures produced with correct metadata.
     - **Deviations**: None
     - **Tests**: Compiles and links; runtime test requires macOS GUI session (swift test --filter VisionCapture)
+
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
 
 - [ ] **T12**: Implement the shared test harness for vision-detected generated tests `[complexity:simple]`
 
