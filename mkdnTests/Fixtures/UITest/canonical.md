@@ -1,24 +1,3 @@
-<!--
-  Fixture: canonical.md
-  Purpose: Exercises all Markdown element types supported by mkdn.
-  Used by: Comprehensive rendering tests, visual compliance baseline.
-
-  Expected rendering characteristics:
-  - H1-H6 headings with progressively smaller sizes and headingColor
-  - Body paragraphs with foreground color
-  - Inline formatting: bold, italic, inline code, links, strikethrough
-  - Fenced code block with Swift syntax highlighting (all token types)
-  - Ordered and unordered lists with proper indentation
-  - Blockquote with blockquoteBorder and blockquoteBackground
-  - Table with left, center, and right alignment
-  - Thematic break as horizontal rule
-  - Mermaid flowchart diagram rendered via WKWebView
-  - Mermaid sequence diagram rendered via WKWebView
-  - Image block (rendered as alt text in current implementation)
-
-  Element count: ~20 top-level blocks covering every MarkdownBlock case.
--->
-
 # Heading Level 1
 
 ## Heading Level 2
