@@ -134,7 +134,7 @@
 |------|---------|
 | VisionCaptureTests.swift | Capture orchestrator: produces deterministic screenshots of all fixtures (canonical, theme-tokens, mermaid-focus, geometry-calibration) across both Solarized themes in preview-only mode (4 fixtures x 2 themes = 8 captures). Writes manifest.json with metadata and SHA-256 image hashes for the LLM visual verification workflow |
 | VisionCapturePRD.swift | VisionCaptureHarness singleton, VisionCaptureConfig (fixtures, themes, viewMode), fixture path resolution, output directory resolution, capture ID generation, SHA-256 hash computation (CryptoKit), CaptureManifestEntry/CaptureManifest types, manifest writing |
-| VisionCompliancePRD.swift | Shared harness for vision-detected generated tests. VisionComplianceHarness singleton (same pattern as SpatialHarness/VisualHarness/AnimationHarness), visionFixturePath resolution, visionExtractCapture response validation, visionLoadAnalyzer CGImage loading + ImageAnalyzer initialization |
+| VisionCompliancePRD.swift | Shared harness for vision compliance tests. VisionComplianceHarness singleton (same pattern as SpatialHarness/VisualHarness/AnimationHarness), visionFixturePath resolution, visionExtractCapture response validation, visionLoadAnalyzer CGImage loading + ImageAnalyzer initialization |
 
 ### Fixtures (`mkdnTests/Fixtures/UITest/`)
 | File | Purpose |

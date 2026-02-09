@@ -9,18 +9,16 @@ import Testing
 
 /// Namespace marker for vision compliance test utilities.
 ///
-/// Generated tests produced by `generate-tests.sh` share this
-/// harness, fixture path resolution, and extraction helpers.
+/// The capture orchestrator and these shared helpers support the
+/// LLM visual verification workflow (`verify-visual.sh`).
 enum VisionCompliancePRD {}
 
 // MARK: - Shared Harness
 
-/// Shared app instance for vision-detected compliance tests.
+/// Shared app instance for vision compliance tests.
 ///
 /// Follows the same singleton pattern as `SpatialHarness`,
-/// `VisualHarness`, and `AnimationHarness`. Each generated test
-/// suite uses this harness to avoid launching multiple app
-/// instances.
+/// `VisualHarness`, and `AnimationHarness`.
 enum VisionComplianceHarness {
     nonisolated(unsafe) static var launcher: AppLauncher?
     nonisolated(unsafe) static var client: TestHarnessClient?

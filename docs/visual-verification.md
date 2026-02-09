@@ -1,6 +1,6 @@
 # Visual Verification Workflow
 
-LLM vision-based design compliance for mkdn. Captures deterministic screenshots via the test harness, evaluates them against PRD specifications and the charter's design philosophy using Claude Code's vision capabilities, generates failing tests for detected issues, fixes the code autonomously via `/build --afk`, and re-verifies the result.
+On-demand LLM vision-based design compliance for mkdn. Captures deterministic screenshots via the test harness and evaluates them against PRD specifications and the charter's design philosophy using Claude Code's vision capabilities. Reports findings for developer review.
 
 This is the qualitative counterpart to the existing pixel-level automated UI testing infrastructure: where pixel tests answer "is this margin 32pt?", the vision verification answers "does this look right?" and "does the spatial rhythm feel balanced?"
 
@@ -15,46 +15,45 @@ This is the qualitative counterpart to the existing pixel-level automated UI tes
 ## Quick Start
 
 ```bash
-# Full autonomous loop: capture, evaluate, generate tests, fix, verify
-scripts/visual-verification/heal-loop.sh --feature-id my-feature
+# Full verification: capture, evaluate, print summary
+scripts/visual-verification/verify-visual.sh
 
 # Dry run: capture screenshots + preview what would be evaluated (no API calls)
-scripts/visual-verification/heal-loop.sh --dry-run
+scripts/visual-verification/verify-visual.sh --dry-run
 
-# Attended mode: interactive escalation prompts instead of report files
-scripts/visual-verification/heal-loop.sh --feature-id my-feature --attended
+# Skip build step (use existing binary)
+scripts/visual-verification/verify-visual.sh --skip-build
+
+# Bypass evaluation cache
+scripts/visual-verification/verify-visual.sh --force-fresh
+
+# Raw JSON output instead of human-readable summary
+scripts/visual-verification/verify-visual.sh --json
 ```
 
 ## Shell Scripts
 
-### heal-loop.sh
+### verify-visual.sh
 
-Top-level orchestrator that chains all phases with bounded iteration.
+Top-level entry point that chains capture and evaluation, then formats results.
 
 ```bash
-scripts/visual-verification/heal-loop.sh [options]
+scripts/visual-verification/verify-visual.sh [options]
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--feature-id ID` | (required) | Feature ID for `/build --afk` invocation (required unless `--dry-run`) |
-| `--max-iterations N` | 3 | Maximum heal iterations before escalation |
-| `--dry-run` | off | Capture + evaluate only, no test generation or code fixes |
-| `--attended` | off | Interactive escalation prompts instead of report files |
-| `--skip-build` | off | Skip initial `swift build` in capture phase |
+| `--dry-run` | off | Capture + show what would be evaluated (no API calls) |
+| `--skip-build` | off | Skip `swift build` in capture phase |
+| `--force-fresh` | off | Bypass evaluation cache |
+| `--json` | off | Output raw JSON instead of human-readable summary |
 
 **Lifecycle**:
 
 1. **Capture**: Run `capture.sh` to produce screenshots and manifest
 2. **Evaluate**: Run `evaluate.sh` to assess screenshots against design specs
-3. If no issues detected: write clean report, exit 0
-4. **Generate**: Run `generate-tests.sh` to create failing Swift tests
-5. **Commit**: `git add` and `git commit` the generated tests
-6. **Fix**: Invoke `/build --afk` with failing test paths and PRD context
-7. **Verify**: Run `verify.sh` to re-capture, re-evaluate, and detect regressions
-8. If regressions found: loop back to step 4 (up to `--max-iterations`)
-9. If clean: write success report, exit 0
-10. If max iterations exhausted: write escalation report, exit 1
+3. **Report**: Read evaluation results and print human-readable summary
+4. Exit 0 if clean, exit 1 if issues detected, exit 2 on infrastructure failure
 
 ### capture.sh
 
@@ -100,43 +99,6 @@ Batches are grouped by fixture (same fixture, both themes in one batch). Default
 
 Cache keys are computed from SHA-256 hashes of image content, prompt templates, and PRD files. Unchanged inputs return cached results without API calls.
 
-### generate-tests.sh
-
-Reads an evaluation report and generates Swift test files for medium/high confidence issues.
-
-```bash
-scripts/visual-verification/generate-tests.sh [evaluation-report-path]
-```
-
-If no path is provided, uses the most recent evaluation report in `.rp1/work/verification/reports/`.
-
-For each qualifying issue:
-
-1. Determines test type (spatial, visual, qualitative) from the issue data
-2. Reads the corresponding test template from `scripts/visual-verification/prompts/`
-3. Generates a Swift test file via Claude Code
-4. Validates compilation (`swift build`); discards on failure
-5. Validates the test currently fails (`swift test --filter`); discards if it passes (false positive)
-6. Moves validated tests from staging to `mkdnTests/UITest/VisionCompliance/`
-
-Generated files follow the naming convention: `VisionDetected_{PRD}_{FR}_{aspect}.swift`
-
-### verify.sh
-
-Re-captures screenshots and re-evaluates after a fix, comparing against the previous evaluation.
-
-```bash
-scripts/visual-verification/verify.sh [previous-evaluation-path]
-```
-
-Classifies each issue from the previous evaluation:
-
-- **Resolved**: present in previous evaluation, absent in new
-- **Regression**: absent in previous evaluation, present in new
-- **Remaining**: present in both evaluations
-
-Updates the regression registry with resolution status.
-
 ## Interpreting Evaluation Reports
 
 Evaluation reports are written to `.rp1/work/verification/reports/{timestamp}-evaluation.json`.
@@ -155,7 +117,7 @@ Each detected issue contains:
 | `deviation` | How the observation differs from the specification |
 | `severity` | `critical` (blocks daily-driver use), `major` (noticeable regression), `minor` (subtle polish) |
 | `confidence` | `high`, `medium`, `low` |
-| `suggestedAssertion` | Structured hint for test generation (type, metric, expected value, tolerance) |
+| `suggestedAssertion` | Structured hint for writing targeted tests (type, metric, expected value, tolerance) |
 
 ### Qualitative Findings
 
@@ -184,51 +146,6 @@ The `summary` object provides aggregate counts:
 }
 ```
 
-## Interpreting Escalation Reports
-
-Escalation reports are written to `.rp1/work/verification/reports/{timestamp}-escalation.json` when the self-healing loop cannot fully resolve all issues.
-
-**Escalation triggers**:
-
-- Maximum iterations exhausted with unresolved issues remaining
-- All issues are low-confidence (none auto-testable)
-- Generated tests fail compilation or pass immediately (false positives)
-
-Each escalation report contains:
-
-- `escalationType`: Why escalation occurred (e.g., `maxIterationsExhausted`)
-- `unresolvedIssues`: Each with all fix attempts, iteration history, and suggested next steps
-- `lowConfidenceIssues`: Issues flagged for human review (never auto-tested)
-
-**Suggested next steps** in escalation reports are actionable recommendations:
-
-- Review the referenced PRD specification for ambiguity
-- Check if the rendering approach conflicts with the requirement
-- Consider whether the PRD value needs updating based on implementation constraints
-
-## Self-Healing Loop Lifecycle
-
-The full loop runs bounded iterations (default: 3 max):
-
-```
-Iteration 1:
-  capture -> evaluate -> 3 issues found
-  generate tests -> 2 tests pass validation (1 discarded)
-  git commit tests
-  /build --afk -> fixes code
-  re-capture -> re-evaluate -> 2 resolved, 1 new regression
-
-Iteration 2:
-  generate test for regression -> 1 test passes validation
-  git commit test
-  /build --afk -> fixes regression
-  re-capture -> re-evaluate -> all clean
-
-Result: success report, exit 0
-```
-
-Loop state is tracked in `.rp1/work/verification/current-loop.json` with per-iteration records of issues detected, tests generated, build results, and re-verification outcomes.
-
 ## Cost Management
 
 ### Caching
@@ -246,58 +163,29 @@ Unchanged inputs skip API calls entirely. Cache entries are replaced (not update
 Use `--dry-run` to preview evaluation without API calls:
 
 ```bash
-scripts/visual-verification/heal-loop.sh --dry-run
+scripts/visual-verification/verify-visual.sh --dry-run
 ```
 
 Produces a dry-run report showing:
 
 - Number of captures produced
 - Batch composition (which captures grouped together)
-- Which batches would hit cache vs require fresh evaluation
 - Estimated API calls
-
-### Batch Composition
-
-Screenshots are grouped by fixture (same fixture, both themes = 1 batch). Default: 4 batches of 2 images each. Configurable via `--batch-size`.
 
 ### Typical API Call Counts
 
 | Scenario | API Calls |
 |----------|-----------|
-| Clean run, no cache | 4 (one per fixture batch) |
-| Clean run, all cached | 0 |
-| Full loop, 1 iteration | 8 (4 initial + 4 re-verification) |
-| Full loop, max 3 iterations | Up to 16 |
+| Fresh run, no cache | 4 (one per fixture batch) |
+| All cached | 0 |
 
 ## Artifacts
 
 | Location | Purpose | Git-Tracked |
 |----------|---------|-------------|
 | `.rp1/work/verification/captures/` | Screenshots and `manifest.json` | No (regenerated) |
-| `.rp1/work/verification/reports/` | Evaluation, escalation, success, dry-run reports | Yes |
+| `.rp1/work/verification/reports/` | Evaluation and dry-run reports | Yes |
 | `.rp1/work/verification/cache/` | Cached evaluation results | Yes |
-| `.rp1/work/verification/registry.json` | Regression registry (compliance history) | Yes |
 | `.rp1/work/verification/audit.jsonl` | Audit trail (JSON Lines, append-only) | Yes |
-| `.rp1/work/verification/staging/` | Atomic test generation staging area | No (temporary) |
-| `.rp1/work/verification/current-loop.json` | Current loop iteration state | No (temporary) |
-| `mkdnTests/UITest/VisionCompliance/` | Capture orchestrator and generated tests | Yes |
+| `mkdnTests/UITest/VisionCompliance/` | Capture orchestrator test suite | Yes |
 | `scripts/visual-verification/prompts/` | Prompt templates and output schema | Yes |
-
-## Regression Registry
-
-The registry at `.rp1/work/verification/registry.json` records evaluation history per capture:
-
-- Screenshot content hash and capture ID
-- Evaluation timestamps and detected issues
-- Resolution status for each issue (resolved, regressed, remaining)
-- Last evaluation timestamp and overall status
-
-When re-evaluating a capture whose hash exists in the registry, `verify.sh` detects regressions: previously-resolved issues that reappear are flagged with `"status": "regressed"`.
-
-## Audit Trail
-
-Every operation is logged to `.rp1/work/verification/audit.jsonl` in JSON Lines format (one JSON object per line, append-only for crash resilience).
-
-Entry types: `capture`, `evaluation`, `testGeneration`, `buildInvocation`, `reVerification`, `escalation`, `loopStarted`, `loopCompleted`.
-
-Each entry includes a timestamp and operation-specific metadata for full traceability from detection to resolution.

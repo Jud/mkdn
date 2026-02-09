@@ -21,6 +21,15 @@ struct VisionCaptureTests {
     @Test("Capture all fixtures for vision verification")
     func captureAllFixtures() async throws {
         let client = try await VisionCaptureHarness.ensureRunning()
+
+        // Workaround: Give the SwiftUI view hierarchy time to complete
+        // initial layout. The harness socket becomes available before
+        // SelectableTextView's .task(id:) completes its initial render
+        // cycle, causing the RenderCompletionSignal to miss the first
+        // loadFile. This delay ensures the view is ready to receive
+        // content updates. See: RenderCompletionSignal.awaitRenderComplete()
+        try await Task.sleep(for: .seconds(3))
+
         let outputDir = visionCaptureOutputDir()
         let projectRoot = visionCaptureProjectRoot().path
 

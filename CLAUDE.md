@@ -58,49 +58,51 @@ Feature-Based MVVM. Two-target layout:
 
 ### Visual Verification Workflow
 
-Scripts in `scripts/visual-verification/` implement an LLM vision-based design compliance workflow. The workflow captures deterministic screenshots via the test harness, evaluates them against PRD specifications using Claude Code's vision capabilities, generates failing tests for detected issues, invokes `/build --afk` to fix them, and re-verifies the result.
+Scripts in `scripts/visual-verification/` implement an on-demand LLM vision-based design compliance workflow. The workflow captures deterministic screenshots via the test harness and evaluates them against PRD specifications using Claude Code's vision capabilities, reporting findings for developer review.
 
 #### Quick Reference
 
 ```bash
-# Full autonomous loop (capture, evaluate, generate tests, fix, verify)
-scripts/visual-verification/heal-loop.sh --feature-id my-feature
+# Full verification (capture + evaluate + summary)
+scripts/visual-verification/verify-visual.sh
 
 # Dry run (capture + show what would be evaluated, no API calls)
-scripts/visual-verification/heal-loop.sh --dry-run
+scripts/visual-verification/verify-visual.sh --dry-run
+
+# Skip build step (use existing binary)
+scripts/visual-verification/verify-visual.sh --skip-build
+
+# Bypass cache for fresh evaluation
+scripts/visual-verification/verify-visual.sh --force-fresh
+
+# Raw JSON output instead of summary
+scripts/visual-verification/verify-visual.sh --json
 
 # Individual phases
-scripts/visual-verification/capture.sh          # Capture screenshots
-scripts/visual-verification/evaluate.sh         # Vision evaluation
-scripts/visual-verification/generate-tests.sh   # Generate failing tests
-scripts/visual-verification/verify.sh           # Re-verify after fix
+scripts/visual-verification/capture.sh          # Capture screenshots only
+scripts/visual-verification/evaluate.sh         # Vision evaluation only
 ```
 
 #### Flags
 
 | Script | Flag | Description |
 |--------|------|-------------|
-| `heal-loop.sh` | `--feature-id ID` | Feature ID for `/build --afk` invocation (required unless `--dry-run`) |
-| `heal-loop.sh` | `--max-iterations N` | Maximum heal iterations (default: 3) |
-| `heal-loop.sh` | `--dry-run` | Capture + evaluate only, no test generation or fixes |
-| `heal-loop.sh` | `--attended` | Interactive escalation (prompt instead of report file) |
-| `heal-loop.sh` | `--skip-build` | Skip initial `swift build` in capture phase |
+| `verify-visual.sh` | `--dry-run` | Capture + show what would be evaluated (no API calls) |
+| `verify-visual.sh` | `--skip-build` | Skip swift build step |
+| `verify-visual.sh` | `--force-fresh` | Bypass evaluation cache |
+| `verify-visual.sh` | `--json` | Output raw JSON instead of summary |
 | `capture.sh` | `--skip-build` | Skip `swift build --product mkdn` step |
 | `evaluate.sh` | `--dry-run` | Assemble prompts and report what would be evaluated without API calls |
 | `evaluate.sh` | `--batch-size N` | Maximum images per evaluation batch (default: 4) |
 | `evaluate.sh` | `--force-fresh` | Bypass cache, force fresh evaluation |
-| `generate-tests.sh` | `[path]` | Evaluation report path (default: most recent in reports/) |
-| `verify.sh` | `[path]` | Previous evaluation path for comparison (default: most recent) |
 
 #### Artifacts
 
 | Location | Purpose |
 |----------|---------|
 | `.rp1/work/verification/captures/` | Captured screenshots and `manifest.json` |
-| `.rp1/work/verification/reports/` | Evaluation, re-verification, escalation, and dry-run reports |
+| `.rp1/work/verification/reports/` | Evaluation and dry-run reports |
 | `.rp1/work/verification/cache/` | Cached evaluation results keyed by content hash |
-| `.rp1/work/verification/registry.json` | Persistent regression registry |
-| `.rp1/work/verification/audit.jsonl` | Audit trail of all operations (JSON Lines) |
-| `.rp1/work/verification/staging/` | Atomic staging for test generation |
-| `mkdnTests/UITest/VisionCompliance/` | Generated test files and capture orchestrator |
+| `.rp1/work/verification/audit.jsonl` | Audit trail of evaluation operations (JSON Lines) |
+| `mkdnTests/UITest/VisionCompliance/` | Capture orchestrator test suite |
 | `scripts/visual-verification/prompts/` | Prompt templates and output schema |
