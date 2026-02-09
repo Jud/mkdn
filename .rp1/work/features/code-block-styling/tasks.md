@@ -2,7 +2,7 @@
 
 **Feature ID**: code-block-styling
 **Status**: Not Started
-**Progress**: 25% (2 of 8 tasks)
+**Progress**: 37% (3 of 8 tasks)
 **Estimated Effort**: 3 days
 **Started**: 2026-02-09
 
@@ -95,9 +95,21 @@ Replace the current per-run `NSAttributedString.Key.backgroundColor` approach fo
     - **Deviations**: None
     - **Tests**: 32/32 passing (MarkdownTextStorageBuilderTests)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ✅ PASS |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
 ### Integration (Parallel Group 2)
 
-- [ ] **T3**: Wire CodeBlockBackgroundTextView into SelectableTextView `[complexity:medium]`
+- [x] **T3**: Wire CodeBlockBackgroundTextView into SelectableTextView `[complexity:medium]`
 
     **Reference**: [design.md#34-selectabletextview-changes](design.md#34-selectabletextview-changes)
 
@@ -105,12 +117,19 @@ Replace the current per-run `NSAttributedString.Key.backgroundColor` approach fo
 
     **Acceptance Criteria**:
 
-    - [ ] `SelectableTextView.makeNSView` creates `CodeBlockBackgroundTextView` instead of default `NSTextView` from `NSTextView.scrollableTextView()`
-    - [ ] Manual `NSScrollView` + `CodeBlockBackgroundTextView` construction applies identical configuration to the current setup (editable: false, selectable: true, textContainerInset, drawsBackground, etc.)
-    - [ ] All existing coordinator logic (OverlayCoordinator, EntranceAnimator, render completion signaling) continues to work unchanged
-    - [ ] Text selection works within and across code blocks (FR-10)
-    - [ ] Scroll behavior is unchanged from pre-change baseline
-    - [ ] Code compiles with Swift 6 strict concurrency and passes SwiftLint
+    - [x] `SelectableTextView.makeNSView` creates `CodeBlockBackgroundTextView` instead of default `NSTextView` from `NSTextView.scrollableTextView()`
+    - [x] Manual `NSScrollView` + `CodeBlockBackgroundTextView` construction applies identical configuration to the current setup (editable: false, selectable: true, textContainerInset, drawsBackground, etc.)
+    - [x] All existing coordinator logic (OverlayCoordinator, EntranceAnimator, render completion signaling) continues to work unchanged
+    - [x] Text selection works within and across code blocks (FR-10)
+    - [x] Scroll behavior is unchanged from pre-change baseline
+    - [x] Code compiles with Swift 6 strict concurrency and passes SwiftLint
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Features/Viewer/Views/SelectableTextView.swift`
+    - **Approach**: Replaced `NSTextView.scrollableTextView()` with a new static factory method `makeScrollableCodeBlockTextView()` that manually constructs the TextKit 2 stack (NSTextContentStorage, NSTextLayoutManager, NSTextContainer) and creates a `CodeBlockBackgroundTextView` embedded in an NSScrollView. The existing `configureTextView`, `configureScrollView`, and `applyTheme` methods apply unchanged. Coordinator, EntranceAnimator, and OverlayCoordinator all reference `NSTextView` and work transparently with the subclass. `updateNSView` unchanged since `CodeBlockBackgroundTextView` is an `NSTextView` subclass.
+    - **Deviations**: None
+    - **Tests**: 32/32 passing (MarkdownTextStorageBuilder); all unit tests pass
 
 - [ ] **T4**: Write unit tests for code block attribute generation `[complexity:medium]`
 

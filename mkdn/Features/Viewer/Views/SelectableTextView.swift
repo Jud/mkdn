@@ -28,10 +28,7 @@ struct SelectableTextView: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> NSScrollView {
-        let scrollView = NSTextView.scrollableTextView()
-        guard let textView = scrollView.documentView as? NSTextView else {
-            return scrollView
-        }
+        let (scrollView, textView) = Self.makeScrollableCodeBlockTextView()
 
         Self.configureTextView(textView)
         Self.configureScrollView(scrollView)
@@ -97,6 +94,35 @@ struct SelectableTextView: NSViewRepresentable {
 // MARK: - View Configuration
 
 extension SelectableTextView {
+    private static func makeScrollableCodeBlockTextView() -> (
+        NSScrollView, CodeBlockBackgroundTextView
+    ) {
+        let textContainer = NSTextContainer()
+        textContainer.widthTracksTextView = true
+
+        let layoutManager = NSTextLayoutManager()
+        layoutManager.textContainer = textContainer
+
+        let contentStorage = NSTextContentStorage()
+        contentStorage.addTextLayoutManager(layoutManager)
+
+        let textView = CodeBlockBackgroundTextView(
+            frame: .zero,
+            textContainer: textContainer
+        )
+        textView.autoresizingMask = [.width]
+        textView.minSize = NSSize(width: 0, height: 0)
+        textView.maxSize = NSSize(
+            width: CGFloat.greatestFiniteMagnitude,
+            height: CGFloat.greatestFiniteMagnitude
+        )
+
+        let scrollView = NSScrollView()
+        scrollView.documentView = textView
+
+        return (scrollView, textView)
+    }
+
     private static func configureTextView(_ textView: NSTextView) {
         textView.wantsLayer = true
         textView.isEditable = false
