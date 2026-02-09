@@ -27,7 +27,7 @@ Mac-native Markdown viewer/editor. Swift 6 + SwiftUI. macOS 14.0+.
 
 ### Critical Rules
 
-- **NO WKWebView** -- the app is native SwiftUI, except for Mermaid diagrams (WKWebView-per-diagram).
+- Native SwiftUI for all UI. WKWebView is allowed **only** for Mermaid diagram rendering (one WKWebView per diagram).
 - Mermaid rendering: WKWebView + standard Mermaid.js per diagram. Click-to-focus interaction model.
 - Use `@Observable` (not `ObservableObject`) for all state.
 - Use Swift Testing (`@Test`, `#expect`, `@Suite`) for unit tests.
