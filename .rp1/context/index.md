@@ -27,6 +27,10 @@
 - UI compliance tests: `mkdnTests/UITest/`
 - UI test fixtures: `mkdnTests/Fixtures/UITest/`
 - UI testing docs: `docs/ui-testing.md`
+- Vision verification scripts: `scripts/visual-verification/`
+- Vision verification artifacts: `.rp1/work/verification/`
+- Vision compliance tests: `mkdnTests/UITest/VisionCompliance/`
+- Vision verification docs: `docs/visual-verification.md`
 - Unit tests: `mkdnTests/Unit/`
 
 ## Critical Constraints

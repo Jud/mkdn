@@ -112,3 +112,20 @@ swift test (test runner)          mkdn --test-harness (app under test)
 ```
 
 No XCUITest dependency -- the app controls itself. No `.xcodeproj` required -- pure SPM project. The test harness client connects via POSIX sockets with retry logic (20 attempts, 250ms delay) to handle the race between process launch and socket readiness.
+
+### Vision Verification (LLM-Based Design Compliance)
+
+In addition to the deterministic pixel-level compliance suites (Spatial, Visual, Animation), the test harness infrastructure is also consumed by the **LLM visual verification workflow**. This workflow uses the same capture mechanism to produce deterministic screenshots, which are then evaluated by Claude Code's vision capabilities against design PRDs and the charter's design philosophy.
+
+The capture orchestrator (`VisionCaptureTests.swift`) follows the same harness singleton pattern as the other compliance suites. It captures all fixtures across both Solarized themes in preview-only mode (8 screenshots total), writing them to `.rp1/work/verification/captures/` with a `manifest.json` recording metadata (dimensions, scale factor, SHA-256 content hash) for each capture.
+
+Shell scripts in `scripts/visual-verification/` orchestrate the full workflow: capture screenshots, evaluate them via LLM vision, generate failing Swift tests for detected issues, invoke `/build --afk` to fix the code, and re-verify. Generated tests live in `mkdnTests/UITest/VisionCompliance/` and share a `VisionComplianceHarness` singleton that follows the same pattern as SpatialHarness/VisualHarness/AnimationHarness.
+
+```
+scripts/visual-verification/
+  capture.sh          -> swift test --filter VisionCapture -> screenshots + manifest
+  evaluate.sh         -> LLM vision evaluation -> evaluation report
+  generate-tests.sh   -> failing Swift tests in VisionCompliance/
+  heal-loop.sh        -> full loop: capture -> evaluate -> generate -> fix -> verify
+  verify.sh           -> re-capture + re-evaluate after fix
+```

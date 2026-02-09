@@ -129,6 +129,13 @@
 | AnimationComplianceTests.swift + AnimationComplianceTests+FadeDurations.swift + AnimationComplianceTests+ReduceMotion.swift | 13 animation tests: orb pulse, fade durations, spring curves, stagger delays, reduce motion. Calibration gate validates frame capture + crossfade timing |
 | AnimationPRD.swift | PRD constants for animation-design-language FR-1 through FR-5. Tolerances: 33.3ms at 30fps, 16.7ms at 60fps, 25% CPM relative |
 
+### Vision Compliance (`mkdnTests/UITest/VisionCompliance/`)
+| File | Purpose |
+|------|---------|
+| VisionCaptureTests.swift | Capture orchestrator: produces deterministic screenshots of all fixtures (canonical, theme-tokens, mermaid-focus, geometry-calibration) across both Solarized themes in preview-only mode (4 fixtures x 2 themes = 8 captures). Writes manifest.json with metadata and SHA-256 image hashes for the LLM visual verification workflow |
+| VisionCapturePRD.swift | VisionCaptureHarness singleton, VisionCaptureConfig (fixtures, themes, viewMode), fixture path resolution, output directory resolution, capture ID generation, SHA-256 hash computation (CryptoKit), CaptureManifestEntry/CaptureManifest types, manifest writing |
+| VisionCompliancePRD.swift | Shared harness for vision-detected generated tests. VisionComplianceHarness singleton (same pattern as SpatialHarness/VisualHarness/AnimationHarness), visionFixturePath resolution, visionExtractCapture response validation, visionLoadAnalyzer CGImage loading + ImageAnalyzer initialization |
+
 ### Fixtures (`mkdnTests/Fixtures/UITest/`)
 | File | Purpose |
 |------|---------|
