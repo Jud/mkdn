@@ -51,8 +51,16 @@ enum TestHarnessHandler {
         }
         let url = URL(fileURLWithPath: path)
         do {
+            let signal = RenderCompletionSignal.shared
+            let previousContent = docState.markdownContent
+            signal.prepareForRender()
             try docState.loadFile(at: url)
-            try await RenderCompletionSignal.shared.awaitRenderComplete()
+            let contentChanged = docState.markdownContent != previousContent
+            if contentChanged {
+                try await signal.awaitPreparedRender()
+            } else {
+                signal.cancelPrepare()
+            }
             return .ok(message: "Loaded: \(path)")
         } catch is HarnessError {
             return .error("Render timeout after loading file")
@@ -66,8 +74,16 @@ enum TestHarnessHandler {
             return .error("No document state available")
         }
         do {
+            let signal = RenderCompletionSignal.shared
+            let previousContent = docState.markdownContent
+            signal.prepareForRender()
             try docState.reloadFile()
-            try await RenderCompletionSignal.shared.awaitRenderComplete()
+            let contentChanged = docState.markdownContent != previousContent
+            if contentChanged {
+                try await signal.awaitPreparedRender()
+            } else {
+                signal.cancelPrepare()
+            }
             return .ok(message: "File reloaded")
         } catch is HarnessError {
             return .error("Render timeout after reload")
@@ -84,6 +100,8 @@ enum TestHarnessHandler {
         guard let docState = documentState else {
             return .error("No document state available")
         }
+        let signal = RenderCompletionSignal.shared
+        signal.prepareForRender()
         switch mode {
         case "previewOnly":
             docState.switchMode(to: .previewOnly)
@@ -92,9 +110,7 @@ enum TestHarnessHandler {
         default:
             return .error("Unknown mode: \(mode). Use: previewOnly, sideBySide")
         }
-        try? await RenderCompletionSignal.shared.awaitRenderComplete(
-            timeout: .seconds(5)
-        )
+        try? await signal.awaitPreparedRender(timeout: .seconds(5))
         return .ok(message: "Mode: \(mode)")
     }
 
@@ -104,10 +120,13 @@ enum TestHarnessHandler {
         guard let settings = appSettings else {
             return .error("No app settings available")
         }
+        let signal = RenderCompletionSignal.shared
+        let hasView = documentState?.currentFileURL != nil
+        if hasView { signal.prepareForRender() }
         settings.cycleTheme()
-        try? await RenderCompletionSignal.shared.awaitRenderComplete(
-            timeout: .seconds(5)
-        )
+        if hasView {
+            try? await signal.awaitPreparedRender(timeout: .seconds(5))
+        }
         return .ok(message: "Theme: \(settings.themeMode.rawValue)")
     }
 
@@ -117,6 +136,9 @@ enum TestHarnessHandler {
         guard let settings = appSettings else {
             return .error("No app settings available")
         }
+        let signal = RenderCompletionSignal.shared
+        let hasView = documentState?.currentFileURL != nil
+        if hasView { signal.prepareForRender() }
         switch theme {
         case "solarizedDark":
             settings.themeMode = .solarizedDark
@@ -127,9 +149,9 @@ enum TestHarnessHandler {
                 "Unknown theme: \(theme). Use: solarizedDark, solarizedLight"
             )
         }
-        try? await RenderCompletionSignal.shared.awaitRenderComplete(
-            timeout: .seconds(5)
-        )
+        if hasView {
+            try? await signal.awaitPreparedRender(timeout: .seconds(5))
+        }
         return .ok(message: "Theme set: \(theme)")
     }
 
