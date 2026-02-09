@@ -2,7 +2,7 @@
 
 **Feature ID**: llm-visual-verification
 **Status**: Not Started
-**Progress**: 25% (3 of 12 tasks)
+**Progress**: 33% (4 of 12 tasks)
 **Estimated Effort**: 5 days
 **Started**: 2026-02-09
 
@@ -104,6 +104,18 @@ Three implementation layers: shell scripts in `scripts/visual-verification/` tha
     - **Deviations**: None
     - **Tests**: N/A (prompt templates, not compiled code)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ⏭️ N/A |
+
 ### Capture and Harness (Parallel Group 2)
 
 - [x] **T2**: Implement the capture orchestrator Swift test suite for deterministic screenshot capture `[complexity:complex]`
@@ -162,7 +174,7 @@ Three implementation layers: shell scripts in `scripts/visual-verification/` tha
 
 ### Shell Scripts -- Phase Scripts (Parallel Group 3)
 
-- [ ] **T9**: Implement capture.sh and evaluate.sh orchestration scripts `[complexity:medium]`
+- [x] **T9**: Implement capture.sh and evaluate.sh orchestration scripts `[complexity:medium]`
 
     **Reference**: [design.md#32-capturesh](design.md#32-capturesh), [design.md#33-evaluatesh](design.md#33-evaluatesh)
 
@@ -170,20 +182,27 @@ Three implementation layers: shell scripts in `scripts/visual-verification/` tha
 
     **Acceptance Criteria**:
 
-    - [ ] File `scripts/visual-verification/capture.sh` exists, is executable, and uses `set -euo pipefail`
-    - [ ] capture.sh builds mkdn (`swift build --product mkdn`), supports `--skip-build` flag
-    - [ ] capture.sh runs `swift test --filter VisionCapture` and validates manifest.json exists with entries
-    - [ ] capture.sh exits 0 on success, 1 on failure
-    - [ ] File `scripts/visual-verification/evaluate.sh` exists, is executable, and uses `set -euo pipefail`
-    - [ ] evaluate.sh reads manifest.json, computes cache key (SHA-256 of sorted image hashes + prompt hash + PRD hashes)
-    - [ ] evaluate.sh checks cache directory for existing result and returns cached result on hit
-    - [ ] evaluate.sh assembles evaluation prompt from charter design philosophy, PRD excerpts, evaluation criteria, and output schema
-    - [ ] evaluate.sh groups captures into batches by fixture (same fixture, both themes = 1 batch), respects `--batch-size` flag (default 4)
-    - [ ] evaluate.sh supports `--dry-run` mode that writes a dry-run report without making evaluation calls
-    - [ ] evaluate.sh writes evaluation report to `.rp1/work/verification/reports/{timestamp}-evaluation.json`
-    - [ ] evaluate.sh populates cache entry and appends audit trail entry
-    - [ ] Both scripts resolve `PROJECT_ROOT` from `SCRIPT_DIR` and use `info()`/`error()` helper functions
-    - [ ] Both scripts follow conventions from existing `scripts/release.sh` and `scripts/smoke-test.sh`
+    - [x] File `scripts/visual-verification/capture.sh` exists, is executable, and uses `set -euo pipefail`
+    - [x] capture.sh builds mkdn (`swift build --product mkdn`), supports `--skip-build` flag
+    - [x] capture.sh runs `swift test --filter VisionCapture` and validates manifest.json exists with entries
+    - [x] capture.sh exits 0 on success, 1 on failure
+    - [x] File `scripts/visual-verification/evaluate.sh` exists, is executable, and uses `set -euo pipefail`
+    - [x] evaluate.sh reads manifest.json, computes cache key (SHA-256 of sorted image hashes + prompt hash + PRD hashes)
+    - [x] evaluate.sh checks cache directory for existing result and returns cached result on hit
+    - [x] evaluate.sh assembles evaluation prompt from charter design philosophy, PRD excerpts, evaluation criteria, and output schema
+    - [x] evaluate.sh groups captures into batches by fixture (same fixture, both themes = 1 batch), respects `--batch-size` flag (default 4)
+    - [x] evaluate.sh supports `--dry-run` mode that writes a dry-run report without making evaluation calls
+    - [x] evaluate.sh writes evaluation report to `.rp1/work/verification/reports/{timestamp}-evaluation.json`
+    - [x] evaluate.sh populates cache entry and appends audit trail entry
+    - [x] Both scripts resolve `PROJECT_ROOT` from `SCRIPT_DIR` and use `info()`/`error()` helper functions
+    - [x] Both scripts follow conventions from existing `scripts/release.sh` and `scripts/smoke-test.sh`
+
+    **Implementation Summary**:
+
+    - **Files**: `scripts/visual-verification/capture.sh`, `scripts/visual-verification/evaluate.sh`
+    - **Approach**: Both scripts follow release.sh conventions (set -euo pipefail, SCRIPT_DIR/PROJECT_ROOT resolution, info/error helpers). capture.sh: build + swift test --filter VisionCapture + manifest validation via jq. evaluate.sh: manifest parsing, SHA-256 cache key computation (image hashes + prompt template + charter + PRD file hashes), cache check/populate, charter design philosophy extraction via sed, PRD context mapping per fixture, batch grouping by fixture stem, dry-run report generation, Claude Code CLI invocation for vision evaluation per batch, batch result merging with jq, report/cache/audit writing.
+    - **Deviations**: Added --force-fresh flag to evaluate.sh (bypasses cache) for debugging convenience; not in original AC but supports the caching workflow. Cache entry includes inputHashes per design schema section 3.10.
+    - **Tests**: Validated via bash -n syntax check, --help flag output, and full --dry-run execution with 8-capture test manifest producing correct 4-batch composition
 
 - [ ] **T10**: Implement generate-tests.sh and verify.sh orchestration scripts `[complexity:medium]`
 
