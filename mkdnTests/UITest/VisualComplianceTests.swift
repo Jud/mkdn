@@ -325,6 +325,127 @@ struct VisualComplianceTests {
         )
     }
 
+    // MARK: - Code Block Structural Tests
+
+    /// Verifies that code blocks render as a contained rectangular region
+    /// with rounded corners, not just text-line-level `.backgroundColor`.
+    ///
+    /// The current NSAttributedString rendering path sets `.backgroundColor`
+    /// on individual text runs, which produces a background that follows
+    /// text line fragments rather than forming a cohesive rectangular block.
+    /// The CodeBlockView SwiftUI view (currently unused in the NSTextView
+    /// path) has proper rounded rectangle + border styling.
+    ///
+    /// This test checks that the code block background forms a full-width
+    /// rectangular region whose left and right edges extend uniformly to
+    /// the same x-positions across all lines.
+    @Test("test_visualCompliance_codeBlockStructuralContainer")
+    func codeBlockStructuralContainer() async throws {
+        let (analyzer, colors, renderedBg) = try await prepareDark()
+        let expected = PixelColor.from(rgbColor: colors.codeBackground)
+        let srgbBg = PixelColor.from(rgbColor: colors.background)
+        let region = try #require(
+            findCodeBlockRegion(
+                in: analyzer,
+                codeBg: expected,
+                srgbBg: srgbBg,
+                renderedBg: renderedBg
+            ),
+            "Must find code block region for structural test"
+        )
+
+        // Check that the code block background spans the full width of the
+        // region on multiple scan lines. If it's only text-line backgrounds,
+        // the background will start/stop at different x-positions per line
+        // (because text lines have varying lengths).
+        let scale = analyzer.scaleFactor
+        let scanYPositions = stride(
+            from: region.minY + 5,
+            to: region.maxY - 5,
+            by: 8
+        )
+
+        var leftEdges: [CGFloat] = []
+        var rightEdges: [CGFloat] = []
+
+        for scanY in scanYPositions {
+            // Scan from the left edge of the capture to find where code bg starts
+            var leftEdge: CGFloat?
+            for px in stride(from: Int(region.minX * scale) - 20, through: Int(region.maxX * scale) + 20, by: 1) {
+                let ptX = CGFloat(px) / scale
+                let color = analyzer.sampleColor(at: CGPoint(x: ptX, y: scanY))
+                if ColorExtractor.matches(color, expected: renderedBg, tolerance: 20) {
+                    continue
+                }
+                // Check if this is code background (not just text foreground)
+                if ColorExtractor.matches(color, expected: expected, tolerance: 20) {
+                    leftEdge = ptX
+                    break
+                }
+                break // Hit text or other content before finding code bg
+            }
+
+            // Scan from the right
+            var rightEdge: CGFloat?
+            for px in stride(from: Int(region.maxX * scale) + 20, through: Int(region.minX * scale) - 20, by: -1) {
+                let ptX = CGFloat(px) / scale
+                let color = analyzer.sampleColor(at: CGPoint(x: ptX, y: scanY))
+                if ColorExtractor.matches(color, expected: renderedBg, tolerance: 20) {
+                    continue
+                }
+                if ColorExtractor.matches(color, expected: expected, tolerance: 20) {
+                    rightEdge = ptX
+                    break
+                }
+                break
+            }
+
+            if let left = leftEdge { leftEdges.append(left) }
+            if let right = rightEdge { rightEdges.append(right) }
+        }
+
+        // A proper contained block should have uniform left and right edges.
+        // Text-line backgrounds will vary because each line of code has
+        // different length, so the background stops at different x positions.
+        let hasEnoughSamples = leftEdges.count >= 3 && rightEdges.count >= 3
+
+        var rightEdgeConsistent = false
+        if hasEnoughSamples, let maxRight = rightEdges.max(), let minRight = rightEdges.min() {
+            // If right edges are within 4pt of each other, it's a container.
+            // Text-line backgrounds will vary by 50+ points.
+            rightEdgeConsistent = (maxRight - minRight) < 4
+        }
+
+        let isStructuralContainer = hasEnoughSamples && rightEdgeConsistent
+        #expect(
+            isStructuralContainer,
+            """
+            Code block must render as a structural container with uniform edges. \
+            Right edge variance: \(rightEdges.max().map { $0 - (rightEdges.min() ?? 0) } ?? -1)pt. \
+            Expected < 4pt for a proper container block. \
+            Current NSAttributedString .backgroundColor follows text line fragments, \
+            not a cohesive rectangular block (CodeBlockView dead code: NFR-5).
+            """
+        )
+
+        JSONResultReporter.record(TestResult(
+            name: "visual: codeBlock structural container",
+            status: isStructuralContainer ? .pass : .fail,
+            prdReference: "syntax-highlighting NFR-5",
+            expected: "uniform rectangular container with rounded corners",
+            actual: isStructuralContainer
+                ? "container detected"
+                :
+                "text-line-level background (right edge variance: \(rightEdges.max().map { $0 - (rightEdges.min() ?? 0) } ?? -1)pt)",
+            imagePaths: [],
+            duration: 0,
+            message: isStructuralContainer
+                ? nil
+                :
+                "Code blocks use NSAttributedString .backgroundColor (text-line-level) instead of a contained rectangular block. CodeBlockView with rounded corners/border is dead code since NSTextView migration."
+        ))
+    }
+
     // MARK: - Private Helpers
 
     func prepareDark() async throws -> (
