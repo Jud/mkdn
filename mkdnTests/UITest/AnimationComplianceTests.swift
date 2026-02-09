@@ -332,13 +332,6 @@ struct AnimationComplianceTests {
         )
     }
 
-    // MARK: - Cleanup
-
-    @Test("zzz_cleanup")
-    func cleanup() async {
-        await AnimationHarness.shutdown()
-    }
-
     // MARK: - Private Helpers
 
     func requireCalibration() async throws {

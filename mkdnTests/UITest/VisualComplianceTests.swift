@@ -325,13 +325,6 @@ struct VisualComplianceTests {
         )
     }
 
-    // MARK: - Cleanup
-
-    @Test("zzz_cleanup")
-    func cleanup() async {
-        await VisualHarness.shutdown()
-    }
-
     // MARK: - Private Helpers
 
     func prepareDark() async throws -> (

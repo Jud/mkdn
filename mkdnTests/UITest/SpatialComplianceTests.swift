@@ -376,13 +376,6 @@ struct SpatialComplianceTests {
         ))
     }
 
-    // MARK: - Cleanup
-
-    @Test("zzz_cleanup")
-    func cleanup() async {
-        await SpatialHarness.shutdown()
-    }
-
     // MARK: - Private Helpers
 
     /// Samples the actual rendered background color from a safe position

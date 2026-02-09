@@ -22,6 +22,46 @@ final class AppLauncher: @unchecked Sendable {
     private var socketPath: String?
     private let executablePath: String?
 
+    // MARK: - Process Registry
+
+    private static let registryLock = NSLock()
+    private static var trackedPIDs: [pid_t] = []
+    private static var atexitRegistered = false
+
+    private static func trackPID(_ pid: pid_t) {
+        registryLock.lock()
+        defer { registryLock.unlock() }
+        trackedPIDs.append(pid)
+        if !atexitRegistered {
+            atexitRegistered = true
+            atexit {
+                AppLauncher.killAllTracked()
+            }
+        }
+    }
+
+    private static func untrackPID(_ pid: pid_t) {
+        registryLock.lock()
+        defer { registryLock.unlock() }
+        trackedPIDs.removeAll { $0 == pid }
+    }
+
+    private static func killAllTracked() {
+        registryLock.lock()
+        let pids = trackedPIDs
+        trackedPIDs.removeAll()
+        registryLock.unlock()
+        for pid in pids {
+            kill(pid, SIGTERM)
+        }
+        if !pids.isEmpty {
+            usleep(500_000)
+            for pid in pids {
+                kill(pid, SIGKILL)
+            }
+        }
+    }
+
     /// Create a launcher with an optional pre-built executable path.
     ///
     /// - Parameter executablePath: Path to the mkdn binary. When nil,
@@ -45,6 +85,7 @@ final class AppLauncher: @unchecked Sendable {
         process = proc
 
         let pid = proc.processIdentifier
+        Self.trackPID(pid)
         let sockPath = HarnessSocket.path(forPID: pid)
 
         socketPath = sockPath
@@ -55,6 +96,7 @@ final class AppLauncher: @unchecked Sendable {
             try await harnessClient.connect()
         } catch {
             proc.terminate()
+            Self.untrackPID(pid)
             process = nil
             throw error
         }
@@ -106,12 +148,15 @@ final class AppLauncher: @unchecked Sendable {
     private func terminateProcess() async {
         guard let proc = process else { return }
 
-        if proc.isRunning {
-            try? await Task.sleep(for: .seconds(1))
-        }
+        let pid = proc.processIdentifier
         if proc.isRunning {
             proc.terminate()
+            try? await Task.sleep(for: .seconds(2))
         }
+        if proc.isRunning {
+            kill(pid, SIGKILL)
+        }
+        Self.untrackPID(pid)
         process = nil
     }
 
