@@ -75,18 +75,27 @@ final class EntranceAnimator {
 
     // MARK: - Fragment Animation
 
-    /// Configures a layout fragment for entrance animation.
+    /// Enumerates all layout fragments from the text layout manager and
+    /// applies cover-layer entrance animation to each one.
     ///
-    /// When ``isAnimating`` is true and the fragment has not been seen before,
-    /// a background-colored cover layer is placed over the fragment area and
-    /// fades out with a staggered delay, revealing the text beneath. The
-    /// combined effect with the whole-view drift creates per-fragment
-    /// opacity (0 to 1) and upward drift entrance matching the SwiftUI
-    /// stagger animation.
-    ///
-    /// When ``isAnimating`` is false or Reduce Motion is enabled, the
-    /// fragment renders normally with no animation.
-    func animateFragment(_ fragment: NSTextLayoutFragment) {
+    /// Call this after setting attributed string content on the text view
+    /// so that TextKit 2 has completed layout and fragments are available.
+    func animateVisibleFragments() {
+        guard isAnimating, !reduceMotion else { return }
+        guard let textView,
+              let layoutManager = textView.textLayoutManager
+        else { return }
+
+        layoutManager.enumerateTextLayoutFragments(
+            from: layoutManager.documentRange.location,
+            options: [.ensuresLayout]
+        ) { fragment in
+            animateFragment(fragment)
+            return true
+        }
+    }
+
+    private func animateFragment(_ fragment: NSTextLayoutFragment) {
         let fragmentID = ObjectIdentifier(fragment)
         guard !animatedFragments.contains(fragmentID) else { return }
         animatedFragments.insert(fragmentID)
