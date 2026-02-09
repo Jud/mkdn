@@ -471,6 +471,32 @@ Three implementation layers: shell scripts in `scripts/visual-verification/` tha
     - **Deviations**: None
     - **Tests**: N/A (documentation only)
 
+### Review Fixes
+
+- [x] **TX-fix-build-invocation**: Replace raw `claude -p` prompt in heal-loop.sh fix step with rp1 `/build {FEATURE_ID} AFK=true` invocation `[complexity:simple]`
+
+    **Reference**: Review feedback (AC-004c)
+
+    **Effort**: 1 hour
+
+    **Acceptance Criteria**:
+
+    - [x] heal-loop.sh accepts `--feature-id ID` flag for the `/build --afk` invocation
+    - [x] `--feature-id` is required when not in `--dry-run` mode; script errors with exit 2 if missing
+    - [x] Step 3 (fix) invokes `claude -p "/build {FEATURE_ID} AFK=true"` instead of raw prompt
+    - [x] The `/build` invocation passes evaluation report path, PRD references, and failing test file paths as context
+    - [x] No `--allowedTools` restriction on the `/build --afk` invocation (the build pipeline manages its own tools)
+    - [x] CLAUDE.md and docs/visual-verification.md updated to document `--feature-id` flag
+    - [x] Script header comment updated
+    - [x] Bash syntax check passes
+
+    **Implementation Summary**:
+
+    - **Files**: `scripts/visual-verification/heal-loop.sh`, `CLAUDE.md`, `docs/visual-verification.md`
+    - **Approach**: Added `--feature-id ID` flag with validation (required unless --dry-run). Replaced raw `claude -p` prompt with `/build {FEATURE_ID} AFK=true` command that passes evaluation context (report path, PRD refs, failing test paths). Removed `--allowedTools` restriction to let the build pipeline manage its own tools. Updated header comment, help output, pre-flight logging, and documentation.
+    - **Deviations**: None
+    - **Tests**: bash -n syntax check, --help output verification, validation error test (no feature-id), dry-run bypass test
+
 ## Acceptance Criteria Checklist
 
 - [ ] REQ-001: Vision-based evaluation produces structured JSON assessments for each screenshot, considering both concrete PRD requirements and qualitative design judgment, with deterministic prompt construction

@@ -64,7 +64,7 @@ Scripts in `scripts/visual-verification/` implement an LLM vision-based design c
 
 ```bash
 # Full autonomous loop (capture, evaluate, generate tests, fix, verify)
-scripts/visual-verification/heal-loop.sh
+scripts/visual-verification/heal-loop.sh --feature-id my-feature
 
 # Dry run (capture + show what would be evaluated, no API calls)
 scripts/visual-verification/heal-loop.sh --dry-run
@@ -80,6 +80,7 @@ scripts/visual-verification/verify.sh           # Re-verify after fix
 
 | Script | Flag | Description |
 |--------|------|-------------|
+| `heal-loop.sh` | `--feature-id ID` | Feature ID for `/build --afk` invocation (required unless `--dry-run`) |
 | `heal-loop.sh` | `--max-iterations N` | Maximum heal iterations (default: 3) |
 | `heal-loop.sh` | `--dry-run` | Capture + evaluate only, no test generation or fixes |
 | `heal-loop.sh` | `--attended` | Interactive escalation (prompt instead of report file) |

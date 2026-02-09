@@ -16,13 +16,13 @@ This is the qualitative counterpart to the existing pixel-level automated UI tes
 
 ```bash
 # Full autonomous loop: capture, evaluate, generate tests, fix, verify
-scripts/visual-verification/heal-loop.sh
+scripts/visual-verification/heal-loop.sh --feature-id my-feature
 
 # Dry run: capture screenshots + preview what would be evaluated (no API calls)
 scripts/visual-verification/heal-loop.sh --dry-run
 
 # Attended mode: interactive escalation prompts instead of report files
-scripts/visual-verification/heal-loop.sh --attended
+scripts/visual-verification/heal-loop.sh --feature-id my-feature --attended
 ```
 
 ## Shell Scripts
@@ -37,6 +37,7 @@ scripts/visual-verification/heal-loop.sh [options]
 
 | Flag | Default | Description |
 |------|---------|-------------|
+| `--feature-id ID` | (required) | Feature ID for `/build --afk` invocation (required unless `--dry-run`) |
 | `--max-iterations N` | 3 | Maximum heal iterations before escalation |
 | `--dry-run` | off | Capture + evaluate only, no test generation or code fixes |
 | `--attended` | off | Interactive escalation prompts instead of report files |

@@ -10,6 +10,7 @@ set -euo pipefail
 #   scripts/visual-verification/heal-loop.sh [flags]
 #
 # Flags:
+#   --feature-id ID     Feature ID for /build --afk invocation (required unless --dry-run)
 #   --max-iterations N  Maximum heal iterations (default: 3)
 #   --dry-run           Capture + evaluate only, no test generation or fixes
 #   --attended          Interactive escalation (prompt instead of report file)
@@ -30,6 +31,7 @@ AUDIT_FILE="${VERIFICATION_DIR}/audit.jsonl"
 LOOP_STATE="${VERIFICATION_DIR}/current-loop.json"
 VISION_COMPLIANCE_DIR="${PROJECT_ROOT}/mkdnTests/UITest/VisionCompliance"
 
+FEATURE_ID=""
 MAX_ITERATIONS=3
 DRY_RUN=false
 ATTENDED=false
@@ -305,6 +307,11 @@ handle_escalation() {
 
 while [ $# -gt 0 ]; do
     case "$1" in
+        --feature-id)
+            shift
+            FEATURE_ID="${1:-}"
+            shift
+            ;;
         --max-iterations)
             shift
             MAX_ITERATIONS="${1:-3}"
@@ -330,6 +337,7 @@ while [ $# -gt 0 ]; do
             echo "with bounded iteration."
             echo ""
             echo "Flags:"
+            echo "  --feature-id ID     Feature ID for /build --afk (required unless --dry-run)"
             echo "  --max-iterations N  Maximum heal iterations (default: 3)"
             echo "  --dry-run           Capture + evaluate only, no fixes"
             echo "  --attended          Interactive escalation prompts"
@@ -352,12 +360,18 @@ done
 # ---------------------------------------------------------------------------
 
 info "Starting heal-loop (${LOOP_ID})"
+info "  Feature ID: ${FEATURE_ID:-<not set>}"
 info "  Max iterations: ${MAX_ITERATIONS}"
 info "  Dry-run: ${DRY_RUN}"
 info "  Attended: ${ATTENDED}"
 info "  Skip-build: ${SKIP_BUILD}"
 
 command -v jq > /dev/null 2>&1 || error "jq is required but not found"
+
+# --feature-id is required when not in dry-run mode (needed for /build --afk invocation)
+if [ "${DRY_RUN}" = false ] && [ -z "${FEATURE_ID}" ]; then
+    error "--feature-id is required for the heal loop (needed to invoke /build --afk)"
+fi
 
 mkdir -p "${REPORTS_DIR}" "${VERIFICATION_DIR}/captures" \
          "${VERIFICATION_DIR}/cache" "${VERIFICATION_DIR}/staging"
@@ -573,21 +587,26 @@ while [ "${ITERATION}" -lt "${MAX_ITERATIONS}" ]; do
         fi
     done <<< "${GEN_OUTPUT}"
 
-    # Build context for /build --afk
-    BUILD_CONTEXT="Fix the following vision-detected failing tests. "
-    BUILD_CONTEXT="${BUILD_CONTEXT}These tests encode design deviations detected by LLM visual verification. "
-    BUILD_CONTEXT="${BUILD_CONTEXT}PRD references: ${PRD_REFS}. "
-    BUILD_CONTEXT="${BUILD_CONTEXT}Test files:${TEST_PATHS}"
+    # Invoke the rp1 /build pipeline with AFK mode for autonomous fix.
+    # This uses the full build pipeline (requirements -> design -> tasks -> build -> verify)
+    # rather than a raw prompt, passing the evaluation report and failing tests as context.
+    BUILD_PROMPT="/build ${FEATURE_ID} AFK=true
+
+Fix the following vision-detected failing tests. These tests encode design deviations detected by LLM visual verification.
+
+Evaluation report: ${CURRENT_EVAL_REPORT}
+PRD references: ${PRD_REFS}
+Failing test files:${TEST_PATHS}"
 
     BUILD_RESULT="unknown"
     if command -v claude > /dev/null 2>&1; then
-        info "  Invoking Claude Code for autonomous fix"
-        if claude -p "${BUILD_CONTEXT}" --allowedTools "Read,Write,Edit,Bash" 2>&1; then
+        info "  Invoking /build ${FEATURE_ID} AFK=true"
+        if claude -p "${BUILD_PROMPT}" 2>&1; then
             BUILD_RESULT="success"
-            info "  Build/fix completed successfully"
+            info "  /build --afk completed successfully"
         else
             BUILD_RESULT="failure"
-            warn "  Build/fix reported failure"
+            warn "  /build --afk reported failure"
         fi
     else
         BUILD_RESULT="skipped"
