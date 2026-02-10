@@ -14,7 +14,11 @@ extension MarkdownTextStorageBuilder {
         let font = PlatformTypeConverter.headingFont(level: level)
         let foreground = PlatformTypeConverter.nsColor(from: colors.headingColor)
         let linkColor = PlatformTypeConverter.nsColor(from: colors.linkColor)
-        let spacingBefore: CGFloat = level <= 2 ? 8 : 4
+        let spacingBefore: CGFloat = switch level {
+        case 1: 28
+        case 2: 20
+        default: 14
+        }
 
         let content = convertInlineContent(
             text,

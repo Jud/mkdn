@@ -38,16 +38,43 @@
                 flowchart: { htmlLabels: true },
             });
 
+            var resizeObserver = null;
+            var resizeRAF = null;
+
+            function sendSizeReport() {
+                var svg = document.querySelector('#diagram svg');
+                if (svg) {
+                    var bbox = svg.getBoundingClientRect();
+                    if (bbox.width > 0) {
+                        window.webkit.messageHandlers.sizeReport.postMessage({
+                            width: bbox.width,
+                            height: bbox.height
+                        });
+                    }
+                }
+            }
+
+            function installResizeObserver() {
+                if (resizeObserver) resizeObserver.disconnect();
+                var target = document.querySelector('#diagram svg') || document.getElementById('diagram');
+                if (!target) return;
+                resizeObserver = new ResizeObserver(function() {
+                    if (resizeRAF) cancelAnimationFrame(resizeRAF);
+                    resizeRAF = requestAnimationFrame(function() {
+                        resizeRAF = null;
+                        sendSizeReport();
+                    });
+                });
+                resizeObserver.observe(target);
+            }
+
             async function render() {
                 try {
                     await mermaid.run({ querySelector: '.mermaid' });
                     var svg = document.querySelector('#diagram svg');
                     if (svg) {
-                        var bbox = svg.getBoundingClientRect();
-                        window.webkit.messageHandlers.sizeReport.postMessage({
-                            width: bbox.width,
-                            height: bbox.height
-                        });
+                        sendSizeReport();
+                        installResizeObserver();
                         window.webkit.messageHandlers.renderComplete.postMessage({});
                     } else {
                         window.webkit.messageHandlers.renderError.postMessage({

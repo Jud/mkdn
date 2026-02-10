@@ -29,7 +29,7 @@ enum MarkdownTextStorageBuilder {
     static let listPrefixWidth: CGFloat = 32
     static let listLeftPadding: CGFloat = 4
     static let blockquoteIndent: CGFloat = 19
-    static let attachmentPlaceholderHeight: CGFloat = 200
+    static let attachmentPlaceholderHeight: CGFloat = 100
     static let thematicBreakHeight: CGFloat = 17
     static let tableColumnWidth: CGFloat = 120
 
@@ -189,7 +189,7 @@ enum MarkdownTextStorageBuilder {
     // MARK: - Paragraph Style Helpers
 
     static func makeParagraphStyle(
-        lineSpacing: CGFloat = 4,
+        lineSpacing: CGFloat = 2,
         paragraphSpacing: CGFloat = 0,
         paragraphSpacingBefore: CGFloat = 0,
         headIndent: CGFloat = 0,

@@ -8,13 +8,14 @@ import SwiftUI
 /// pinch-to-zoom and two-finger pan within the `WKWebView`.
 struct MermaidBlockView: View {
     let code: String
+    var onSizeChange: ((CGFloat, CGFloat) -> Void)?
 
     @Environment(AppSettings.self) private var appSettings
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var isFocused = false
     @FocusState private var isKeyboardFocused: Bool
-    @State private var renderedHeight: CGFloat = 200
+    @State private var renderedHeight: CGFloat = 100
     @State private var renderedAspectRatio: CGFloat = 0.5
     @State private var renderState: MermaidRenderState = .loading
 
@@ -48,6 +49,12 @@ struct MermaidBlockView: View {
                 if !isKeyboardFocused {
                     isFocused = false
                 }
+            }
+            .onChange(of: renderedHeight) {
+                onSizeChange?(renderedHeight, renderedAspectRatio)
+            }
+            .onChange(of: renderedAspectRatio) {
+                onSizeChange?(renderedHeight, renderedAspectRatio)
             }
     }
 

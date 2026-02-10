@@ -92,10 +92,12 @@ final class OverlayCoordinator {
         let attachment = entry.attachment
         guard abs(attachment.bounds.height - newHeight) > 1 else { return }
 
+        let containerWidth = textContainerWidth(in: textView)
+
         attachment.bounds = CGRect(
             x: 0,
             y: 0,
-            width: attachment.bounds.width,
+            width: containerWidth,
             height: newHeight
         )
 
@@ -175,6 +177,7 @@ final class OverlayCoordinator {
         case let .mermaidBlock(code):
             overlayView = makeMermaidOverlay(
                 code: code,
+                blockIndex: info.blockIndex,
                 appSettings: appSettings
             )
         case let .image(source, alt):
@@ -200,10 +203,16 @@ final class OverlayCoordinator {
 
     private func makeMermaidOverlay(
         code: String,
+        blockIndex: Int,
         appSettings: AppSettings
     ) -> NSView {
-        let rootView = MermaidBlockView(code: code)
-            .environment(appSettings)
+        let rootView = MermaidBlockView(code: code) { [weak self] _, aspectRatio in
+            guard let self, let textView else { return }
+            let width = textContainerWidth(in: textView)
+            let height = width * aspectRatio
+            updateAttachmentHeight(blockIndex: blockIndex, newHeight: height)
+        }
+        .environment(appSettings)
         return NSHostingView(rootView: rootView)
     }
 
