@@ -9,6 +9,12 @@ import AppKit
 public final class AppDelegate: NSObject, NSApplicationDelegate {
     public func applicationWillFinishLaunching(_: Notification) {
         NSApp.setActivationPolicy(.regular)
+
+        if let iconURL = Bundle.module.url(forResource: "AppIcon", withExtension: "icns"),
+           let icon = NSImage(contentsOf: iconURL)
+        {
+            NSApp.applicationIconImage = Self.applyIconMask(to: icon)
+        }
     }
 
     public func application(_: NSApplication, open urls: [URL]) {
@@ -17,6 +23,62 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             NSDocumentController.shared.noteNewRecentDocumentURL(url)
             FileOpenCoordinator.shared.pendingURLs.append(url)
         }
+    }
+
+    /// Applies macOS-style icon treatment: drop shadow, squircle mask, and inner stroke.
+    private static func applyIconMask(to image: NSImage) -> NSImage {
+        let canvasSize = NSSize(width: 1_024, height: 1_024)
+        let result = NSImage(size: canvasSize)
+        result.lockFocus()
+
+        guard let context = NSGraphicsContext.current?.cgContext else {
+            result.unlockFocus()
+            return image
+        }
+
+        // Icon grid: artwork ~824x824, shifted up slightly to leave room for shadow below
+        let inset = canvasSize.width * 0.1
+        let shadowOffset: CGFloat = 6
+        let iconRect = NSRect(
+            x: inset,
+            y: inset + shadowOffset,
+            width: canvasSize.width - inset * 2,
+            height: canvasSize.height - inset * 2
+        )
+        let radius = iconRect.width * 0.2237
+        let shapePath = NSBezierPath(roundedRect: iconRect, xRadius: radius, yRadius: radius)
+
+        // Drop shadow
+        context.saveGState()
+        context.setShadow(
+            offset: CGSize(width: 0, height: -10),
+            blur: 20,
+            color: NSColor.black.withAlphaComponent(0.5).cgColor
+        )
+        NSColor.black.setFill()
+        shapePath.fill()
+        context.restoreGState()
+
+        // Clipped icon artwork
+        context.saveGState()
+        shapePath.addClip()
+        image.draw(in: iconRect, from: .zero, operation: .copy, fraction: 1.0)
+        context.restoreGState()
+
+        // Inner stroke (subtle dark border like macOS applies)
+        context.saveGState()
+        shapePath.lineWidth = 2.0
+        NSColor.black.withAlphaComponent(0.15).setStroke()
+        shapePath.stroke()
+        context.restoreGState()
+
+        result.unlockFocus()
+        result.isTemplate = false
+        return result
+    }
+
+    public func applicationShouldTerminateAfterLastWindowClosed(_: NSApplication) -> Bool {
+        false
     }
 
     public func applicationShouldHandleReopen(
