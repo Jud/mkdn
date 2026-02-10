@@ -9,6 +9,11 @@ import QuartzCore
 /// cover layer, and the text view content drifts upward from a slight offset
 /// to its final position.
 ///
+/// Code block fragments are grouped by block ID and share a single full-width
+/// cover layer that hides both the container (background + border) and text,
+/// so the entire code block fades in as a unit. Non-code-block fragments use
+/// individual per-fragment cover layers as before.
+///
 /// The stagger delay and cap use ``AnimationConstants/staggerDelay`` and
 /// ``AnimationConstants/staggerCap``. The fade-in duration matches
 /// ``AnimationConstants/fadeIn`` (0.5s, ease-out). The upward drift distance
@@ -35,6 +40,13 @@ final class EntranceAnimator {
 
     private static let fadeInDuration: CFTimeInterval = 0.5
     private static let driftDistance: CGFloat = 8
+
+    // MARK: - Types
+
+    private struct CodeBlockGroup {
+        let staggerIndex: Int
+        var frames: [CGRect] = []
+    }
 
     // MARK: - Lifecycle
 
@@ -78,48 +90,114 @@ final class EntranceAnimator {
     /// Enumerates all layout fragments from the text layout manager and
     /// applies cover-layer entrance animation to each one.
     ///
-    /// Call this after setting attributed string content on the text view
-    /// so that TextKit 2 has completed layout and fragments are available.
+    /// Code block fragments are grouped by block ID so that each code block
+    /// receives a single full-width cover layer (matching the container drawn
+    /// by ``CodeBlockBackgroundTextView``). Non-code-block fragments receive
+    /// individual per-fragment cover layers. Call this after setting attributed
+    /// string content on the text view so that TextKit 2 has completed layout
+    /// and fragments are available.
     func animateVisibleFragments() {
         guard isAnimating, !reduceMotion else { return }
         guard let textView,
-              let layoutManager = textView.textLayoutManager
+              let layoutManager = textView.textLayoutManager,
+              let contentManager = layoutManager.textContentManager,
+              let textStorage = textView.textStorage,
+              let viewLayer = textView.layer
         else { return }
+
+        var codeBlockGroups: [String: CodeBlockGroup] = [:]
 
         layoutManager.enumerateTextLayoutFragments(
             from: layoutManager.documentRange.location,
             options: [.ensuresLayout]
         ) { fragment in
-            animateFragment(fragment)
+            let fragmentID = ObjectIdentifier(fragment)
+            guard !self.animatedFragments.contains(fragmentID) else {
+                return true
+            }
+            self.animatedFragments.insert(fragmentID)
+
+            let blockID = self.codeBlockID(
+                for: fragment,
+                contentManager: contentManager,
+                textStorage: textStorage
+            )
+
+            if let blockID {
+                if var group = codeBlockGroups[blockID] {
+                    group.frames.append(fragment.layoutFragmentFrame)
+                    codeBlockGroups[blockID] = group
+                } else {
+                    codeBlockGroups[blockID] = CodeBlockGroup(
+                        staggerIndex: self.fragmentIndex,
+                        frames: [fragment.layoutFragmentFrame]
+                    )
+                }
+            } else {
+                let coverLayer = self.makeCoverLayer(
+                    for: fragment, in: textView
+                )
+                let delay = self.staggerDelay(for: self.fragmentIndex)
+                self.applyCoverFadeAnimation(to: coverLayer, delay: delay)
+                viewLayer.addSublayer(coverLayer)
+                self.coverLayers.append(coverLayer)
+            }
+
+            self.fragmentIndex += 1
             return true
+        }
+
+        addCodeBlockCovers(codeBlockGroups, in: textView, to: viewLayer)
+    }
+
+    private func addCodeBlockCovers(
+        _ groups: [String: CodeBlockGroup],
+        in textView: NSTextView,
+        to viewLayer: CALayer
+    ) {
+        for group in groups.values {
+            let coverLayer = makeCodeBlockCoverLayer(
+                frames: group.frames, in: textView
+            )
+            let delay = staggerDelay(for: group.staggerIndex)
+            applyCoverFadeAnimation(to: coverLayer, delay: delay)
+            viewLayer.addSublayer(coverLayer)
+            coverLayers.append(coverLayer)
         }
     }
 
-    private func animateFragment(_ fragment: NSTextLayoutFragment) {
-        let fragmentID = ObjectIdentifier(fragment)
-        guard !animatedFragments.contains(fragmentID) else { return }
-        animatedFragments.insert(fragmentID)
+    // MARK: - Code Block Detection
 
-        guard isAnimating, !reduceMotion else { return }
-        guard let textView, let viewLayer = textView.layer else { return }
+    private func codeBlockID(
+        for fragment: NSTextLayoutFragment,
+        contentManager: NSTextContentManager,
+        textStorage: NSTextStorage
+    ) -> String? {
+        let docStart = contentManager.documentRange.location
+        let fragStart = fragment.rangeInElement.location
+        let charOffset = contentManager.offset(from: docStart, to: fragStart)
 
-        let coverLayer = makeCoverLayer(
-            for: fragment,
-            in: textView
-        )
+        guard charOffset >= 0, charOffset < textStorage.length else {
+            return nil
+        }
 
-        let delay = min(
-            Double(fragmentIndex) * AnimationConstants.staggerDelay,
-            AnimationConstants.staggerCap
-        )
-        fragmentIndex += 1
-
-        applyCoverFadeAnimation(to: coverLayer, delay: delay)
-        viewLayer.addSublayer(coverLayer)
-        coverLayers.append(coverLayer)
+        return textStorage.attribute(
+            CodeBlockAttributes.range,
+            at: charOffset,
+            effectiveRange: nil
+        ) as? String
     }
 
-    // MARK: - Cover Layer
+    // MARK: - Stagger Timing
+
+    private func staggerDelay(for index: Int) -> CFTimeInterval {
+        min(
+            Double(index) * AnimationConstants.staggerDelay,
+            AnimationConstants.staggerCap
+        )
+    }
+
+    // MARK: - Cover Layers
 
     private func makeCoverLayer(
         for fragment: NSTextLayoutFragment,
@@ -131,38 +209,33 @@ final class EntranceAnimator {
 
         let layer = CALayer()
         layer.frame = adjustedFrame
-        layer.backgroundColor = coverColor(
-            for: fragment, in: textView
-        )
+        layer.backgroundColor = textView.backgroundColor.cgColor
         layer.zPosition = 1
         return layer
     }
 
-    private func coverColor(
-        for fragment: NSTextLayoutFragment,
+    private func makeCodeBlockCoverLayer(
+        frames: [CGRect],
         in textView: NSTextView
-    ) -> CGColor {
-        guard let textStorage = textView.textStorage,
-              let contentManager = textView.textLayoutManager?.textContentManager
-        else {
-            return textView.backgroundColor.cgColor
-        }
+    ) -> CALayer {
+        let origin = textView.textContainerOrigin
+        let containerWidth =
+            textView.textContainer?.size.width ?? textView.bounds.width
+        let union = frames.reduce(frames[0]) { $0.union($1) }
 
-        let docStart = contentManager.documentRange.location
-        let fragStart = fragment.rangeInElement.location
-        let charOffset = contentManager.offset(from: docStart, to: fragStart)
+        // Extend 1pt beyond the container to fully cover the border stroke
+        let margin: CGFloat = 1
 
-        guard charOffset >= 0, charOffset < textStorage.length,
-              let colorInfo = textStorage.attribute(
-                  CodeBlockAttributes.colors,
-                  at: charOffset,
-                  effectiveRange: nil
-              ) as? CodeBlockColorInfo
-        else {
-            return textView.backgroundColor.cgColor
-        }
-
-        return colorInfo.background.cgColor
+        let layer = CALayer()
+        layer.frame = CGRect(
+            x: origin.x - margin,
+            y: union.minY + origin.y - margin,
+            width: containerWidth + 2 * margin,
+            height: union.height + 2 * margin
+        )
+        layer.backgroundColor = textView.backgroundColor.cgColor
+        layer.zPosition = 1
+        return layer
     }
 
     private func applyCoverFadeAnimation(
