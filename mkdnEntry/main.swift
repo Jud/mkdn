@@ -47,6 +47,12 @@ if rawArguments.contains("--test-harness") {
     {
         TestHarnessMode.socketPath = rawArguments[socketIdx + 1]
     }
+    if let ppidStr = ProcessInfo.processInfo.environment["MKDN_PARENT_PID"],
+       let ppid = Int32(ppidStr)
+    {
+        TestHarnessMode.parentPID = ppid
+        TestHarnessMode.startWatchdog()
+    }
     MkdnApp.main()
 } else if let envFile = ProcessInfo.processInfo.environment["MKDN_LAUNCH_FILE"] {
     unsetenv("MKDN_LAUNCH_FILE")

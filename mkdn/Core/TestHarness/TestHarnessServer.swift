@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 // MARK: - Test Harness Mode
@@ -11,7 +12,27 @@ public enum ReduceMotionOverride: Sendable {
 public enum TestHarnessMode {
     public nonisolated(unsafe) static var isEnabled = false
     public nonisolated(unsafe) static var socketPath: String?
+    public nonisolated(unsafe) static var parentPID: pid_t?
     @MainActor public static var reduceMotion: ReduceMotionOverride = .systemDefault
+
+    /// Monitor whether the parent process (test runner) is still alive.
+    /// Polls every 2 seconds. When the parent PID no longer exists,
+    /// terminates this app so no orphaned processes remain.
+    public static func startWatchdog() {
+        guard let ppid = parentPID else { return }
+        DispatchQueue.global(qos: .utility).async {
+            while true {
+                sleep(2)
+                // kill(pid, 0) checks existence without sending a signal.
+                if kill(ppid, 0) != 0 {
+                    DispatchQueue.main.async {
+                        NSApplication.shared.terminate(nil)
+                    }
+                    return
+                }
+            }
+        }
+    }
 }
 
 // MARK: - Async Bridge

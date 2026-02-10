@@ -56,3 +56,6 @@ Pods/
 *.dmg
 *.pkg
 *.app
+
+# Animation frame captures (regenerated on each test run)
+.rp1/work/verification/captures/animation/

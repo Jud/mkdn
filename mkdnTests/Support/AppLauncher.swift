@@ -26,16 +26,33 @@ final class AppLauncher: @unchecked Sendable {
 
     private static let registryLock = NSLock()
     private nonisolated(unsafe) static var trackedPIDs: [pid_t] = []
-    private nonisolated(unsafe) static var atexitRegistered = false
+    private nonisolated(unsafe) static var cleanupRegistered = false
+    private nonisolated(unsafe) static var signalSources: [any DispatchSourceSignal] = []
 
     private static func trackPID(_ pid: pid_t) {
         registryLock.lock()
         defer { registryLock.unlock() }
         trackedPIDs.append(pid)
-        if !atexitRegistered {
-            atexitRegistered = true
-            // swiftlint:disable:next prefer_self_in_static_references
-            atexit { AppLauncher.killAllTracked() }
+        if !cleanupRegistered {
+            cleanupRegistered = true
+            registerCleanupHandlers()
+        }
+    }
+
+    private static func registerCleanupHandlers() {
+        // swiftlint:disable:next prefer_self_in_static_references
+        atexit { AppLauncher.killAllTracked() }
+
+        for sig: Int32 in [SIGTERM, SIGINT] {
+            signal(sig, SIG_IGN)
+            let source = DispatchSource.makeSignalSource(signal: sig, queue: .global())
+            source.setEventHandler {
+                Self.killAllTracked()
+                signal(sig, SIG_DFL)
+                raise(sig)
+            }
+            source.resume()
+            signalSources.append(source)
         }
     }
 
@@ -119,6 +136,9 @@ final class AppLauncher: @unchecked Sendable {
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: path)
         proc.arguments = ["--test-harness"]
+        proc.environment = ProcessInfo.processInfo.environment.merging([
+            "MKDN_PARENT_PID": "\(ProcessInfo.processInfo.processIdentifier)",
+        ]) { _, new in new }
         proc.standardOutput = FileHandle.nullDevice
         proc.standardError = FileHandle.nullDevice
         try proc.run()

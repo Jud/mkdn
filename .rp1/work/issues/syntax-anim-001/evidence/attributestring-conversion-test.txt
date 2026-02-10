@@ -1,0 +1,75 @@
+# Evidence: SwiftUI AttributedString to NSAttributedString conversion test
+# Date: 2026-02-09
+# Purpose: Demonstrate that SwiftUI's .foregroundColor attribute does NOT
+#          convert to NSAttributedString.Key.foregroundColor when bridged
+
+## Test 1: Single color conversion
+
+$ swift -e '
+import SwiftUI
+import AppKit
+
+var swiftUIStr = AttributedString("Hello")
+swiftUIStr.foregroundColor = .red
+
+let nsStr = NSAttributedString(swiftUIStr)
+let attrs = nsStr.attributes(at: 0, effectiveRange: nil)
+
+for (key, value) in attrs {
+    print("  Key: \(key.rawValue)")
+    print("  Value type: \(type(of: value))")
+    print("  Is NSColor: \(value is NSColor)")
+}
+
+let fgColor = attrs[.foregroundColor]
+print("attrs[.foregroundColor] = \(String(describing: fgColor))")
+print("Is NSColor? \(fgColor is NSColor)")
+'
+
+## Result:
+  Key: SwiftUI.ForegroundColor
+  Value type: __SwiftValue
+  Is NSColor: NO
+attrs[.foregroundColor] = nil
+Is NSColor? false
+
+## Conclusion:
+SwiftUI AttributedString.foregroundColor stores colors under the key
+"SwiftUI.ForegroundColor" (not "NSColor"). NSTextView reads the key
+"NSColor" (NSAttributedString.Key.foregroundColor) and finds nil.
+Syntax highlighting colors are silently ignored.
+
+## Test 2: Multiple colors creating distinct runs
+
+$ swift -e '
+import SwiftUI; import AppKit
+var str = AttributedString()
+var kw = AttributedString("func"); kw.foregroundColor = .green; str.append(kw)
+var ws = AttributedString(" "); ws.foregroundColor = .gray; str.append(ws)
+var pt = AttributedString("greet"); pt.foregroundColor = .blue; str.append(pt)
+let nsStr = NSMutableAttributedString(str)
+var runCount = 0
+nsStr.enumerateAttributes(in: NSRange(location: 0, length: nsStr.length)) { attrs, range, _ in
+    let text = (nsStr.string as NSString).substring(with: range)
+    print("Run: \"\(text)\" -> attrs: \(attrs.keys.map { $0.rawValue })")
+    runCount += 1
+}
+print("Total runs: \(runCount)")
+var hasFgColor = false
+nsStr.enumerateAttribute(.foregroundColor, in: NSRange(location: 0, length: nsStr.length)) { value, _, _ in
+    if value != nil { hasFgColor = true }
+}
+print("Has NSColor foregroundColor? \(hasFgColor)")
+'
+
+## Result:
+Run: "func" -> attrs: ["SwiftUI.ForegroundColor"]
+Run: " " -> attrs: ["SwiftUI.ForegroundColor"]
+Run: "greet" -> attrs: ["SwiftUI.ForegroundColor"]
+Total runs: 3
+Has NSColor foregroundColor? false
+
+## Conclusion:
+Multiple runs ARE created (explaining why the unit test passes),
+but NONE have the correct .foregroundColor key (explaining why
+NSTextView shows uniform color).
