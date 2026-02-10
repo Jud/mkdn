@@ -18,6 +18,7 @@ struct MermaidBlockView: View {
     @State private var renderedHeight: CGFloat = 100
     @State private var renderedAspectRatio: CGFloat = 0.5
     @State private var renderState: MermaidRenderState = .loading
+    @State private var overlayDismissed = false
 
     private var colors: ThemeColors {
         appSettings.theme.colors
@@ -56,11 +57,23 @@ struct MermaidBlockView: View {
             .onChange(of: renderedAspectRatio) {
                 onSizeChange?(renderedHeight, renderedAspectRatio)
             }
+            .onChange(of: renderState) { _, newValue in
+                if newValue == .rendered {
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(350))
+                        if renderState == .rendered {
+                            overlayDismissed = true
+                        }
+                    }
+                } else {
+                    overlayDismissed = false
+                }
+            }
     }
 
     @ViewBuilder
     private var diagramContent: some View {
-        let content = ZStack {
+        ZStack {
             MermaidWebView(
                 code: code,
                 theme: appSettings.theme,
@@ -73,35 +86,30 @@ struct MermaidBlockView: View {
             .animation(motion.resolved(.crossfade), value: renderState)
 
             overlay
+                .animation(motion.resolved(.crossfade), value: overlayDismissed)
                 .animation(motion.resolved(.crossfade), value: renderState)
         }
-
-        if renderState == .rendered {
-            content
-                .aspectRatio(
-                    1 / renderedAspectRatio,
-                    contentMode: .fit
-                )
-        } else {
-            content
-                .frame(maxWidth: .infinity, minHeight: 100, maxHeight: 100)
-        }
+        .frame(
+            maxWidth: .infinity,
+            minHeight: 100,
+            maxHeight: renderState == .rendered ? .infinity : 100
+        )
+        .aspectRatio(
+            renderState == .rendered ? 1 / renderedAspectRatio : nil,
+            contentMode: .fit
+        )
+        .animation(motion.resolved(.gentleSpring), value: renderState)
     }
 
     // MARK: - Overlay
 
     @ViewBuilder
     private var overlay: some View {
-        switch renderState {
-        case .loading:
-            loadingView
-                .transition(.opacity)
-
-        case .rendered:
-            EmptyView()
-
-        case let .error(message):
+        if case let .error(message) = renderState {
             errorView(message: message)
+                .transition(.opacity)
+        } else if !overlayDismissed {
+            loadingView
                 .transition(.opacity)
         }
     }
