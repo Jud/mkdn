@@ -172,6 +172,28 @@ final class TestHarnessClient: @unchecked Sendable {
         try await send(.stopFrameCapture, timeout: timeout)
     }
 
+    /// Begin a non-blocking frame capture at the given FPS.
+    /// Returns immediately while SCStream runs in the background.
+    /// Call ``endFrameCapture()`` to stop and get results.
+    func beginFrameCapture(
+        fps: Int,
+        outputDir: String? = nil,
+        timeout: Duration = .seconds(15)
+    ) async throws -> HarnessResponse {
+        try await send(
+            .beginFrameCapture(fps: fps, outputDir: outputDir),
+            timeout: timeout
+        )
+    }
+
+    /// End a frame capture started with ``beginFrameCapture(fps:)``
+    /// and return the captured frame results.
+    func endFrameCapture(
+        timeout: Duration = .seconds(30)
+    ) async throws -> HarnessResponse {
+        try await send(.endFrameCapture, timeout: timeout)
+    }
+
     // MARK: - Info Commands
 
     /// Get current window geometry and display information.

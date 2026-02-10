@@ -95,6 +95,38 @@ enum CaptureService {
         )
     }
 
+    // MARK: - Split Frame Capture (Non-Blocking)
+
+    static func beginFrameCapture(
+        _ window: NSWindow,
+        fps: Int,
+        outputDir: String?
+    ) async throws {
+        let session = FrameCaptureSession()
+        activeFrameSession = session
+
+        let dir = outputDir ?? defaultFrameDir()
+
+        try await session.start(
+            windowID: CGWindowID(window.windowNumber),
+            windowSize: window.frame.size,
+            scaleFactor: window.backingScaleFactor,
+            fps: fps,
+            outputDir: dir
+        )
+    }
+
+    static func endFrameCapture() async throws -> FrameCaptureResult {
+        guard let session = activeFrameSession else {
+            throw HarnessError.captureFailed(
+                "No active frame capture session"
+            )
+        }
+        defer { activeFrameSession = nil }
+
+        return try await session.stop()
+    }
+
     private static func defaultFrameDir() -> String {
         let timestamp = Int(Date().timeIntervalSince1970)
         let dir = "/tmp/mkdn-frames/\(timestamp)"

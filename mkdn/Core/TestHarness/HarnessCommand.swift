@@ -56,6 +56,13 @@ public enum HarnessCommand: Codable, Sendable {
     /// Stop an in-progress frame capture.
     case stopFrameCapture
 
+    /// Begin a frame capture that returns immediately while SCStream runs.
+    /// Call ``endFrameCapture`` to stop and get results.
+    case beginFrameCapture(fps: Int, outputDir: String?)
+
+    /// End a frame capture started with ``beginFrameCapture`` and return results.
+    case endFrameCapture
+
     /// Get current window information (dimensions, position, scale factor).
     case getWindowInfo
 

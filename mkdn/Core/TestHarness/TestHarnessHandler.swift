@@ -20,14 +20,10 @@ enum TestHarnessHandler {
             await handleSetTheme(theme)
         case .reloadFile:
             await handleReloadFile()
-        case let .captureWindow(outputPath):
-            handleCaptureWindow(outputPath)
-        case let .captureRegion(region, outputPath):
-            handleCaptureRegion(region, outputPath)
-        case let .startFrameCapture(fps, duration, outputDir):
-            await handleStartFrameCapture(fps, duration, outputDir)
-        case .stopFrameCapture:
-            handleStopFrameCapture()
+        case .captureWindow, .captureRegion,
+             .startFrameCapture, .stopFrameCapture,
+             .beginFrameCapture, .endFrameCapture:
+            await processCapture(command)
         case .getWindowInfo:
             handleGetWindowInfo()
         case .getThemeColors:
@@ -40,6 +36,27 @@ enum TestHarnessHandler {
             .ok(data: .pong)
         case .quit:
             handleQuit()
+        }
+    }
+
+    private static func processCapture(
+        _ command: HarnessCommand
+    ) async -> HarnessResponse {
+        switch command {
+        case let .captureWindow(outputPath):
+            handleCaptureWindow(outputPath)
+        case let .captureRegion(region, outputPath):
+            handleCaptureRegion(region, outputPath)
+        case let .startFrameCapture(fps, duration, outputDir):
+            await handleStartFrameCapture(fps, duration, outputDir)
+        case .stopFrameCapture:
+            handleStopFrameCapture()
+        case let .beginFrameCapture(fps, outputDir):
+            await handleBeginFrameCapture(fps, outputDir)
+        case .endFrameCapture:
+            await handleEndFrameCapture()
+        default:
+            .error("Unknown capture command")
         }
     }
 
@@ -242,6 +259,22 @@ enum TestHarnessHandler {
         }
         CaptureService.activeFrameSession = nil
         return .ok(message: "Frame capture stopped")
+    }
+
+    private static func handleBeginFrameCapture(
+        _ fps: Int, _ outputDir: String?
+    ) async -> HarnessResponse {
+        guard let window = findMainWindow() else { return .error("No visible window found") }
+        do {
+            try await CaptureService.beginFrameCapture(window, fps: fps, outputDir: outputDir)
+            return .ok(message: "Frame capture started at \(fps) fps")
+        } catch { return .error("Begin frame capture failed: \(error.localizedDescription)") }
+    }
+
+    private static func handleEndFrameCapture() async -> HarnessResponse {
+        do {
+            return try await .ok(data: .frameCapture(CaptureService.endFrameCapture()))
+        } catch { return .error("End frame capture failed: \(error.localizedDescription)") }
     }
 
     // MARK: - Info Commands

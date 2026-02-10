@@ -107,7 +107,119 @@ final class FrameCaptureSession: NSObject, @unchecked Sendable {
         return try gatherResult(outputDir: outputDir, fps: fps)
     }
 
+    // MARK: - Split Start/Stop Lifecycle
+
+    /// Starts frame capture without blocking. Call ``stop()`` to end
+    /// capture and retrieve results.
+    ///
+    /// Creates an ``SCStream`` filtered to the app's own window, starts
+    /// capture, and returns immediately. The session continues capturing
+    /// frames in the background until ``stop()`` is called.
+    ///
+    /// - Parameters:
+    ///   - windowID: The ``CGWindowID`` of the target window.
+    ///   - windowSize: Window size in points.
+    ///   - scaleFactor: Display scale factor (e.g., 2.0 for Retina).
+    ///   - fps: Target frames per second (30--60).
+    ///   - outputDir: Directory to write numbered PNG frames.
+    func start(
+        windowID: CGWindowID,
+        windowSize: CGSize,
+        scaleFactor: CGFloat,
+        fps: Int,
+        outputDir: String
+    ) async throws {
+        try FileManager.default.createDirectory(
+            atPath: outputDir,
+            withIntermediateDirectories: true
+        )
+
+        let content = try await SCShareableContent.excludingDesktopWindows(
+            false,
+            onScreenWindowsOnly: false
+        )
+
+        guard let scWindow = content.windows.first(where: { window in
+            window.windowID == windowID
+        })
+        else {
+            throw HarnessError.captureFailed(
+                "No ScreenCaptureKit window for ID \(windowID)"
+            )
+        }
+
+        let filter = SCContentFilter(desktopIndependentWindow: scWindow)
+
+        let config = SCStreamConfiguration()
+        config.width = Int(windowSize.width * scaleFactor)
+        config.height = Int(windowSize.height * scaleFactor)
+        config.minimumFrameInterval = CMTime(
+            value: 1,
+            timescale: CMTimeScale(fps)
+        )
+        config.pixelFormat = kCVPixelFormatType_32BGRA
+        config.showsCursor = false
+
+        let scStream = SCStream(
+            filter: filter,
+            configuration: config,
+            delegate: self
+        )
+        try scStream.addStreamOutput(
+            self,
+            type: .screen,
+            sampleHandlerQueue: captureQueue
+        )
+
+        resetState(scStream: scStream, outputDir: outputDir)
+        setActiveFPS(fps)
+
+        try await scStream.startCapture()
+    }
+
+    /// Stops an in-progress capture session and returns the result.
+    ///
+    /// Stops the ``SCStream``, waits for all pending PNG writes to
+    /// complete, and returns the ``FrameCaptureResult``.
+    func stop() async throws -> FrameCaptureResult {
+        let snapshot = readStopSnapshot()
+
+        guard let activeStream = snapshot.stream else {
+            throw HarnessError.captureFailed("No active capture stream")
+        }
+
+        try await activeStream.stopCapture()
+        await awaitPendingWrites()
+
+        return try gatherResult(outputDir: snapshot.dir, fps: snapshot.fps)
+    }
+
     // MARK: - State Management
+
+    private var activeFPS = 30
+
+    private func setActiveFPS(_ fps: Int) {
+        lock.lock()
+        activeFPS = fps
+        lock.unlock()
+    }
+
+    private struct StopSnapshot {
+        let stream: SCStream?
+        let fps: Int
+        let dir: String
+    }
+
+    private func readStopSnapshot() -> StopSnapshot {
+        lock.lock()
+        let snapshot = StopSnapshot(
+            stream: stream,
+            fps: activeFPS,
+            dir: outputDirectory
+        )
+        lock.unlock()
+        return snapshot
+    }
 
     private func resetState(scStream: SCStream, outputDir: String) {
         lock.lock()
