@@ -82,7 +82,9 @@ struct VisionCaptureTests {
             "loadFile(\(fixture)) failed: \(loadResp.message ?? "unknown error")"
         )
 
-        try await Task.sleep(for: .milliseconds(1_500))
+        let isMermaid = fixture.contains("mermaid")
+        let captureDelay: Duration = isMermaid ? .seconds(6) : .milliseconds(1_500)
+        try await Task.sleep(for: captureDelay)
 
         let captureId = visionCaptureId(fixture: fixture, theme: theme)
         let outputURL = URL(fileURLWithPath: outputDir)

@@ -130,6 +130,10 @@ extension MarkdownTextStorageBuilder {
         attachments: inout [AttachmentInfo]
     ) {
         let attachment = NSTextAttachment()
+        let placeholderImage = NSImage(
+            size: NSSize(width: 1, height: height)
+        )
+        attachment.image = placeholderImage
         attachment.bounds = CGRect(x: 0, y: 0, width: 1, height: height)
 
         let attachmentStr = NSMutableAttributedString(attachment: attachment)

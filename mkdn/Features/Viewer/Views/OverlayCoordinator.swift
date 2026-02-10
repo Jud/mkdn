@@ -107,6 +107,13 @@ final class OverlayCoordinator {
         else { return }
 
         textStorage.edited(.editedAttributes, range: range, changeInLength: 0)
+
+        if let layoutManager = textView.textLayoutManager {
+            let fullRange = layoutManager.documentRange
+            layoutManager.invalidateLayout(for: fullRange)
+            layoutManager.ensureLayout(for: fullRange)
+        }
+
         repositionOverlays()
     }
 
