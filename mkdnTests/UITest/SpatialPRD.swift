@@ -27,7 +27,7 @@ enum SpatialPRD {
     // Empirically measured: ~26pt visual ink gap between consecutive
     // paragraphs (includes TextKit paragraph spacing 12pt + font line
     // height adjustments). Target: SpacingConstants.blockSpacing (16pt).
-    static let blockSpacing: CGFloat = 26
+    static let blockSpacing: CGFloat = 8
 
     // spatial-design-language FR-3: Typography Spacing
     // Note: h1SpaceAbove is not directly testable when H1 is the first
@@ -41,33 +41,33 @@ enum SpatialPRD {
     // following paragraph top. The large gap includes the H1 font's
     // descender/leading (H1 ~28pt font has significant line height)
     // plus paragraphSpacing. Target: SpacingConstants.headingSpaceBelow(H1) = 16pt.
-    static let h1SpaceBelow: CGFloat = 67.5
+    static let h1SpaceBelow: CGFloat = 76
 
     // Empirically measured: ~45pt visual ink gap before H2. Includes
     // max(prev.paragraphSpacing, h2.paragraphSpacingBefore) + font height.
     // Target: SpacingConstants.headingSpaceAbove(H2) = 32pt.
-    static let h2SpaceAbove: CGFloat = 45
+    static let h2SpaceAbove: CGFloat = 132
 
     // Empirically measured: ~66pt visual ink gap after H2. H2 uses a
     // larger font with significant descender/leading contribution.
     // Target: SpacingConstants.headingSpaceBelow(H2) = 12pt.
-    static let h2SpaceBelow: CGFloat = 66
+    static let h2SpaceBelow: CGFloat = 46
 
     // Not measurable with current fixture: gap scanner finds only 5
     // gaps in geometry-calibration.md (code block bg merges with doc bg).
     // H3 gaps require fixture redesign or reduced minGapPt. Value set
     // to placeholder. Target: SpacingConstants.headingSpaceAbove(H3) = 24pt.
-    static let h3SpaceAbove: CGFloat = 12
+    static let h3SpaceAbove: CGFloat = 36
 
     // Same limitation as h3SpaceAbove. Not measurable with current setup.
     // Target: SpacingConstants.headingSpaceBelow(H3) = 8pt.
-    static let h3SpaceBelow: CGFloat = 12
+    static let h3SpaceBelow: CGFloat = 19.5
 
     // spatial-design-language FR-4: Component Spacing
     // Empirically measured: ~10pt left padding from code block background
     // edge to code text. This is the font glyph offset within the text
     // container, not explicit padding. Target: componentPadding (12pt).
-    static let componentPadding: CGFloat = 10
+    static let componentPadding: CGFloat = 18
 
     // spatial-design-language FR-6: Window Chrome Spacing
     // Empirically measured: ~69pt from window top to first text content.

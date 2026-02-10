@@ -50,7 +50,7 @@ enum MarkdownTextStorageBuilder {
         var attachments: [AttachmentInfo] = []
         let colors = theme.colors
 
-        for indexedBlock in blocks {
+        for (offset, indexedBlock) in blocks.enumerated() {
             appendBlock(
                 indexedBlock,
                 to: result,
@@ -58,6 +58,21 @@ enum MarkdownTextStorageBuilder {
                 theme: theme,
                 attachments: &attachments
             )
+
+            // Collapse the first block's top spacing so textContainerInset
+            // alone controls the window-top-to-text distance.
+            if offset == 0, result.length > 0 {
+                let firstParaRange = (result.string as NSString) // swiftlint:disable:this legacy_objc_type
+                    .paragraphRange(for: NSRange(location: 0, length: 0))
+                if let style = result.attribute(
+                    .paragraphStyle, at: 0, effectiveRange: nil
+                ) as? NSParagraphStyle {
+                    // swiftlint:disable:next force_cast
+                    let mutable = style.mutableCopy() as! NSMutableParagraphStyle
+                    mutable.paragraphSpacingBefore = 0
+                    result.addAttribute(.paragraphStyle, value: mutable, range: firstParaRange)
+                }
+            }
         }
 
         return TextStorageResult(
