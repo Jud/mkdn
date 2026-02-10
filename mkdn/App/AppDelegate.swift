@@ -82,9 +82,14 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     public func applicationShouldHandleReopen(
-        _: NSApplication,
-        hasVisibleWindows _: Bool
+        _ sender: NSApplication,
+        hasVisibleWindows: Bool
     ) -> Bool {
-        true
+        if hasVisibleWindows {
+            sender.activate(ignoringOtherApps: true)
+            sender.keyWindow?.makeKeyAndOrderFront(nil)
+            return true
+        }
+        return false
     }
 }
