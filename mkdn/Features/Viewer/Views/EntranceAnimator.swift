@@ -131,9 +131,38 @@ final class EntranceAnimator {
 
         let layer = CALayer()
         layer.frame = adjustedFrame
-        layer.backgroundColor = textView.backgroundColor.cgColor
+        layer.backgroundColor = coverColor(
+            for: fragment, in: textView
+        )
         layer.zPosition = 1
         return layer
+    }
+
+    private func coverColor(
+        for fragment: NSTextLayoutFragment,
+        in textView: NSTextView
+    ) -> CGColor {
+        guard let textStorage = textView.textStorage,
+              let contentManager = textView.textLayoutManager?.textContentManager
+        else {
+            return textView.backgroundColor.cgColor
+        }
+
+        let docStart = contentManager.documentRange.location
+        let fragStart = fragment.rangeInElement.location
+        let charOffset = contentManager.offset(from: docStart, to: fragStart)
+
+        guard charOffset >= 0, charOffset < textStorage.length,
+              let colorInfo = textStorage.attribute(
+                  CodeBlockAttributes.colors,
+                  at: charOffset,
+                  effectiveRange: nil
+              ) as? CodeBlockColorInfo
+        else {
+            return textView.backgroundColor.cgColor
+        }
+
+        return colorInfo.background.cgColor
     }
 
     private func applyCoverFadeAnimation(

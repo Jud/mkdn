@@ -1,14 +1,14 @@
+import AppKit
 import Splash
-import SwiftUI
 import Testing
 
 @testable import mkdnLib
 
 @Suite("ThemeOutputFormat")
 struct ThemeOutputFormatTests {
-    private let red: SwiftUI.Color = .red
-    private let blue: SwiftUI.Color = .blue
-    private let green: SwiftUI.Color = .green
+    private let red: NSColor = .red
+    private let blue: NSColor = .blue
+    private let green: NSColor = .green
 
     @Test("addToken applies correct color from tokenColorMap")
     func tokenColorApplied() {
@@ -22,7 +22,7 @@ struct ThemeOutputFormatTests {
 
         let runs = Array(result.runs)
         #expect(runs.count == 1)
-        #expect(runs[0].foregroundColor == blue)
+        #expect(runs[0].appKit.foregroundColor == blue)
     }
 
     @Test("addToken with unmapped TokenType falls back to plainTextColor")
@@ -37,7 +37,7 @@ struct ThemeOutputFormatTests {
 
         let runs = Array(result.runs)
         #expect(runs.count == 1)
-        #expect(runs[0].foregroundColor == red)
+        #expect(runs[0].appKit.foregroundColor == red)
     }
 
     @Test("addPlainText applies plainTextColor")
@@ -52,7 +52,7 @@ struct ThemeOutputFormatTests {
 
         let runs = Array(result.runs)
         #expect(runs.count == 1)
-        #expect(runs[0].foregroundColor == green)
+        #expect(runs[0].appKit.foregroundColor == green)
     }
 
     @Test("addWhitespace applies plainTextColor as foreground color")
@@ -68,7 +68,7 @@ struct ThemeOutputFormatTests {
         #expect(String(result.characters) == "  \n")
         let runs = Array(result.runs)
         #expect(runs.count == 1)
-        #expect(runs[0].foregroundColor == red)
+        #expect(runs[0].appKit.foregroundColor == red)
     }
 
     @Test("build returns non-empty result after adding content")
@@ -107,6 +107,6 @@ struct ThemeOutputFormatTests {
 
         let runsA = Array(resultA.runs)
         let runsB = Array(resultB.runs)
-        #expect(runsA[0].foregroundColor != runsB[0].foregroundColor)
+        #expect(runsA[0].appKit.foregroundColor != runsB[0].appKit.foregroundColor)
     }
 }

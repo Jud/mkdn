@@ -152,6 +152,23 @@ struct CodeBlockStylingTests {
             swiftRunCount > plainRunCount,
             "Swift code block should have more attribute runs than plain: swift=\(swiftRunCount) plain=\(plainRunCount)"
         )
+
+        // Verify foreground colors are NSColor via the AppKit attribute key,
+        // not SwiftUI-scoped keys that NSTextView cannot render.
+        var foundNSColorForeground = false
+        swiftStr.enumerateAttribute(
+            .foregroundColor,
+            in: swiftCodeRange
+        ) { value, _, _ in
+            if let color = value as? NSColor {
+                foundNSColorForeground = true
+                _ = color // suppress unused warning
+            }
+        }
+        #expect(
+            foundNSColorForeground,
+            "Syntax-highlighted code must use NSAttributedString.Key.foregroundColor with NSColor values"
+        )
     }
 
     // MARK: - Non-Swift Code Foreground

@@ -56,17 +56,17 @@ struct CodeBlockView: View {
 
         let syntaxColors = appSettings.theme.syntaxColors
         let outputFormat = ThemeOutputFormat(
-            plainTextColor: syntaxColors.comment,
+            plainTextColor: PlatformTypeConverter.nsColor(from: syntaxColors.comment),
             tokenColorMap: [
-                .keyword: syntaxColors.keyword,
-                .string: syntaxColors.string,
-                .type: syntaxColors.type,
-                .call: syntaxColors.function,
-                .number: syntaxColors.number,
-                .comment: syntaxColors.comment,
-                .property: syntaxColors.property,
-                .dotAccess: syntaxColors.property,
-                .preprocessing: syntaxColors.preprocessor,
+                .keyword: PlatformTypeConverter.nsColor(from: syntaxColors.keyword),
+                .string: PlatformTypeConverter.nsColor(from: syntaxColors.string),
+                .type: PlatformTypeConverter.nsColor(from: syntaxColors.type),
+                .call: PlatformTypeConverter.nsColor(from: syntaxColors.function),
+                .number: PlatformTypeConverter.nsColor(from: syntaxColors.number),
+                .comment: PlatformTypeConverter.nsColor(from: syntaxColors.comment),
+                .property: PlatformTypeConverter.nsColor(from: syntaxColors.property),
+                .dotAccess: PlatformTypeConverter.nsColor(from: syntaxColors.property),
+                .preprocessing: PlatformTypeConverter.nsColor(from: syntaxColors.preprocessor),
             ]
         )
         let highlighter = SyntaxHighlighter(format: outputFormat)

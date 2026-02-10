@@ -1,36 +1,38 @@
+import AppKit
 @preconcurrency import Splash
-import SwiftUI
 
-/// Splash OutputFormat producing `AttributedString` with SwiftUI Colors.
-/// Theme-agnostic: accepts any token-to-color mapping.
+/// Splash OutputFormat producing `AttributedString` with AppKit-scoped
+/// `NSColor` foreground colors so that `NSMutableAttributedString` conversion
+/// yields `.foregroundColor` keyed as `"NSColor"` -- the key NSTextView
+/// actually reads for text rendering.
 struct ThemeOutputFormat: OutputFormat, Sendable {
-    let plainTextColor: SwiftUI.Color
-    let tokenColorMap: [TokenType: SwiftUI.Color]
+    let plainTextColor: NSColor
+    let tokenColorMap: [TokenType: NSColor]
 
     func makeBuilder() -> Builder {
         Builder(plainTextColor: plainTextColor, tokenColorMap: tokenColorMap)
     }
 
     struct Builder: OutputBuilder, Sendable {
-        let plainTextColor: SwiftUI.Color
-        let tokenColorMap: [TokenType: SwiftUI.Color]
+        let plainTextColor: NSColor
+        let tokenColorMap: [TokenType: NSColor]
         var result = AttributedString()
 
         mutating func addToken(_ token: String, ofType type: TokenType) {
             var attributed = AttributedString(token)
-            attributed.foregroundColor = tokenColorMap[type] ?? plainTextColor
+            attributed.appKit.foregroundColor = tokenColorMap[type] ?? plainTextColor
             result.append(attributed)
         }
 
         mutating func addPlainText(_ text: String) {
             var attributed = AttributedString(text)
-            attributed.foregroundColor = plainTextColor
+            attributed.appKit.foregroundColor = plainTextColor
             result.append(attributed)
         }
 
         mutating func addWhitespace(_ whitespace: String) {
             var attributed = AttributedString(whitespace)
-            attributed.foregroundColor = plainTextColor
+            attributed.appKit.foregroundColor = plainTextColor
             result.append(attributed)
         }
 
