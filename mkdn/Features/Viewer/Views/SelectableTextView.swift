@@ -132,7 +132,7 @@ extension SelectableTextView {
         textView.usesRuler = false
         textView.allowsUndo = false
         textView.isAutomaticLinkDetectionEnabled = false
-        textView.textContainerInset = NSSize(width: 24, height: 24)
+        textView.textContainerInset = NSSize(width: 32, height: 32)
         textView.isRichText = true
         textView.isHorizontallyResizable = false
         textView.isVerticallyResizable = true

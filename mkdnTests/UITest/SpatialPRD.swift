@@ -15,10 +15,10 @@ import Testing
 /// with references to the source-of-truth enum.
 enum SpatialPRD {
     // spatial-design-language FR-2: Document Layout
-    // Empirically measured: ~32pt (24pt textContainerInset.width + ~8pt
+    // Empirically measured: ~40pt (32pt textContainerInset.width + ~8pt
     // auto content insets from NSScrollView + .hiddenTitleBar).
-    // Target: SpacingConstants.documentMargin (32pt) -- already matches.
-    static let documentMargin: CGFloat = 32
+    // Target: SpacingConstants.documentMargin (40pt).
+    static let documentMargin: CGFloat = 40
 
     // Current: 680pt. Target: SpacingConstants.contentMaxWidth (680pt)
     // after spatial-design-language migration.
@@ -33,6 +33,8 @@ enum SpatialPRD {
     // Note: h1SpaceAbove is not directly testable when H1 is the first
     // element (it collapses into windowTopInset). Value kept for
     // reference. Target: SpacingConstants.headingSpaceAbove(H1) = 48pt.
+    // paragraphSpacingBefore updated from 28 to 48; collapsed empirical
+    // value needs re-verification via spatial compliance harness.
     static let h1SpaceAbove: CGFloat = 8
 
     // Empirically measured: ~67.5pt visual ink gap from H1 bottom to
@@ -68,25 +70,25 @@ enum SpatialPRD {
     static let componentPadding: CGFloat = 10
 
     // spatial-design-language FR-6: Window Chrome Spacing
-    // Empirically measured: ~61pt from window top to first text content.
-    // Includes toolbar height (~29pt) + textContainerInset.height (24pt)
+    // Empirically measured: ~69pt from window top to first text content.
+    // Includes toolbar height (~29pt) + textContainerInset.height (32pt)
     // + auto content inset (~8pt). The toolbar (ViewModePicker, etc.)
     // adds vertical space above the text container that the original
     // 32pt estimate did not account for.
     // Target: SpacingConstants.windowTopInset (32pt) after toolbar
     // accounting is clarified in the spatial-design-language migration.
-    static let windowTopInset: CGFloat = 61
+    static let windowTopInset: CGFloat = 69
 
-    // Empirically validated: ~32pt (24pt textContainerInset.width + ~8pt
+    // Empirically validated: ~40pt (32pt textContainerInset.width + ~8pt
     // auto content inset). Confirmed by live capture measurement.
-    // Target: SpacingConstants.windowSideInset (32pt) -- matches.
-    static let windowSideInset: CGFloat = 32
+    // Target: SpacingConstants.windowSideInset (40pt) -- matches.
+    static let windowSideInset: CGFloat = 40
 
     // Not reliably measurable from short fixtures: when the document fits
     // in one viewport, the bottom inset equals the remaining viewport
     // space, not the textContainerInset. Needs a long document fixture.
-    // Target: SpacingConstants.windowBottomInset (24pt).
-    static let windowBottomInset: CGFloat = 24
+    // Target: SpacingConstants.windowBottomInset (32pt).
+    static let windowBottomInset: CGFloat = 32
 
     // spatial-design-language FR-5: Structural Rules
     static let gridUnit: CGFloat = 4

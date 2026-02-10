@@ -15,7 +15,7 @@ extension MarkdownTextStorageBuilder {
         let foreground = PlatformTypeConverter.nsColor(from: colors.headingColor)
         let linkColor = PlatformTypeConverter.nsColor(from: colors.linkColor)
         let spacingBefore: CGFloat = switch level {
-        case 1: 28
+        case 1: 48
         case 2: 20
         default: 14
         }
