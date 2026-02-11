@@ -2,7 +2,7 @@
 
 **Feature ID**: the-orb
 **Status**: In Progress
-**Progress**: 55% (6 of 11 tasks)
+**Progress**: 64% (7 of 11 tasks)
 **Estimated Effort**: 3 days
 **Started**: 2026-02-10
 
@@ -177,7 +177,14 @@ Consolidate `FileChangeOrbView` and `DefaultHandlerHintView` into a single unifi
     - [x] Visibility: hidden when `activeState == .idle` with appropriate transition animation
     - [x] Positioning: bottom-right with `.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing).padding(16)` per design section 3.8
 
-- [ ] **T7**: Create unit tests for `OrbState` priority ordering, color mapping, visibility, and `AppSettings.autoReloadEnabled` `[complexity:medium]`
+- [x] **T7**: Create unit tests for `OrbState` priority ordering, color mapping, visibility, and `AppSettings.autoReloadEnabled` `[complexity:medium]`
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdnTests/Unit/UI/OrbStateTests.swift` (new), `mkdnTests/Unit/Features/AppSettingsTests.swift` (modified)
+    - **Approach**: Created 12-test OrbStateTests suite covering priority ordering (3 tests), max resolution (2 tests), visibility (2 tests), color mapping (4 tests), and distinct-color uniqueness (1 test). Added 3 autoReloadEnabled tests to existing AppSettingsTests following the established hasShownDefaultHandlerHint pattern: defaults-to-false, persists-to-UserDefaults, restores-true.
+    - **Deviations**: AppSettings tests added to existing file at `mkdnTests/Unit/Features/AppSettingsTests.swift` rather than `mkdnTests/Unit/App/AppSettingsTests.swift` since that is where the existing suite lives.
+    - **Tests**: 29/29 passing (12 OrbState + 17 AppSettings)
 
     **Reference**: [design.md#73-unit-tests](design.md#73-unit-tests)
 
@@ -185,15 +192,15 @@ Consolidate `FileChangeOrbView` and `DefaultHandlerHintView` into a single unifi
 
     **Acceptance Criteria**:
 
-    - [ ] `OrbStateTests` suite created at `mkdnTests/Unit/UI/OrbStateTests.swift` using `@Suite` and `@Test`
-    - [ ] Test: priority ordering confirms `fileChanged > defaultHandler > updateAvailable > idle`
-    - [ ] Test: `[.defaultHandler, .fileChanged].max()` returns `.fileChanged`
-    - [ ] Test: `OrbState.idle.isVisible` returns `false`; all other cases return `true`
-    - [ ] Test: each state's `color` property returns the expected `AnimationConstants` color constant
-    - [ ] AppSettings tests at `mkdnTests/Unit/App/AppSettingsTests.swift` (new or modify existing)
-    - [ ] Test: `autoReloadEnabled` defaults to `false` on fresh init
-    - [ ] Test: `autoReloadEnabled` persists value across init cycles via UserDefaults
-    - [ ] All tests use `@testable import mkdnLib`, Swift Testing framework (`#expect`)
+    - [x] `OrbStateTests` suite created at `mkdnTests/Unit/UI/OrbStateTests.swift` using `@Suite` and `@Test`
+    - [x] Test: priority ordering confirms `fileChanged > defaultHandler > updateAvailable > idle`
+    - [x] Test: `[.defaultHandler, .fileChanged].max()` returns `.fileChanged`
+    - [x] Test: `OrbState.idle.isVisible` returns `false`; all other cases return `true`
+    - [x] Test: each state's `color` property returns the expected `AnimationConstants` color constant
+    - [x] AppSettings tests at `mkdnTests/Unit/Features/AppSettingsTests.swift` (modified existing)
+    - [x] Test: `autoReloadEnabled` defaults to `false` on fresh init
+    - [x] Test: `autoReloadEnabled` persists value across init cycles via UserDefaults
+    - [x] All tests use `@testable import mkdnLib`, Swift Testing framework (`#expect`)
 
 ### Integration (Parallel Group 3)
 
@@ -205,6 +212,18 @@ Consolidate `FileChangeOrbView` and `DefaultHandlerHintView` into a single unifi
     - **Approach**: Removed the conditional `FileChangeOrbView` overlay block (including frame/padding/transition modifiers) and the conditional `DefaultHandlerHintView` overlay block (including GeometryReader positioning). Replaced both with a single `TheOrbView()` call in the ZStack. Updated docstring to reflect unified orb. ModeTransitionOverlay left unchanged.
     - **Deviations**: None
     - **Tests**: 301/302 passing (1 pre-existing MermaidHTMLTemplate failure unrelated)
+
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
 
     **Reference**: [design.md#38-contentview-integration](design.md#38-contentview-integration)
 
@@ -229,6 +248,18 @@ Consolidate `FileChangeOrbView` and `DefaultHandlerHintView` into a single unifi
     - **Approach**: Deleted both old view files. Updated OrbVisual.swift docstring to reference TheOrbView instead of the deleted types. Verified zero remaining references in source via project-wide grep. Build clean, lint clean.
     - **Deviations**: None
     - **Tests**: 301/302 passing (1 pre-existing MermaidHTMLTemplate failure unrelated)
+
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
 
     **Reference**: [design.md#component-design](design.md#component-design)
 

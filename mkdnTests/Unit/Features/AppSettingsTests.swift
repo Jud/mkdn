@@ -187,4 +187,36 @@ struct AppSettingsTests {
         let settings = AppSettings()
         #expect(settings.hasShownDefaultHandlerHint)
     }
+
+    // MARK: - Auto-Reload
+
+    @Test("autoReloadEnabled defaults to false")
+    @MainActor func autoReloadDefaultsToFalse() {
+        defer { UserDefaults.standard.removeObject(forKey: "autoReloadEnabled") }
+        UserDefaults.standard.removeObject(forKey: "autoReloadEnabled")
+
+        let settings = AppSettings()
+        #expect(!settings.autoReloadEnabled)
+    }
+
+    @Test("autoReloadEnabled persists to UserDefaults")
+    @MainActor func autoReloadPersistsToUserDefaults() {
+        defer { UserDefaults.standard.removeObject(forKey: "autoReloadEnabled") }
+        UserDefaults.standard.removeObject(forKey: "autoReloadEnabled")
+
+        let settings = AppSettings()
+        #expect(!settings.autoReloadEnabled)
+
+        settings.autoReloadEnabled = true
+        #expect(UserDefaults.standard.bool(forKey: "autoReloadEnabled"))
+    }
+
+    @Test("autoReloadEnabled restores true from UserDefaults")
+    @MainActor func autoReloadRestoresTrueFromUserDefaults() {
+        defer { UserDefaults.standard.removeObject(forKey: "autoReloadEnabled") }
+
+        UserDefaults.standard.set(true, forKey: "autoReloadEnabled")
+        let settings = AppSettings()
+        #expect(settings.autoReloadEnabled)
+    }
 }
