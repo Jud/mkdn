@@ -2,7 +2,7 @@
 
 **Feature ID**: the-orb
 **Status**: In Progress
-**Progress**: 27% (3 of 11 tasks)
+**Progress**: 36% (4 of 11 tasks)
 **Estimated Effort**: 3 days
 **Started**: 2026-02-10
 
@@ -41,6 +41,18 @@ Consolidate `FileChangeOrbView` and `DefaultHandlerHintView` into a single unifi
     - **Deviations**: None
     - **Tests**: Deferred to T7
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
     **Reference**: [design.md#31-orbstate-enum](design.md#31-orbstate-enum)
 
     **Effort**: 1 hour
@@ -61,6 +73,18 @@ Consolidate `FileChangeOrbView` and `DefaultHandlerHintView` into a single unifi
     - **Approach**: Added private key constant, Bool property with didSet persistence, and UserDefaults read in init(). Exact pattern match with hasShownDefaultHandlerHint.
     - **Deviations**: None
     - **Tests**: Existing AppSettings tests pass; new autoReload tests deferred to T7
+
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
 
     **Reference**: [design.md#34-appsettings-extension](design.md#34-appsettings-extension)
 
@@ -83,6 +107,18 @@ Consolidate `FileChangeOrbView` and `DefaultHandlerHintView` into a single unifi
     - **Deviations**: None
     - **Tests**: 162/162 passing
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
     **Reference**: [design.md#35-new-color-constants](design.md#35-new-color-constants)
 
     **Effort**: 1.5 hours
@@ -98,7 +134,14 @@ Consolidate `FileChangeOrbView` and `DefaultHandlerHintView` into a single unifi
 
 ### Assembly (Parallel Group 2)
 
-- [ ] **T4**: Create `TheOrbView` with state resolution, OrbVisual delegation, per-state popovers, auto-reload timer, color crossfade, and transitions `[complexity:complex]`
+- [x] **T4**: Create `TheOrbView` with state resolution, OrbVisual delegation, per-state popovers, auto-reload timer, color crossfade, and transitions `[complexity:complex]`
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/UI/Components/TheOrbView.swift`
+    - **Approach**: Created unified orb view with computed `activeState` resolving highest-priority OrbState from DocumentState/AppSettings environment. Delegates to OrbVisual with `@State currentColor` crossfaded via `onChange(of: activeState)`. Per-state popovers (defaultHandler: register Yes/No, fileChanged: reload Yes/No + auto-reload Toggle, updateAvailable: informational). Auto-reload via `Task.sleep(for: .seconds(5))` with cancellation on tap/disappear/state-change. MotionPreference resolves all animation primitives. Self-contained positioning and visibility.
+    - **Deviations**: None
+    - **Tests**: N/A (view; unit tests deferred to T7 for OrbState/AppSettings logic)
 
     **Reference**: [design.md#32-state-resolution-logic](design.md#32-state-resolution-logic)
 
@@ -106,21 +149,21 @@ Consolidate `FileChangeOrbView` and `DefaultHandlerHintView` into a single unifi
 
     **Acceptance Criteria**:
 
-    - [ ] `TheOrbView` created at `mkdn/UI/Components/TheOrbView.swift`
-    - [ ] Reads `DocumentState` and `AppSettings` from `@Environment`
-    - [ ] `activeState` computed property resolves highest-priority state using `[OrbState].max() ?? .idle` per design section 3.2
-    - [ ] Delegates rendering to existing `OrbVisual` component, passing `currentColor` as the color parameter
-    - [ ] Color crossfade: `@State var currentColor` updated via `withAnimation(motion.resolved(.crossfade))` in `onChange(of: activeState)` per design section 3.6
-    - [ ] Per-state popover content: defaultHandler (register prompt with Yes/No), fileChanged (reload Yes/No + auto-reload Toggle), updateAvailable (informational text) per design section 3.7
-    - [ ] Auto-reload timer: `@State private var autoReloadTask: Task<Void, Never>?` starts when `activeState == .fileChanged && appSettings.autoReloadEnabled && !documentState.hasUnsavedChanges` per design section 3.3
-    - [ ] Auto-reload duration: `Task.sleep(for: .seconds(5))` (one breathe cycle)
-    - [ ] Timer cancelled on: user tap (show manual popover), view disappear, state change away from fileChanged
-    - [ ] Timer reset on: new file-change event during active countdown via `onChange(of: documentState.isFileOutdated)`
-    - [ ] Unsaved changes guard: auto-reload suppressed when `documentState.hasUnsavedChanges`, falls back to manual popover
-    - [ ] Hover feedback via `.hoverScale()` matching existing orb pattern
-    - [ ] `MotionPreference` integration: resolves all animation primitives, guards continuous animations with `allowsContinuousAnimation`
-    - [ ] Visibility: hidden when `activeState == .idle` with appropriate transition animation
-    - [ ] Positioning: bottom-right with `.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing).padding(16)` per design section 3.8
+    - [x] `TheOrbView` created at `mkdn/UI/Components/TheOrbView.swift`
+    - [x] Reads `DocumentState` and `AppSettings` from `@Environment`
+    - [x] `activeState` computed property resolves highest-priority state using `[OrbState].max() ?? .idle` per design section 3.2
+    - [x] Delegates rendering to existing `OrbVisual` component, passing `currentColor` as the color parameter
+    - [x] Color crossfade: `@State var currentColor` updated via `withAnimation(motion.resolved(.crossfade))` in `onChange(of: activeState)` per design section 3.6
+    - [x] Per-state popover content: defaultHandler (register prompt with Yes/No), fileChanged (reload Yes/No + auto-reload Toggle), updateAvailable (informational text) per design section 3.7
+    - [x] Auto-reload timer: `@State private var autoReloadTask: Task<Void, Never>?` starts when `activeState == .fileChanged && appSettings.autoReloadEnabled && !documentState.hasUnsavedChanges` per design section 3.3
+    - [x] Auto-reload duration: `Task.sleep(for: .seconds(5))` (one breathe cycle)
+    - [x] Timer cancelled on: user tap (show manual popover), view disappear, state change away from fileChanged
+    - [x] Timer reset on: new file-change event during active countdown via `onChange(of: documentState.isFileOutdated)`
+    - [x] Unsaved changes guard: auto-reload suppressed when `documentState.hasUnsavedChanges`, falls back to manual popover
+    - [x] Hover feedback via `.hoverScale()` matching existing orb pattern
+    - [x] `MotionPreference` integration: resolves all animation primitives, guards continuous animations with `allowsContinuousAnimation`
+    - [x] Visibility: hidden when `activeState == .idle` with appropriate transition animation
+    - [x] Positioning: bottom-right with `.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing).padding(16)` per design section 3.8
 
 - [ ] **T7**: Create unit tests for `OrbState` priority ordering, color mapping, visibility, and `AppSettings.autoReloadEnabled` `[complexity:medium]`
 
