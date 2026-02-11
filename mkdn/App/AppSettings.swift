@@ -5,6 +5,8 @@ private let themeModeKey = "themeMode"
 
 private let hasShownDefaultHandlerHintKey = "hasShownDefaultHandlerHint"
 
+private let autoReloadEnabledKey = "autoReloadEnabled"
+
 /// App-wide settings shared across all windows.
 ///
 /// Manages theme preferences and application-level state that is
@@ -44,6 +46,17 @@ public final class AppSettings {
         }
     }
 
+    // MARK: - Auto-Reload
+
+    /// Whether to automatically reload unchanged files when they change on disk.
+    /// Defaults to `false` (manual reload prompt). Persisted to UserDefaults.
+    /// Discovered and toggled in-context from the file-changed popover.
+    public var autoReloadEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(autoReloadEnabled, forKey: autoReloadEnabledKey)
+        }
+    }
+
     public init() {
         let appearance = NSApp?.effectiveAppearance ?? NSAppearance.currentDrawing()
         let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
@@ -58,6 +71,7 @@ public final class AppSettings {
         }
 
         hasShownDefaultHandlerHint = UserDefaults.standard.bool(forKey: hasShownDefaultHandlerHintKey)
+        autoReloadEnabled = UserDefaults.standard.bool(forKey: autoReloadEnabledKey)
     }
 
     // MARK: - Methods

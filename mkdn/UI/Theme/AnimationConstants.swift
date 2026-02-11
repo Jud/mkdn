@@ -203,17 +203,17 @@ enum AnimationConstants {
 
     // MARK: - Orb Colors
 
-    /// Solarized violet (#6c71c4) -- theme-neutral orb glow for the default handler
-    /// hint. Calm and mystical, chosen for its association with focus and intuition.
-    static let orbGlowColor = Color(red: 0.424, green: 0.443, blue: 0.769)
+    /// Solarized violet (#6c71c4) -- default handler prompt.
+    /// Calm and mystical, chosen for its association with focus and intuition.
+    static let orbDefaultHandlerColor = Color(red: 0.424, green: 0.443, blue: 0.769)
 
-    /// Solarized cyan (#2aa198) -- file-change orb color, distinct from the violet
-    /// default-handler orb. Evokes freshness and change, signaling updated content.
-    static let fileChangeOrbColor = Color(
-        red: 0.165,
-        green: 0.631,
-        blue: 0.596
-    )
+    /// Solarized orange (#cb4b16) -- file changed on disk.
+    /// A warm alert color signaling that attention is needed.
+    static let orbFileChangedColor = Color(red: 0.796, green: 0.294, blue: 0.086)
+
+    /// Solarized green (#859900) -- update available (placeholder).
+    /// Conveys positive/available status for future update notification.
+    static let orbUpdateAvailableColor = Color(red: 0.522, green: 0.600, blue: 0.000)
 
     // MARK: - Overlay Timing
 
@@ -341,4 +341,12 @@ enum AnimationConstants {
     /// Use ``crossfade`` instead.
     @available(*, deprecated, renamed: "crossfade")
     static var themeCrossfade: Animation { crossfade }
+
+    /// Use ``orbDefaultHandlerColor`` instead.
+    @available(*, deprecated, renamed: "orbDefaultHandlerColor")
+    static var orbGlowColor: Color { orbDefaultHandlerColor }
+
+    /// Use ``orbFileChangedColor`` instead.
+    @available(*, deprecated, renamed: "orbFileChangedColor")
+    static var fileChangeOrbColor: Color { orbFileChangedColor }
 }
