@@ -2,6 +2,16 @@ import AppKit
 import SwiftUI
 @preconcurrency import WebKit
 
+// MARK: - WKWebView Focus Ring Suppression
+
+extension WKWebView {
+    // swiftlint:disable:next override_in_extension
+    override open var focusRingType: NSFocusRingType {
+        get { .none }
+        set {}
+    }
+}
+
 // MARK: - MermaidContainerView
 
 /// Custom `NSView` that gates `hitTest(_:)` based on focus state.
@@ -66,6 +76,9 @@ struct MermaidWebView: NSViewRepresentable {
         webView.allowsMagnification = true
         webView.translatesAutoresizingMaskIntoConstraints = false
 
+        container.wantsLayer = true
+        container.clipsToBounds = true
+
         container.addSubview(webView)
         NSLayoutConstraint.activate([
             webView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
@@ -90,8 +103,10 @@ struct MermaidWebView: NSViewRepresentable {
 
         if isFocused {
             coordinator.installClickOutsideMonitor()
+            coordinator.installEscapeKeyMonitor()
         } else {
             coordinator.removeClickOutsideMonitor()
+            coordinator.removeEscapeKeyMonitor()
         }
 
         if coordinator.currentTheme != theme {
@@ -102,6 +117,7 @@ struct MermaidWebView: NSViewRepresentable {
 
     static func dismantleNSView(_: MermaidContainerView, coordinator: Coordinator) {
         coordinator.removeClickOutsideMonitor()
+        coordinator.removeEscapeKeyMonitor()
         coordinator.removeMessageHandlers()
     }
 
@@ -172,6 +188,7 @@ struct MermaidWebView: NSViewRepresentable {
         weak var containerView: MermaidContainerView?
         var currentTheme: AppTheme
         private var clickOutsideMonitor: Any?
+        private var escapeKeyMonitor: Any?
         private var hasCompletedInitialNavigation = false
 
         init(parent: MermaidWebView) {
@@ -269,6 +286,30 @@ struct MermaidWebView: NSViewRepresentable {
             if let monitor = clickOutsideMonitor {
                 NSEvent.removeMonitor(monitor)
                 clickOutsideMonitor = nil
+            }
+        }
+
+        // MARK: Escape Key Monitor
+
+        func installEscapeKeyMonitor() {
+            guard escapeKeyMonitor == nil else { return }
+            escapeKeyMonitor = NSEvent.addLocalMonitorForEvents(
+                matching: .keyDown
+            ) { [weak self] event in
+                guard let self,
+                      event.keyCode == 53
+                else {
+                    return event
+                }
+                parent.isFocused = false
+                return nil
+            }
+        }
+
+        func removeEscapeKeyMonitor() {
+            if let monitor = escapeKeyMonitor {
+                NSEvent.removeMonitor(monitor)
+                escapeKeyMonitor = nil
             }
         }
 
