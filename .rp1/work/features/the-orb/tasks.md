@@ -2,7 +2,7 @@
 
 **Feature ID**: the-orb
 **Status**: In Progress
-**Progress**: 36% (4 of 11 tasks)
+**Progress**: 55% (6 of 11 tasks)
 **Estimated Effort**: 3 days
 **Started**: 2026-02-10
 
@@ -143,6 +143,18 @@ Consolidate `FileChangeOrbView` and `DefaultHandlerHintView` into a single unifi
     - **Deviations**: None
     - **Tests**: N/A (view; unit tests deferred to T7 for OrbState/AppSettings logic)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
     **Reference**: [design.md#32-state-resolution-logic](design.md#32-state-resolution-logic)
 
     **Effort**: 10 hours
@@ -185,7 +197,14 @@ Consolidate `FileChangeOrbView` and `DefaultHandlerHintView` into a single unifi
 
 ### Integration (Parallel Group 3)
 
-- [ ] **T5**: Replace `FileChangeOrbView` and `DefaultHandlerHintView` overlay blocks in `ContentView` with single `TheOrbView` `[complexity:simple]`
+- [x] **T5**: Replace `FileChangeOrbView` and `DefaultHandlerHintView` overlay blocks in `ContentView` with single `TheOrbView` `[complexity:simple]`
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/App/ContentView.swift`
+    - **Approach**: Removed the conditional `FileChangeOrbView` overlay block (including frame/padding/transition modifiers) and the conditional `DefaultHandlerHintView` overlay block (including GeometryReader positioning). Replaced both with a single `TheOrbView()` call in the ZStack. Updated docstring to reflect unified orb. ModeTransitionOverlay left unchanged.
+    - **Deviations**: None
+    - **Tests**: 301/302 passing (1 pre-existing MermaidHTMLTemplate failure unrelated)
 
     **Reference**: [design.md#38-contentview-integration](design.md#38-contentview-integration)
 
@@ -193,16 +212,23 @@ Consolidate `FileChangeOrbView` and `DefaultHandlerHintView` into a single unifi
 
     **Acceptance Criteria**:
 
-    - [ ] `FileChangeOrbView` conditional overlay block removed from `ContentView` in `mkdn/App/ContentView.swift`
-    - [ ] `DefaultHandlerHintView` conditional overlay block removed from `ContentView`
-    - [ ] Single `TheOrbView()` overlay added to the ZStack, replacing both removed blocks
-    - [ ] No conditional visibility logic for the orb in ContentView (TheOrbView handles visibility internally)
-    - [ ] `ModeTransitionOverlay` overlay remains unchanged
-    - [ ] App builds and runs with the unified orb displaying correctly
+    - [x] `FileChangeOrbView` conditional overlay block removed from `ContentView` in `mkdn/App/ContentView.swift`
+    - [x] `DefaultHandlerHintView` conditional overlay block removed from `ContentView`
+    - [x] Single `TheOrbView()` overlay added to the ZStack, replacing both removed blocks
+    - [x] No conditional visibility logic for the orb in ContentView (TheOrbView handles visibility internally)
+    - [x] `ModeTransitionOverlay` overlay remains unchanged
+    - [x] App builds and runs with the unified orb displaying correctly
 
 ### Cleanup (Parallel Group 4)
 
-- [ ] **T6**: Delete `FileChangeOrbView.swift` and `DefaultHandlerHintView.swift` `[complexity:simple]`
+- [x] **T6**: Delete `FileChangeOrbView.swift` and `DefaultHandlerHintView.swift` `[complexity:simple]`
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/UI/Components/FileChangeOrbView.swift` (deleted), `mkdn/Features/DefaultHandler/Views/DefaultHandlerHintView.swift` (deleted), `mkdn/UI/Components/OrbVisual.swift` (docstring update)
+    - **Approach**: Deleted both old view files. Updated OrbVisual.swift docstring to reference TheOrbView instead of the deleted types. Verified zero remaining references in source via project-wide grep. Build clean, lint clean.
+    - **Deviations**: None
+    - **Tests**: 301/302 passing (1 pre-existing MermaidHTMLTemplate failure unrelated)
 
     **Reference**: [design.md#component-design](design.md#component-design)
 
@@ -210,11 +236,11 @@ Consolidate `FileChangeOrbView` and `DefaultHandlerHintView` into a single unifi
 
     **Acceptance Criteria**:
 
-    - [ ] `mkdn/UI/Components/FileChangeOrbView.swift` deleted from the project
-    - [ ] `mkdn/Features/DefaultHandler/Views/DefaultHandlerHintView.swift` deleted from the project
-    - [ ] No remaining references to `FileChangeOrbView` or `DefaultHandlerHintView` in the codebase (verified via project-wide search)
-    - [ ] Project compiles cleanly with no missing-file errors
-    - [ ] SwiftLint passes with no errors
+    - [x] `mkdn/UI/Components/FileChangeOrbView.swift` deleted from the project
+    - [x] `mkdn/Features/DefaultHandler/Views/DefaultHandlerHintView.swift` deleted from the project
+    - [x] No remaining references to `FileChangeOrbView` or `DefaultHandlerHintView` in the codebase (verified via project-wide search)
+    - [x] Project compiles cleanly with no missing-file errors
+    - [x] SwiftLint passes with no errors
 
 ### User Docs
 

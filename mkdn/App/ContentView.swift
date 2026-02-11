@@ -2,7 +2,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// Root content view that switches between preview-only and side-by-side modes.
-/// Overlays a breathing orb for file-change notification and an ephemeral mode label.
+/// Overlays a unified stateful orb indicator and an ephemeral mode label.
 /// Bridges the system `colorScheme` environment to `AppSettings` for auto-theming.
 public struct ContentView: View {
     @Environment(DocumentState.self) private var documentState
@@ -32,33 +32,13 @@ public struct ContentView: View {
             }
             .animation(motion.resolved(.gentleSpring), value: documentState.viewMode)
 
-            if documentState.isFileOutdated {
-                FileChangeOrbView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                    .padding(16)
-                    .transition(
-                        .asymmetric(
-                            insertion: .opacity.animation(AnimationConstants.orbAppear),
-                            removal: .scale(scale: 0.5)
-                                .combined(with: .opacity)
-                                .animation(AnimationConstants.orbDissolve)
-                        )
-                    )
-            }
+            TheOrbView()
 
             if let label = documentState.modeOverlayLabel {
                 ModeTransitionOverlay(label: label) {
                     documentState.modeOverlayLabel = nil
                 }
                 .id(label)
-            }
-
-            if !appSettings.hasShownDefaultHandlerHint, !documentState.isFileOutdated {
-                GeometryReader { geometry in
-                    DefaultHandlerHintView()
-                        .position(x: geometry.size.width - 20, y: 20)
-                }
-                .ignoresSafeArea()
             }
         }
         .frame(minWidth: 600, minHeight: 400)

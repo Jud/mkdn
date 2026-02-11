@@ -2,10 +2,8 @@ import SwiftUI
 
 /// Reusable 3-layer orb visual: outer halo, mid glow, and inner core.
 ///
-/// Extracted from the identical visual implementations in ``FileChangeOrbView``
-/// and ``DefaultHandlerHintView``. This component handles only the visual
-/// rendering -- animation state, interaction, and popover logic remain in the
-/// calling view.
+/// This component handles only the visual rendering -- animation state,
+/// interaction, and popover logic remain in the calling view (``TheOrbView``).
 ///
 /// The three layers create depth through independent opacity, scale, and
 /// shadow modulation driven by the `isPulsing` and `isHaloExpanded` flags.
@@ -20,6 +18,7 @@ struct OrbVisual: View {
             midGlow
             innerCore
         }
+        .contentShape(Circle())
         .opacity(isPulsing ? 1.0 : 0.4)
     }
 
