@@ -20,12 +20,53 @@ final class CodeBlockBackgroundTextView: NSTextView {
     private static let cornerRadius: CGFloat = 6
     private static let borderWidth: CGFloat = 1
     private static let borderOpacity: CGFloat = 0.3
+    private static let bottomPadding: CGFloat = MarkdownTextStorageBuilder.codeBlockPadding
 
     // MARK: - Types
 
     private struct CodeBlockInfo {
         let range: NSRange
         let colorInfo: CodeBlockColorInfo
+    }
+
+    // MARK: - Cursor Rects
+
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        addLinkCursorRects()
+    }
+
+    private func addLinkCursorRects() {
+        guard let textStorage,
+              let layoutManager = textLayoutManager,
+              let contentManager = layoutManager.textContentManager
+        else { return }
+
+        let fullRange = NSRange(location: 0, length: textStorage.length)
+        let origin = textContainerOrigin
+
+        textStorage.enumerateAttribute(
+            .link,
+            in: fullRange,
+            options: []
+        ) { value, range, _ in
+            guard value != nil else { return }
+
+            let frames = fragmentFrames(
+                for: range,
+                layoutManager: layoutManager,
+                contentManager: contentManager
+            )
+            for frame in frames {
+                let cursorRect = CGRect(
+                    x: frame.minX + origin.x,
+                    y: frame.minY + origin.y,
+                    width: frame.width,
+                    height: frame.height
+                )
+                addCursorRect(cursorRect, cursor: .pointingHand)
+            }
+        }
     }
 
     // MARK: - Drawing
@@ -61,7 +102,7 @@ final class CodeBlockBackgroundTextView: NSTextView {
                 x: origin.x + borderInset,
                 y: bounding.minY + origin.y,
                 width: containerWidth - 2 * borderInset,
-                height: bounding.height
+                height: bounding.height + Self.bottomPadding
             )
             guard drawRect.intersects(dirtyRect) else { continue }
 

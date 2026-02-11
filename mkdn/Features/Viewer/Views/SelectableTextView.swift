@@ -44,6 +44,7 @@ struct SelectableTextView: NSViewRepresentable {
         }
 
         textView.textStorage?.setAttributedString(attributedText)
+        textView.window?.invalidateCursorRects(for: textView)
         coordinator.animator.animateVisibleFragments()
 
         coordinator.overlayCoordinator.updateOverlays(
@@ -76,6 +77,7 @@ struct SelectableTextView: NSViewRepresentable {
             }
 
             textView.textStorage?.setAttributedString(attributedText)
+            textView.window?.invalidateCursorRects(for: textView)
             textView.setSelectedRange(NSRange(location: 0, length: 0))
             coordinator.animator.animateVisibleFragments()
 
@@ -168,6 +170,13 @@ extension SelectableTextView {
         ]
 
         textView.insertionPointColor = accentColor
+
+        let linkNSColor = PlatformTypeConverter.nsColor(from: colors.linkColor)
+        textView.linkTextAttributes = [
+            .foregroundColor: linkNSColor,
+            .underlineStyle: NSUnderlineStyle.single.rawValue,
+            .cursor: NSCursor.pointingHand,
+        ]
     }
 }
 
