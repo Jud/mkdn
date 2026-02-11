@@ -40,6 +40,7 @@ struct MermaidBlockView: View {
                 isKeyboardFocused = true
             }
             .focusable()
+            .focusEffectDisabled()
             .focused($isKeyboardFocused)
             .onKeyPress(.escape) {
                 isFocused = false
