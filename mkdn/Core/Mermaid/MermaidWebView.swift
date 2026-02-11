@@ -2,13 +2,41 @@ import AppKit
 import SwiftUI
 @preconcurrency import WebKit
 
-// MARK: - WKWebView Focus Ring Suppression
+// MARK: - NoFocusRingWKWebView
 
-extension WKWebView {
-    // swiftlint:disable:next override_in_extension
-    override open var focusRingType: NSFocusRingType {
+/// `WKWebView` subclass that suppresses focus rings on itself and all
+/// lazily-created internal subviews.
+///
+/// WebKit creates internal subview hierarchies on demand (e.g. during first
+/// paint or interaction). An extension-based override cannot reliably catch
+/// these. This subclass intercepts new subviews via `didAddSubview` and
+/// re-suppresses after `viewDidMoveToWindow` when WebKit may rebuild its
+/// internal view tree.
+final class NoFocusRingWKWebView: WKWebView {
+    override var focusRingType: NSFocusRingType {
         get { .none }
         set {}
+    }
+
+    override func drawFocusRingMask() {}
+
+    override var focusRingMaskBounds: NSRect { .zero }
+
+    override func didAddSubview(_ subview: NSView) {
+        super.didAddSubview(subview)
+        Self.suppressFocusRings(in: subview)
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        Self.suppressFocusRings(in: self)
+    }
+
+    static func suppressFocusRings(in view: NSView) {
+        view.focusRingType = .none
+        for child in view.subviews {
+            suppressFocusRings(in: child)
+        }
     }
 }
 
@@ -27,6 +55,11 @@ final class MermaidContainerView: NSView {
     override func hitTest(_ point: NSPoint) -> NSView? {
         guard allowsInteraction else { return nil }
         return super.hitTest(point)
+    }
+
+    override func didAddSubview(_ subview: NSView) {
+        super.didAddSubview(subview)
+        NoFocusRingWKWebView.suppressFocusRings(in: subview)
     }
 }
 
@@ -68,7 +101,7 @@ struct MermaidWebView: NSViewRepresentable {
         contentController.add(context.coordinator, name: "renderError")
         configuration.userContentController = contentController
 
-        let webView = WKWebView(frame: container.bounds, configuration: configuration)
+        let webView = NoFocusRingWKWebView(frame: container.bounds, configuration: configuration)
         webView.navigationDelegate = context.coordinator
         webView.isHidden = false
         webView.setValue(false, forKey: "drawsBackground")

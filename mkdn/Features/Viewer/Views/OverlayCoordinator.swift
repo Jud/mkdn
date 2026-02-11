@@ -121,7 +121,7 @@ final class OverlayCoordinator {
 
     private func needsOverlay(_ block: MarkdownBlock) -> Bool {
         switch block {
-        case .mermaidBlock, .image:
+        case .mermaidBlock, .image, .thematicBreak, .table:
             true
         default:
             false
@@ -160,6 +160,11 @@ final class OverlayCoordinator {
             code1 == code2
         case let (.image(src1, _), .image(src2, _)):
             src1 == src2
+        case (.thematicBreak, .thematicBreak):
+            true
+        case let (.table(cols1, rows1), .table(cols2, rows2)):
+            cols1.map { String($0.header.characters) } == cols2.map { String($0.header.characters) }
+                && rows1.count == rows2.count
         default:
             false
         }
@@ -194,6 +199,14 @@ final class OverlayCoordinator {
                 appSettings: appSettings,
                 documentState: documentState
             )
+        case .thematicBreak:
+            overlayView = makeThematicBreakOverlay(appSettings: appSettings)
+        case let .table(columns, rows):
+            overlayView = makeTableOverlay(
+                columns: columns,
+                rows: rows,
+                appSettings: appSettings
+            )
         default:
             return
         }
@@ -220,7 +233,7 @@ final class OverlayCoordinator {
             updateAttachmentHeight(blockIndex: blockIndex, newHeight: height)
         }
         .environment(appSettings)
-        return NSHostingView(rootView: rootView)
+        return FocusRingSuppressingHostingView(rootView: rootView)
     }
 
     private func makeImageOverlay(
@@ -232,6 +245,26 @@ final class OverlayCoordinator {
         let rootView = ImageBlockView(source: source, alt: alt)
             .environment(appSettings)
             .environment(documentState)
+        return NSHostingView(rootView: rootView)
+    }
+
+    private func makeThematicBreakOverlay(
+        appSettings: AppSettings
+    ) -> NSView {
+        let borderColor = appSettings.theme.colors.border
+        let rootView = borderColor
+            .frame(height: 1)
+            .padding(.vertical, 8)
+        return NSHostingView(rootView: rootView)
+    }
+
+    private func makeTableOverlay(
+        columns: [TableColumn],
+        rows: [[AttributedString]],
+        appSettings: AppSettings
+    ) -> NSView {
+        let rootView = TableBlockView(columns: columns, rows: rows)
+            .environment(appSettings)
         return NSHostingView(rootView: rootView)
     }
 
@@ -284,7 +317,7 @@ final class OverlayCoordinator {
 
         let fragmentFrame = fragment.layoutFragmentFrame
         entry.view.frame = CGRect(
-            x: fragmentFrame.origin.x + context.origin.x,
+            x: context.origin.x,
             y: fragmentFrame.origin.y + context.origin.y,
             width: context.containerWidth,
             height: fragmentFrame.height
@@ -337,6 +370,38 @@ final class OverlayCoordinator {
         if let observer = layoutObserver {
             NotificationCenter.default.removeObserver(observer)
             layoutObserver = nil
+        }
+    }
+}
+
+// MARK: - Focus Ring Suppression
+
+/// `NSHostingView` subclass that suppresses AppKit focus rings on all subviews.
+///
+/// SwiftUI's `.focusable()` modifier creates internal bridge views
+/// (`_NSGraphicsView`, `_NSInheritedView`, `PlatformViewHost`) with
+/// `focusRingType = .default` that cannot be accessed directly. This
+/// subclass overrides focus ring drawing and walks the subview tree
+/// after layout to set `.none` on every descendant.
+private final class FocusRingSuppressingHostingView<Content: View>: NSHostingView<Content> {
+    override func layout() {
+        super.layout()
+        suppressFocusRings(in: self)
+    }
+
+    override func drawFocusRingMask() {}
+
+    override var focusRingMaskBounds: NSRect { .zero }
+
+    override func didAddSubview(_ subview: NSView) {
+        super.didAddSubview(subview)
+        suppressFocusRings(in: subview)
+    }
+
+    private func suppressFocusRings(in view: NSView) {
+        view.focusRingType = .none
+        for child in view.subviews {
+            suppressFocusRings(in: child)
         }
     }
 }
