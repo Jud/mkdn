@@ -231,8 +231,8 @@ struct MarkdownTextStorageBuilderTests {
 
     // MARK: - Table
 
-    @Test("Table content is present as selectable text")
-    func tableContentPresent() {
+    @Test("Table produces NSTextAttachment for overlay rendering")
+    func tableProducesAttachment() {
         let columns = [
             TableColumn(header: AttributedString("Name"), alignment: .left),
             TableColumn(header: AttributedString("Age"), alignment: .left),
@@ -241,10 +241,8 @@ struct MarkdownTextStorageBuilderTests {
             [AttributedString("Alice"), AttributedString("30")],
         ]
         let result = buildSingle(.table(columns: columns, rows: rows))
-        let plainText = result.attributedString.string
-        #expect(plainText.contains("Name"))
-        #expect(plainText.contains("Alice"))
-        #expect(plainText.contains("30"))
+        #expect(!result.attachments.isEmpty)
+        #expect(result.attachments.first?.attachment.bounds.height ?? 0 > 0)
     }
 
     // MARK: - Block Separation
@@ -379,6 +377,34 @@ struct MarkdownTextStorageBuilderTests {
         #expect(plainText.contains("Below"))
         #expect(!plainText.contains("graph TD"))
         #expect(result.attachments.count == 1)
+    }
+
+    // MARK: - Table Height Estimation
+
+    @Test("Table height estimate grows with longer cell content")
+    func tableHeightEstimateGrowsWithContent() {
+        let shortColumns = [
+            TableColumn(header: AttributedString("Name"), alignment: .left),
+            TableColumn(header: AttributedString("Value"), alignment: .left),
+        ]
+        let shortRows: [[AttributedString]] = [
+            [AttributedString("A"), AttributedString("B")],
+        ]
+        let shortResult = buildSingle(.table(columns: shortColumns, rows: shortRows))
+        let shortHeight = shortResult.attachments.first?.attachment.bounds.height ?? 0
+
+        let longContent = String(repeating: "word ", count: 80)
+        let longColumns = [
+            TableColumn(header: AttributedString("Name"), alignment: .left),
+            TableColumn(header: AttributedString("Value"), alignment: .left),
+        ]
+        let longRows: [[AttributedString]] = [
+            [AttributedString(longContent), AttributedString(longContent)],
+        ]
+        let longResult = buildSingle(.table(columns: longColumns, rows: longRows))
+        let longHeight = longResult.attachments.first?.attachment.bounds.height ?? 0
+
+        #expect(longHeight > shortHeight)
     }
 
     // MARK: - Both Themes

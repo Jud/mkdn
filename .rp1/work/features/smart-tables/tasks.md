@@ -2,7 +2,7 @@
 
 **Feature ID**: smart-tables
 **Status**: In Progress
-**Progress**: 30% (3 of 10 tasks)
+**Progress**: 40% (4 of 10 tasks)
 **Estimated Effort**: 5 days
 **Started**: 2026-02-11
 
@@ -38,6 +38,10 @@ Smart Tables replaces the current equal-width, non-wrapping table renderer with 
     - **Approach**: Caseless enum with `computeWidths` and `estimateTableHeight` static methods. Cell widths measured via `NSAttributedString.size()` with bold font for headers. Padding (26pt), column cap (0.6x container), and minimum width enforced. Height estimation uses line-count calculation from content-to-column-width ratio.
     - **Deviations**: None
     - **Tests**: Build passes, SwiftLint 0 violations, SwiftFormat clean, existing 32 builder tests pass
+
+    **Review Feedback** (Attempt 2):
+    - **Status**: PASS
+    - **Fix**: Remediation commit `1ab4aec` restored `NoFocusRingWKWebView` subclass and `MermaidContainerView.didAddSubview` in `MermaidWebView.swift`, updated `makeNSView` to use `NoFocusRingWKWebView`.
 
     **Reference**: [design.md#31-tablecolumnsizer](design.md#31-tablecolumnsizer)
 
@@ -80,6 +84,18 @@ Smart Tables replaces the current equal-width, non-wrapping table renderer with 
     - **Deviations**: None
     - **Tests**: 32/32 passing
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
 - [x] **T4**: Improve table height estimation in MarkdownTextStorageBuilder `[complexity:simple]`
 
     **Implementation Summary**:
@@ -88,6 +104,10 @@ Smart Tables replaces the current equal-width, non-wrapping table renderer with 
     - **Approach**: Replaced fixed `rowHeight: 32` estimation with `TableColumnSizer.computeWidths` + `TableColumnSizer.estimateTableHeight` calls. Extracted helper `estimatedTableAttachmentHeight` to keep `appendBlock` under SwiftLint 50-line function body limit. Uses 600pt default container width for estimation; dynamic height callback corrects at runtime.
     - **Deviations**: None
     - **Tests**: 32/32 passing
+
+    **Review Feedback** (Attempt 2):
+    - **Status**: PASS
+    - **Fix**: Remediation commit `1ab4aec` reverted `blockSpacing` from 16 back to 12.
 
     **Reference**: [design.md#34-markdowntextstoragebuilder-updates](design.md#34-markdowntextstoragebuilder-updates)
 
@@ -126,7 +146,14 @@ Smart Tables replaces the current equal-width, non-wrapping table renderer with 
     - [ ] `containerWidth` parameter accepted for passing to TableColumnSizer
     - [ ] Passes SwiftLint strict mode
 
-- [ ] **T6**: Add unit tests for TableColumnSizer and table height estimation `[complexity:medium]`
+- [x] **T6**: Add unit tests for TableColumnSizer and table height estimation `[complexity:medium]`
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdnTests/Unit/Core/TableColumnSizerTests.swift` (new), `mkdnTests/Unit/Core/MarkdownTextStorageBuilderTests.swift` (modified)
+    - **Approach**: 9-test `@Suite("TableColumnSizer")` covering width computation (narrow fit, widest cell, equal content, 12-column scroll, cap, padding, bold header, empty cells) and height estimation (wrapping). 1 additional test in MarkdownTextStorageBuilderTests verifying table attachment height grows with content.
+    - **Deviations**: None
+    - **Tests**: 10/10 passing (9 TableColumnSizer + 1 MarkdownTextStorageBuilder)
 
     **Reference**: [design.md#7-testing-strategy](design.md#7-testing-strategy)
 
@@ -134,18 +161,18 @@ Smart Tables replaces the current equal-width, non-wrapping table renderer with 
 
     **Acceptance Criteria**:
 
-    - [ ] New file `mkdnTests/Unit/Core/TableColumnSizerTests.swift` using Swift Testing (`@Suite`, `@Test`, `#expect`)
-    - [ ] Test `narrowTableFitsContent`: two-column table with short content produces widths < containerWidth (REQ-ST-001, REQ-ST-003)
-    - [ ] Test `widestCellSetsColumnWidth`: column width equals widest cell measured width + 26pt padding (REQ-ST-001)
-    - [ ] Test `equalContentProducesEqualWidths`: similar content columns produce approximately equal widths (REQ-ST-001 AC-2)
-    - [ ] Test `wideTableFlagsHorizontalScroll`: 12-column table sets `needsHorizontalScroll = true` (REQ-ST-004)
-    - [ ] Test `columnWidthCapped`: single very wide column does not exceed `containerWidth * 0.6` (REQ-ST-001)
-    - [ ] Test `paddingIncludedInWidth`: each column width includes 26pt horizontal padding (REQ-ST-008)
-    - [ ] Test `headerBoldFontUsedForMeasurement`: bold header text is measured, not regular weight (REQ-ST-007)
-    - [ ] Test `emptyRowsProduceMinimumWidths`: empty cells produce minimum padding-based width (edge case)
-    - [ ] Test `heightEstimateAccountsForWrapping`: long cells produce taller height estimates than short cells (NFR-ST-002)
-    - [ ] Addition to `MarkdownTextStorageBuilderTests`: `tableHeightEstimateGrowsWithContent` verifies larger attachment height for long cell content
-    - [ ] All tests pass with `swift test`
+    - [x] New file `mkdnTests/Unit/Core/TableColumnSizerTests.swift` using Swift Testing (`@Suite`, `@Test`, `#expect`)
+    - [x] Test `narrowTableFitsContent`: two-column table with short content produces widths < containerWidth (REQ-ST-001, REQ-ST-003)
+    - [x] Test `widestCellSetsColumnWidth`: column width equals widest cell measured width + 26pt padding (REQ-ST-001)
+    - [x] Test `equalContentProducesEqualWidths`: similar content columns produce approximately equal widths (REQ-ST-001 AC-2)
+    - [x] Test `wideTableFlagsHorizontalScroll`: 12-column table sets `needsHorizontalScroll = true` (REQ-ST-004)
+    - [x] Test `columnWidthCapped`: single very wide column does not exceed `containerWidth * 0.6` (REQ-ST-001)
+    - [x] Test `paddingIncludedInWidth`: each column width includes 26pt horizontal padding (REQ-ST-008)
+    - [x] Test `headerBoldFontUsedForMeasurement`: bold header text is measured, not regular weight (REQ-ST-007)
+    - [x] Test `emptyRowsProduceMinimumWidths`: empty cells produce minimum padding-based width (edge case)
+    - [x] Test `heightEstimateAccountsForWrapping`: long cells produce taller height estimates than short cells (NFR-ST-002)
+    - [x] Addition to `MarkdownTextStorageBuilderTests`: `tableHeightEstimateGrowsWithContent` verifies larger attachment height for long cell content
+    - [x] All tests pass with `swift test`
 
 ### Sticky Headers (Parallel Group 3)
 
