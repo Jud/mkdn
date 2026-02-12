@@ -21,7 +21,7 @@ struct TextStorageResult {
 enum MarkdownTextStorageBuilder {
     // MARK: - Constants
 
-    static let blockSpacing: CGFloat = 16
+    static let blockSpacing: CGFloat = 12
     static let codeBlockPadding: CGFloat = 12
     static let codeBlockTopPaddingWithLabel: CGFloat = 8
     static let codeLabelSpacing: CGFloat = 4
