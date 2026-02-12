@@ -1,14 +1,8 @@
 import AppKit
 import SwiftUI
 
-/// Manages the lifecycle and positioning of non-text overlay views (Mermaid
-/// diagrams, images) at `NSTextAttachment` placeholder locations within an
-/// `NSTextView`.
-///
-/// Overlay views are `NSHostingView` instances wrapping SwiftUI views added as
-/// subviews of the text view. They scroll naturally with the text content and
-/// are repositioned when the text layout changes due to window resize or
-/// content updates.
+/// Manages overlay views (Mermaid, images, tables) at `NSTextAttachment` locations
+/// within an `NSTextView`. Includes sticky header positioning for long tables.
 @MainActor
 final class OverlayCoordinator {
     // MARK: - Types
@@ -33,6 +27,10 @@ final class OverlayCoordinator {
     private weak var textView: NSTextView?
     private var entries: [Int: OverlayEntry] = [:]
     private var layoutObserver: NSObjectProtocol?
+    private var appSettings: AppSettings?
+    private var stickyHeaders: [Int: NSView] = [:]
+    private var scrollObserver: NSObjectProtocol?
+    private var tableColumnWidths: [Int: [CGFloat]] = [:]
 
     // MARK: - Public API
 
@@ -47,6 +45,7 @@ final class OverlayCoordinator {
         in textView: NSTextView
     ) {
         self.textView = textView
+        self.appSettings = appSettings
 
         let validIndices = Set(attachments.map(\.blockIndex))
         removeStaleOverlays(keeping: validIndices)
@@ -62,6 +61,7 @@ final class OverlayCoordinator {
         }
 
         observeLayoutChanges(on: textView)
+        observeScrollChanges(on: textView)
         repositionOverlays()
     }
 
@@ -79,11 +79,13 @@ final class OverlayCoordinator {
             entry.view.removeFromSuperview()
         }
         entries.removeAll()
+        stickyHeaders.values.forEach { $0.removeFromSuperview() }
+        stickyHeaders.removeAll()
+        tableColumnWidths.removeAll()
         removeObservers()
     }
 
-    /// Updates the placeholder height for a specific overlay block,
-    /// triggering a text layout invalidation and overlay repositioning.
+    /// Updates the placeholder height, triggering layout invalidation and repositioning.
     func updateAttachmentHeight(blockIndex: Int, newHeight: CGFloat) {
         guard let entry = entries[blockIndex],
               let textView,
@@ -207,6 +209,9 @@ final class OverlayCoordinator {
         for (index, entry) in entries where !validIndices.contains(index) {
             entry.view.removeFromSuperview()
             entries.removeValue(forKey: index)
+            stickyHeaders[index]?.removeFromSuperview()
+            stickyHeaders.removeValue(forKey: index)
+            tableColumnWidths.removeValue(forKey: index)
         }
     }
 
@@ -299,6 +304,13 @@ final class OverlayCoordinator {
         appSettings: AppSettings
     ) -> NSView {
         let containerWidth = textView.map { textContainerWidth(in: $0) } ?? 600
+        let sizing = TableColumnSizer.computeWidths(
+            columns: columns,
+            rows: rows,
+            containerWidth: containerWidth,
+            font: PlatformTypeConverter.bodyFont()
+        )
+        tableColumnWidths[blockIndex] = sizing.columnWidths
         let rootView = TableBlockView(
             columns: columns,
             rows: rows,
@@ -397,10 +409,12 @@ final class OverlayCoordinator {
         let inset = textView.textContainerInset
         return textView.bounds.width - inset.width * 2
     }
+}
 
-    // MARK: - Layout Observation
+// MARK: - Observation & Sticky Headers
 
-    private func observeLayoutChanges(on textView: NSTextView) {
+extension OverlayCoordinator {
+    func observeLayoutChanges(on textView: NSTextView) {
         guard layoutObserver == nil else { return }
         textView.postsFrameChangedNotifications = true
         layoutObserver = NotificationCenter.default.addObserver(
@@ -414,10 +428,71 @@ final class OverlayCoordinator {
         }
     }
 
-    private func removeObservers() {
+    func observeScrollChanges(on textView: NSTextView) {
+        guard scrollObserver == nil,
+              let clipView = textView.enclosingScrollView?.contentView
+        else { return }
+        clipView.postsBoundsChangedNotifications = true
+        scrollObserver = NotificationCenter.default.addObserver(
+            forName: NSView.boundsDidChangeNotification,
+            object: clipView,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.handleScrollBoundsChange()
+            }
+        }
+    }
+
+    private func handleScrollBoundsChange() {
+        guard let textView,
+              let scrollView = textView.enclosingScrollView
+        else { return }
+        let visibleRect = scrollView.contentView.bounds
+        let headerHeight = stickyHeaderHeight()
+        for (blockIndex, entry) in entries {
+            guard case let .table(columns, _) = entry.block,
+                  let columnWidths = tableColumnWidths[blockIndex]
+            else { continue }
+            let tableFrame = entry.view.frame
+            let headerBottom = tableFrame.origin.y + headerHeight
+            let tableBottom = tableFrame.origin.y + tableFrame.height
+            if visibleRect.origin.y > headerBottom,
+               visibleRect.origin.y < tableBottom - headerHeight
+            {
+                if stickyHeaders[blockIndex] == nil, let appSettings {
+                    let header = TableHeaderView(columns: columns, columnWidths: columnWidths)
+                    let hosting = NSHostingView(rootView: header.environment(appSettings))
+                    textView.addSubview(hosting)
+                    stickyHeaders[blockIndex] = hosting
+                }
+                stickyHeaders[blockIndex]?.frame = CGRect(
+                    x: tableFrame.origin.x,
+                    y: visibleRect.origin.y + textView.textContainerOrigin.y,
+                    width: tableFrame.width,
+                    height: headerHeight
+                )
+                stickyHeaders[blockIndex]?.isHidden = false
+            } else {
+                stickyHeaders[blockIndex]?.isHidden = true
+            }
+        }
+    }
+
+    private func stickyHeaderHeight() -> CGFloat {
+        let font = NSFontManager.shared.convert(PlatformTypeConverter.bodyFont(), toHaveTrait: .boldFontMask)
+        let lineHeight = ceil(font.ascender - font.descender + font.leading)
+        return lineHeight + 2 * TableColumnSizer.verticalCellPadding + TableColumnSizer.headerDividerHeight
+    }
+
+    func removeObservers() {
         if let observer = layoutObserver {
             NotificationCenter.default.removeObserver(observer)
             layoutObserver = nil
+        }
+        if let observer = scrollObserver {
+            NotificationCenter.default.removeObserver(observer)
+            scrollObserver = nil
         }
     }
 }

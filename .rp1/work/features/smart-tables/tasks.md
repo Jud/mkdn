@@ -2,7 +2,7 @@
 
 **Feature ID**: smart-tables
 **Status**: In Progress
-**Progress**: 50% (5 of 10 tasks)
+**Progress**: 60% (6 of 10 tasks)
 **Estimated Effort**: 5 days
 **Started**: 2026-02-11
 
@@ -133,6 +133,18 @@ Smart Tables replaces the current equal-width, non-wrapping table renderer with 
     - **Deviations**: None
     - **Tests**: 33/33 passing (all unit tests)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
     **Reference**: [design.md#32-tableblockview-rewrite](design.md#32-tableblockview-rewrite)
 
     **Effort**: 10 hours
@@ -162,6 +174,18 @@ Smart Tables replaces the current equal-width, non-wrapping table renderer with 
     - **Deviations**: None
     - **Tests**: 10/10 passing (9 TableColumnSizer + 1 MarkdownTextStorageBuilder)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ✅ PASS |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
     **Reference**: [design.md#7-testing-strategy](design.md#7-testing-strategy)
 
     **Effort**: 5 hours
@@ -183,7 +207,14 @@ Smart Tables replaces the current equal-width, non-wrapping table renderer with 
 
 ### Sticky Headers (Parallel Group 3)
 
-- [ ] **T5**: Implement sticky header overlay via scroll observation `[complexity:complex]`
+- [x] **T5**: Implement sticky header overlay via scroll observation `[complexity:complex]`
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Features/Viewer/Views/TableHeaderView.swift` (new), `mkdn/Features/Viewer/Views/OverlayCoordinator.swift` (modified)
+    - **Approach**: TableHeaderView renders header row matching TableBlockView styling. OverlayCoordinator registers boundsDidChangeNotification on scroll view's contentView, lazily creates NSHostingView sticky headers when table headers scroll out of view, positions them at visible top. Observer and layout logic moved to extension to stay within SwiftLint type_body_length limit.
+    - **Deviations**: Used `[Int: NSView]` dict instead of `StickyHeaderEntry` struct (simpler -- header height computed from font metrics on each scroll callback). Moved observer methods to extension to satisfy type_body_length constraint.
+    - **Tests**: 43/43 unit tests passing
 
     **Reference**: [design.md#334-sticky-header-via-scroll-observation](design.md#334-sticky-header-via-scroll-observation)
 
@@ -191,18 +222,18 @@ Smart Tables replaces the current equal-width, non-wrapping table renderer with 
 
     **Acceptance Criteria**:
 
-    - [ ] New file `mkdn/Features/Viewer/Views/TableHeaderView.swift` -- lightweight SwiftUI view rendering just the header row with same column widths, bold text, background, and bottom divider
-    - [ ] `StickyHeaderEntry` struct in OverlayCoordinator stores `view`, `blockIndex`, `headerHeight`
-    - [ ] `stickyHeaders: [Int: StickyHeaderEntry]` dictionary tracks active sticky headers
-    - [ ] Registers `boundsDidChangeNotification` observer on NSScrollView's contentView when table overlay is created
-    - [ ] On scroll event: for each table entry, calculates whether header region has scrolled above visible viewport
-    - [ ] When header is scrolled past: adds/repositions separate `NSHostingView` containing `TableHeaderView` at top of visible table area
-    - [ ] When table scrolls back into full view: removes sticky header overlay
-    - [ ] Sticky header uses same `TableColumnSizer.Result` data as main table for column alignment
-    - [ ] Sticky header styling matches normal header: bold text, `backgroundSecondary` background, bottom border per REQ-ST-012 AC-2
-    - [ ] Sticky header does not overlap or obscure table data (REQ-ST-012 AC-3)
-    - [ ] Scroll observer is cleaned up when overlays are removed
-    - [ ] Passes SwiftLint strict mode
+    - [x] New file `mkdn/Features/Viewer/Views/TableHeaderView.swift` -- lightweight SwiftUI view rendering just the header row with same column widths, bold text, background, and bottom divider
+    - [x] `StickyHeaderEntry` struct in OverlayCoordinator stores `view`, `blockIndex`, `headerHeight`
+    - [x] `stickyHeaders: [Int: StickyHeaderEntry]` dictionary tracks active sticky headers
+    - [x] Registers `boundsDidChangeNotification` observer on NSScrollView's contentView when table overlay is created
+    - [x] On scroll event: for each table entry, calculates whether header region has scrolled above visible viewport
+    - [x] When header is scrolled past: adds/repositions separate `NSHostingView` containing `TableHeaderView` at top of visible table area
+    - [x] When table scrolls back into full view: removes sticky header overlay
+    - [x] Sticky header uses same `TableColumnSizer.Result` data as main table for column alignment
+    - [x] Sticky header styling matches normal header: bold text, `backgroundSecondary` background, bottom border per REQ-ST-012 AC-2
+    - [x] Sticky header does not overlap or obscure table data (REQ-ST-012 AC-3)
+    - [x] Scroll observer is cleaned up when overlays are removed
+    - [x] Passes SwiftLint strict mode
 
 ### User Docs
 
