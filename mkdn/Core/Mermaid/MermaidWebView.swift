@@ -2,44 +2,6 @@ import AppKit
 import SwiftUI
 @preconcurrency import WebKit
 
-// MARK: - NoFocusRingWKWebView
-
-/// `WKWebView` subclass that suppresses focus rings on itself and all
-/// lazily-created internal subviews.
-///
-/// WebKit creates internal subview hierarchies on demand (e.g. during first
-/// paint or interaction). An extension-based override cannot reliably catch
-/// these. This subclass intercepts new subviews via `didAddSubview` and
-/// re-suppresses after `viewDidMoveToWindow` when WebKit may rebuild its
-/// internal view tree.
-final class NoFocusRingWKWebView: WKWebView {
-    override var focusRingType: NSFocusRingType {
-        get { .none }
-        set {}
-    }
-
-    override func drawFocusRingMask() {}
-
-    override var focusRingMaskBounds: NSRect { .zero }
-
-    override func didAddSubview(_ subview: NSView) {
-        super.didAddSubview(subview)
-        Self.suppressFocusRings(in: subview)
-    }
-
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        Self.suppressFocusRings(in: self)
-    }
-
-    static func suppressFocusRings(in view: NSView) {
-        view.focusRingType = .none
-        for child in view.subviews {
-            suppressFocusRings(in: child)
-        }
-    }
-}
-
 // MARK: - MermaidContainerView
 
 /// Custom `NSView` that gates `hitTest(_:)` based on focus state.
@@ -55,11 +17,6 @@ final class MermaidContainerView: NSView {
     override func hitTest(_ point: NSPoint) -> NSView? {
         guard allowsInteraction else { return nil }
         return super.hitTest(point)
-    }
-
-    override func didAddSubview(_ subview: NSView) {
-        super.didAddSubview(subview)
-        NoFocusRingWKWebView.suppressFocusRings(in: subview)
     }
 }
 
@@ -101,16 +58,13 @@ struct MermaidWebView: NSViewRepresentable {
         contentController.add(context.coordinator, name: "renderError")
         configuration.userContentController = contentController
 
-        let webView = NoFocusRingWKWebView(frame: container.bounds, configuration: configuration)
+        let webView = WKWebView(frame: container.bounds, configuration: configuration)
         webView.navigationDelegate = context.coordinator
         webView.isHidden = false
         webView.setValue(false, forKey: "drawsBackground")
         webView.underPageBackgroundColor = .clear
         webView.allowsMagnification = true
         webView.translatesAutoresizingMaskIntoConstraints = false
-
-        container.wantsLayer = true
-        container.clipsToBounds = true
 
         container.addSubview(webView)
         NSLayoutConstraint.activate([
@@ -136,10 +90,8 @@ struct MermaidWebView: NSViewRepresentable {
 
         if isFocused {
             coordinator.installClickOutsideMonitor()
-            coordinator.installEscapeKeyMonitor()
         } else {
             coordinator.removeClickOutsideMonitor()
-            coordinator.removeEscapeKeyMonitor()
         }
 
         if coordinator.currentTheme != theme {
@@ -150,7 +102,6 @@ struct MermaidWebView: NSViewRepresentable {
 
     static func dismantleNSView(_: MermaidContainerView, coordinator: Coordinator) {
         coordinator.removeClickOutsideMonitor()
-        coordinator.removeEscapeKeyMonitor()
         coordinator.removeMessageHandlers()
     }
 
@@ -221,7 +172,6 @@ struct MermaidWebView: NSViewRepresentable {
         weak var containerView: MermaidContainerView?
         var currentTheme: AppTheme
         private var clickOutsideMonitor: Any?
-        private var escapeKeyMonitor: Any?
         private var hasCompletedInitialNavigation = false
 
         init(parent: MermaidWebView) {
@@ -319,30 +269,6 @@ struct MermaidWebView: NSViewRepresentable {
             if let monitor = clickOutsideMonitor {
                 NSEvent.removeMonitor(monitor)
                 clickOutsideMonitor = nil
-            }
-        }
-
-        // MARK: Escape Key Monitor
-
-        func installEscapeKeyMonitor() {
-            guard escapeKeyMonitor == nil else { return }
-            escapeKeyMonitor = NSEvent.addLocalMonitorForEvents(
-                matching: .keyDown
-            ) { [weak self] event in
-                guard let self,
-                      event.keyCode == 53
-                else {
-                    return event
-                }
-                parent.isFocused = false
-                return nil
-            }
-        }
-
-        func removeEscapeKeyMonitor() {
-            if let monitor = escapeKeyMonitor {
-                NSEvent.removeMonitor(monitor)
-                escapeKeyMonitor = nil
             }
         }
 
