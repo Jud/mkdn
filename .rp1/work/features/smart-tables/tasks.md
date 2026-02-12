@@ -2,7 +2,7 @@
 
 **Feature ID**: smart-tables
 **Status**: In Progress
-**Progress**: 60% (6 of 10 tasks)
+**Progress**: 100% (10 of 10 tasks)
 **Estimated Effort**: 5 days
 **Started**: 2026-02-11
 
@@ -216,6 +216,18 @@ Smart Tables replaces the current equal-width, non-wrapping table renderer with 
     - **Deviations**: Used `[Int: NSView]` dict instead of `StickyHeaderEntry` struct (simpler -- header height computed from font metrics on each scroll callback). Moved observer methods to extension to satisfy type_body_length constraint.
     - **Tests**: 43/43 unit tests passing
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
     **Reference**: [design.md#334-sticky-header-via-scroll-observation](design.md#334-sticky-header-via-scroll-observation)
 
     **Effort**: 10 hours
@@ -237,7 +249,7 @@ Smart Tables replaces the current equal-width, non-wrapping table renderer with 
 
 ### User Docs
 
-- [ ] **TD1**: Create documentation for TableColumnSizer - Core/Markdown `[complexity:simple]`
+- [x] **TD1**: Create documentation for TableColumnSizer - Core/Markdown `[complexity:simple]`
 
     **Reference**: [design.md#documentation-impact](design.md#documentation-impact)
 
@@ -253,9 +265,9 @@ Smart Tables replaces the current equal-width, non-wrapping table renderer with 
 
     **Acceptance Criteria**:
 
-    - [ ] New row added to Core/Markdown table: `TableColumnSizer.swift` with purpose "Pure column width computation from cell content"
+    - [x] New row added to Core/Markdown table: `TableColumnSizer.swift` with purpose "Pure column width computation from cell content"
 
-- [ ] **TD2**: Create documentation for TableHeaderView - Features/Viewer/Views `[complexity:simple]`
+- [x] **TD2**: Create documentation for TableHeaderView - Features/Viewer/Views `[complexity:simple]`
 
     **Reference**: [design.md#documentation-impact](design.md#documentation-impact)
 
@@ -271,9 +283,9 @@ Smart Tables replaces the current equal-width, non-wrapping table renderer with 
 
     **Acceptance Criteria**:
 
-    - [ ] New row added to Viewer Views table: `Views/TableHeaderView.swift` with purpose "Sticky header overlay for long tables"
+    - [x] New row added to Viewer Views table: `Views/TableHeaderView.swift` with purpose "Sticky header overlay for long tables"
 
-- [ ] **TD3**: Update architecture.md - Rendering Pipeline `[complexity:simple]`
+- [x] **TD3**: Update architecture.md - Rendering Pipeline `[complexity:simple]`
 
     **Reference**: [design.md#documentation-impact](design.md#documentation-impact)
 
@@ -289,9 +301,9 @@ Smart Tables replaces the current equal-width, non-wrapping table renderer with 
 
     **Acceptance Criteria**:
 
-    - [ ] Rendering Pipeline section documents the table rendering pipeline: column measurement (TableColumnSizer) -> layout (TableBlockView) -> overlay positioning (OverlayCoordinator with preferredWidth) -> sticky headers (scroll observation)
+    - [x] Rendering Pipeline section documents the table rendering pipeline: column measurement (TableColumnSizer) -> layout (TableBlockView) -> overlay positioning (OverlayCoordinator with preferredWidth) -> sticky headers (scroll observation)
 
-- [ ] **TD4**: Update patterns.md - Feature-Based MVVM `[complexity:simple]`
+- [x] **TD4**: Update patterns.md - Feature-Based MVVM `[complexity:simple]`
 
     **Reference**: [design.md#documentation-impact](design.md#documentation-impact)
 
@@ -307,7 +319,7 @@ Smart Tables replaces the current equal-width, non-wrapping table renderer with 
 
     **Acceptance Criteria**:
 
-    - [ ] Feature-Based MVVM section includes note about variable-width overlay pattern: overlays can specify `preferredWidth` instead of defaulting to container width
+    - [x] Feature-Based MVVM section includes note about variable-width overlay pattern: overlays can specify `preferredWidth` instead of defaulting to container width
 
 ## Acceptance Criteria Checklist
 

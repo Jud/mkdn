@@ -49,6 +49,18 @@ Mermaid code block detected
 -> SwiftUI Image (with MagnifyGesture for pinch-to-zoom)
 ```
 
+### Tables
+```
+.table(columns, rows) in MarkdownBlock
+-> MarkdownTextStorageBuilder estimates height via TableColumnSizer
+-> NSTextAttachment placeholder in NSTextView
+-> OverlayCoordinator creates NSHostingView overlay
+-> TableBlockView calls TableColumnSizer.computeWidths for content-aware column widths
+-> TableBlockView reports actual size via onSizeChange callback
+-> OverlayCoordinator.updateAttachmentSize adjusts overlay width + attachment height
+-> OverlayCoordinator observes scroll for sticky headers (TableHeaderView)
+```
+
 ### Code Blocks
 ```
 Code block with language tag

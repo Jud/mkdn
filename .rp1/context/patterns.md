@@ -50,6 +50,18 @@ Features/
     ViewModels/PreviewViewModel.swift
 ```
 
+## Variable-Width Overlay Pattern
+
+Overlay views (hosted in `NSHostingView` over `NSTextAttachment` placeholders) can specify a `preferredWidth` to render narrower than the container width. Table overlays use this to left-align narrow tables without stretching to fill the container. Mermaid/image overlays leave `preferredWidth` as nil to use full container width (existing behavior).
+
+```swift
+// In OverlayEntry:
+var preferredWidth: CGFloat?  // nil = containerWidth (default)
+
+// In positionEntry:
+let overlayWidth = entry.preferredWidth ?? context.containerWidth
+```
+
 ## Theme Access
 
 Always access theme via AppState in the environment:

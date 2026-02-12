@@ -18,6 +18,7 @@
 | MarkdownRenderer.swift | Parse + render coordinator |
 | MarkdownBlock.swift | Block element enum |
 | MarkdownVisitor.swift | swift-markdown walker -> MarkdownBlock |
+| TableColumnSizer.swift | Pure column width computation from cell content |
 
 ### Mermaid (`Core/Mermaid/`)
 | File | Purpose |
@@ -56,6 +57,7 @@
 | Views/CodeBlockView.swift | Syntax-highlighted code |
 | Views/MermaidBlockView.swift | Mermaid diagram with zoom |
 | Views/TableBlockView.swift | Native table rendering |
+| Views/TableHeaderView.swift | Sticky header overlay for long tables |
 | ViewModels/PreviewViewModel.swift | Preview state management |
 
 ### Editor (`Features/Editor/`)
