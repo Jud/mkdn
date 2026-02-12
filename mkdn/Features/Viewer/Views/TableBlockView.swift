@@ -1,6 +1,7 @@
+import AppKit
 import SwiftUI
 
-/// Renders a Markdown table as a native SwiftUI grid.
+/// Renders a Markdown table as a native SwiftUI grid with content-aware column widths.
 struct TableBlockView: View {
     let columns: [TableColumn]
     let rows: [[AttributedString]]
@@ -13,58 +14,106 @@ struct TableBlockView: View {
         appSettings.theme.colors
     }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 0) {
-                ForEach(Array(columns.enumerated()), id: \.offset) { _, column in
-                    Text(column.header)
-                        .font(.body.bold())
-                        .foregroundColor(colors.headingColor)
-                        .tint(colors.linkColor)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .frame(
-                            maxWidth: .infinity,
-                            alignment: column.alignment.swiftUIAlignment
-                        )
-                }
-            }
-            .background(colors.backgroundSecondary)
+    private var sizingResult: TableColumnSizer.Result {
+        TableColumnSizer.computeWidths(
+            columns: columns,
+            rows: rows,
+            containerWidth: containerWidth,
+            font: PlatformTypeConverter.bodyFont()
+        )
+    }
 
+    var body: some View {
+        let result = sizingResult
+        let columnWidths = result.columnWidths
+
+        tableContent(columnWidths: columnWidths, needsScroll: result.needsHorizontalScroll)
+            .onGeometryChange(for: CGSize.self) { proxy in
+                proxy.size
+            } action: { newSize in
+                onSizeChange?(newSize.width, newSize.height)
+            }
+    }
+
+    @ViewBuilder
+    private func tableContent(
+        columnWidths: [CGFloat],
+        needsScroll: Bool
+    ) -> some View {
+        if needsScroll {
+            ScrollView(.horizontal, showsIndicators: true) {
+                tableBody(columnWidths: columnWidths)
+            }
+            .frame(maxWidth: containerWidth)
+        } else {
+            tableBody(columnWidths: columnWidths)
+        }
+    }
+
+    private func tableBody(columnWidths: [CGFloat]) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            headerRow(columnWidths: columnWidths)
             Divider()
                 .background(colors.border)
-
-            ForEach(Array(rows.enumerated()), id: \.offset) { rowIndex, row in
-                HStack(spacing: 0) {
-                    ForEach(Array(row.enumerated()), id: \.offset) { colIndex, cell in
-                        let alignment = colIndex < columns.count
-                            ? columns[colIndex].alignment.swiftUIAlignment
-                            : .leading
-                        Text(cell)
-                            .font(.body)
-                            .foregroundColor(colors.foreground)
-                            .tint(colors.linkColor)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .frame(
-                                maxWidth: .infinity,
-                                alignment: alignment
-                            )
-                            .textSelection(.enabled)
-                    }
-                }
-                .background(
-                    rowIndex.isMultiple(of: 2)
-                        ? colors.background
-                        : colors.backgroundSecondary.opacity(0.5)
-                )
-            }
+            dataRows(columnWidths: columnWidths)
         }
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .overlay(
             RoundedRectangle(cornerRadius: 6)
                 .stroke(colors.border.opacity(0.3), lineWidth: 1)
         )
+    }
+
+    private func headerRow(columnWidths: [CGFloat]) -> some View {
+        HStack(spacing: 0) {
+            ForEach(Array(columns.enumerated()), id: \.offset) { colIndex, column in
+                Text(column.header)
+                    .font(.body.bold())
+                    .foregroundColor(colors.headingColor)
+                    .tint(colors.linkColor)
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 13)
+                    .padding(.vertical, 6)
+                    .frame(
+                        width: colIndex < columnWidths.count ? columnWidths[colIndex] : nil,
+                        alignment: column.alignment.swiftUIAlignment
+                    )
+                    .textSelection(.enabled)
+            }
+        }
+        .background(colors.backgroundSecondary)
+    }
+
+    private func dataRows(columnWidths: [CGFloat]) -> some View {
+        ForEach(Array(rows.enumerated()), id: \.offset) { rowIndex, row in
+            HStack(spacing: 0) {
+                ForEach(Array(row.enumerated()), id: \.offset) { colIndex, cell in
+                    let alignment = colIndex < columns.count
+                        ? columns[colIndex].alignment.swiftUIAlignment
+                        : .leading
+                    Text(cell)
+                        .font(.body)
+                        .foregroundColor(colors.foreground)
+                        .tint(colors.linkColor)
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 13)
+                        .padding(.vertical, 6)
+                        .frame(
+                            width: colIndex < columnWidths.count
+                                ? columnWidths[colIndex] : nil,
+                            alignment: alignment
+                        )
+                        .textSelection(.enabled)
+                }
+            }
+            .background(
+                rowIndex.isMultiple(of: 2)
+                    ? colors.background
+                    : colors.backgroundSecondary.opacity(0.5)
+            )
+        }
     }
 }
 
