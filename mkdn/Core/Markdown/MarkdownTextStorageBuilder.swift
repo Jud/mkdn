@@ -21,7 +21,7 @@ struct TextStorageResult {
 enum MarkdownTextStorageBuilder {
     // MARK: - Constants
 
-    static let blockSpacing: CGFloat = 12
+    static let blockSpacing: CGFloat = 16
     static let codeBlockPadding: CGFloat = 12
     static let codeBlockTopPaddingWithLabel: CGFloat = 8
     static let codeLabelSpacing: CGFloat = 4
@@ -120,10 +120,39 @@ enum MarkdownTextStorageBuilder {
                 attachments: &attachments
             )
         case let .table(columns, rows):
-            appendTable(to: result, columns: columns, rows: rows, colors: colors)
+            appendAttachmentBlock(
+                to: result,
+                blockIndex: indexedBlock.index,
+                block: indexedBlock.block,
+                height: estimatedTableAttachmentHeight(columns: columns, rows: rows),
+                attachments: &attachments
+            )
         case let .htmlBlock(content):
             appendHTMLBlock(to: result, content: content, colors: colors)
         }
+    }
+
+    // MARK: - Table Height Estimation
+
+    private static let defaultEstimationContainerWidth: CGFloat = 600
+
+    private static func estimatedTableAttachmentHeight(
+        columns: [TableColumn],
+        rows: [[AttributedString]]
+    ) -> CGFloat {
+        let font = PlatformTypeConverter.bodyFont()
+        let sizer = TableColumnSizer.computeWidths(
+            columns: columns,
+            rows: rows,
+            containerWidth: defaultEstimationContainerWidth,
+            font: font
+        )
+        return TableColumnSizer.estimateTableHeight(
+            columns: columns,
+            rows: rows,
+            columnWidths: sizer.columnWidths,
+            font: font
+        )
     }
 
     // MARK: - Inline Content Conversion

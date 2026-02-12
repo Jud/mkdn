@@ -1,8 +1,8 @@
 # Development Tasks: Smart Tables
 
 **Feature ID**: smart-tables
-**Status**: Not Started
-**Progress**: 10% (1 of 10 tasks)
+**Status**: In Progress
+**Progress**: 20% (2 of 10 tasks)
 **Estimated Effort**: 5 days
 **Started**: 2026-02-11
 
@@ -73,7 +73,14 @@ Smart Tables replaces the current equal-width, non-wrapping table renderer with 
     - [ ] Existing Mermaid and image overlay behavior is unchanged (nil preferredWidth)
     - [ ] Passes SwiftLint strict mode
 
-- [ ] **T4**: Improve table height estimation in MarkdownTextStorageBuilder `[complexity:simple]`
+- [x] **T4**: Improve table height estimation in MarkdownTextStorageBuilder `[complexity:simple]`
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Core/Markdown/MarkdownTextStorageBuilder.swift`
+    - **Approach**: Replaced fixed `rowHeight: 32` estimation with `TableColumnSizer.computeWidths` + `TableColumnSizer.estimateTableHeight` calls. Extracted helper `estimatedTableAttachmentHeight` to keep `appendBlock` under SwiftLint 50-line function body limit. Uses 600pt default container width for estimation; dynamic height callback corrects at runtime.
+    - **Deviations**: None
+    - **Tests**: 32/32 passing
 
     **Reference**: [design.md#34-markdowntextstoragebuilder-updates](design.md#34-markdowntextstoragebuilder-updates)
 
