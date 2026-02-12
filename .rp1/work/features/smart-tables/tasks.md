@@ -2,7 +2,7 @@
 
 **Feature ID**: smart-tables
 **Status**: In Progress
-**Progress**: 40% (4 of 10 tasks)
+**Progress**: 50% (5 of 10 tasks)
 **Estimated Effort**: 5 days
 **Started**: 2026-02-11
 
@@ -124,7 +124,14 @@ Smart Tables replaces the current equal-width, non-wrapping table renderer with 
 
 ### Table View and Tests (Parallel Group 2)
 
-- [ ] **T2**: Rewrite TableBlockView with content-aware widths, text wrapping, horizontal scroll, and size reporting `[complexity:complex]`
+- [x] **T2**: Rewrite TableBlockView with content-aware widths, text wrapping, horizontal scroll, and size reporting `[complexity:complex]`
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Features/Viewer/Views/TableBlockView.swift`
+    - **Approach**: Rewrote body to call `TableColumnSizer.computeWidths` for column widths, use explicit `.frame(width:alignment:)` on each cell, wrap in `ScrollView(.horizontal)` when `needsHorizontalScroll` is true, and report rendered size via `.onGeometryChange`. Extracted `tableContent`, `tableBody`, `headerRow`, and `dataRows` helper methods to stay under SwiftLint function body length limits.
+    - **Deviations**: None
+    - **Tests**: 33/33 passing (all unit tests)
 
     **Reference**: [design.md#32-tableblockview-rewrite](design.md#32-tableblockview-rewrite)
 
@@ -132,19 +139,19 @@ Smart Tables replaces the current equal-width, non-wrapping table renderer with 
 
     **Acceptance Criteria**:
 
-    - [ ] Calls `TableColumnSizer.computeWidths` to determine column widths from cell content
-    - [ ] Each cell uses `.frame(width: columnWidths[colIndex], alignment: column.alignment)` with explicit width (not `.infinity`)
-    - [ ] Cell text uses `.lineLimit(nil)` and `.fixedSize(horizontal: false, vertical: true)` for unlimited wrapping
-    - [ ] Cell padding is `.padding(.horizontal, 13)` and `.padding(.vertical, 6)` per REQ-ST-008
-    - [ ] When `needsHorizontalScroll` is true, table content is wrapped in `ScrollView(.horizontal, showsIndicators: true)` -- vertical document scrolling is not captured
-    - [ ] Header row renders bold text with `backgroundSecondary` fill and bottom divider per REQ-ST-007
-    - [ ] Alternating row backgrounds: even rows use `background`, odd rows use `backgroundSecondary.opacity(0.5)` per REQ-ST-006
-    - [ ] Table has 1px stroke border with `border.opacity(0.3)` and 6pt corner radius per REQ-ST-009
-    - [ ] `.onGeometryChange()` modifier reports actual rendered size via `onSizeChange(width, height)` callback
-    - [ ] Layout uses VStack (not LazyVStack) for up to 100 rows per design decision D7
-    - [ ] All colors sourced from `ThemeColors` via `@Environment(AppSettings.self)` -- no hardcoded colors
-    - [ ] `containerWidth` parameter accepted for passing to TableColumnSizer
-    - [ ] Passes SwiftLint strict mode
+    - [x] Calls `TableColumnSizer.computeWidths` to determine column widths from cell content
+    - [x] Each cell uses `.frame(width: columnWidths[colIndex], alignment: column.alignment)` with explicit width (not `.infinity`)
+    - [x] Cell text uses `.lineLimit(nil)` and `.fixedSize(horizontal: false, vertical: true)` for unlimited wrapping
+    - [x] Cell padding is `.padding(.horizontal, 13)` and `.padding(.vertical, 6)` per REQ-ST-008
+    - [x] When `needsHorizontalScroll` is true, table content is wrapped in `ScrollView(.horizontal, showsIndicators: true)` -- vertical document scrolling is not captured
+    - [x] Header row renders bold text with `backgroundSecondary` fill and bottom divider per REQ-ST-007
+    - [x] Alternating row backgrounds: even rows use `background`, odd rows use `backgroundSecondary.opacity(0.5)` per REQ-ST-006
+    - [x] Table has 1px stroke border with `border.opacity(0.3)` and 6pt corner radius per REQ-ST-009
+    - [x] `.onGeometryChange()` modifier reports actual rendered size via `onSizeChange(width, height)` callback
+    - [x] Layout uses VStack (not LazyVStack) for up to 100 rows per design decision D7
+    - [x] All colors sourced from `ThemeColors` via `@Environment(AppSettings.self)` -- no hardcoded colors
+    - [x] `containerWidth` parameter accepted for passing to TableColumnSizer
+    - [x] Passes SwiftLint strict mode
 
 - [x] **T6**: Add unit tests for TableColumnSizer and table height estimation `[complexity:medium]`
 
