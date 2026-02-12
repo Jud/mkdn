@@ -17,6 +17,7 @@ final class OverlayCoordinator {
         let view: NSView
         let attachment: NSTextAttachment
         let block: MarkdownBlock
+        var preferredWidth: CGFloat?
     }
 
     private struct LayoutContext {
@@ -89,39 +90,70 @@ final class OverlayCoordinator {
               let textStorage = textView.textStorage
         else { return }
 
-        let attachment = entry.attachment
-        guard abs(attachment.bounds.height - newHeight) > 1 else { return }
+        guard abs(entry.attachment.bounds.height - newHeight) > 1 else { return }
+        invalidateAttachmentHeight(entry.attachment, newHeight: newHeight, textView: textView, textStorage: textStorage)
+        repositionOverlays()
+    }
 
-        let containerWidth = textContainerWidth(in: textView)
-
-        attachment.bounds = CGRect(
-            x: 0,
-            y: 0,
-            width: containerWidth,
-            height: newHeight
-        )
-
-        guard let range = attachmentRange(
-            for: attachment, in: textStorage
-        )
+    /// Updates both the preferred width and placeholder height for a table overlay,
+    /// triggering layout invalidation and repositioning as needed.
+    func updateAttachmentSize(
+        blockIndex: Int,
+        newWidth: CGFloat?,
+        newHeight: CGFloat
+    ) {
+        guard var entry = entries[blockIndex],
+              let textView,
+              let textStorage = textView.textStorage
         else { return }
 
-        textStorage.edited(.editedAttributes, range: range, changeInLength: 0)
+        var widthChanged = false
+        if let newWidth, entry.preferredWidth != newWidth {
+            entry.preferredWidth = newWidth
+            entries[blockIndex] = entry
+            widthChanged = true
+        }
+
+        let heightChanged = abs(entry.attachment.bounds.height - newHeight) > 1
+        if heightChanged {
+            invalidateAttachmentHeight(
+                entry.attachment,
+                newHeight: newHeight,
+                textView: textView,
+                textStorage: textStorage
+            )
+        }
+
+        if widthChanged || heightChanged {
+            repositionOverlays()
+        }
+    }
+
+    private func invalidateAttachmentHeight(
+        _ attachment: NSTextAttachment,
+        newHeight: CGFloat,
+        textView: NSTextView,
+        textStorage: NSTextStorage
+    ) {
+        let containerWidth = textContainerWidth(in: textView)
+        attachment.bounds = CGRect(x: 0, y: 0, width: containerWidth, height: newHeight)
+
+        if let range = attachmentRange(for: attachment, in: textStorage) {
+            textStorage.edited(.editedAttributes, range: range, changeInLength: 0)
+        }
 
         if let layoutManager = textView.textLayoutManager {
             let fullRange = layoutManager.documentRange
             layoutManager.invalidateLayout(for: fullRange)
             layoutManager.ensureLayout(for: fullRange)
         }
-
-        repositionOverlays()
     }
 
     // MARK: - Overlay Lifecycle
 
     private func needsOverlay(_ block: MarkdownBlock) -> Bool {
         switch block {
-        case .mermaidBlock, .image:
+        case .mermaidBlock, .image, .thematicBreak, .table:
             true
         default:
             false
@@ -140,7 +172,8 @@ final class OverlayCoordinator {
             entries[info.blockIndex] = OverlayEntry(
                 view: existing.view,
                 attachment: info.attachment,
-                block: info.block
+                block: info.block,
+                preferredWidth: existing.preferredWidth
             )
             return
         }
@@ -160,6 +193,11 @@ final class OverlayCoordinator {
             code1 == code2
         case let (.image(src1, _), .image(src2, _)):
             src1 == src2
+        case (.thematicBreak, .thematicBreak):
+            true
+        case let (.table(cols1, rows1), .table(cols2, rows2)):
+            cols1.map { String($0.header.characters) } == cols2.map { String($0.header.characters) }
+                && rows1.count == rows2.count
         default:
             false
         }
@@ -193,6 +231,15 @@ final class OverlayCoordinator {
                 alt: alt,
                 appSettings: appSettings,
                 documentState: documentState
+            )
+        case .thematicBreak:
+            overlayView = makeThematicBreakOverlay(appSettings: appSettings)
+        case let .table(columns, rows):
+            overlayView = makeTableOverlay(
+                columns: columns,
+                rows: rows,
+                blockIndex: info.blockIndex,
+                appSettings: appSettings
             )
         default:
             return
@@ -232,6 +279,39 @@ final class OverlayCoordinator {
         let rootView = ImageBlockView(source: source, alt: alt)
             .environment(appSettings)
             .environment(documentState)
+        return NSHostingView(rootView: rootView)
+    }
+
+    private func makeThematicBreakOverlay(
+        appSettings: AppSettings
+    ) -> NSView {
+        let borderColor = appSettings.theme.colors.border
+        let rootView = borderColor
+            .frame(height: 1)
+            .padding(.vertical, 8)
+        return NSHostingView(rootView: rootView)
+    }
+
+    private func makeTableOverlay(
+        columns: [TableColumn],
+        rows: [[AttributedString]],
+        blockIndex: Int,
+        appSettings: AppSettings
+    ) -> NSView {
+        let containerWidth = textView.map { textContainerWidth(in: $0) } ?? 600
+        let rootView = TableBlockView(
+            columns: columns,
+            rows: rows,
+            containerWidth: containerWidth
+        ) { [weak self] width, height in
+            guard let self else { return }
+            updateAttachmentSize(
+                blockIndex: blockIndex,
+                newWidth: width,
+                newHeight: height
+            )
+        }
+        .environment(appSettings)
         return NSHostingView(rootView: rootView)
     }
 
@@ -283,10 +363,11 @@ final class OverlayCoordinator {
         }
 
         let fragmentFrame = fragment.layoutFragmentFrame
+        let overlayWidth = entry.preferredWidth ?? context.containerWidth
         entry.view.frame = CGRect(
-            x: fragmentFrame.origin.x + context.origin.x,
+            x: context.origin.x,
             y: fragmentFrame.origin.y + context.origin.y,
-            width: context.containerWidth,
+            width: overlayWidth,
             height: fragmentFrame.height
         )
         entry.view.isHidden = false

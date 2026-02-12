@@ -2,7 +2,7 @@
 
 **Feature ID**: smart-tables
 **Status**: In Progress
-**Progress**: 20% (2 of 10 tasks)
+**Progress**: 30% (3 of 10 tasks)
 **Estimated Effort**: 5 days
 **Started**: 2026-02-11
 
@@ -56,7 +56,7 @@ Smart Tables replaces the current equal-width, non-wrapping table renderer with 
     - [x] Empty cells produce minimum padding-based width (26pt)
     - [x] Passes SwiftLint strict mode
 
-- [ ] **T3**: Add variable-width overlay positioning and table size callback to OverlayCoordinator `[complexity:medium]`
+- [x] **T3**: Add variable-width overlay positioning and table size callback to OverlayCoordinator `[complexity:medium]`
 
     **Reference**: [design.md#33-overlaycoordinator-updates](design.md#33-overlaycoordinator-updates)
 
@@ -64,14 +64,21 @@ Smart Tables replaces the current equal-width, non-wrapping table renderer with 
 
     **Acceptance Criteria**:
 
-    - [ ] `OverlayEntry` struct gains optional `preferredWidth: CGFloat?` field (nil = use containerWidth, preserving existing behavior for Mermaid/image overlays)
-    - [ ] `positionEntry` uses `entry.preferredWidth ?? context.containerWidth` for overlay frame width
-    - [ ] `makeTableOverlay` passes `containerWidth` and an `onSizeChange` closure to `TableBlockView`
-    - [ ] `updateAttachmentSize(blockIndex:newWidth:newHeight:)` method updates both entry `preferredWidth` and attachment bounds
-    - [ ] Width change triggers `repositionOverlays()` to apply new width
-    - [ ] Height change triggers existing `updateAttachmentHeight` logic with 1pt threshold
-    - [ ] Existing Mermaid and image overlay behavior is unchanged (nil preferredWidth)
-    - [ ] Passes SwiftLint strict mode
+    - [x] `OverlayEntry` struct gains optional `preferredWidth: CGFloat?` field (nil = use containerWidth, preserving existing behavior for Mermaid/image overlays)
+    - [x] `positionEntry` uses `entry.preferredWidth ?? context.containerWidth` for overlay frame width
+    - [x] `makeTableOverlay` passes `containerWidth` and an `onSizeChange` closure to `TableBlockView`
+    - [x] `updateAttachmentSize(blockIndex:newWidth:newHeight:)` method updates both entry `preferredWidth` and attachment bounds
+    - [x] Width change triggers `repositionOverlays()` to apply new width
+    - [x] Height change triggers existing `updateAttachmentHeight` logic with 1pt threshold
+    - [x] Existing Mermaid and image overlay behavior is unchanged (nil preferredWidth)
+    - [x] Passes SwiftLint strict mode
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Features/Viewer/Views/OverlayCoordinator.swift`, `mkdn/Features/Viewer/Views/TableBlockView.swift`
+    - **Approach**: Added `preferredWidth` to OverlayEntry, updated positionEntry for variable widths, added `updateAttachmentSize` method, plumbed containerWidth and onSizeChange callback through makeTableOverlay to TableBlockView. Extracted shared height invalidation logic into `invalidateAttachmentHeight` helper to stay within SwiftLint type_body_length limit.
+    - **Deviations**: None
+    - **Tests**: 32/32 passing
 
 - [x] **T4**: Improve table height estimation in MarkdownTextStorageBuilder `[complexity:simple]`
 
