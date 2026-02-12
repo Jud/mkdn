@@ -45,7 +45,7 @@ enum VisionCaptureConfig {
         "geometry-calibration.md",
         "theme-tokens.md",
         "canonical.md",
-        "mermaid-focus.md",
+        "tables.md",
     ]
 
     static let themes = [
