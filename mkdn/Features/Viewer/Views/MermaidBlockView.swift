@@ -14,11 +14,11 @@ struct MermaidBlockView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var isFocused = false
-    @FocusState private var isKeyboardFocused: Bool
     @State private var renderedHeight: CGFloat = 100
     @State private var renderedAspectRatio: CGFloat = 0.5
     @State private var renderState: MermaidRenderState = .loading
     @State private var overlayDismissed = false
+    @State private var isCursorPushed = false
 
     private var colors: ThemeColors {
         appSettings.theme.colors
@@ -30,26 +30,25 @@ struct MermaidBlockView: View {
 
     var body: some View {
         diagramContent
-            .background(colors.backgroundSecondary)
-            .hoverBrightness()
             .clipShape(RoundedRectangle(cornerRadius: 6))
             .overlay(focusBorder)
             .contentShape(Rectangle())
+            .onHover { hovering in
+                if hovering, !isFocused, !isCursorPushed {
+                    NSCursor.pointingHand.push()
+                    isCursorPushed = true
+                } else if !hovering || isFocused, isCursorPushed {
+                    NSCursor.pop()
+                    isCursorPushed = false
+                }
+            }
             .onTapGesture {
                 isFocused = true
-                isKeyboardFocused = true
             }
-            .focusable()
-            .focusEffectDisabled()
-            .focused($isKeyboardFocused)
-            .onKeyPress(.escape) {
-                isFocused = false
-                isKeyboardFocused = false
-                return .handled
-            }
-            .onChange(of: isKeyboardFocused) {
-                if !isKeyboardFocused {
-                    isFocused = false
+            .onChange(of: isFocused) { _, focused in
+                if focused, isCursorPushed {
+                    NSCursor.pop()
+                    isCursorPushed = false
                 }
             }
             .onChange(of: renderedHeight) {
@@ -147,12 +146,12 @@ struct MermaidBlockView: View {
     private var focusBorder: some View {
         RoundedRectangle(cornerRadius: 6)
             .stroke(
-                colors.accent,
+                colors.border,
                 lineWidth: isFocused ? AnimationConstants.focusBorderWidth : 0
             )
             .opacity(isFocused ? 1.0 : 0)
             .shadow(
-                color: colors.accent.opacity(isFocused ? 0.4 : 0),
+                color: colors.border.opacity(isFocused ? 0.4 : 0),
                 radius: isFocused ? AnimationConstants.focusGlowRadius : 0
             )
             .animation(
