@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Renders just the header row of a Markdown table for sticky header overlays.
@@ -16,6 +17,10 @@ struct TableHeaderView: View {
         appSettings.theme.colors
     }
 
+    private var scaledBodyFont: Font {
+        .system(size: PlatformTypeConverter.bodyFont(scaleFactor: appSettings.scaleFactor).pointSize)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             headerCells
@@ -28,7 +33,7 @@ struct TableHeaderView: View {
         HStack(spacing: 0) {
             ForEach(Array(columns.enumerated()), id: \.offset) { colIndex, column in
                 Text(column.header)
-                    .font(.body.bold())
+                    .font(scaledBodyFont.bold())
                     .foregroundColor(colors.headingColor)
                     .tint(colors.linkColor)
                     .lineLimit(nil)

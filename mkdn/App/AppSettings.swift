@@ -7,6 +7,8 @@ private let hasShownDefaultHandlerHintKey = "hasShownDefaultHandlerHint"
 
 private let autoReloadEnabledKey = "autoReloadEnabled"
 
+private let scaleFactorKey = "scaleFactor"
+
 /// App-wide settings shared across all windows.
 ///
 /// Manages theme preferences and application-level state that is
@@ -57,6 +59,16 @@ public final class AppSettings {
         }
     }
 
+    // MARK: - Zoom
+
+    /// Zoom scale factor for preview text rendering.
+    /// Range: 0.5...3.0, default 1.0. Persisted to UserDefaults.
+    public var scaleFactor: CGFloat {
+        didSet {
+            UserDefaults.standard.set(Double(scaleFactor), forKey: scaleFactorKey)
+        }
+    }
+
     public init() {
         let appearance = NSApp?.effectiveAppearance ?? NSAppearance.currentDrawing()
         let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
@@ -72,6 +84,9 @@ public final class AppSettings {
 
         hasShownDefaultHandlerHint = UserDefaults.standard.bool(forKey: hasShownDefaultHandlerHintKey)
         autoReloadEnabled = UserDefaults.standard.bool(forKey: autoReloadEnabledKey)
+
+        let storedScale = CGFloat(UserDefaults.standard.double(forKey: scaleFactorKey))
+        scaleFactor = storedScale > 0 ? storedScale : 1.0
     }
 
     // MARK: - Methods
@@ -82,5 +97,25 @@ public final class AppSettings {
         guard let currentIndex = allModes.firstIndex(of: themeMode) else { return }
         let nextIndex = (currentIndex + 1) % allModes.count
         themeMode = allModes[nextIndex]
+    }
+
+    /// Increase zoom by 10%, clamped at 3.0x maximum.
+    public func zoomIn() {
+        scaleFactor = min(scaleFactor + 0.1, 3.0)
+    }
+
+    /// Decrease zoom by 10%, clamped at 0.5x minimum.
+    public func zoomOut() {
+        scaleFactor = max(scaleFactor - 0.1, 0.5)
+    }
+
+    /// Reset zoom to the default 1.0x scale.
+    public func zoomReset() {
+        scaleFactor = 1.0
+    }
+
+    /// Formatted zoom percentage label for display overlay (e.g., "125%").
+    public var zoomLabel: String {
+        "\(Int(round(scaleFactor * 100)))%"
     }
 }

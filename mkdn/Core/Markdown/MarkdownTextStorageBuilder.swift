@@ -15,6 +15,36 @@ struct TextStorageResult {
     let attachments: [AttachmentInfo]
 }
 
+/// Resolved NSColor values from a ThemeColors palette for text storage building.
+struct ResolvedColors {
+    let foreground: NSColor
+    let headingColor: NSColor
+    let secondaryColor: NSColor
+    let linkColor: NSColor
+
+    init(colors: ThemeColors) {
+        foreground = PlatformTypeConverter.nsColor(from: colors.foreground)
+        headingColor = PlatformTypeConverter.nsColor(from: colors.headingColor)
+        secondaryColor = PlatformTypeConverter.nsColor(from: colors.foregroundSecondary)
+        linkColor = PlatformTypeConverter.nsColor(from: colors.linkColor)
+    }
+}
+
+/// Context for recursive list/blockquote rendering.
+struct BlockBuildContext {
+    let colors: ThemeColors
+    let theme: AppTheme
+    let resolved: ResolvedColors
+    let scaleFactor: CGFloat
+
+    init(colors: ThemeColors, theme: AppTheme, scaleFactor: CGFloat = 1.0) {
+        self.colors = colors
+        self.theme = theme
+        self.scaleFactor = scaleFactor
+        resolved = ResolvedColors(colors: colors)
+    }
+}
+
 /// Converts an array of `IndexedBlock` into a single `NSAttributedString`
 /// suitable for display in an `NSTextView`, plus a mapping of attachment
 /// positions to their source block data.
@@ -44,7 +74,8 @@ enum MarkdownTextStorageBuilder {
 
     static func build(
         blocks: [IndexedBlock],
-        theme: AppTheme
+        theme: AppTheme,
+        scaleFactor: CGFloat = 1.0
     ) -> TextStorageResult {
         let result = NSMutableAttributedString()
         var attachments: [AttachmentInfo] = []
@@ -56,6 +87,7 @@ enum MarkdownTextStorageBuilder {
                 to: result,
                 colors: colors,
                 theme: theme,
+                scaleFactor: scaleFactor,
                 attachments: &attachments
             )
 
@@ -88,48 +120,59 @@ enum MarkdownTextStorageBuilder {
         to result: NSMutableAttributedString,
         colors: ThemeColors,
         theme: AppTheme,
+        scaleFactor: CGFloat,
         attachments: inout [AttachmentInfo]
     ) {
-        switch indexedBlock.block {
+        let sf = scaleFactor
+        let idx = indexedBlock.index
+        let block = indexedBlock.block
+        switch block {
         case let .heading(level, text):
-            appendHeading(to: result, level: level, text: text, colors: colors)
+            appendHeading(to: result, level: level, text: text, colors: colors, scaleFactor: sf)
         case let .paragraph(text):
-            appendParagraph(to: result, text: text, colors: colors)
-        case let .codeBlock(language, code):
-            appendCodeBlock(to: result, language: language, code: code, colors: colors, theme: theme)
+            appendParagraph(to: result, text: text, colors: colors, scaleFactor: sf)
+        case let .codeBlock(lang, code):
+            appendCodeBlock(to: result, language: lang, code: code, colors: colors, theme: theme, scaleFactor: sf)
         case .mermaidBlock, .image:
-            appendAttachmentBlock(
-                to: result,
-                blockIndex: indexedBlock.index,
-                block: indexedBlock.block,
-                height: attachmentPlaceholderHeight,
-                attachments: &attachments
-            )
+            appendAttachmentPlaceholder(indexedBlock, to: result, attachments: &attachments)
         case let .blockquote(blocks):
-            appendBlockquote(to: result, blocks: blocks, colors: colors, theme: theme, depth: 0)
+            appendBlockquote(to: result, blocks: blocks, colors: colors, theme: theme, depth: 0, scaleFactor: sf)
         case let .orderedList(items):
-            appendOrderedList(to: result, items: items, colors: colors, theme: theme, depth: 0)
+            appendOrderedList(to: result, items: items, colors: colors, theme: theme, depth: 0, scaleFactor: sf)
         case let .unorderedList(items):
-            appendUnorderedList(to: result, items: items, colors: colors, theme: theme, depth: 0)
+            appendUnorderedList(to: result, items: items, colors: colors, theme: theme, depth: 0, scaleFactor: sf)
         case .thematicBreak:
-            appendAttachmentBlock(
-                to: result,
-                blockIndex: indexedBlock.index,
-                block: indexedBlock.block,
-                height: thematicBreakHeight,
-                attachments: &attachments
-            )
+            appendAttachmentPlaceholder(indexedBlock, to: result, attachments: &attachments)
         case let .table(columns, rows):
+            let ht = estimatedTableAttachmentHeight(columns: columns, rows: rows, scaleFactor: sf)
             appendAttachmentBlock(
                 to: result,
-                blockIndex: indexedBlock.index,
-                block: indexedBlock.block,
-                height: estimatedTableAttachmentHeight(columns: columns, rows: rows),
+                blockIndex: idx,
+                block: block,
+                height: ht,
                 attachments: &attachments
             )
         case let .htmlBlock(content):
-            appendHTMLBlock(to: result, content: content, colors: colors)
+            appendHTMLBlock(to: result, content: content, colors: colors, scaleFactor: sf)
         }
+    }
+
+    private static func appendAttachmentPlaceholder(
+        _ indexedBlock: IndexedBlock,
+        to result: NSMutableAttributedString,
+        attachments: inout [AttachmentInfo]
+    ) {
+        let height: CGFloat = switch indexedBlock.block {
+        case .thematicBreak: thematicBreakHeight
+        default: attachmentPlaceholderHeight
+        }
+        appendAttachmentBlock(
+            to: result,
+            blockIndex: indexedBlock.index,
+            block: indexedBlock.block,
+            height: height,
+            attachments: &attachments
+        )
     }
 
     // MARK: - Table Height Estimation
@@ -138,9 +181,10 @@ enum MarkdownTextStorageBuilder {
 
     private static func estimatedTableAttachmentHeight(
         columns: [TableColumn],
-        rows: [[AttributedString]]
+        rows: [[AttributedString]],
+        scaleFactor: CGFloat = 1.0
     ) -> CGFloat {
-        let font = PlatformTypeConverter.bodyFont()
+        let font = PlatformTypeConverter.bodyFont(scaleFactor: scaleFactor)
         let sizer = TableColumnSizer.computeWidths(
             columns: columns,
             rows: rows,
@@ -161,7 +205,8 @@ enum MarkdownTextStorageBuilder {
         _ content: AttributedString,
         baseFont: NSFont,
         baseForegroundColor: NSColor,
-        linkColor: NSColor
+        linkColor: NSColor,
+        scaleFactor: CGFloat = 1.0
     ) -> NSMutableAttributedString {
         let result = NSMutableAttributedString()
 
@@ -173,7 +218,7 @@ enum MarkdownTextStorageBuilder {
             var font = baseFont
 
             if intent.contains(.code) {
-                font = PlatformTypeConverter.monospacedFont()
+                font = PlatformTypeConverter.monospacedFont(scaleFactor: scaleFactor)
             } else {
                 let isBold = intent.contains(.stronglyEmphasized)
                 let isItalic = intent.contains(.emphasized)

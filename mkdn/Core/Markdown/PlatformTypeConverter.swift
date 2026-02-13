@@ -11,27 +11,30 @@ enum PlatformTypeConverter {
 
     // MARK: - Font Factory
 
-    static func headingFont(level: Int) -> NSFont {
-        switch level {
-        case 1: .systemFont(ofSize: 28, weight: .bold)
-        case 2: .systemFont(ofSize: 24, weight: .bold)
-        case 3: .systemFont(ofSize: 20, weight: .semibold)
-        case 4: .systemFont(ofSize: 18, weight: .semibold)
-        case 5: .systemFont(ofSize: 16, weight: .medium)
-        default: .systemFont(ofSize: 14, weight: .medium)
+    static func headingFont(level: Int, scaleFactor: CGFloat = 1.0) -> NSFont {
+        let baseSize: CGFloat = switch level {
+        case 1: 28
+        case 2: 24
+        case 3: 20
+        case 4: 18
+        case 5: 16
+        default: 14
         }
+        let weight: NSFont.Weight = level <= 2 ? .bold : level <= 4 ? .semibold : .medium
+        return .systemFont(ofSize: baseSize * scaleFactor, weight: weight)
     }
 
-    static func bodyFont() -> NSFont {
-        .preferredFont(forTextStyle: .body)
+    static func bodyFont(scaleFactor: CGFloat = 1.0) -> NSFont {
+        let base = NSFont.preferredFont(forTextStyle: .body)
+        return .systemFont(ofSize: base.pointSize * scaleFactor)
     }
 
-    static func monospacedFont() -> NSFont {
-        .monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+    static func monospacedFont(scaleFactor: CGFloat = 1.0) -> NSFont {
+        .monospacedSystemFont(ofSize: NSFont.systemFontSize * scaleFactor, weight: .regular)
     }
 
-    static func captionMonospacedFont() -> NSFont {
-        .monospacedSystemFont(ofSize: NSFont.smallSystemFontSize, weight: .regular)
+    static func captionMonospacedFont(scaleFactor: CGFloat = 1.0) -> NSFont {
+        .monospacedSystemFont(ofSize: NSFont.smallSystemFontSize * scaleFactor, weight: .regular)
     }
 
     // MARK: - Paragraph Style

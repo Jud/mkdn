@@ -2,7 +2,7 @@
 
 **Feature ID**: mac-app-essentials
 **Status**: In Progress
-**Progress**: 46% (6 of 13 tasks)
+**Progress**: 54% (7 of 13 tasks)
 **Estimated Effort**: 4 days
 **Started**: 2026-02-13
 
@@ -249,7 +249,19 @@ All 8 tasks are technically parallel (no task defines an interface consumed by a
     - **Deviations**: None
     - **Tests**: 7/7 passing (4 visitor + 3 builder)
 
-- [ ] **T3**: Implement Zoom In/Out with persisted scale factor and font-size scaling `[complexity:complex]`
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ✅ PASS |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
+- [x] **T3**: Implement Zoom In/Out with persisted scale factor and font-size scaling `[complexity:complex]`
 
     **Reference**: [design.md#23-zoom-architecture](design.md#23-zoom-architecture)
 
@@ -257,24 +269,31 @@ All 8 tasks are technically parallel (no task defines an interface consumed by a
 
     **Acceptance Criteria**:
 
-    - [ ] `AppSettings.scaleFactor` property added: `CGFloat`, range 0.5...3.0, default 1.0, persisted via UserDefaults
-    - [ ] `AppSettings.zoomIn()` increments by 0.1, clamped at 3.0
-    - [ ] `AppSettings.zoomOut()` decrements by 0.1, clamped at 0.5
-    - [ ] `AppSettings.zoomReset()` sets to 1.0
-    - [ ] `PlatformTypeConverter` font-producing methods accept `scaleFactor` parameter and multiply point sizes
-    - [ ] `MarkdownTextStorageBuilder.build()` accepts `scaleFactor` parameter, passes through to all font calls
-    - [ ] `MarkdownPreviewView` detects `.onChange(of: appSettings.scaleFactor)` and rebuilds text storage
-    - [ ] `OverlayCoordinator` passes `scaleFactor` to table overlay creation so table text scales consistently
-    - [ ] `ModeTransitionOverlay` displays zoom percentage (e.g., "125%") on each zoom change
-    - [ ] Zoom In (Cmd+Plus), Zoom Out (Cmd+Minus), Actual Size (Cmd+0) menu items in View menu
-    - [ ] `textContainerInset` remains fixed (32pt) -- only content scales
-    - [ ] REQ-ZOOM-001: Cmd+Plus increases text size
-    - [ ] REQ-ZOOM-002: Cmd+Minus decreases text size
-    - [ ] REQ-ZOOM-003: Cmd+0 resets to default size
-    - [ ] REQ-ZOOM-004: Scale factor persists across app restarts
-    - [ ] REQ-ZOOM-005: Zoom items in View menu with shortcuts
-    - [ ] REQ-ZOOM-006: Text remains crisp at all scale factors (font-size scaling, not view magnification)
-    - [ ] Unit tests for zoom scale persistence, clamping (min/max), increment/decrement
+    - [x] `AppSettings.scaleFactor` property added: `CGFloat`, range 0.5...3.0, default 1.0, persisted via UserDefaults
+    - [x] `AppSettings.zoomIn()` increments by 0.1, clamped at 3.0
+    - [x] `AppSettings.zoomOut()` decrements by 0.1, clamped at 0.5
+    - [x] `AppSettings.zoomReset()` sets to 1.0
+    - [x] `PlatformTypeConverter` font-producing methods accept `scaleFactor` parameter and multiply point sizes
+    - [x] `MarkdownTextStorageBuilder.build()` accepts `scaleFactor` parameter, passes through to all font calls
+    - [x] `MarkdownPreviewView` detects `.onChange(of: appSettings.scaleFactor)` and rebuilds text storage
+    - [x] `OverlayCoordinator` passes `scaleFactor` to table overlay creation so table text scales consistently
+    - [x] `ModeTransitionOverlay` displays zoom percentage (e.g., "125%") on each zoom change
+    - [x] Zoom In (Cmd+Plus), Zoom Out (Cmd+Minus), Actual Size (Cmd+0) menu items in View menu
+    - [x] `textContainerInset` remains fixed (32pt) -- only content scales
+    - [x] REQ-ZOOM-001: Cmd+Plus increases text size
+    - [x] REQ-ZOOM-002: Cmd+Minus decreases text size
+    - [x] REQ-ZOOM-003: Cmd+0 resets to default size
+    - [x] REQ-ZOOM-004: Scale factor persists across app restarts
+    - [x] REQ-ZOOM-005: Zoom items in View menu with shortcuts
+    - [x] REQ-ZOOM-006: Text remains crisp at all scale factors (font-size scaling, not view magnification)
+    - [x] Unit tests for zoom scale persistence, clamping (min/max), increment/decrement
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Core/Markdown/PlatformTypeConverter.swift`, `mkdn/App/AppSettings.swift`, `mkdn/App/MkdnCommands.swift`, `mkdn/Core/Markdown/MarkdownTextStorageBuilder.swift`, `mkdn/Core/Markdown/MarkdownTextStorageBuilder+Blocks.swift`, `mkdn/Core/Markdown/MarkdownTextStorageBuilder+Complex.swift`, `mkdn/Features/Viewer/Views/MarkdownPreviewView.swift`, `mkdn/Features/Viewer/Views/OverlayCoordinator.swift`, `mkdn/Features/Viewer/Views/TableBlockView.swift`, `mkdn/Features/Viewer/Views/TableHeaderView.swift`, `mkdnTests/Unit/Features/AppSettingsTests.swift`
+    - **Approach**: Font-size scaling (not view magnification) via `scaleFactor` parameter threaded through PlatformTypeConverter font methods, MarkdownTextStorageBuilder pipeline (build, appendBlock, all block/complex/table helpers), and SwiftUI table overlays. AppSettings persists scaleFactor via UserDefaults with zoom methods. View menu items dispatch zoom actions and display ephemeral percentage overlay via ModeTransitionOverlay.
+    - **Deviations**: None
+    - **Tests**: 8/8 zoom tests passing (default, increment, decrement, reset, clamp max/min, persistence, restore, label formatting)
 
 - [ ] **T5**: Implement code block copy button with hover tracking and raw code attribute `[complexity:medium]`
 

@@ -9,9 +9,10 @@ extension MarkdownTextStorageBuilder {
         to result: NSMutableAttributedString,
         level: Int,
         text: AttributedString,
-        colors: ThemeColors
+        colors: ThemeColors,
+        scaleFactor: CGFloat = 1.0
     ) {
-        let font = PlatformTypeConverter.headingFont(level: level)
+        let font = PlatformTypeConverter.headingFont(level: level, scaleFactor: scaleFactor)
         let foreground = PlatformTypeConverter.nsColor(from: colors.headingColor)
         let linkColor = PlatformTypeConverter.nsColor(from: colors.linkColor)
         let spacingBefore: CGFloat = switch level {
@@ -24,7 +25,8 @@ extension MarkdownTextStorageBuilder {
             text,
             baseFont: font,
             baseForegroundColor: foreground,
-            linkColor: linkColor
+            linkColor: linkColor,
+            scaleFactor: scaleFactor
         )
         let style = makeParagraphStyle(
             paragraphSpacing: blockSpacing,
@@ -41,9 +43,10 @@ extension MarkdownTextStorageBuilder {
     static func appendParagraph(
         to result: NSMutableAttributedString,
         text: AttributedString,
-        colors: ThemeColors
+        colors: ThemeColors,
+        scaleFactor: CGFloat = 1.0
     ) {
-        let font = PlatformTypeConverter.bodyFont()
+        let font = PlatformTypeConverter.bodyFont(scaleFactor: scaleFactor)
         let foreground = PlatformTypeConverter.nsColor(from: colors.foreground)
         let linkColor = PlatformTypeConverter.nsColor(from: colors.linkColor)
 
@@ -51,7 +54,8 @@ extension MarkdownTextStorageBuilder {
             text,
             baseFont: font,
             baseForegroundColor: foreground,
-            linkColor: linkColor
+            linkColor: linkColor,
+            scaleFactor: scaleFactor
         )
         let style = makeParagraphStyle(paragraphSpacing: blockSpacing)
         let range = NSRange(location: 0, length: content.length)
@@ -67,11 +71,12 @@ extension MarkdownTextStorageBuilder {
         language: String?,
         code: String,
         colors: ThemeColors,
-        theme: AppTheme
+        theme: AppTheme,
+        scaleFactor: CGFloat = 1.0
     ) {
         let trimmedCode = code.trimmingCharacters(in: .whitespacesAndNewlines)
         let codeForeground = PlatformTypeConverter.nsColor(from: colors.codeForeground)
-        let monoFont = PlatformTypeConverter.monospacedFont()
+        let monoFont = PlatformTypeConverter.monospacedFont(scaleFactor: scaleFactor)
 
         let blockID = UUID().uuidString
         let colorInfo = CodeBlockColorInfo(
@@ -85,7 +90,8 @@ extension MarkdownTextStorageBuilder {
             language: language,
             blockID: blockID,
             colorInfo: colorInfo,
-            colors: colors
+            colors: colors,
+            scaleFactor: scaleFactor
         )
 
         let codeContent: NSMutableAttributedString
@@ -156,10 +162,11 @@ extension MarkdownTextStorageBuilder {
     static func appendHTMLBlock(
         to result: NSMutableAttributedString,
         content: String,
-        colors: ThemeColors
+        colors: ThemeColors,
+        scaleFactor: CGFloat = 1.0
     ) {
         let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
-        let monoFont = PlatformTypeConverter.monospacedFont()
+        let monoFont = PlatformTypeConverter.monospacedFont(scaleFactor: scaleFactor)
         let codeBackground = PlatformTypeConverter.nsColor(from: colors.codeBackground)
         let codeForeground = PlatformTypeConverter.nsColor(from: colors.codeForeground)
 
@@ -219,7 +226,8 @@ extension MarkdownTextStorageBuilder {
         language: String?,
         blockID: String,
         colorInfo: CodeBlockColorInfo,
-        colors: ThemeColors
+        colors: ThemeColors,
+        scaleFactor: CGFloat = 1.0
     ) {
         guard let language, !language.isEmpty else { return }
         let labelStyle = makeParagraphStyle(
@@ -230,7 +238,7 @@ extension MarkdownTextStorageBuilder {
             tailIndent: -codeBlockPadding
         )
         let labelAttrs: [NSAttributedString.Key: Any] = [
-            .font: PlatformTypeConverter.captionMonospacedFont(),
+            .font: PlatformTypeConverter.captionMonospacedFont(scaleFactor: scaleFactor),
             .foregroundColor: PlatformTypeConverter.nsColor(from: colors.foregroundSecondary),
             .paragraphStyle: labelStyle,
             CodeBlockAttributes.range: blockID,

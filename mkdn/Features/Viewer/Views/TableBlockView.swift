@@ -14,12 +14,20 @@ struct TableBlockView: View {
         appSettings.theme.colors
     }
 
+    private var scaleFactor: CGFloat {
+        appSettings.scaleFactor
+    }
+
+    private var scaledBodyFont: Font {
+        .system(size: PlatformTypeConverter.bodyFont(scaleFactor: scaleFactor).pointSize)
+    }
+
     private var sizingResult: TableColumnSizer.Result {
         TableColumnSizer.computeWidths(
             columns: columns,
             rows: rows,
             containerWidth: containerWidth,
-            font: PlatformTypeConverter.bodyFont()
+            font: PlatformTypeConverter.bodyFont(scaleFactor: scaleFactor)
         )
     }
 
@@ -68,7 +76,7 @@ struct TableBlockView: View {
         HStack(spacing: 0) {
             ForEach(Array(columns.enumerated()), id: \.offset) { colIndex, column in
                 Text(column.header)
-                    .font(.body.bold())
+                    .font(scaledBodyFont.bold())
                     .foregroundColor(colors.headingColor)
                     .tint(colors.linkColor)
                     .lineLimit(nil)
@@ -93,7 +101,7 @@ struct TableBlockView: View {
                         ? columns[colIndex].alignment.swiftUIAlignment
                         : .leading
                     Text(cell)
-                        .font(.body)
+                        .font(scaledBodyFont)
                         .foregroundColor(colors.foreground)
                         .tint(colors.linkColor)
                         .lineLimit(nil)

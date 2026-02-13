@@ -1,34 +1,6 @@
 import AppKit
 import SwiftUI
 
-/// Resolved NSColor values from a ThemeColors palette for text storage building.
-struct ResolvedColors {
-    let foreground: NSColor
-    let headingColor: NSColor
-    let secondaryColor: NSColor
-    let linkColor: NSColor
-
-    init(colors: ThemeColors) {
-        foreground = PlatformTypeConverter.nsColor(from: colors.foreground)
-        headingColor = PlatformTypeConverter.nsColor(from: colors.headingColor)
-        secondaryColor = PlatformTypeConverter.nsColor(from: colors.foregroundSecondary)
-        linkColor = PlatformTypeConverter.nsColor(from: colors.linkColor)
-    }
-}
-
-/// Context for recursive list/blockquote rendering.
-struct BlockBuildContext {
-    let colors: ThemeColors
-    let theme: AppTheme
-    let resolved: ResolvedColors
-
-    init(colors: ThemeColors, theme: AppTheme) {
-        self.colors = colors
-        self.theme = theme
-        resolved = ResolvedColors(colors: colors)
-    }
-}
-
 /// Blockquote, list, and table rendering for `MarkdownTextStorageBuilder`.
 extension MarkdownTextStorageBuilder {
     // MARK: - Blockquote
@@ -38,9 +10,10 @@ extension MarkdownTextStorageBuilder {
         blocks: [MarkdownBlock],
         colors: ThemeColors,
         theme: AppTheme,
-        depth: Int
+        depth: Int,
+        scaleFactor: CGFloat = 1.0
     ) {
-        let ctx = BlockBuildContext(colors: colors, theme: theme)
+        let ctx = BlockBuildContext(colors: colors, theme: theme, scaleFactor: scaleFactor)
         let indent = blockquoteIndent * CGFloat(depth + 1)
 
         for block in blocks {
@@ -51,7 +24,8 @@ extension MarkdownTextStorageBuilder {
                     text: text,
                     indent: indent,
                     foreground: ctx.resolved.foreground,
-                    linkColor: ctx.resolved.linkColor
+                    linkColor: ctx.resolved.linkColor,
+                    scaleFactor: scaleFactor
                 )
 
             case let .heading(level, text):
@@ -61,7 +35,8 @@ extension MarkdownTextStorageBuilder {
                     text: text,
                     indent: indent,
                     headingColor: ctx.resolved.headingColor,
-                    linkColor: ctx.resolved.linkColor
+                    linkColor: ctx.resolved.linkColor,
+                    scaleFactor: scaleFactor
                 )
 
             case let .blockquote(innerBlocks):
@@ -70,7 +45,8 @@ extension MarkdownTextStorageBuilder {
                     blocks: innerBlocks,
                     colors: colors,
                     theme: theme,
-                    depth: depth + 1
+                    depth: depth + 1,
+                    scaleFactor: scaleFactor
                 )
 
             default:
@@ -80,7 +56,8 @@ extension MarkdownTextStorageBuilder {
                     to: result,
                     text: text,
                     indent: indent,
-                    foreground: ctx.resolved.foreground
+                    foreground: ctx.resolved.foreground,
+                    scaleFactor: scaleFactor
                 )
             }
         }
@@ -93,9 +70,10 @@ extension MarkdownTextStorageBuilder {
         items: [ListItem],
         colors: ThemeColors,
         theme: AppTheme,
-        depth: Int
+        depth: Int,
+        scaleFactor: CGFloat = 1.0
     ) {
-        let ctx = BlockBuildContext(colors: colors, theme: theme)
+        let ctx = BlockBuildContext(colors: colors, theme: theme, scaleFactor: scaleFactor)
         for (index, item) in items.enumerated() {
             appendListItem(
                 to: result,
@@ -112,11 +90,12 @@ extension MarkdownTextStorageBuilder {
         items: [ListItem],
         colors: ThemeColors,
         theme: AppTheme,
-        depth: Int
+        depth: Int,
+        scaleFactor: CGFloat = 1.0
     ) {
         let bulletIndex = min(depth, bulletStyles.count - 1)
         let bullet = bulletStyles[bulletIndex]
-        let ctx = BlockBuildContext(colors: colors, theme: theme)
+        let ctx = BlockBuildContext(colors: colors, theme: theme, scaleFactor: scaleFactor)
         for item in items {
             appendListItem(
                 to: result,
@@ -134,7 +113,8 @@ extension MarkdownTextStorageBuilder {
         to result: NSMutableAttributedString,
         columns: [TableColumn],
         rows: [[AttributedString]],
-        colors: ThemeColors
+        colors: ThemeColors,
+        scaleFactor: CGFloat = 1.0
     ) {
         let resolved = ResolvedColors(colors: colors)
 
@@ -154,18 +134,20 @@ extension MarkdownTextStorageBuilder {
             to: result,
             columns: columns,
             resolved: resolved,
-            tabStops: tabStops
+            tabStops: tabStops,
+            scaleFactor: scaleFactor
         )
         appendTableRows(
             to: result,
             rows: rows,
             resolved: resolved,
-            tabStops: tabStops
+            tabStops: tabStops,
+            scaleFactor: scaleFactor
         )
 
         if rows.isEmpty {
             result.append(NSAttributedString(string: "\n", attributes: [
-                .font: PlatformTypeConverter.bodyFont(),
+                .font: PlatformTypeConverter.bodyFont(scaleFactor: scaleFactor),
                 .paragraphStyle: makeParagraphStyle(paragraphSpacing: blockSpacing),
             ]))
         } else {
@@ -180,14 +162,16 @@ extension MarkdownTextStorageBuilder {
         text: AttributedString,
         indent: CGFloat,
         foreground: NSColor,
-        linkColor: NSColor
+        linkColor: NSColor,
+        scaleFactor: CGFloat = 1.0
     ) {
-        let font = PlatformTypeConverter.bodyFont()
+        let font = PlatformTypeConverter.bodyFont(scaleFactor: scaleFactor)
         let content = convertInlineContent(
             text,
             baseFont: font,
             baseForegroundColor: foreground,
-            linkColor: linkColor
+            linkColor: linkColor,
+            scaleFactor: scaleFactor
         )
         let style = makeParagraphStyle(
             paragraphSpacing: 8,
@@ -206,14 +190,16 @@ extension MarkdownTextStorageBuilder {
         text: AttributedString,
         indent: CGFloat,
         headingColor: NSColor,
-        linkColor: NSColor
+        linkColor: NSColor,
+        scaleFactor: CGFloat = 1.0
     ) {
-        let font = PlatformTypeConverter.headingFont(level: level)
+        let font = PlatformTypeConverter.headingFont(level: level, scaleFactor: scaleFactor)
         let content = convertInlineContent(
             text,
             baseFont: font,
             baseForegroundColor: headingColor,
-            linkColor: linkColor
+            linkColor: linkColor,
+            scaleFactor: scaleFactor
         )
         let style = makeParagraphStyle(
             paragraphSpacing: 8,
@@ -231,7 +217,8 @@ extension MarkdownTextStorageBuilder {
         to result: NSMutableAttributedString,
         text: String,
         indent: CGFloat,
-        foreground: NSColor
+        foreground: NSColor,
+        scaleFactor: CGFloat = 1.0
     ) {
         let style = makeParagraphStyle(
             paragraphSpacing: 8,
@@ -239,7 +226,7 @@ extension MarkdownTextStorageBuilder {
             firstLineHeadIndent: indent
         )
         let attrs: [NSAttributedString.Key: Any] = [
-            .font: PlatformTypeConverter.bodyFont(),
+            .font: PlatformTypeConverter.bodyFont(scaleFactor: scaleFactor),
             .foregroundColor: foreground,
             .paragraphStyle: style,
         ]
@@ -263,8 +250,16 @@ extension MarkdownTextStorageBuilder {
             firstLineHeadIndent: baseIndent,
             tabStops: [NSTextTab(textAlignment: .left, location: contentIndent)]
         )
-        let prefixAttr = resolvedListPrefix(prefix: prefix, checkbox: item.checkbox, color: ctx.resolved.secondaryColor)
-
+        let prefixAttr = resolvedListPrefix(
+            prefix: prefix,
+            checkbox: item.checkbox,
+            color: ctx.resolved.secondaryColor,
+            scaleFactor: ctx.scaleFactor
+        )
+        let cl = ctx.colors
+        let th = ctx.theme
+        let sf = ctx.scaleFactor
+        let nextDepth = depth + 1
         var isFirstBlock = true
         for block in item.blocks {
             switch block {
@@ -275,12 +270,13 @@ extension MarkdownTextStorageBuilder {
                     isFirstBlock: isFirstBlock,
                     prefixAttr: prefixAttr,
                     style: style,
-                    resolved: ctx.resolved
+                    resolved: ctx.resolved,
+                    scaleFactor: sf
                 )
             case let .orderedList(items):
-                appendOrderedList(to: result, items: items, colors: ctx.colors, theme: ctx.theme, depth: depth + 1)
+                appendOrderedList(to: result, items: items, colors: cl, theme: th, depth: nextDepth, scaleFactor: sf)
             case let .unorderedList(items):
-                appendUnorderedList(to: result, items: items, colors: ctx.colors, theme: ctx.theme, depth: depth + 1)
+                appendUnorderedList(to: result, items: items, colors: cl, theme: th, depth: nextDepth, scaleFactor: sf)
             default:
                 let text = plainText(from: block)
                 guard !text.isEmpty else { continue }
@@ -290,7 +286,8 @@ extension MarkdownTextStorageBuilder {
                     isFirstBlock: isFirstBlock,
                     prefixAttr: prefixAttr,
                     style: style,
-                    resolved: ctx.resolved
+                    resolved: ctx.resolved,
+                    scaleFactor: sf
                 )
             }
             isFirstBlock = false
@@ -300,12 +297,13 @@ extension MarkdownTextStorageBuilder {
     private static func resolvedListPrefix(
         prefix: String,
         checkbox: CheckboxState?,
-        color: NSColor
+        color: NSColor,
+        scaleFactor: CGFloat = 1.0
     ) -> NSAttributedString {
         if let checkbox {
-            return checkboxPrefix(checkbox, color: color)
+            return checkboxPrefix(checkbox, color: color, scaleFactor: scaleFactor)
         }
-        return listPrefix(prefix, color: color)
+        return listPrefix(prefix, color: color, scaleFactor: scaleFactor)
     }
 
     private static func appendListParagraph(
@@ -314,7 +312,8 @@ extension MarkdownTextStorageBuilder {
         isFirstBlock: Bool,
         prefixAttr: NSAttributedString,
         style: NSParagraphStyle,
-        resolved: ResolvedColors
+        resolved: ResolvedColors,
+        scaleFactor: CGFloat = 1.0
     ) {
         let content = NSMutableAttributedString()
         if isFirstBlock {
@@ -322,9 +321,10 @@ extension MarkdownTextStorageBuilder {
         }
         let inlineContent = convertInlineContent(
             text,
-            baseFont: PlatformTypeConverter.bodyFont(),
+            baseFont: PlatformTypeConverter.bodyFont(scaleFactor: scaleFactor),
             baseForegroundColor: resolved.foreground,
-            linkColor: resolved.linkColor
+            linkColor: resolved.linkColor,
+            scaleFactor: scaleFactor
         )
         content.append(inlineContent)
         let range = NSRange(location: 0, length: content.length)
@@ -339,14 +339,15 @@ extension MarkdownTextStorageBuilder {
         isFirstBlock: Bool,
         prefixAttr: NSAttributedString,
         style: NSParagraphStyle,
-        resolved: ResolvedColors
+        resolved: ResolvedColors,
+        scaleFactor: CGFloat = 1.0
     ) {
         let content = NSMutableAttributedString()
         if isFirstBlock {
             content.append(prefixAttr)
         }
         let attrs: [NSAttributedString.Key: Any] = [
-            .font: PlatformTypeConverter.bodyFont(),
+            .font: PlatformTypeConverter.bodyFont(scaleFactor: scaleFactor),
             .foregroundColor: resolved.foreground,
         ]
         content.append(NSAttributedString(string: text, attributes: attrs))
@@ -356,19 +357,21 @@ extension MarkdownTextStorageBuilder {
         result.append(content)
     }
 
-    private static func listPrefix(_ prefix: String, color: NSColor) -> NSAttributedString {
+    private static func listPrefix(_ prefix: String, color: NSColor, scaleFactor: CGFloat = 1.0) -> NSAttributedString {
         NSAttributedString(
             string: prefix + "\t",
             attributes: [
-                .font: PlatformTypeConverter.bodyFont(),
+                .font: PlatformTypeConverter.bodyFont(scaleFactor: scaleFactor),
                 .foregroundColor: color,
             ]
         )
     }
 
-    private static func checkboxPrefix(_ state: CheckboxState, color: NSColor) -> NSAttributedString {
+    private static func checkboxPrefix(
+        _ state: CheckboxState, color: NSColor, scaleFactor: CGFloat = 1.0
+    ) -> NSAttributedString {
         let symbolName = state == .checked ? "checkmark.square.fill" : "square"
-        let font = PlatformTypeConverter.bodyFont()
+        let font = PlatformTypeConverter.bodyFont(scaleFactor: scaleFactor)
         let symbolSize = font.pointSize
 
         guard let symbolImage = NSImage(
@@ -376,7 +379,7 @@ extension MarkdownTextStorageBuilder {
             accessibilityDescription: state == .checked ? "checked" : "unchecked"
         )
         else {
-            return listPrefix(state == .checked ? "[x]" : "[ ]", color: color)
+            return listPrefix(state == .checked ? "[x]" : "[ ]", color: color, scaleFactor: scaleFactor)
         }
 
         let config = NSImage.SymbolConfiguration(pointSize: symbolSize, weight: .regular)
@@ -416,7 +419,8 @@ extension MarkdownTextStorageBuilder {
         to result: NSMutableAttributedString,
         columns: [TableColumn],
         resolved: ResolvedColors,
-        tabStops: [NSTextTab]
+        tabStops: [NSTextTab],
+        scaleFactor: CGFloat = 1.0
     ) {
         let headerStyle = makeParagraphStyle(
             paragraphSpacing: 4,
@@ -428,14 +432,15 @@ extension MarkdownTextStorageBuilder {
                 headerContent.append(NSAttributedString(string: "\t"))
             }
             let font = NSFontManager.shared.convert(
-                PlatformTypeConverter.bodyFont(),
+                PlatformTypeConverter.bodyFont(scaleFactor: scaleFactor),
                 toHaveTrait: .boldFontMask
             )
             let cellContent = convertInlineContent(
                 column.header,
                 baseFont: font,
                 baseForegroundColor: resolved.headingColor,
-                linkColor: resolved.linkColor
+                linkColor: resolved.linkColor,
+                scaleFactor: scaleFactor
             )
             headerContent.append(cellContent)
         }
@@ -449,7 +454,8 @@ extension MarkdownTextStorageBuilder {
         to result: NSMutableAttributedString,
         rows: [[AttributedString]],
         resolved: ResolvedColors,
-        tabStops: [NSTextTab]
+        tabStops: [NSTextTab],
+        scaleFactor: CGFloat = 1.0
     ) {
         let rowStyle = makeParagraphStyle(
             paragraphSpacing: 2,
@@ -463,9 +469,10 @@ extension MarkdownTextStorageBuilder {
                 }
                 let cellContent = convertInlineContent(
                     cell,
-                    baseFont: PlatformTypeConverter.bodyFont(),
+                    baseFont: PlatformTypeConverter.bodyFont(scaleFactor: scaleFactor),
                     baseForegroundColor: resolved.foreground,
-                    linkColor: resolved.linkColor
+                    linkColor: resolved.linkColor,
+                    scaleFactor: scaleFactor
                 )
                 rowContent.append(cellContent)
             }

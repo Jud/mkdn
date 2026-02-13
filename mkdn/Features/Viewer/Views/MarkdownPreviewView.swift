@@ -74,7 +74,8 @@ struct MarkdownPreviewView: View {
             isFullReload = shouldAnimate
             textStorageResult = MarkdownTextStorageBuilder.build(
                 blocks: newBlocks,
-                theme: appSettings.theme
+                theme: appSettings.theme,
+                scaleFactor: appSettings.scaleFactor
             )
             debugLog("[PREVIEW] fullReload=\(shouldAnimate), blocks=\(newBlocks.count)")
         }
@@ -88,7 +89,22 @@ struct MarkdownPreviewView: View {
             isFullReload = false
             textStorageResult = MarkdownTextStorageBuilder.build(
                 blocks: newBlocks,
+                theme: appSettings.theme,
+                scaleFactor: appSettings.scaleFactor
+            )
+        }
+        .onChange(of: appSettings.scaleFactor) {
+            let newBlocks = MarkdownRenderer.render(
+                text: documentState.markdownContent,
                 theme: appSettings.theme
+            )
+            renderedBlocks = newBlocks
+            knownBlockIDs = Set(newBlocks.map(\.id))
+            isFullReload = false
+            textStorageResult = MarkdownTextStorageBuilder.build(
+                blocks: newBlocks,
+                theme: appSettings.theme,
+                scaleFactor: appSettings.scaleFactor
             )
         }
     }

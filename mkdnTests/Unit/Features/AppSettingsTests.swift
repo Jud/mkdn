@@ -219,4 +219,106 @@ struct AppSettingsTests {
         let settings = AppSettings()
         #expect(settings.autoReloadEnabled)
     }
+
+    // MARK: - Zoom Scale Factor
+
+    @Test("scaleFactor defaults to 1.0")
+    @MainActor func scaleFactorDefaultsTo1() {
+        defer { UserDefaults.standard.removeObject(forKey: "scaleFactor") }
+        UserDefaults.standard.removeObject(forKey: "scaleFactor")
+
+        let settings = AppSettings()
+        #expect(settings.scaleFactor == 1.0)
+    }
+
+    @Test("zoomIn increments by 0.1")
+    @MainActor func zoomInIncrementsBy10Percent() {
+        defer { UserDefaults.standard.removeObject(forKey: "scaleFactor") }
+        UserDefaults.standard.removeObject(forKey: "scaleFactor")
+
+        let settings = AppSettings()
+        #expect(settings.scaleFactor == 1.0)
+        settings.zoomIn()
+        #expect(abs(settings.scaleFactor - 1.1) < 0.001)
+    }
+
+    @Test("zoomOut decrements by 0.1")
+    @MainActor func zoomOutDecrementsBy10Percent() {
+        defer { UserDefaults.standard.removeObject(forKey: "scaleFactor") }
+        UserDefaults.standard.removeObject(forKey: "scaleFactor")
+
+        let settings = AppSettings()
+        settings.scaleFactor = 1.5
+        settings.zoomOut()
+        #expect(abs(settings.scaleFactor - 1.4) < 0.001)
+    }
+
+    @Test("zoomReset sets to 1.0")
+    @MainActor func zoomResetSetsTo1() {
+        defer { UserDefaults.standard.removeObject(forKey: "scaleFactor") }
+        UserDefaults.standard.removeObject(forKey: "scaleFactor")
+
+        let settings = AppSettings()
+        settings.scaleFactor = 2.0
+        settings.zoomReset()
+        #expect(settings.scaleFactor == 1.0)
+    }
+
+    @Test("zoomIn clamps at maximum 3.0")
+    @MainActor func zoomInClampsAtMax() {
+        defer { UserDefaults.standard.removeObject(forKey: "scaleFactor") }
+
+        let settings = AppSettings()
+        settings.scaleFactor = 2.95
+        settings.zoomIn()
+        #expect(settings.scaleFactor == 3.0)
+        settings.zoomIn()
+        #expect(settings.scaleFactor == 3.0)
+    }
+
+    @Test("zoomOut clamps at minimum 0.5")
+    @MainActor func zoomOutClampsAtMin() {
+        defer { UserDefaults.standard.removeObject(forKey: "scaleFactor") }
+
+        let settings = AppSettings()
+        settings.scaleFactor = 0.55
+        settings.zoomOut()
+        #expect(abs(settings.scaleFactor - 0.5) < 0.001)
+        settings.zoomOut()
+        #expect(settings.scaleFactor == 0.5)
+    }
+
+    @Test("scaleFactor persists to UserDefaults")
+    @MainActor func scaleFactorPersistsToUserDefaults() {
+        defer { UserDefaults.standard.removeObject(forKey: "scaleFactor") }
+        UserDefaults.standard.removeObject(forKey: "scaleFactor")
+
+        let settings = AppSettings()
+        settings.scaleFactor = 1.5
+        #expect(abs(UserDefaults.standard.double(forKey: "scaleFactor") - 1.5) < 0.001)
+    }
+
+    @Test("scaleFactor restores from UserDefaults")
+    @MainActor func scaleFactorRestoresFromUserDefaults() {
+        defer { UserDefaults.standard.removeObject(forKey: "scaleFactor") }
+
+        UserDefaults.standard.set(1.8, forKey: "scaleFactor")
+        let settings = AppSettings()
+        #expect(abs(settings.scaleFactor - 1.8) < 0.001)
+    }
+
+    @Test("zoomLabel formats correctly")
+    @MainActor func zoomLabelFormatsCorrectly() {
+        defer { UserDefaults.standard.removeObject(forKey: "scaleFactor") }
+        UserDefaults.standard.removeObject(forKey: "scaleFactor")
+
+        let settings = AppSettings()
+        #expect(settings.zoomLabel == "100%")
+
+        settings.scaleFactor = 1.5
+        #expect(settings.zoomLabel == "150%")
+
+        settings.scaleFactor = 0.5
+        #expect(settings.zoomLabel == "50%")
+    }
 }

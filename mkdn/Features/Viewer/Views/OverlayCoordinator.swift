@@ -304,11 +304,12 @@ final class OverlayCoordinator {
         appSettings: AppSettings
     ) -> NSView {
         let containerWidth = textView.map { textContainerWidth(in: $0) } ?? 600
+        let scaleFactor = appSettings.scaleFactor
         let sizing = TableColumnSizer.computeWidths(
             columns: columns,
             rows: rows,
             containerWidth: containerWidth,
-            font: PlatformTypeConverter.bodyFont()
+            font: PlatformTypeConverter.bodyFont(scaleFactor: scaleFactor)
         )
         tableColumnWidths[blockIndex] = sizing.columnWidths
         let rootView = TableBlockView(
@@ -480,9 +481,10 @@ extension OverlayCoordinator {
     }
 
     private func stickyHeaderHeight() -> CGFloat {
-        let font = NSFontManager.shared.convert(PlatformTypeConverter.bodyFont(), toHaveTrait: .boldFontMask)
-        let lineHeight = ceil(font.ascender - font.descender + font.leading)
-        return lineHeight + 2 * TableColumnSizer.verticalCellPadding + TableColumnSizer.headerDividerHeight
+        let baseFont = PlatformTypeConverter.bodyFont(scaleFactor: appSettings?.scaleFactor ?? 1.0)
+        let font = NSFontManager.shared.convert(baseFont, toHaveTrait: .boldFontMask)
+        return ceil(font.ascender - font.descender + font.leading)
+            + 2 * TableColumnSizer.verticalCellPadding + TableColumnSizer.headerDividerHeight
     }
 
     func removeObservers() {

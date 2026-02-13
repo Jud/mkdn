@@ -108,6 +108,28 @@ public struct MkdnCommands: Commands {
             .disabled(documentState?.currentFileURL == nil || documentState?.isFileOutdated != true)
         }
 
+        CommandGroup(after: .toolbar) {
+            Section {
+                Button("Zoom In") {
+                    appSettings.zoomIn()
+                    documentState?.modeOverlayLabel = appSettings.zoomLabel
+                }
+                .keyboardShortcut("+", modifiers: .command)
+
+                Button("Zoom Out") {
+                    appSettings.zoomOut()
+                    documentState?.modeOverlayLabel = appSettings.zoomLabel
+                }
+                .keyboardShortcut("-", modifiers: .command)
+
+                Button("Actual Size") {
+                    appSettings.zoomReset()
+                    documentState?.modeOverlayLabel = appSettings.zoomLabel
+                }
+                .keyboardShortcut("0", modifiers: .command)
+            }
+        }
+
         CommandGroup(after: .sidebar) {
             Section {
                 Button("Preview Mode") {
