@@ -121,7 +121,7 @@ extension MarkdownTextStorageBuilder {
             appendListItem(
                 to: result,
                 item: item,
-                prefix: bullet,
+                prefix: item.checkbox != nil ? "" : bullet,
                 ctx: ctx,
                 depth: depth
             )
@@ -257,13 +257,13 @@ extension MarkdownTextStorageBuilder {
     ) {
         let baseIndent = listLeftPadding + CGFloat(depth) * (listPrefixWidth + listLeftPadding)
         let contentIndent = baseIndent + listPrefixWidth
-
         let style = makeParagraphStyle(
             paragraphSpacing: listItemSpacing,
             headIndent: contentIndent,
             firstLineHeadIndent: baseIndent,
             tabStops: [NSTextTab(textAlignment: .left, location: contentIndent)]
         )
+        let prefixAttr = resolvedListPrefix(prefix: prefix, checkbox: item.checkbox, color: ctx.resolved.secondaryColor)
 
         var isFirstBlock = true
         for block in item.blocks {
@@ -273,26 +273,14 @@ extension MarkdownTextStorageBuilder {
                     to: result,
                     text: text,
                     isFirstBlock: isFirstBlock,
-                    prefix: prefix,
+                    prefixAttr: prefixAttr,
                     style: style,
                     resolved: ctx.resolved
                 )
             case let .orderedList(items):
-                appendOrderedList(
-                    to: result,
-                    items: items,
-                    colors: ctx.colors,
-                    theme: ctx.theme,
-                    depth: depth + 1
-                )
+                appendOrderedList(to: result, items: items, colors: ctx.colors, theme: ctx.theme, depth: depth + 1)
             case let .unorderedList(items):
-                appendUnorderedList(
-                    to: result,
-                    items: items,
-                    colors: ctx.colors,
-                    theme: ctx.theme,
-                    depth: depth + 1
-                )
+                appendUnorderedList(to: result, items: items, colors: ctx.colors, theme: ctx.theme, depth: depth + 1)
             default:
                 let text = plainText(from: block)
                 guard !text.isEmpty else { continue }
@@ -300,7 +288,7 @@ extension MarkdownTextStorageBuilder {
                     to: result,
                     text: text,
                     isFirstBlock: isFirstBlock,
-                    prefix: prefix,
+                    prefixAttr: prefixAttr,
                     style: style,
                     resolved: ctx.resolved
                 )
@@ -309,17 +297,28 @@ extension MarkdownTextStorageBuilder {
         }
     }
 
+    private static func resolvedListPrefix(
+        prefix: String,
+        checkbox: CheckboxState?,
+        color: NSColor
+    ) -> NSAttributedString {
+        if let checkbox {
+            return checkboxPrefix(checkbox, color: color)
+        }
+        return listPrefix(prefix, color: color)
+    }
+
     private static func appendListParagraph(
         to result: NSMutableAttributedString,
         text: AttributedString,
         isFirstBlock: Bool,
-        prefix: String,
+        prefixAttr: NSAttributedString,
         style: NSParagraphStyle,
         resolved: ResolvedColors
     ) {
         let content = NSMutableAttributedString()
         if isFirstBlock {
-            content.append(listPrefix(prefix, color: resolved.secondaryColor))
+            content.append(prefixAttr)
         }
         let inlineContent = convertInlineContent(
             text,
@@ -338,13 +337,13 @@ extension MarkdownTextStorageBuilder {
         to result: NSMutableAttributedString,
         text: String,
         isFirstBlock: Bool,
-        prefix: String,
+        prefixAttr: NSAttributedString,
         style: NSParagraphStyle,
         resolved: ResolvedColors
     ) {
         let content = NSMutableAttributedString()
         if isFirstBlock {
-            content.append(listPrefix(prefix, color: resolved.secondaryColor))
+            content.append(prefixAttr)
         }
         let attrs: [NSAttributedString.Key: Any] = [
             .font: PlatformTypeConverter.bodyFont(),
@@ -365,6 +364,50 @@ extension MarkdownTextStorageBuilder {
                 .foregroundColor: color,
             ]
         )
+    }
+
+    private static func checkboxPrefix(_ state: CheckboxState, color: NSColor) -> NSAttributedString {
+        let symbolName = state == .checked ? "checkmark.square.fill" : "square"
+        let font = PlatformTypeConverter.bodyFont()
+        let symbolSize = font.pointSize
+
+        guard let symbolImage = NSImage(
+            systemSymbolName: symbolName,
+            accessibilityDescription: state == .checked ? "checked" : "unchecked"
+        )
+        else {
+            return listPrefix(state == .checked ? "[x]" : "[ ]", color: color)
+        }
+
+        let config = NSImage.SymbolConfiguration(pointSize: symbolSize, weight: .regular)
+        let configuredImage = symbolImage.withSymbolConfiguration(config) ?? symbolImage
+
+        let tintedImage = NSImage(size: configuredImage.size, flipped: false) { rect in
+            color.set()
+            configuredImage.draw(in: rect)
+            rect.fill(using: .sourceAtop)
+            return true
+        }
+
+        let attachment = NSTextAttachment()
+        attachment.image = tintedImage
+        let yOffset = (font.capHeight - configuredImage.size.height) / 2
+        attachment.bounds = CGRect(
+            x: 0,
+            y: yOffset,
+            width: configuredImage.size.width,
+            height: configuredImage.size.height
+        )
+
+        let result = NSMutableAttributedString(attachment: attachment)
+        result.append(NSAttributedString(
+            string: "\t",
+            attributes: [
+                .font: font,
+                .foregroundColor: color,
+            ]
+        ))
+        return result
     }
 
     // MARK: - Table Helpers

@@ -66,12 +66,25 @@ struct IndexedBlock: Identifiable {
     }
 }
 
+/// Checkbox state for task list items.
+enum CheckboxState: Sendable {
+    case checked
+    case unchecked
+}
+
 /// A list item containing child blocks.
 struct ListItem: Identifiable {
     let blocks: [MarkdownBlock]
+    let checkbox: CheckboxState?
+
+    init(blocks: [MarkdownBlock], checkbox: CheckboxState? = nil) {
+        self.blocks = blocks
+        self.checkbox = checkbox
+    }
 
     var id: String {
-        "li-\(blocks.map(\.id).joined(separator: "-"))"
+        let checkboxSuffix = checkbox.map { "-\($0)" } ?? ""
+        return "li-\(blocks.map(\.id).joined(separator: "-"))\(checkboxSuffix)"
     }
 }
 

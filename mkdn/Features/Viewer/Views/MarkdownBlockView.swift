@@ -139,10 +139,17 @@ struct MarkdownBlockView: View {
         VStack(alignment: .leading, spacing: 4) {
             ForEach(items) { item in
                 HStack(alignment: .top, spacing: 8) {
-                    Text(bullet)
-                        .font(.body)
-                        .foregroundColor(colors.foregroundSecondary)
-                        .frame(width: 24, alignment: .trailing)
+                    if let checkbox = item.checkbox {
+                        Image(systemName: checkbox == .checked ? "checkmark.square.fill" : "square")
+                            .font(.body)
+                            .foregroundColor(colors.foregroundSecondary)
+                            .frame(width: 24, alignment: .trailing)
+                    } else {
+                        Text(bullet)
+                            .font(.body)
+                            .foregroundColor(colors.foregroundSecondary)
+                            .frame(width: 24, alignment: .trailing)
+                    }
 
                     VStack(alignment: .leading, spacing: 4) {
                         ForEach(item.blocks) { block in

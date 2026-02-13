@@ -180,6 +180,50 @@ struct MarkdownTextStorageBuilderTests {
         #expect((style?.headIndent ?? 0) > 0)
     }
 
+    // MARK: - Task List Checkboxes
+
+    @Test("Task list checkbox item includes NSTextAttachment for SF Symbol")
+    func taskListCheckboxAttachment() {
+        let item = ListItem(
+            blocks: [.paragraph(text: AttributedString("Task item"))],
+            checkbox: .unchecked
+        )
+        let result = buildSingle(.unorderedList(items: [item]))
+        let str = result.attributedString
+        var hasAttachment = false
+        str.enumerateAttribute(
+            .attachment,
+            in: NSRange(location: 0, length: str.length)
+        ) { value, _, _ in
+            if value is NSTextAttachment {
+                hasAttachment = true
+            }
+        }
+        #expect(hasAttachment)
+    }
+
+    @Test("Task list checkbox item does not include bullet prefix")
+    func taskListCheckboxNoBullet() {
+        let item = ListItem(
+            blocks: [.paragraph(text: AttributedString("Task item"))],
+            checkbox: .checked
+        )
+        let result = buildSingle(.unorderedList(items: [item]))
+        let plainText = result.attributedString.string
+        let bullet = MarkdownTextStorageBuilder.bulletStyles[0]
+        #expect(!plainText.contains(bullet))
+    }
+
+    @Test("Non-task list item does not include checkbox attachment")
+    func nonTaskListNoCheckboxAttachment() {
+        let item = ListItem(blocks: [.paragraph(text: AttributedString("Normal item"))])
+        let result = buildSingle(.unorderedList(items: [item]))
+        let str = result.attributedString
+        let plainText = str.string
+        let bullet = MarkdownTextStorageBuilder.bulletStyles[0]
+        #expect(plainText.contains(bullet))
+    }
+
     // MARK: - Ordered List
 
     @Test("Ordered list includes number prefix")

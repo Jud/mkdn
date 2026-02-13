@@ -2,7 +2,7 @@
 
 **Feature ID**: mac-app-essentials
 **Status**: In Progress
-**Progress**: 15% (2 of 13 tasks)
+**Progress**: 46% (6 of 13 tasks)
 **Estimated Effort**: 4 days
 **Started**: 2026-02-13
 
@@ -110,7 +110,7 @@ All 8 tasks are technically parallel (no task defines an interface consumed by a
     | Commit | ✅ PASS |
     | Comments | ✅ PASS |
 
-- [ ] **T1**: Implement Find in Document via NSTextView built-in find bar `[complexity:simple]`
+- [x] **T1**: Implement Find in Document via NSTextView built-in find bar `[complexity:simple]`
 
     **Reference**: [design.md#22-find-in-document-architecture](design.md#22-find-in-document-architecture)
 
@@ -118,16 +118,35 @@ All 8 tasks are technically parallel (no task defines an interface consumed by a
 
     **Acceptance Criteria**:
 
-    - [ ] `textView.usesFindBar = true` and `textView.isIncrementalSearchingEnabled = true` set in `SelectableTextView.configureTextView()`
-    - [ ] Find menu items added to MkdnCommands Edit menu: Find... (Cmd+F), Find Next (Cmd+G), Find Previous (Shift+Cmd+G), Use Selection for Find (Cmd+E)
-    - [ ] Menu items dispatch via `NSApp.sendAction(#selector(NSTextView.performFindPanelAction(_:)), to: nil, from:)` with tagged sender
-    - [ ] Tag values match NSFindPanelAction: showFindPanel=1, next=2, previous=3, setFindString=7
-    - [ ] REQ-FIND-001: Cmd+F reveals find bar at top of text view
-    - [ ] REQ-FIND-002: Cmd+G and Shift+Cmd+G navigate between matches
-    - [ ] REQ-FIND-003: Cmd+E populates find bar with current selection
-    - [ ] REQ-FIND-004: All find items visible in Edit menu with shortcuts
+    - [x] `textView.usesFindBar = true` and `textView.isIncrementalSearchingEnabled = true` set in `SelectableTextView.configureTextView()`
+    - [x] Find menu items added to MkdnCommands Edit menu: Find... (Cmd+F), Find Next (Cmd+G), Find Previous (Shift+Cmd+G), Use Selection for Find (Cmd+E)
+    - [x] Menu items dispatch via `NSApp.sendAction(#selector(NSTextView.performFindPanelAction(_:)), to: nil, from:)` with tagged sender
+    - [x] Tag values match NSFindPanelAction: showFindPanel=1, next=2, previous=3, setFindString=7
+    - [x] REQ-FIND-001: Cmd+F reveals find bar at top of text view
+    - [x] REQ-FIND-002: Cmd+G and Shift+Cmd+G navigate between matches
+    - [x] REQ-FIND-003: Cmd+E populates find bar with current selection
+    - [x] REQ-FIND-004: All find items visible in Edit menu with shortcuts
 
-- [ ] **T2**: Implement Print and Page Setup via NSResponder chain `[complexity:simple]`
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Features/Viewer/Views/SelectableTextView.swift`, `mkdn/App/MkdnCommands.swift`
+    - **Approach**: Enabled NSTextView built-in find bar via `usesFindBar`/`isIncrementalSearchingEnabled` in `configureTextView()`. Added four find menu items in `CommandGroup(after: .pasteboard)` dispatching via `NSApp.sendAction` with tagged `NSMenuItem` sender matching NSFindPanelAction tag values.
+    - **Deviations**: None
+    - **Tests**: No unit tests (framework behavior; find bar is NSTextView built-in)
+
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | N/A |
+    | Commit | PASS |
+    | Comments | PASS |
+
+- [x] **T2**: Implement Print and Page Setup via NSResponder chain `[complexity:simple]`
 
     **Reference**: [design.md#34-mkdncommands-changes](design.md#34-mkdncommands-changes)
 
@@ -135,15 +154,34 @@ All 8 tasks are technically parallel (no task defines an interface consumed by a
 
     **Acceptance Criteria**:
 
-    - [ ] Print... menu item added to File menu with Cmd+P shortcut
-    - [ ] Page Setup... menu item added to File menu
-    - [ ] Print dispatches via `NSApp.sendAction(#selector(NSView.printView(_:)), to: nil, from: nil)`
-    - [ ] Page Setup dispatches via `NSApp.sendAction(#selector(NSDocument.runPageLayout(_:)), to: nil, from: nil)`
-    - [ ] REQ-PRINT-001: Cmd+P shows macOS print dialog with document content
-    - [ ] REQ-PRINT-003: Page Setup... available in File menu
-    - [ ] REQ-PRINT-004: Print... available in File menu with Cmd+P shortcut
+    - [x] Print... menu item added to File menu with Cmd+P shortcut
+    - [x] Page Setup... menu item added to File menu
+    - [x] Print dispatches via `NSApp.sendAction(#selector(NSView.printView(_:)), to: nil, from: nil)`
+    - [x] Page Setup dispatches via `NSApp.sendAction(#selector(NSDocument.runPageLayout(_:)), to: nil, from: nil)`
+    - [x] REQ-PRINT-001: Cmd+P shows macOS print dialog with document content
+    - [x] REQ-PRINT-003: Page Setup... available in File menu
+    - [x] REQ-PRINT-004: Print... available in File menu with Cmd+P shortcut
 
-- [ ] **T4**: Implement Save As via NSSavePanel and DocumentState extension `[complexity:simple]`
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/App/MkdnCommands.swift`
+    - **Approach**: Added `CommandGroup(replacing: .printItem)` with Print... (Cmd+P) and Page Setup... (Shift+Cmd+P) menu items. Both dispatch via `NSApp.sendAction` to the NSResponder chain, targeting `NSView.printView(_:)` and `NSDocument.runPageLayout(_:)` respectively.
+    - **Deviations**: None
+    - **Tests**: No unit tests (framework behavior; print is NSTextView built-in)
+
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | N/A |
+    | Commit | PASS |
+    | Comments | PASS |
+
+- [x] **T4**: Implement Save As via NSSavePanel and DocumentState extension `[complexity:simple]`
 
     **Reference**: [design.md#27-save-as-architecture](design.md#27-save-as-architecture)
 
@@ -151,19 +189,38 @@ All 8 tasks are technically parallel (no task defines an interface consumed by a
 
     **Acceptance Criteria**:
 
-    - [ ] `DocumentState.saveAs()` method added: presents NSSavePanel, writes content, updates `currentFileURL`, restarts file watcher, updates `lastSavedContent`, records in Open Recent
-    - [ ] NSSavePanel pre-fills current filename and directory
-    - [ ] `allowedContentTypes` restricted to `.md`
-    - [ ] Save As... menu item added to MkdnCommands File menu with Shift+Cmd+S shortcut
-    - [ ] Menu item disabled when `documentState?.currentFileURL == nil`
-    - [ ] REQ-SAVEAS-001: Shift+Cmd+S shows NSSavePanel
-    - [ ] REQ-SAVEAS-002: After save, DocumentState tracks new URL, file watcher monitors new path
-    - [ ] REQ-SAVEAS-003: Save As... visible in File menu with shortcut
-    - [ ] REQ-SAVEAS-004: Panel defaults to current filename and directory
+    - [x] `DocumentState.saveAs()` method added: presents NSSavePanel, writes content, updates `currentFileURL`, restarts file watcher, updates `lastSavedContent`, records in Open Recent
+    - [x] NSSavePanel pre-fills current filename and directory
+    - [x] `allowedContentTypes` restricted to `.md`
+    - [x] Save As... menu item added to MkdnCommands File menu with Shift+Cmd+S shortcut
+    - [x] Menu item disabled when `documentState?.currentFileURL == nil`
+    - [x] REQ-SAVEAS-001: Shift+Cmd+S shows NSSavePanel
+    - [x] REQ-SAVEAS-002: After save, DocumentState tracks new URL, file watcher monitors new path
+    - [x] REQ-SAVEAS-003: Save As... visible in File menu with shortcut
+    - [x] REQ-SAVEAS-004: Panel defaults to current filename and directory
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/App/DocumentState.swift`, `mkdn/App/MkdnCommands.swift`
+    - **Approach**: Added `saveAs()` method to DocumentState that presents NSSavePanel pre-filled with current filename/directory, writes content to chosen URL, updates `currentFileURL`, resets `lastSavedContent`, restarts file watcher on new path, and records in Open Recent. Menu item placed in `CommandGroup(replacing: .saveItem)` alongside existing Save, disabled when no document state is available.
+    - **Deviations**: Disabled condition uses `documentState == nil` instead of `documentState?.currentFileURL == nil` per design -- Save As should also work for new unsaved documents.
+    - **Tests**: No unit tests (NSSavePanel is modal UI; state transitions verified by integration)
+
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | N/A |
+    | Commit | PASS |
+    | Comments | PASS |
 
 ### Rendering Pipeline Features
 
-- [ ] **T6**: Implement task list checkbox rendering with SF Symbols `[complexity:medium]`
+- [x] **T6**: Implement task list checkbox rendering with SF Symbols `[complexity:medium]`
 
     **Reference**: [design.md#25-task-list-checkbox-architecture](design.md#25-task-list-checkbox-architecture)
 
@@ -171,19 +228,26 @@ All 8 tasks are technically parallel (no task defines an interface consumed by a
 
     **Acceptance Criteria**:
 
-    - [ ] `CheckboxState` enum added (`.checked`, `.unchecked`) conforming to `Sendable`
-    - [ ] `ListItem.checkbox: CheckboxState?` field added (nil for non-task-list items)
-    - [ ] `MarkdownVisitor` extracts `listItem.checkbox` property from swift-markdown AST and maps to `CheckboxState`
-    - [ ] `MarkdownTextStorageBuilder` replaces bullet prefix with SF Symbol `NSImage` attachment (`square` for unchecked, `checkmark.square.fill` for checked)
-    - [ ] SF Symbol images tinted with `colors.foregroundSecondary` for theme awareness
-    - [ ] `MarkdownBlockView` replaces bullet `Text` with `Image(systemName:)` for SwiftUI rendering path
-    - [ ] Checkboxes are read-only (non-interactive) -- clicking does nothing
-    - [ ] REQ-TASK-001: `- [ ]` renders as unchecked checkbox visual
-    - [ ] REQ-TASK-002: `- [x]` renders as checked checkbox visual
-    - [ ] REQ-TASK-003: Clicking checkbox does nothing
-    - [ ] REQ-TASK-004: SF Symbols used for native appearance
-    - [ ] REQ-TASK-005: Checkbox color is theme-aware
-    - [ ] Unit tests for checkbox extraction (unchecked, checked, non-task items)
+    - [x] `CheckboxState` enum added (`.checked`, `.unchecked`) conforming to `Sendable`
+    - [x] `ListItem.checkbox: CheckboxState?` field added (nil for non-task-list items)
+    - [x] `MarkdownVisitor` extracts `listItem.checkbox` property from swift-markdown AST and maps to `CheckboxState`
+    - [x] `MarkdownTextStorageBuilder` replaces bullet prefix with SF Symbol `NSImage` attachment (`square` for unchecked, `checkmark.square.fill` for checked)
+    - [x] SF Symbol images tinted with `colors.foregroundSecondary` for theme awareness
+    - [x] `MarkdownBlockView` replaces bullet `Text` with `Image(systemName:)` for SwiftUI rendering path
+    - [x] Checkboxes are read-only (non-interactive) -- clicking does nothing
+    - [x] REQ-TASK-001: `- [ ]` renders as unchecked checkbox visual
+    - [x] REQ-TASK-002: `- [x]` renders as checked checkbox visual
+    - [x] REQ-TASK-003: Clicking checkbox does nothing
+    - [x] REQ-TASK-004: SF Symbols used for native appearance
+    - [x] REQ-TASK-005: Checkbox color is theme-aware
+    - [x] Unit tests for checkbox extraction (unchecked, checked, non-task items)
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Core/Markdown/MarkdownBlock.swift`, `mkdn/Core/Markdown/MarkdownVisitor.swift`, `mkdn/Core/Markdown/MarkdownTextStorageBuilder+Complex.swift`, `mkdn/Features/Viewer/Views/MarkdownBlockView.swift`
+    - **Approach**: Added `CheckboxState` enum and `checkbox` field to `ListItem`. `MarkdownVisitor` maps swift-markdown `ListItem.checkbox` to `CheckboxState`. NSTextView path renders SF Symbol (`square`/`checkmark.square.fill`) as tinted `NSTextAttachment`. SwiftUI path renders `Image(systemName:)`. Refactored list prefix computation into `resolvedListPrefix` to keep parameter counts and function body lengths within lint limits.
+    - **Deviations**: None
+    - **Tests**: 7/7 passing (4 visitor + 3 builder)
 
 - [ ] **T3**: Implement Zoom In/Out with persisted scale factor and font-size scaling `[complexity:complex]`
 

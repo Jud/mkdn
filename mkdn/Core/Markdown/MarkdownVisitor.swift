@@ -38,7 +38,8 @@ struct MarkdownVisitor {
             let items = orderedList.children.compactMap { child -> ListItem? in
                 guard let listItem = child as? Markdown.ListItem else { return nil }
                 let itemBlocks = listItem.children.compactMap { convertBlock($0) }
-                return ListItem(blocks: itemBlocks)
+                let checkboxState = checkboxState(from: listItem)
+                return ListItem(blocks: itemBlocks, checkbox: checkboxState)
             }
             return .orderedList(items: items)
 
@@ -46,7 +47,8 @@ struct MarkdownVisitor {
             let items = unorderedList.children.compactMap { child -> ListItem? in
                 guard let listItem = child as? Markdown.ListItem else { return nil }
                 let itemBlocks = listItem.children.compactMap { convertBlock($0) }
-                return ListItem(blocks: itemBlocks)
+                let checkboxState = checkboxState(from: listItem)
+                return ListItem(blocks: itemBlocks, checkbox: checkboxState)
             }
             return .unorderedList(items: items)
 
@@ -161,6 +163,16 @@ struct MarkdownVisitor {
 
         default:
             return inlineText(from: markup)
+        }
+    }
+
+    // MARK: - Checkbox Extraction
+
+    private func checkboxState(from listItem: Markdown.ListItem) -> CheckboxState? {
+        switch listItem.checkbox {
+        case .checked: .checked
+        case .unchecked: .unchecked
+        case nil: nil
         }
     }
 
