@@ -7,8 +7,8 @@ public struct MkdnCLI: ParsableCommand {
         version: "1.0.0"
     )
 
-    @Argument(help: "Path to a Markdown file (.md or .markdown).")
-    public var file: String?
+    @Argument(help: "Path(s) to Markdown file(s) (.md or .markdown).")
+    public var files: [String] = []
 
     public init() {}
 }

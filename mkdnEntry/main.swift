@@ -56,15 +56,34 @@ if rawArguments.contains("--test-harness") {
     MkdnApp.main()
 } else if let envFile = ProcessInfo.processInfo.environment["MKDN_LAUNCH_FILE"] {
     unsetenv("MKDN_LAUNCH_FILE")
-    LaunchContext.fileURL = URL(fileURLWithPath: envFile).standardized.resolvingSymlinksInPath()
+    let urls = envFile.split(separator: "\n").map { path in
+        URL(fileURLWithPath: String(path)).standardized.resolvingSymlinksInPath()
+    }
+    LaunchContext.fileURLs = urls
     MkdnApp.main()
 } else {
     do {
         let cli = try MkdnCLI.parse()
 
-        if let filePath = cli.file {
-            let url = try FileValidator.validate(path: filePath)
-            setenv("MKDN_LAUNCH_FILE", url.path, 1)
+        if !cli.files.isEmpty {
+            var validURLs: [URL] = []
+            for filePath in cli.files {
+                do {
+                    let url = try FileValidator.validate(path: filePath)
+                    validURLs.append(url)
+                } catch let error as CLIError {
+                    FileHandle.standardError.write(
+                        Data("mkdn: error: \(error.localizedDescription)\n".utf8)
+                    )
+                }
+            }
+
+            guard !validURLs.isEmpty else {
+                Foundation.exit(1)
+            }
+
+            let pathString = validURLs.map(\.path).joined(separator: "\n")
+            setenv("MKDN_LAUNCH_FILE", pathString, 1)
             let execPath = ProcessInfo.processInfo.arguments[0]
             let cArgs: [UnsafeMutablePointer<CChar>?] = [strdup(execPath), nil]
             cArgs.withUnsafeBufferPointer { buffer in

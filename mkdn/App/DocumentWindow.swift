@@ -35,9 +35,15 @@ public struct DocumentWindow: View {
                 if let fileURL {
                     try? documentState.loadFile(at: fileURL)
                     NSDocumentController.shared.noteNewRecentDocumentURL(fileURL)
-                } else if let launchURL = LaunchContext.consumeURL() {
-                    try? documentState.loadFile(at: launchURL)
-                    NSDocumentController.shared.noteNewRecentDocumentURL(launchURL)
+                } else if !LaunchContext.fileURLs.isEmpty {
+                    let launchURLs = LaunchContext.consumeURLs()
+                    if let first = launchURLs.first {
+                        try? documentState.loadFile(at: first)
+                        NSDocumentController.shared.noteNewRecentDocumentURL(first)
+                    }
+                    for url in launchURLs.dropFirst() {
+                        openWindow(value: url)
+                    }
                 } else {
                     let pending = FileOpenCoordinator.shared.consumeAll()
                     if let first = pending.first {

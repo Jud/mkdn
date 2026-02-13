@@ -2,7 +2,7 @@
 
 **Feature ID**: mac-app-essentials
 **Status**: In Progress
-**Progress**: 8% (1 of 13 tasks)
+**Progress**: 15% (2 of 13 tasks)
 **Estimated Effort**: 4 days
 **Started**: 2026-02-13
 
@@ -60,7 +60,19 @@ All 8 tasks are technically parallel (no task defines an interface consumed by a
     - **Deviations**: None
     - **Tests**: Skipped (framework behavior verification per design test strategy)
 
-- [ ] **T7**: Implement multiple file CLI opening via variadic arguments `[complexity:medium]`
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
+- [x] **T7**: Implement multiple file CLI opening via variadic arguments `[complexity:medium]`
 
     **Reference**: [design.md#26-multiple-file-cli-architecture](design.md#26-multiple-file-cli-architecture)
 
@@ -68,16 +80,23 @@ All 8 tasks are technically parallel (no task defines an interface consumed by a
 
     **Acceptance Criteria**:
 
-    - [ ] `MkdnCLI.file: String?` changed to `MkdnCLI.files: [String]` with `@Argument` (variadic)
-    - [ ] `LaunchContext.fileURL: URL?` changed to `LaunchContext.fileURLs: [URL]` with `consumeURLs()` method
-    - [ ] `main.swift` validates each file independently, prints errors to stderr, continues with valid files
-    - [ ] `MKDN_LAUNCH_FILE` env var holds newline-delimited paths for multi-file launch
-    - [ ] `DocumentWindow.onAppear` loads first URL in current window, opens remaining via `openWindow(value:)`
-    - [ ] Exit code 0 if at least one file valid, exit code 1 if all fail
-    - [ ] REQ-MULTI-001: `mkdn a.md b.md c.md` opens three separate windows
-    - [ ] REQ-MULTI-002: Invalid files produce stderr errors without blocking valid files
-    - [ ] REQ-MULTI-004: `mkdn --help` shows variadic file argument
-    - [ ] Unit tests for multi-file validation (all valid, mixed, all invalid)
+    - [x] `MkdnCLI.file: String?` changed to `MkdnCLI.files: [String]` with `@Argument` (variadic)
+    - [x] `LaunchContext.fileURL: URL?` changed to `LaunchContext.fileURLs: [URL]` with `consumeURLs()` method
+    - [x] `main.swift` validates each file independently, prints errors to stderr, continues with valid files
+    - [x] `MKDN_LAUNCH_FILE` env var holds newline-delimited paths for multi-file launch
+    - [x] `DocumentWindow.onAppear` loads first URL in current window, opens remaining via `openWindow(value:)`
+    - [x] Exit code 0 if at least one file valid, exit code 1 if all fail
+    - [x] REQ-MULTI-001: `mkdn a.md b.md c.md` opens three separate windows
+    - [x] REQ-MULTI-002: Invalid files produce stderr errors without blocking valid files
+    - [x] REQ-MULTI-004: `mkdn --help` shows variadic file argument
+    - [x] Unit tests for multi-file validation (all valid, mixed, all invalid)
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Core/CLI/MkdnCLI.swift`, `mkdn/Core/CLI/LaunchContext.swift`, `mkdnEntry/main.swift`, `mkdn/App/DocumentWindow.swift`
+    - **Approach**: Changed `MkdnCLI.file: String?` to `MkdnCLI.files: [String]` variadic argument. Changed `LaunchContext.fileURL: URL?` to `LaunchContext.fileURLs: [URL]` with `consumeURLs()`. Updated `main.swift` to validate each file independently, join valid paths with newline delimiter in `MKDN_LAUNCH_FILE` env var, and exit(1) only if all files invalid. Updated `DocumentWindow.onAppear` to consume multiple URLs, load first in current window, open remaining via `openWindow(value:)`.
+    - **Deviations**: None
+    - **Tests**: 7/7 passing (LaunchContextTests: 4, MultiFileValidationTests: 3)
 
 - [ ] **T1**: Implement Find in Document via NSTextView built-in find bar `[complexity:simple]`
 
@@ -340,10 +359,10 @@ All 8 tasks are technically parallel (no task defines an interface consumed by a
 - [ ] REQ-TASK-005: Theme-aware checkbox color
 
 ### Multiple File CLI Opening
-- [ ] REQ-MULTI-001: Multiple files open in separate windows
-- [ ] REQ-MULTI-002: Invalid files produce stderr errors, valid files still open
-- [ ] REQ-MULTI-003: Each file opens via FileOpenCoordinator
-- [ ] REQ-MULTI-004: `mkdn --help` shows variadic argument
+- [x] REQ-MULTI-001: Multiple files open in separate windows
+- [x] REQ-MULTI-002: Invalid files produce stderr errors, valid files still open
+- [x] REQ-MULTI-003: Each file opens via FileOpenCoordinator
+- [x] REQ-MULTI-004: `mkdn --help` shows variadic argument
 
 ### About Window
 - [x] REQ-ABOUT-001: "About mkdn" in application menu
