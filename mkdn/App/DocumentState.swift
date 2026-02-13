@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Per-window document state, observable across the view hierarchy.
 ///
@@ -70,6 +71,35 @@ public final class DocumentState {
     public func reloadFile() throws {
         guard let url = currentFileURL else { return }
         try loadFile(at: url)
+    }
+
+    /// Save the current content to a new file location chosen by the user.
+    public func saveAs() {
+        let panel = NSSavePanel()
+        if let mdType = UTType(filenameExtension: "md") {
+            panel.allowedContentTypes = [mdType]
+        }
+        panel.canCreateDirectories = true
+
+        if let currentURL = currentFileURL {
+            panel.directoryURL = currentURL.deletingLastPathComponent()
+            panel.nameFieldStringValue = currentURL.lastPathComponent
+        }
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        fileWatcher.pauseForSave()
+        defer { fileWatcher.resumeAfterSave() }
+
+        do {
+            try markdownContent.write(to: url, atomically: true, encoding: .utf8)
+            currentFileURL = url
+            lastSavedContent = markdownContent
+            fileWatcher.watch(url: url)
+            NSDocumentController.shared.noteNewRecentDocumentURL(url)
+        } catch {
+            // Write failure; leave state unchanged
+        }
     }
 
     /// Switch view mode and trigger the ephemeral overlay.

@@ -44,6 +44,55 @@ public struct MkdnCommands: Commands {
             }
             .keyboardShortcut("s", modifiers: .command)
             .disabled(documentState?.currentFileURL == nil || documentState?.hasUnsavedChanges != true)
+
+            Button("Save As...") {
+                documentState?.saveAs()
+            }
+            .keyboardShortcut("s", modifiers: [.command, .shift])
+            .disabled(documentState == nil)
+        }
+
+        CommandGroup(after: .pasteboard) {
+            // NSFindPanelAction tags: showFindPanel=1, next=2, previous=3, setFindString=7
+            Button("Find...") {
+                sendFindAction(tag: 1)
+            }
+            .keyboardShortcut("f", modifiers: .command)
+
+            Button("Find Next") {
+                sendFindAction(tag: 2)
+            }
+            .keyboardShortcut("g", modifiers: .command)
+
+            Button("Find Previous") {
+                sendFindAction(tag: 3)
+            }
+            .keyboardShortcut("g", modifiers: [.command, .shift])
+
+            Button("Use Selection for Find") {
+                sendFindAction(tag: 7)
+            }
+            .keyboardShortcut("e", modifiers: .command)
+        }
+
+        CommandGroup(replacing: .printItem) {
+            Button("Page Setup...") {
+                NSApp.sendAction(
+                    #selector(NSDocument.runPageLayout(_:)),
+                    to: nil,
+                    from: nil
+                )
+            }
+            .keyboardShortcut("P", modifiers: [.command, .shift])
+
+            Button("Print...") {
+                NSApp.sendAction(
+                    #selector(NSView.printView(_:)),
+                    to: nil,
+                    from: nil
+                )
+            }
+            .keyboardShortcut("p", modifiers: .command)
         }
 
         CommandGroup(after: .importExport) {
@@ -86,6 +135,17 @@ public struct MkdnCommands: Commands {
                 .keyboardShortcut("t", modifiers: .command)
             }
         }
+    }
+
+    @MainActor
+    private func sendFindAction(tag: Int) {
+        let menuItem = NSMenuItem()
+        menuItem.tag = tag
+        NSApp.sendAction(
+            #selector(NSTextView.performFindPanelAction(_:)),
+            to: nil,
+            from: menuItem
+        )
     }
 
     @MainActor
