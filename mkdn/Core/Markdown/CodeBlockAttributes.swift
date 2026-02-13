@@ -15,6 +15,10 @@ enum CodeBlockAttributes {
     /// Carries the resolved NSColor values for the code block container.
     /// Value: a ``CodeBlockColorInfo`` instance.
     static let colors = NSAttributedString.Key("mkdn.codeBlockColors")
+
+    /// Stores the raw code string (without language label, trimmed) for clipboard copy.
+    /// Value: a `String` containing the unformatted code content.
+    static let rawCode = NSAttributedString.Key("mkdn.codeBlock.rawCode")
 }
 
 /// Resolved color values for drawing a code block container.

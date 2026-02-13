@@ -108,6 +108,7 @@ extension MarkdownTextStorageBuilder {
         let fullRange = NSRange(location: 0, length: codeContent.length)
         codeContent.addAttribute(CodeBlockAttributes.range, value: blockID, range: fullRange)
         codeContent.addAttribute(CodeBlockAttributes.colors, value: colorInfo, range: fullRange)
+        codeContent.addAttribute(CodeBlockAttributes.rawCode, value: trimmedCode, range: fullRange)
 
         let codeStyle = makeCodeBlockParagraphStyle()
         codeContent.addAttribute(.paragraphStyle, value: codeStyle, range: fullRange)

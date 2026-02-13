@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 
 /// `NSTextView` subclass that draws rounded-rectangle background containers
 /// behind code block text ranges identified via ``CodeBlockAttributes``.
@@ -14,6 +15,10 @@ import AppKit
 /// relies on `NSParagraphStyle.headIndent` / `tailIndent` set by the text
 /// storage builder to create visual padding between the box edge and the
 /// code text content.
+///
+/// On mouse hover, a copy button overlay appears at the top-right corner of
+/// the hovered code block. Clicking the button copies the raw code content
+/// (without language label) to the system clipboard.
 final class CodeBlockBackgroundTextView: NSTextView {
     // MARK: - Constants
 
@@ -21,13 +26,31 @@ final class CodeBlockBackgroundTextView: NSTextView {
     private static let borderWidth: CGFloat = 1
     private static let borderOpacity: CGFloat = 0.3
     private static let bottomPadding: CGFloat = MarkdownTextStorageBuilder.codeBlockPadding
+    private static let copyButtonInset: CGFloat = 8
+    private static let copyButtonSize: CGFloat = 24
 
     // MARK: - Types
 
     private struct CodeBlockInfo {
+        let blockID: String
         let range: NSRange
         let colorInfo: CodeBlockColorInfo
     }
+
+    // MARK: - Copy Button Types
+
+    private struct CodeBlockGeometry {
+        let blockID: String
+        let rect: CGRect
+        let range: NSRange
+        let colorInfo: CodeBlockColorInfo
+    }
+
+    // MARK: - Copy Button State
+
+    private var hoveredBlockID: String?
+    private var copyButtonOverlay: NSView?
+    private var cachedBlockRects: [CodeBlockGeometry] = []
 
     // MARK: - Cursor Rects
 
@@ -66,6 +89,160 @@ final class CodeBlockBackgroundTextView: NSTextView {
                 )
                 addCursorRect(cursorRect, cursor: .pointingHand)
             }
+        }
+    }
+
+    // MARK: - Mouse Tracking
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas where area.owner === self {
+            removeTrackingArea(area)
+        }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseMoved, .mouseEnteredAndExited, .activeInActiveApp],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        super.mouseMoved(with: event)
+        let point = convert(event.locationInWindow, from: nil)
+        updateCopyButtonForMouse(at: point)
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        super.mouseExited(with: event)
+        hideCopyButton()
+    }
+
+    private func updateCopyButtonForMouse(at point: CGPoint) {
+        refreshCachedBlockRects()
+        for entry in cachedBlockRects where entry.rect.contains(point) {
+            if hoveredBlockID != entry.blockID {
+                showCopyButton(for: entry)
+            }
+            return
+        }
+        hideCopyButton()
+    }
+
+    private func showCopyButton(for entry: CodeBlockGeometry) {
+        hoveredBlockID = entry.blockID
+
+        let buttonX = entry.rect.maxX - Self.copyButtonSize - Self.copyButtonInset
+        let buttonY = entry.rect.minY + Self.copyButtonInset
+        let buttonFrame = CGRect(
+            x: buttonX,
+            y: buttonY,
+            width: Self.copyButtonSize,
+            height: Self.copyButtonSize
+        )
+
+        if let existing = copyButtonOverlay {
+            existing.frame = buttonFrame
+            if let hostingView = existing as? NSHostingView<CodeBlockCopyButton> {
+                hostingView.rootView = makeCopyButtonView(
+                    colorInfo: entry.colorInfo,
+                    range: entry.range
+                )
+            }
+        } else {
+            let hostingView = NSHostingView(
+                rootView: makeCopyButtonView(
+                    colorInfo: entry.colorInfo,
+                    range: entry.range
+                )
+            )
+            hostingView.frame = buttonFrame
+            addSubview(hostingView)
+            copyButtonOverlay = hostingView
+        }
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.2
+            self.copyButtonOverlay?.animator().alphaValue = 1.0
+        }
+    }
+
+    private func hideCopyButton() {
+        guard hoveredBlockID != nil else { return }
+        hoveredBlockID = nil
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.2
+            self.copyButtonOverlay?.animator().alphaValue = 0.0
+        }
+    }
+
+    private func makeCopyButtonView(
+        colorInfo: CodeBlockColorInfo,
+        range: NSRange
+    ) -> CodeBlockCopyButton {
+        let capturedRange = range
+        return CodeBlockCopyButton(codeBlockColors: colorInfo) { [weak self] in
+            self?.copyCodeBlock(at: capturedRange)
+        }
+    }
+
+    private func copyCodeBlock(at range: NSRange) {
+        guard let textStorage,
+              range.location + range.length <= textStorage.length,
+              let rawCode = textStorage.attribute(
+                  CodeBlockAttributes.rawCode,
+                  at: range.location,
+                  effectiveRange: nil
+              ) as? String
+        else { return }
+
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(rawCode, forType: .string)
+    }
+
+    // MARK: - Block Rect Cache
+
+    private func refreshCachedBlockRects() {
+        guard let textStorage,
+              let layoutManager = textLayoutManager,
+              let contentManager = layoutManager.textContentManager
+        else {
+            cachedBlockRects = []
+            return
+        }
+
+        let blocks = collectCodeBlocks(from: textStorage)
+        guard !blocks.isEmpty else {
+            cachedBlockRects = []
+            return
+        }
+
+        let origin = textContainerOrigin
+        let containerWidth = textContainer?.size.width ?? bounds.width
+        let borderInset = Self.borderWidth / 2
+
+        cachedBlockRects = blocks.compactMap { block in
+            let frames = fragmentFrames(
+                for: block.range,
+                layoutManager: layoutManager,
+                contentManager: contentManager
+            )
+            guard !frames.isEmpty else { return nil }
+
+            let bounding = frames.reduce(frames[0]) { $0.union($1) }
+            let drawRect = CGRect(
+                x: origin.x + borderInset,
+                y: bounding.minY + origin.y,
+                width: containerWidth - 2 * borderInset,
+                height: bounding.height + Self.bottomPadding
+            )
+            return CodeBlockGeometry(
+                blockID: block.blockID,
+                rect: drawRect,
+                range: block.range,
+                colorInfo: block.colorInfo
+            )
         }
     }
 
@@ -158,8 +335,8 @@ final class CodeBlockBackgroundTextView: NSTextView {
             }
         }
 
-        return grouped.values.map { entry in
-            CodeBlockInfo(range: entry.range, colorInfo: entry.colorInfo)
+        return grouped.map { blockID, entry in
+            CodeBlockInfo(blockID: blockID, range: entry.range, colorInfo: entry.colorInfo)
         }
     }
 

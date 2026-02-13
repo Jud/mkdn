@@ -189,6 +189,48 @@ struct CodeBlockStylingTests {
         #expect(color == expected)
     }
 
+    // MARK: - Raw Code Attribute
+
+    @Test("Code block carries rawCode attribute with trimmed code content")
+    func codeBlockRawCodeAttribute() {
+        let code = "  let x = 1\n  let y = 2  "
+        let result = buildSingle(.codeBlock(language: "swift", code: code))
+        let str = result.attributedString
+
+        guard let codeLocation = locationOf("let x = 1", in: str.string) else {
+            Issue.record("Expected to find code content in attributed string")
+            return
+        }
+
+        let rawCode = str.attribute(
+            CodeBlockAttributes.rawCode,
+            at: codeLocation,
+            effectiveRange: nil
+        ) as? String
+
+        #expect(rawCode != nil)
+        #expect(rawCode == code.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    @Test("Raw code attribute excludes language label text")
+    func rawCodeExcludesLanguageLabel() {
+        let result = buildSingle(.codeBlock(language: "python", code: "print('hello')"))
+        let str = result.attributedString
+
+        guard let labelLocation = locationOf("python", in: str.string) else {
+            Issue.record("Expected to find language label in attributed string")
+            return
+        }
+
+        let labelRawCode = str.attribute(
+            CodeBlockAttributes.rawCode,
+            at: labelLocation,
+            effectiveRange: nil
+        ) as? String
+
+        #expect(labelRawCode == nil || labelRawCode == "print('hello')")
+    }
+
     // MARK: - Language Label Shares Block Range
 
     @Test("Language label carries same codeBlockRange as code body")
