@@ -14,6 +14,14 @@ public struct MkdnCommands: Commands {
     }
 
     public var body: some Commands {
+        CommandGroup(replacing: .appInfo) {
+            Button("About mkdn") {
+                NSApp.orderFrontStandardAboutPanel(options: [
+                    .applicationIcon: NSApp.applicationIconImage as Any,
+                ])
+            }
+        }
+
         CommandGroup(after: .appInfo) {
             Button("Set as Default Markdown App") {
                 let success = DefaultHandlerService.registerAsDefault()
