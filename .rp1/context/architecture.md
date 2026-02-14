@@ -3,31 +3,44 @@
 ## System Overview
 
 ```
-CLI (mkdn file.md)          CLI (mkdn --test-harness)
-  |                            |
-  v                            v
-MkdnApp (SwiftUI App)       MkdnApp + TestHarnessServer
-  |                            |
-  v                            v
-AppState (@Observable, environment)
-  |
-  +---> ContentView
+CLI (mkdn file1.md file2.md)     CLI (mkdn --test-harness)
+  |                                 |
+  v                                 v
+MkdnCLI (ArgumentParser)          MkdnApp + TestHarnessServer
+  -> FileValidator                  |
+  -> execv with MKDN_LAUNCH_FILE   v
+  -> LaunchContext.fileURLs       AppSettings (@Observable, app-wide)
+  |                                 |
+  v                                 v
+MkdnApp (SwiftUI App)            DocumentWindow (per-window)
+  |                                 |
+  +---> AppSettings (zoom, theme, autoReload)
   |       |
-  |       +---> WelcomeView (no file)
-  |       +---> MarkdownPreviewView (preview-only)
-  |       +---> SplitEditorView (side-by-side)
-  |
-  +---> FileWatcher (DispatchSource)
-  |
-  +---> Theme system (Solarized Dark/Light)
-  |
-  +---> Animation layer (AnimationConstants + MotionPreference)
-  |
-  +---> TestHarnessServer (Unix socket, test mode only)
+  +---> DocumentWindow (per window)
           |
-          +---> TestHarnessHandler (@MainActor command dispatch)
-          +---> CaptureService (CGWindowListCreateImage + ScreenCaptureKit)
-          +---> RenderCompletionSignal (CheckedContinuation-based)
+          +---> DocumentState (@Observable, per-window file lifecycle)
+          |       |
+          |       +---> ContentView
+          |       |       |
+          |       |       +---> WelcomeView (no file)
+          |       |       +---> MarkdownPreviewView (preview-only)
+          |       |       +---> SplitEditorView (side-by-side)
+          |       |
+          |       +---> FileWatcher (DispatchSource)
+          |
+          +---> Theme system (Solarized Dark/Light)
+          |
+          +---> Animation layer (AnimationConstants + MotionPreference)
+          |
+          +---> TestHarnessServer (Unix socket, test mode only)
+                  |
+                  +---> TestHarnessHandler (@MainActor command dispatch)
+                  +---> CaptureService (CGWindowListCreateImage + ScreenCaptureKit)
+                  +---> RenderCompletionSignal (CheckedContinuation-based)
+
+AppDelegate (NSApplicationDelegate)
+  -> application(_:open:) for Finder/dock file opens
+  -> FileOpenCoordinator.shared.pendingURLs (observed by DocumentWindow)
 ```
 
 ## Rendering Pipeline
@@ -72,15 +85,37 @@ Code block with language tag
 ## Data Flow
 
 1. File opened (CLI arg, drag-drop, or open dialog)
-2. AppState.loadFile() reads content
-3. FileWatcher starts monitoring for changes
-4. Content flows to views via @Environment(AppState.self)
+2. DocumentState.loadFile() reads content, starts FileWatcher
+3. FileWatcher monitors for on-disk changes
+4. Content flows to views via @Environment(DocumentState.self) and @Environment(AppSettings.self)
 5. MarkdownRenderer parses on-demand in view body
 6. Mermaid blocks trigger async rendering via MermaidRenderer actor
 
+### Zoom Scale Factor Flow
+```
+AppSettings.scaleFactor (UserDefaults-persisted, 0.5--3.0)
+  -> MkdnCommands: Zoom In/Out/Reset (Cmd+/Cmd-/Cmd0)
+  -> MarkdownTextStorageBuilder.build(scaleFactor:) scales all fonts
+  -> PlatformTypeConverter.headingFont/bodyFont/monospacedFont(scaleFactor:)
+  -> TableColumnSizer.computeWidths(font:) uses scaled font metrics
+  -> DocumentState.modeOverlayLabel shows "125%" feedback
+```
+
+### Multi-File CLI Launch Flow
+```
+main.swift: MkdnCLI.parse() -> cli.files (variadic)
+  -> FileValidator.validate(path:) for each file
+  -> Validated URLs joined as newline-separated MKDN_LAUNCH_FILE env var
+  -> execv() re-launches binary with clean argv (no file args in argv)
+  -> Re-launched process reads MKDN_LAUNCH_FILE
+  -> LaunchContext.fileURLs = parsed URLs
+  -> DocumentWindow.onAppear: first URL loads in current window
+  -> Remaining URLs open via openWindow(value: url) -> new WindowGroup instances
+```
+
 ## Concurrency Model
 
-- AppState: @MainActor (UI state)
+- AppSettings + DocumentState: @MainActor (UI state, per-app and per-window respectively)
 - MermaidRenderer: actor (thread-safe JSC access + cache)
 - FileWatcher: DispatchQueue + @MainActor for UI updates
 - MotionPreference: value type, instantiated per-view from `@Environment(\.accessibilityReduceMotion)`. No shared state; resolves animation primitives locally.

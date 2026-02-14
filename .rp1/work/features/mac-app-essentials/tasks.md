@@ -307,7 +307,7 @@ All 8 tasks are technically parallel (no task defines an interface consumed by a
     | Commit | ✅ PASS |
     | Comments | ✅ PASS |
 
-- [ ] **T5**: Implement code block copy button with hover tracking and raw code attribute `[complexity:medium]`
+- [x] **T5**: Implement code block copy button with hover tracking and raw code attribute `[complexity:medium]`
 
     **Reference**: [design.md#24-code-block-copy-button-architecture](design.md#24-code-block-copy-button-architecture)
 
@@ -315,21 +315,40 @@ All 8 tasks are technically parallel (no task defines an interface consumed by a
 
     **Acceptance Criteria**:
 
-    - [ ] `CodeBlockAttributes.rawCode` (`NSAttributedString.Key`) added for storing unformatted code string
-    - [ ] `MarkdownTextStorageBuilder.appendCodeBlock` stores raw code (trimmed, without language label) via `rawCode` attribute on code block ranges
-    - [ ] `CodeBlockBackgroundTextView.updateTrackingAreas()` installs tracking area with `.mouseMoved`, `.mouseEnteredAndExited`, `.activeInActiveApp`
-    - [ ] `CodeBlockBackgroundTextView.mouseMoved(with:)` hit-tests against code block geometries (via `collectCodeBlocks` + `fragmentFrames`)
-    - [ ] `CodeBlockCopyButton.swift` created: SwiftUI view with `doc.on.doc`/`checkmark` icon toggle, `quickShift` animation, `.ultraThinMaterial` background
-    - [ ] Copy button overlay is a single lazily-created `NSHostingView`, shown/hidden and repositioned on hover
-    - [ ] Button positioned at top-right corner of hovered code block's bounding rect
-    - [ ] Click reads `CodeBlockAttributes.rawCode` from textStorage and places on `NSPasteboard.general` as `.string`
-    - [ ] Button reads current theme colors from `CodeBlockColorInfo` for consistent styling
-    - [ ] REQ-COPY-001: Copy button appears on code block hover
-    - [ ] REQ-COPY-002: Click copies raw code (without language label) to clipboard
-    - [ ] REQ-COPY-003: Button shows checkmark feedback after copy
-    - [ ] REQ-COPY-004: Button is theme-aware
-    - [ ] REQ-COPY-005: Button fades in/out with subtle animation
-    - [ ] Unit test for rawCode attribute presence on code block ranges
+    - [x] `CodeBlockAttributes.rawCode` (`NSAttributedString.Key`) added for storing unformatted code string
+    - [x] `MarkdownTextStorageBuilder.appendCodeBlock` stores raw code (trimmed, without language label) via `rawCode` attribute on code block ranges
+    - [x] `CodeBlockBackgroundTextView.updateTrackingAreas()` installs tracking area with `.mouseMoved`, `.mouseEnteredAndExited`, `.activeInActiveApp`
+    - [x] `CodeBlockBackgroundTextView.mouseMoved(with:)` hit-tests against code block geometries (via `collectCodeBlocks` + `fragmentFrames`)
+    - [x] `CodeBlockCopyButton.swift` created: SwiftUI view with `doc.on.doc`/`checkmark` icon toggle, `quickShift` animation, `.ultraThinMaterial` background
+    - [x] Copy button overlay is a single lazily-created `NSHostingView`, shown/hidden and repositioned on hover
+    - [x] Button positioned at top-right corner of hovered code block's bounding rect
+    - [x] Click reads `CodeBlockAttributes.rawCode` from textStorage and places on `NSPasteboard.general` as `.string`
+    - [x] Button reads current theme colors from `CodeBlockColorInfo` for consistent styling
+    - [x] REQ-COPY-001: Copy button appears on code block hover
+    - [x] REQ-COPY-002: Click copies raw code (without language label) to clipboard
+    - [x] REQ-COPY-003: Button shows checkmark feedback after copy
+    - [x] REQ-COPY-004: Button is theme-aware
+    - [x] REQ-COPY-005: Button fades in/out with subtle animation
+    - [x] Unit test for rawCode attribute presence on code block ranges
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Core/Markdown/CodeBlockAttributes.swift`, `mkdn/Core/Markdown/MarkdownTextStorageBuilder+Blocks.swift`, `mkdn/Features/Viewer/Views/CodeBlockBackgroundTextView.swift`, `mkdn/Features/Viewer/Views/CodeBlockCopyButton.swift` (new)
+    - **Approach**: Added `rawCode` attribute key to `CodeBlockAttributes` and stored trimmed code content on code block ranges in `appendCodeBlock`. Extended `CodeBlockBackgroundTextView` with NSTrackingArea for `mouseMoved`/`mouseExited` events, hit-testing mouse position against code block bounding rects. A single lazily-created `NSHostingView<CodeBlockCopyButton>` is shown/hidden with 0.2s alpha fade on hover. The SwiftUI `CodeBlockCopyButton` uses `doc.on.doc`/`checkmark` SF Symbol toggle with `quickShift` animation and `.ultraThinMaterial` background. Copy reads the `rawCode` attribute from textStorage and places it on `NSPasteboard.general`.
+    - **Deviations**: None
+    - **Tests**: 9/9 passing (2 new rawCode attribute tests added to CodeBlockStylingTests)
+
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ✅ PASS |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
 
 ### User Docs
 

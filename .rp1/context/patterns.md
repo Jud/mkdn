@@ -225,3 +225,4 @@ Both use `quickSettle` animation and disable animation (not feedback) for RM.
 - **NO force unwrapping** in production code (tests are OK)
 - **NO implicit returns** from complex expressions
 - **NO magic numbers** in business logic (UI layout constants are acceptable)
+- **NO reading displayed text for code block copy** -- use the `CodeBlockAttributes.rawCode` attribute which stores the original unformatted code string. Reading `textStorage.string` from the visible range would include the language label line and trailing newlines, producing wrong clipboard content. The `rawCode` attribute is set once during `appendCodeBlock` and read by `CodeBlockBackgroundTextView.copyCodeBlock(at:)` via `textStorage.attribute(CodeBlockAttributes.rawCode, at:, effectiveRange:)`

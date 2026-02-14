@@ -4,11 +4,16 @@
 
 | File | Purpose |
 |------|---------|
-| mkdnApp.swift | @main entry, WindowGroup, commands |
-| AppState.swift | Central @Observable state |
+| AppSettings.swift | @Observable app-wide settings: zoom scaleFactor (0.5--3.0), themeMode (auto/dark/light), autoReloadEnabled, hasShownDefaultHandlerHint. Persisted to UserDefaults. Methods: zoomIn/zoomOut/zoomReset, cycleTheme |
+| DocumentState.swift | @Observable per-window document lifecycle: file I/O (loadFile, saveFile, saveAs, reloadFile), viewMode, unsaved-changes detection, FileWatcher ownership, mode overlay label |
+| DocumentWindow.swift | SwiftUI View wrapper creating per-window DocumentState. Loads file on appear, consumes LaunchContext URLs for multi-file CLI launch, observes FileOpenCoordinator for runtime file opens, wires test harness in test mode |
+| AppDelegate.swift | NSApplicationDelegate for system file-open events (Finder, dock drag-drop). Routes URLs through FileOpenCoordinator. Applies squircle icon mask with drop shadow on launch |
+| FileOpenCoordinator.swift | @Observable singleton bridging AppKit file-open events to SwiftUI window creation. pendingURLs queue, consumeAll() drain, isMarkdownURL() validation |
+| FocusedDocumentStateKey.swift | FocusedValueKey for accessing active window's DocumentState from menu commands |
+| OpenRecentCommands.swift | File > Open Recent submenu. Reads NSDocumentController.recentDocumentURLs, routes selection through FileOpenCoordinator |
 | ViewMode.swift | Preview-only vs side-by-side enum |
 | ContentView.swift | Root view, mode switching, toolbar |
-| MkdnCommands.swift | Menu bar commands |
+| MkdnCommands.swift | Menu bar commands: About, Set Default Handler, Close Window, Save/Save As, Find (panel + next/prev/selection), Print/Page Setup, Open/Reload, Zoom In/Out/Reset, Preview/Edit mode, Cycle Theme |
 
 ## Core Layer (`mkdn/Core/`)
 
@@ -16,8 +21,14 @@
 | File | Purpose |
 |------|---------|
 | MarkdownRenderer.swift | Parse + render coordinator |
-| MarkdownBlock.swift | Block element enum |
-| MarkdownVisitor.swift | swift-markdown walker -> MarkdownBlock |
+| MarkdownBlock.swift | Block element enum (11 cases incl. htmlBlock, image). CheckboxState enum (checked/unchecked). ListItem with optional checkbox. IndexedBlock for positional identity. DJB2 stableHash for deterministic IDs |
+| MarkdownVisitor.swift | swift-markdown Document walker -> [MarkdownBlock]. Inline text conversion with emphasis/strong/strikethrough/code/link support. Checkbox extraction from ListItem.checkbox. Standalone image promotion to block-level. Table column alignment mapping |
+| MarkdownTextStorageBuilder.swift | Converts [IndexedBlock] -> NSAttributedString + [AttachmentInfo]. Inline content conversion (bold/italic/code/link/strikethrough). Splash syntax highlighting for Swift. Paragraph style helpers. Plain text extraction |
+| MarkdownTextStorageBuilder+Blocks.swift | Block-type rendering: heading, paragraph, code block (with language label, CodeBlockAttributes marking, rawCode storage), attachment placeholder, HTML block. Code block padding/indent constants |
+| MarkdownTextStorageBuilder+Complex.swift | Blockquote (recursive depth), ordered/unordered lists (nested, with checkbox rendering via SF Symbols), table fallback rendering (tab-stop-based) |
+| PlatformTypeConverter.swift | SwiftUI-to-AppKit type bridge: Color->NSColor, scaled font factory (heading/body/monospaced/captionMonospaced), paragraph style builder |
+| CodeBlockAttributes.swift | Custom NSAttributedString.Key constants: range (block ID), colors (CodeBlockColorInfo), rawCode (clipboard source). CodeBlockColorInfo class (NSObject subclass for attribute storage) |
+| ThemeOutputFormat.swift | Splash OutputFormat producing AttributedString with AppKit NSColor foreground colors for NSTextView rendering. Token-to-color mapping |
 | TableColumnSizer.swift | Pure column width computation from cell content |
 
 ### Mermaid (`Core/Mermaid/`)
@@ -33,7 +44,10 @@
 ### CLI (`Core/CLI/`)
 | File | Purpose |
 |------|---------|
-| CLIHandler.swift | Argument parsing for `mkdn file.md` |
+| MkdnCLI.swift | ParsableCommand struct for `mkdn [files...]`. Variadic `[String]` argument accepting multiple .md/.markdown paths |
+| LaunchContext.swift | Static `fileURLs` storage for validated CLI URLs. `consumeURLs()` drains once. `nonisolated(unsafe)` for sequential access pattern (set in main.swift, consumed in DocumentWindow.onAppear) |
+| CLIError.swift | Typed errors: unsupportedExtension, fileNotFound, fileNotReadable. LocalizedError conformance with per-case exit codes |
+| FileValidator.swift | Path validation pipeline: tilde expansion, relative path resolution, symlink resolution, extension check (.md/.markdown), existence check, UTF-8 readability check |
 
 ### TestHarness (`Core/TestHarness/`)
 | File | Purpose |
@@ -55,6 +69,12 @@
 | Views/MarkdownPreviewView.swift | Full-width preview |
 | Views/MarkdownBlockView.swift | Block element renderer |
 | Views/CodeBlockView.swift | Syntax-highlighted code |
+| Views/CodeBlockCopyButton.swift | Hover-revealed copy button for code blocks. doc.on.doc icon with checkmark confirmation via symbolEffect(.replace). Uses quickShift animation, ultraThinMaterial background |
+| Views/CodeBlockBackgroundTextView.swift | NSTextView subclass drawing rounded-rect containers behind code blocks via CodeBlockAttributes. TextKit 2 layout fragment enumeration. Mouse tracking for hover-revealed copy button overlay (NSHostingView of CodeBlockCopyButton). Copies raw code via rawCode attribute |
+| Views/SelectableTextView.swift | NSViewRepresentable wrapping read-only NSTextView (TextKit 2). Cross-block text selection, find bar (Cmd+F). Hosts CodeBlockBackgroundTextView. Coordinator owns EntranceAnimator and OverlayCoordinator |
+| Views/OverlayCoordinator.swift | Manages NSHostingView overlays at NSTextAttachment locations for Mermaid, images, thematic breaks, tables. Variable-width positioning (preferredWidth). Scroll-driven sticky table headers. Layout and scroll observation via NotificationCenter |
+| Views/EntranceAnimator.swift | Per-layout-fragment staggered fade-in using CALayer covers. Code block fragments grouped by block ID for unified entrance. 8pt upward drift via CATransform3D. Respects Reduce Motion (immediate appearance). Cleanup via scheduled Task |
+| Views/ImageBlockView.swift | Async image loading with local path resolution (relative to document), remote URL support, loading/error placeholders. Security: validates local paths stay within document directory |
 | Views/MermaidBlockView.swift | Mermaid diagram with zoom |
 | Views/TableBlockView.swift | Native table rendering |
 | Views/TableHeaderView.swift | Sticky header overlay for long tables |
