@@ -1,8 +1,8 @@
 # Development Tasks: Print-Friendly Theme
 
 **Feature ID**: print-theme
-**Status**: Not Started
-**Progress**: 25% (2 of 8 tasks)
+**Status**: In Progress
+**Progress**: 37% (3 of 8 tasks)
 **Estimated Effort**: 3 days
 **Started**: 2026-02-15
 
@@ -75,6 +75,18 @@ When the user presses Cmd+P, the print operation intercepts the request, rebuild
     - **Deviations**: None
     - **Tests**: 40/40 passing (all existing builder and code block styling tests unchanged)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
     **Reference**: [design.md#32-markdowntextstoragebuilder-refactor](design.md#32-markdowntextstoragebuilder-refactor)
 
     **Effort**: 5 hours
@@ -92,7 +104,14 @@ When the user presses Cmd+P, the print operation intercepts the request, rebuild
 
 ### Print Integration (Parallel Group 2)
 
-- [ ] **T3**: Add print interception to CodeBlockBackgroundTextView `[complexity:medium]`
+- [x] **T3**: Add print interception to CodeBlockBackgroundTextView `[complexity:medium]`
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Features/Viewer/Views/CodeBlockBackgroundTextView.swift`
+    - **Approach**: Added `printBlocks` property, `draw(_:)` override for offscreen dispatch (HYP-001 caveat), `printView(_:)` override with TextKit 2 clone view and `NSPrintOperation(view:printInfo:)`. Used `printView(_:)` instead of `print(_:)` (correct AppKit NSView override). Used TextKit 2 init pattern instead of TextKit 1 per hypothesis findings.
+    - **Deviations**: Three deviations from design.md per hypothesis validation (HYP-001): (1) `printView(_:)` instead of `print(_:)` -- correct overridable NSView method; (2) TextKit 2 init instead of TextKit 1 (D4 revision) -- required for drawCodeBlockContainers to work; (3) `NSPrintOperation(view:printInfo:)` instead of `printView.printOperation(for:)` -- correct AppKit API. Added `draw(_:)` override per caveat 1.
+    - **Tests**: 287/287 passing (all existing tests unchanged)
 
     **Reference**: [design.md#33-codeblockbackgroundtextview-print-override](design.md#33-codeblockbackgroundtextview-print-override)
 
@@ -100,13 +119,13 @@ When the user presses Cmd+P, the print operation intercepts the request, rebuild
 
     **Acceptance Criteria**:
 
-    - [ ] `printBlocks: [IndexedBlock]` property added to `CodeBlockBackgroundTextView`, defaulting to empty array
-    - [ ] `print(_:)` method overridden to: retrieve `PrintPalette.colors` and `.syntaxColors`, call `MarkdownTextStorageBuilder.build(blocks:colors:syntaxColors:)` with `printBlocks`, create a temporary `CodeBlockBackgroundTextView` via `makePrintTextView`, run `NSPrintOperation` on the temporary view
-    - [ ] `makePrintTextView(attributedString:size:)` private static method creates a TextKit 1 based text view with: white background from `PrintPalette.colors.background`, 32pt text container inset, width-tracking text container, the print-themed attributed string set on `textStorage`
-    - [ ] Fallback to `super.print(sender)` if `printOperation(for:)` returns nil
-    - [ ] On-screen text view is never modified during the print operation (no flicker)
-    - [ ] File: `mkdn/Features/Viewer/Views/CodeBlockBackgroundTextView.swift`
-    - [ ] File passes SwiftLint and SwiftFormat
+    - [x] `printBlocks: [IndexedBlock]` property added to `CodeBlockBackgroundTextView`, defaulting to empty array
+    - [x] `printView(_:)` method overridden to: retrieve `PrintPalette.colors` and `.syntaxColors`, call `MarkdownTextStorageBuilder.build(blocks:colors:syntaxColors:)` with `printBlocks`, create a temporary `CodeBlockBackgroundTextView` via `makePrintTextView`, run `NSPrintOperation` on the temporary view
+    - [x] `makePrintTextView(attributedString:size:)` private static method creates a TextKit 2 based text view with: white background from `PrintPalette.colors.background`, 32pt text container inset, width-tracking text container, the print-themed attributed string set on `textStorage`, ensureLayout called before sizeToFit
+    - [x] Fallback to `super.printView(sender)` if `printBlocks` is empty
+    - [x] On-screen text view is never modified during the print operation (no flicker)
+    - [x] File: `mkdn/Features/Viewer/Views/CodeBlockBackgroundTextView.swift`
+    - [x] File passes SwiftLint and SwiftFormat
 
 - [ ] **T5**: Add unit tests for PrintPalette and builder print integration `[complexity:medium]`
 
