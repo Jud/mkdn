@@ -67,7 +67,7 @@ extension MarkdownTextStorageBuilder {
         language: String?,
         code: String,
         colors: ThemeColors,
-        theme: AppTheme
+        syntaxColors: SyntaxColors
     ) {
         let trimmedCode = code.trimmingCharacters(in: .whitespacesAndNewlines)
         let codeForeground = PlatformTypeConverter.nsColor(from: colors.codeForeground)
@@ -90,7 +90,7 @@ extension MarkdownTextStorageBuilder {
 
         let codeContent: NSMutableAttributedString
         if language == "swift" {
-            codeContent = highlightSwiftCode(trimmedCode, theme: theme)
+            codeContent = highlightSwiftCode(trimmedCode, syntaxColors: syntaxColors)
             codeContent.addAttribute(.font, value: monoFont, range: NSRange(location: 0, length: codeContent.length))
         } else {
             codeContent = NSMutableAttributedString(

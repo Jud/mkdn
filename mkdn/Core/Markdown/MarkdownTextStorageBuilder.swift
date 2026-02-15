@@ -46,16 +46,23 @@ enum MarkdownTextStorageBuilder {
         blocks: [IndexedBlock],
         theme: AppTheme
     ) -> TextStorageResult {
+        build(blocks: blocks, colors: theme.colors, syntaxColors: theme.syntaxColors)
+    }
+
+    static func build(
+        blocks: [IndexedBlock],
+        colors: ThemeColors,
+        syntaxColors: SyntaxColors
+    ) -> TextStorageResult {
         let result = NSMutableAttributedString()
         var attachments: [AttachmentInfo] = []
-        let colors = theme.colors
 
         for (offset, indexedBlock) in blocks.enumerated() {
             appendBlock(
                 indexedBlock,
                 to: result,
                 colors: colors,
-                theme: theme,
+                syntaxColors: syntaxColors,
                 attachments: &attachments
             )
 
@@ -87,7 +94,7 @@ enum MarkdownTextStorageBuilder {
         _ indexedBlock: IndexedBlock,
         to result: NSMutableAttributedString,
         colors: ThemeColors,
-        theme: AppTheme,
+        syntaxColors: SyntaxColors,
         attachments: inout [AttachmentInfo]
     ) {
         switch indexedBlock.block {
@@ -96,7 +103,7 @@ enum MarkdownTextStorageBuilder {
         case let .paragraph(text):
             appendParagraph(to: result, text: text, colors: colors)
         case let .codeBlock(language, code):
-            appendCodeBlock(to: result, language: language, code: code, colors: colors, theme: theme)
+            appendCodeBlock(to: result, language: language, code: code, colors: colors, syntaxColors: syntaxColors)
         case .mermaidBlock, .image:
             appendAttachmentBlock(
                 to: result,
@@ -106,11 +113,11 @@ enum MarkdownTextStorageBuilder {
                 attachments: &attachments
             )
         case let .blockquote(blocks):
-            appendBlockquote(to: result, blocks: blocks, colors: colors, theme: theme, depth: 0)
+            appendBlockquote(to: result, blocks: blocks, colors: colors, syntaxColors: syntaxColors, depth: 0)
         case let .orderedList(items):
-            appendOrderedList(to: result, items: items, colors: colors, theme: theme, depth: 0)
+            appendOrderedList(to: result, items: items, colors: colors, syntaxColors: syntaxColors, depth: 0)
         case let .unorderedList(items):
-            appendUnorderedList(to: result, items: items, colors: colors, theme: theme, depth: 0)
+            appendUnorderedList(to: result, items: items, colors: colors, syntaxColors: syntaxColors, depth: 0)
         case .thematicBreak:
             appendAttachmentBlock(
                 to: result,
@@ -208,9 +215,8 @@ enum MarkdownTextStorageBuilder {
 
     static func highlightSwiftCode(
         _ code: String,
-        theme: AppTheme
+        syntaxColors: SyntaxColors
     ) -> NSMutableAttributedString {
-        let syntaxColors = theme.syntaxColors
         let format = ThemeOutputFormat(
             plainTextColor: PlatformTypeConverter.nsColor(from: syntaxColors.comment),
             tokenColorMap: [

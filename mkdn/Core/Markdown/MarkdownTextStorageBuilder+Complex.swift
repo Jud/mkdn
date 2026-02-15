@@ -19,12 +19,12 @@ struct ResolvedColors {
 /// Context for recursive list/blockquote rendering.
 struct BlockBuildContext {
     let colors: ThemeColors
-    let theme: AppTheme
+    let syntaxColors: SyntaxColors
     let resolved: ResolvedColors
 
-    init(colors: ThemeColors, theme: AppTheme) {
+    init(colors: ThemeColors, syntaxColors: SyntaxColors) {
         self.colors = colors
-        self.theme = theme
+        self.syntaxColors = syntaxColors
         resolved = ResolvedColors(colors: colors)
     }
 }
@@ -37,10 +37,10 @@ extension MarkdownTextStorageBuilder {
         to result: NSMutableAttributedString,
         blocks: [MarkdownBlock],
         colors: ThemeColors,
-        theme: AppTheme,
+        syntaxColors: SyntaxColors,
         depth: Int
     ) {
-        let ctx = BlockBuildContext(colors: colors, theme: theme)
+        let ctx = BlockBuildContext(colors: colors, syntaxColors: syntaxColors)
         let indent = blockquoteIndent * CGFloat(depth + 1)
 
         for block in blocks {
@@ -69,7 +69,7 @@ extension MarkdownTextStorageBuilder {
                     to: result,
                     blocks: innerBlocks,
                     colors: colors,
-                    theme: theme,
+                    syntaxColors: syntaxColors,
                     depth: depth + 1
                 )
 
@@ -92,10 +92,10 @@ extension MarkdownTextStorageBuilder {
         to result: NSMutableAttributedString,
         items: [ListItem],
         colors: ThemeColors,
-        theme: AppTheme,
+        syntaxColors: SyntaxColors,
         depth: Int
     ) {
-        let ctx = BlockBuildContext(colors: colors, theme: theme)
+        let ctx = BlockBuildContext(colors: colors, syntaxColors: syntaxColors)
         for (index, item) in items.enumerated() {
             appendListItem(
                 to: result,
@@ -111,12 +111,12 @@ extension MarkdownTextStorageBuilder {
         to result: NSMutableAttributedString,
         items: [ListItem],
         colors: ThemeColors,
-        theme: AppTheme,
+        syntaxColors: SyntaxColors,
         depth: Int
     ) {
         let bulletIndex = min(depth, bulletStyles.count - 1)
         let bullet = bulletStyles[bulletIndex]
-        let ctx = BlockBuildContext(colors: colors, theme: theme)
+        let ctx = BlockBuildContext(colors: colors, syntaxColors: syntaxColors)
         for item in items {
             appendListItem(
                 to: result,
@@ -282,7 +282,7 @@ extension MarkdownTextStorageBuilder {
                     to: result,
                     items: items,
                     colors: ctx.colors,
-                    theme: ctx.theme,
+                    syntaxColors: ctx.syntaxColors,
                     depth: depth + 1
                 )
             case let .unorderedList(items):
@@ -290,7 +290,7 @@ extension MarkdownTextStorageBuilder {
                     to: result,
                     items: items,
                     colors: ctx.colors,
-                    theme: ctx.theme,
+                    syntaxColors: ctx.syntaxColors,
                     depth: depth + 1
                 )
             default:

@@ -2,7 +2,7 @@
 
 **Feature ID**: print-theme
 **Status**: Not Started
-**Progress**: 12% (1 of 8 tasks)
+**Progress**: 25% (2 of 8 tasks)
 **Estimated Effort**: 3 days
 **Started**: 2026-02-15
 
@@ -41,6 +41,18 @@ When the user presses Cmd+P, the print operation intercepts the request, rebuild
     - **Deviations**: None
     - **Tests**: N/A (color definitions only; tested in T5)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | N/A |
+    | Commit | PASS |
+    | Comments | PASS |
+
     **Reference**: [design.md#31-printpalette](design.md#31-printpalette)
 
     **Effort**: 1.5 hours
@@ -54,7 +66,14 @@ When the user presses Cmd+P, the print operation intercepts the request, rebuild
     - [x] PrintPalette color values differ from both SolarizedDark and SolarizedLight
     - [x] File passes SwiftLint and SwiftFormat
 
-- [ ] **T2**: Refactor MarkdownTextStorageBuilder to accept explicit colors `[complexity:medium]`
+- [x] **T2**: Refactor MarkdownTextStorageBuilder to accept explicit colors `[complexity:medium]`
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Core/Markdown/MarkdownTextStorageBuilder.swift`, `mkdn/Core/Markdown/MarkdownTextStorageBuilder+Blocks.swift`, `mkdn/Core/Markdown/MarkdownTextStorageBuilder+Complex.swift`
+    - **Approach**: Added `build(blocks:colors:syntaxColors:)` overload; existing `build(blocks:theme:)` delegates to it. Replaced `theme: AppTheme` parameter with `syntaxColors: SyntaxColors` in `appendBlock`, `appendCodeBlock`, `highlightSwiftCode`, `appendBlockquote`, `appendOrderedList`, `appendUnorderedList`. Updated `BlockBuildContext` to store `syntaxColors` instead of `theme`.
+    - **Deviations**: None
+    - **Tests**: 40/40 passing (all existing builder and code block styling tests unchanged)
 
     **Reference**: [design.md#32-markdowntextstoragebuilder-refactor](design.md#32-markdowntextstoragebuilder-refactor)
 
@@ -62,14 +81,14 @@ When the user presses Cmd+P, the print operation intercepts the request, rebuild
 
     **Acceptance Criteria**:
 
-    - [ ] New public overload `build(blocks:colors:syntaxColors:)` accepting `ThemeColors` + `SyntaxColors` directly
-    - [ ] Existing `build(blocks:theme:)` delegates to the new overload via `build(blocks: blocks, colors: theme.colors, syntaxColors: theme.syntaxColors)`
-    - [ ] Internal methods refactored to thread `syntaxColors: SyntaxColors` instead of `theme: AppTheme`: `appendBlock`, `appendCodeBlock`, `highlightSwiftCode`, `appendBlockquote`, `appendOrderedList`, `appendUnorderedList`
-    - [ ] `BlockBuildContext` stores `syntaxColors: SyntaxColors` instead of `theme: AppTheme`
-    - [ ] Files changed: `MarkdownTextStorageBuilder.swift`, `MarkdownTextStorageBuilder+Blocks.swift`, `MarkdownTextStorageBuilder+Complex.swift`
-    - [ ] Existing behavior preserved: calling `build(blocks:theme:)` with any `AppTheme` produces identical output to before the refactor
-    - [ ] All existing tests pass without modification
-    - [ ] File passes SwiftLint and SwiftFormat
+    - [x] New public overload `build(blocks:colors:syntaxColors:)` accepting `ThemeColors` + `SyntaxColors` directly
+    - [x] Existing `build(blocks:theme:)` delegates to the new overload via `build(blocks: blocks, colors: theme.colors, syntaxColors: theme.syntaxColors)`
+    - [x] Internal methods refactored to thread `syntaxColors: SyntaxColors` instead of `theme: AppTheme`: `appendBlock`, `appendCodeBlock`, `highlightSwiftCode`, `appendBlockquote`, `appendOrderedList`, `appendUnorderedList`
+    - [x] `BlockBuildContext` stores `syntaxColors: SyntaxColors` instead of `theme: AppTheme`
+    - [x] Files changed: `MarkdownTextStorageBuilder.swift`, `MarkdownTextStorageBuilder+Blocks.swift`, `MarkdownTextStorageBuilder+Complex.swift`
+    - [x] Existing behavior preserved: calling `build(blocks:theme:)` with any `AppTheme` produces identical output to before the refactor
+    - [x] All existing tests pass without modification
+    - [x] File passes SwiftLint and SwiftFormat
 
 ### Print Integration (Parallel Group 2)
 
