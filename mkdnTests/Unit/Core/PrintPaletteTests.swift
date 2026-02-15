@@ -90,7 +90,7 @@ struct PrintPaletteTests {
         )
     }
 
-    // MARK: - FR-1: Print Color Palette
+    // MARK: - Print Color Palette
 
     @Test("Print palette background is white")
     func backgroundIsWhite() {
@@ -169,7 +169,7 @@ struct PrintPaletteTests {
         #expect(fields.count == 8)
     }
 
-    // MARK: - FR-2: Theme Independence
+    // MARK: - Theme Independence
 
     @Test("Print palette differs from Solarized Dark")
     func differsFromSolarizedDark() {
@@ -191,7 +191,7 @@ struct PrintPaletteTests {
         #expect(!colorsMatch(printColors.codeBackground, light.codeBackground))
     }
 
-    // MARK: - FR-3: Code Blocks
+    // MARK: - Code Blocks
 
     @Test("Code background is light gray")
     func codeBackgroundIsLightGray() {
@@ -204,7 +204,7 @@ struct PrintPaletteTests {
         )
     }
 
-    // MARK: - FR-5: Links
+    // MARK: - Links
 
     @Test("Link color is dark blue")
     func linkColorIsDarkBlue() {
@@ -217,7 +217,7 @@ struct PrintPaletteTests {
         )
     }
 
-    // MARK: - FR-4: Syntax Highlighting Contrast
+    // MARK: - Syntax Highlighting Contrast
 
     @Test("WCAG AA contrast for all syntax colors against white")
     func syntaxColorContrastMeetsAA() {

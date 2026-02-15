@@ -2,7 +2,7 @@
 
 **Feature ID**: print-theme
 **Status**: In Progress
-**Progress**: 37% (3 of 8 tasks)
+**Progress**: 50% (4 of 8 tasks)
 **Estimated Effort**: 3 days
 **Started**: 2026-02-15
 
@@ -139,7 +139,7 @@ When the user presses Cmd+P, the print operation intercepts the request, rebuild
     - [x] File: `mkdn/Features/Viewer/Views/CodeBlockBackgroundTextView.swift`
     - [x] File passes SwiftLint and SwiftFormat
 
-- [ ] **T5**: Add unit tests for PrintPalette and builder print integration `[complexity:medium]`
+- [x] **T5**: Add unit tests for PrintPalette and builder print integration `[complexity:medium]`
 
     **Reference**: [design.md#7-testing-strategy](design.md#7-testing-strategy)
 
@@ -147,22 +147,36 @@ When the user presses Cmd+P, the print operation intercepts the request, rebuild
 
     **Acceptance Criteria**:
 
-    - [ ] New file `mkdnTests/Unit/Core/PrintPaletteTests.swift` created using Swift Testing (`@Suite`, `@Test`, `#expect`)
-    - [ ] Test: print palette background is white (`#FFFFFF`)
-    - [ ] Test: print palette foreground is black (`#000000`)
-    - [ ] Test: print palette headings are black (`#000000`)
-    - [ ] Test: all `ThemeColors` fields are populated (non-nil, non-default)
-    - [ ] Test: all `SyntaxColors` fields are populated
-    - [ ] Test: print palette differs from `SolarizedDark` (at least `background`, `foreground`, `codeBackground`)
-    - [ ] Test: print palette differs from `SolarizedLight`
-    - [ ] Test: link color is dark blue (`#003399`)
-    - [ ] Test: code background is light gray (`#F5F5F5`)
-    - [ ] Test: WCAG AA contrast ratio >= 4.5:1 for each syntax color against white (compute relative luminance per WCAG formula)
-    - [ ] Test: comment color lightness > keyword color lightness (visually de-emphasized)
-    - [ ] Extended tests in `mkdnTests/Unit/Core/MarkdownTextStorageBuilderTests.swift`: `build(blocks:colors:syntaxColors:)` produces valid non-empty attributed string
-    - [ ] Extended test: `build(blocks:theme:)` output matches `build(blocks:colors:syntaxColors:)` with same theme's colors (regression)
-    - [ ] Extended test: code block `CodeBlockColorInfo` attribute uses provided palette colors for background and border
-    - [ ] All tests pass via `swift test`
+    - [x] New file `mkdnTests/Unit/Core/PrintPaletteTests.swift` created using Swift Testing (`@Suite`, `@Test`, `#expect`)
+    - [x] Test: print palette background is white (`#FFFFFF`)
+    - [x] Test: print palette foreground is black (`#000000`)
+    - [x] Test: print palette headings are black (`#000000`)
+    - [x] Test: all `ThemeColors` fields are populated (non-nil, non-default)
+    - [x] Test: all `SyntaxColors` fields are populated
+    - [x] Test: print palette differs from `SolarizedDark` (at least `background`, `foreground`, `codeBackground`)
+    - [x] Test: print palette differs from `SolarizedLight`
+    - [x] Test: link color is dark blue (`#003399`)
+    - [x] Test: code background is light gray (`#F5F5F5`)
+    - [x] Test: WCAG AA contrast ratio >= 4.5:1 for each syntax color against white (compute relative luminance per WCAG formula)
+    - [x] Test: comment color lightness > keyword color lightness (visually de-emphasized)
+    - [x] Extended tests in `mkdnTests/Unit/Core/MarkdownTextStorageBuilderTests.swift`: `build(blocks:colors:syntaxColors:)` produces valid non-empty attributed string
+    - [x] Extended test: `build(blocks:theme:)` output matches `build(blocks:colors:syntaxColors:)` with same theme's colors (regression)
+    - [x] Extended test: code block `CodeBlockColorInfo` attribute uses provided palette colors for background and border
+    - [x] All tests pass via `swift test`
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdnTests/Unit/Core/PrintPaletteTests.swift`, `mkdnTests/Unit/Core/MarkdownTextStorageBuilderTests+PrintPalette.swift`
+    - **Approach**: 11 PrintPalette tests (color values, completeness, theme independence, WCAG AA contrast via luminance calculation, comment de-emphasis) + 3 builder integration tests (explicit color overload, theme delegation regression, CodeBlockColorInfo palette embedding). Builder extension in separate file to stay under SwiftLint type_body_length limit.
+    - **Deviations**: Used separate `+PrintPalette` extension file instead of inline extension in main builder tests file due to `type_body_length` SwiftLint rule (350-line limit). Replaced parameterized `@Test(arguments:)` with single test using helper loop due to `KeyPath` not conforming to `Sendable` in strict concurrency mode.
+    - **Tests**: 14/14 passing (11 PrintPalette + 3 builder integration)
+
+    **Review Feedback** (Attempt 1):
+    - **Status**: FAILURE
+    - **Issues**:
+        - [comments] Feature/requirement IDs in MARK comments: `// MARK: - FR-1: Print Color Palette`, `// MARK: - FR-2: Theme Independence`, `// MARK: - FR-3: Code Blocks`, `// MARK: - FR-5: Links`, `// MARK: - FR-4: Syntax Highlighting Contrast` in `PrintPaletteTests.swift` lines 93, 172, 194, 208, 220
+    - **Guidance**: Remove the `FR-N: ` prefix from each MARK comment in `mkdnTests/Unit/Core/PrintPaletteTests.swift`. Keep the descriptive text. For example: `// MARK: - FR-1: Print Color Palette` becomes `// MARK: - Print Color Palette`. Apply to all 5 MARK comments (lines 93, 172, 194, 208, 220). Then amend the existing commit.
+    - **Resolution** (Attempt 2): Removed all 5 `FR-N: ` prefixes from MARK comments. MARK headers now use descriptive text only.
 
 ### View Wiring (Group 3)
 
