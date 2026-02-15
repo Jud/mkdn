@@ -2,7 +2,7 @@
 
 **Feature ID**: print-theme
 **Status**: In Progress
-**Progress**: 50% (4 of 8 tasks)
+**Progress**: 62% (5 of 8 tasks)
 **Estimated Effort**: 3 days
 **Started**: 2026-02-15
 
@@ -178,9 +178,28 @@ When the user presses Cmd+P, the print operation intercepts the request, rebuild
     - **Guidance**: Remove the `FR-N: ` prefix from each MARK comment in `mkdnTests/Unit/Core/PrintPaletteTests.swift`. Keep the descriptive text. For example: `// MARK: - FR-1: Print Color Palette` becomes `// MARK: - Print Color Palette`. Apply to all 5 MARK comments (lines 93, 172, 194, 208, 220). Then amend the existing commit.
     - **Resolution** (Attempt 2): Removed all 5 `FR-N: ` prefixes from MARK comments. MARK headers now use descriptive text only.
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ✅ PASS |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
 ### View Wiring (Group 3)
 
-- [ ] **T4**: Wire blocks parameter through SelectableTextView to CodeBlockBackgroundTextView `[complexity:simple]`
+- [x] **T4**: Wire blocks parameter through SelectableTextView to CodeBlockBackgroundTextView `[complexity:simple]`
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Features/Viewer/Views/SelectableTextView.swift`, `mkdn/Features/Viewer/Views/MarkdownPreviewView.swift`
+    - **Approach**: Added `blocks: [IndexedBlock]` parameter to `SelectableTextView`; set `textView.printBlocks = blocks` in both `makeNSView` and `updateNSView`; passed `renderedBlocks` from `MarkdownPreviewView`. Changed `updateNSView` guard cast from `NSTextView` to `CodeBlockBackgroundTextView` to access `printBlocks` property.
+    - **Deviations**: None
+    - **Tests**: 47/47 passing (all PrintPalette + builder tests)
 
     **Reference**: [design.md#34-selectabletextview-plumbing](design.md#34-selectabletextview-plumbing)
 
@@ -188,13 +207,13 @@ When the user presses Cmd+P, the print operation intercepts the request, rebuild
 
     **Acceptance Criteria**:
 
-    - [ ] `SelectableTextView` struct gains a `blocks: [IndexedBlock]` parameter
-    - [ ] `makeNSView` sets `textView.printBlocks = blocks`
-    - [ ] `updateNSView` sets `textView.printBlocks = blocks` to keep in sync on content changes
-    - [ ] `MarkdownPreviewView` passes `renderedBlocks` (or equivalent current blocks) to `SelectableTextView`
-    - [ ] Files changed: `mkdn/Features/Viewer/Views/SelectableTextView.swift`, `mkdn/Features/Viewer/Views/MarkdownPreviewView.swift`
-    - [ ] Existing rendering behavior is unchanged (no visual regression)
-    - [ ] File passes SwiftLint and SwiftFormat
+    - [x] `SelectableTextView` struct gains a `blocks: [IndexedBlock]` parameter
+    - [x] `makeNSView` sets `textView.printBlocks = blocks`
+    - [x] `updateNSView` sets `textView.printBlocks = blocks` to keep in sync on content changes
+    - [x] `MarkdownPreviewView` passes `renderedBlocks` (or equivalent current blocks) to `SelectableTextView`
+    - [x] Files changed: `mkdn/Features/Viewer/Views/SelectableTextView.swift`, `mkdn/Features/Viewer/Views/MarkdownPreviewView.swift`
+    - [x] Existing rendering behavior is unchanged (no visual regression)
+    - [x] File passes SwiftLint and SwiftFormat
 
 ### User Docs
 

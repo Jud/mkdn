@@ -33,6 +33,7 @@ struct MarkdownPreviewView: View {
         SelectableTextView(
             attributedText: textStorageResult.attributedString,
             attachments: textStorageResult.attachments,
+            blocks: renderedBlocks,
             theme: appSettings.theme,
             isFullReload: isFullReload,
             reduceMotion: reduceMotion,
