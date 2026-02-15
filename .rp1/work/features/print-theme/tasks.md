@@ -113,6 +113,18 @@ When the user presses Cmd+P, the print operation intercepts the request, rebuild
     - **Deviations**: Three deviations from design.md per hypothesis validation (HYP-001): (1) `printView(_:)` instead of `print(_:)` -- correct overridable NSView method; (2) TextKit 2 init instead of TextKit 1 (D4 revision) -- required for drawCodeBlockContainers to work; (3) `NSPrintOperation(view:printInfo:)` instead of `printView.printOperation(for:)` -- correct AppKit API. Added `draw(_:)` override per caveat 1.
     - **Tests**: 287/287 passing (all existing tests unchanged)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
     **Reference**: [design.md#33-codeblockbackgroundtextview-print-override](design.md#33-codeblockbackgroundtextview-print-override)
 
     **Effort**: 4 hours
