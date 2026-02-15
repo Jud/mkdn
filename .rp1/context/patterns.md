@@ -64,11 +64,23 @@ let overlayWidth = entry.preferredWidth ?? context.containerWidth
 
 ## Theme Access
 
-Always access theme via AppState in the environment:
+### Screen Theme (via AppState)
+
+Always access the screen theme via AppState in the environment:
 ```swift
 @Environment(AppState.self) private var appState
 let colors = appState.theme.colors
 ```
+
+### Print Palette (direct static)
+
+The print palette is accessed directly via static properties -- it is not an `AppTheme` case and is never selected by the user:
+```swift
+let colors = PrintPalette.colors
+let syntaxColors = PrintPalette.syntaxColors
+```
+
+`PrintPalette` is a fixed, theme-independent palette (white background, black text, ink-efficient syntax colors) applied automatically when the user prints via Cmd+P. It bypasses `AppState` entirely -- the on-screen theme is never consulted or modified during print.
 
 ## Error Handling
 

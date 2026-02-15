@@ -201,6 +201,18 @@ When the user presses Cmd+P, the print operation intercepts the request, rebuild
     - **Deviations**: None
     - **Tests**: 47/47 passing (all PrintPalette + builder tests)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
     **Reference**: [design.md#34-selectabletextview-plumbing](design.md#34-selectabletextview-plumbing)
 
     **Effort**: 1.5 hours
