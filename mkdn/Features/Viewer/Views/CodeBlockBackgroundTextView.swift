@@ -57,6 +57,13 @@ final class CodeBlockBackgroundTextView: NSTextView {
     /// Current indexed blocks retained for print-time attributed string rebuild.
     var printBlocks: [IndexedBlock] = []
 
+    // MARK: - Live Resize
+
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        needsDisplay = true
+    }
+
     // MARK: - Cursor Rects
 
     override func resetCursorRects() {

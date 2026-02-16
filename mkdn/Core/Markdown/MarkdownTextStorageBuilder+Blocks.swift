@@ -123,8 +123,10 @@ extension MarkdownTextStorageBuilder {
             .paragraphStyle: codeStyle,
         ]))
 
-        setLastParagraphSpacing(codeContent, spacing: blockSpacing, baseStyle: codeStyle)
         result.append(codeContent)
+
+        let spacerStyle = makeParagraphStyle(paragraphSpacing: blockSpacing)
+        result.append(terminator(with: spacerStyle))
     }
 
     // MARK: - Attachment Block

@@ -65,6 +65,7 @@ struct TableBlockView: View {
                 .background(colors.border)
             dataRows(columnWidths: columnWidths)
         }
+        .fixedSize(horizontal: true, vertical: false)
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .overlay(
             RoundedRectangle(cornerRadius: 6)

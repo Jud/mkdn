@@ -456,6 +456,10 @@ extension OverlayCoordinator {
                   let columnWidths = tableColumnWidths[blockIndex]
             else { continue }
             let tableFrame = entry.view.frame
+            guard tableFrame.height > visibleRect.height else {
+                stickyHeaders[blockIndex]?.isHidden = true
+                continue
+            }
             let headerBottom = tableFrame.origin.y + headerHeight
             let tableBottom = tableFrame.origin.y + tableFrame.height
             if visibleRect.origin.y > headerBottom,
@@ -469,7 +473,7 @@ extension OverlayCoordinator {
                 }
                 stickyHeaders[blockIndex]?.frame = CGRect(
                     x: tableFrame.origin.x,
-                    y: visibleRect.origin.y + textView.textContainerOrigin.y,
+                    y: visibleRect.origin.y,
                     width: tableFrame.width,
                     height: headerHeight
                 )
@@ -488,13 +492,10 @@ extension OverlayCoordinator {
     }
 
     func removeObservers() {
-        if let observer = layoutObserver {
+        for observer in [layoutObserver, scrollObserver].compactMap(\.self) {
             NotificationCenter.default.removeObserver(observer)
-            layoutObserver = nil
         }
-        if let observer = scrollObserver {
-            NotificationCenter.default.removeObserver(observer)
-            scrollObserver = nil
-        }
+        layoutObserver = nil
+        scrollObserver = nil
     }
 }

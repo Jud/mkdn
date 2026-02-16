@@ -122,7 +122,7 @@ extension SelectableTextView {
             height: CGFloat.greatestFiniteMagnitude
         )
 
-        let scrollView = NSScrollView()
+        let scrollView = LiveResizeScrollView()
         scrollView.documentView = textView
 
         return (scrollView, textView)
@@ -130,6 +130,7 @@ extension SelectableTextView {
 
     private static func configureTextView(_ textView: NSTextView) {
         textView.wantsLayer = true
+        textView.layerContentsRedrawPolicy = .duringViewResize
         textView.isEditable = false
         textView.isSelectable = true
         textView.drawsBackground = true
@@ -154,6 +155,8 @@ extension SelectableTextView {
         scrollView.hasVerticalScroller = true
         scrollView.hasHorizontalScroller = false
         scrollView.autohidesScrollers = true
+        scrollView.layerContentsRedrawPolicy = .duringViewResize
+        scrollView.contentView.layerContentsRedrawPolicy = .duringViewResize
     }
 
     private func applyTheme(
@@ -194,5 +197,36 @@ extension SelectableTextView {
         let animator = EntranceAnimator()
         let overlayCoordinator = OverlayCoordinator()
         var lastAppliedText: NSAttributedString?
+    }
+}
+
+// MARK: - Live Resize Scroll View
+
+/// NSScrollView subclass that forces TextKit 2 to lay out text in the visible
+/// viewport during live window resize. Without this, the viewport layout
+/// controller defers text layout for newly-exposed areas until resize ends,
+/// causing blank regions while dragging.
+private final class LiveResizeScrollView: NSScrollView {
+    private var liveResizeBoundsOrigin: NSPoint?
+
+    override func tile() {
+        super.tile()
+        guard inLiveResize,
+              let textView = documentView as? NSTextView
+        else { return }
+        textView.textLayoutManager?.textViewportLayoutController.layoutViewport()
+        liveResizeBoundsOrigin = contentView.bounds.origin
+    }
+
+    override func viewDidEndLiveResize() {
+        super.viewDidEndLiveResize()
+        guard let textView = documentView as? NSTextView else { return }
+        textView.textLayoutManager?.textViewportLayoutController.layoutViewport()
+
+        if let savedOrigin = liveResizeBoundsOrigin {
+            contentView.setBoundsOrigin(savedOrigin)
+            reflectScrolledClipView(contentView)
+            liveResizeBoundsOrigin = nil
+        }
     }
 }
