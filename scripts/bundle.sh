@@ -56,4 +56,10 @@ fi
 cp "${INFO_PLIST_SRC}" "${BUNDLE_DIR}/Info.plist"
 echo "  Installed Info.plist"
 
+ICON_SRC="${PROJECT_ROOT}/Resources/AppIcon.icns"
+if [ -f "${ICON_SRC}" ]; then
+    cp "${ICON_SRC}" "${BUNDLE_DIR}/Resources/AppIcon.icns"
+    echo "  Installed AppIcon.icns"
+fi
+
 echo "==> Built ${BUILD_DIR}/${APP_NAME}.app"

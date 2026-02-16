@@ -31,6 +31,7 @@ let package = Package(
             resources: [
                 .copy("Resources/mermaid.min.js"),
                 .copy("Resources/mermaid-template.html"),
+                .copy("Resources/AppIcon.icns"),
             ]
         ),
         .executableTarget(
@@ -42,7 +43,10 @@ let package = Package(
         .testTarget(
             name: "mkdnTests",
             dependencies: ["mkdnLib"],
-            path: "mkdnTests"
+            path: "mkdnTests",
+            resources: [
+                .copy("Fixtures"),
+            ]
         ),
     ]
 )
