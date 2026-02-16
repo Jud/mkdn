@@ -16,7 +16,6 @@ struct MkdnApp: App {
         .handlesExternalEvents(matching: [])
         .windowStyle(.hiddenTitleBar)
         .commands {
-            CommandGroup(replacing: .newItem) {}
             MkdnCommands(appSettings: appSettings)
             OpenRecentCommands()
         }

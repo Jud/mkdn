@@ -27,13 +27,16 @@ public struct MkdnCommands: Commands {
                 let success = DefaultHandlerService.registerAsDefault()
                 if success {
                     documentState?.modeOverlayLabel = "Default Markdown App Set"
+                } else {
+                    documentState?.modeOverlayLabel = "Could not set default — install mkdn.app first"
                 }
             }
+            .disabled(!DefaultHandlerService.canRegisterAsDefault)
         }
 
-        CommandGroup(before: .saveItem) {
-            Button("Close Window") {
-                NSApplication.shared.keyWindow?.close()
+        CommandGroup(after: .newItem) {
+            Button("Close") {
+                NSApp.keyWindow?.performClose(nil)
             }
             .keyboardShortcut("w", modifiers: .command)
         }

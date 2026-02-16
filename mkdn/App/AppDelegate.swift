@@ -17,11 +17,31 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    public func applicationDidFinishLaunching(_: Notification) {
+        installCloseWindowMonitor()
+    }
+
     public func application(_: NSApplication, open urls: [URL]) {
         let markdownURLs = urls.filter { FileOpenCoordinator.isMarkdownURL($0) }
         for url in markdownURLs {
             NSDocumentController.shared.noteNewRecentDocumentURL(url)
             FileOpenCoordinator.shared.pendingURLs.append(url)
+        }
+    }
+
+    /// Installs a local event monitor that handles Cmd-W to close the key window.
+    ///
+    /// A local event monitor intercepts the keystroke before the menu system,
+    /// guaranteeing Cmd-W works regardless of SwiftUI menu state.
+    private func installCloseWindowMonitor() {
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            guard event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
+                  event.charactersIgnoringModifiers == "w"
+            else {
+                return event
+            }
+            NSApp.keyWindow?.performClose(nil)
+            return nil
         }
     }
 

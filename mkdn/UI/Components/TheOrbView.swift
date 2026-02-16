@@ -35,7 +35,9 @@ struct TheOrbView: View {
         if documentState.isFileOutdated {
             states.append(.fileChanged)
         }
-        if !appSettings.hasShownDefaultHandlerHint {
+        if !appSettings.hasShownDefaultHandlerHint,
+           DefaultHandlerService.canRegisterAsDefault
+        {
             states.append(.defaultHandler)
         }
 
@@ -58,7 +60,7 @@ struct TheOrbView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-        .padding(16)
+        .padding(8)
         .onChange(of: activeState) { oldState, newState in
             handleStateChange(from: oldState, to: newState)
         }
