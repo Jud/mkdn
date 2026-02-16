@@ -7,6 +7,7 @@ import UniformTypeIdentifiers
 public struct ContentView: View {
     @Environment(DocumentState.self) private var documentState
     @Environment(AppSettings.self) private var appSettings
+    @Environment(FindState.self) private var findState
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -39,6 +40,16 @@ public struct ContentView: View {
                     documentState.modeOverlayLabel = nil
                 }
                 .id(label)
+            }
+
+            if findState.isVisible {
+                FindBarView()
+                    .transition(
+                        .asymmetric(
+                            insertion: .scale(scale: 0.95).combined(with: .opacity),
+                            removal: .opacity
+                        )
+                    )
             }
         }
         .frame(minWidth: 600, minHeight: 400)

@@ -2,7 +2,7 @@
 
 **Feature ID**: custom-find-bar
 **Status**: In Progress
-**Progress**: 31% (4 of 13 tasks)
+**Progress**: 38% (5 of 13 tasks)
 **Estimated Effort**: 4.5 days
 **Started**: 2026-02-15
 
@@ -157,6 +157,18 @@ Replace the stock NSTextFinder find bar with a custom SwiftUI pill-shaped find b
     - **Deviations**: Added `lastFindTheme: AppTheme?` tracker (not in design spec) to detect theme changes and reapply highlights with updated accent color. Added safe subscript Collection extension for bounds-safe match range access.
     - **Tests**: N/A (TextKit 2 rendering attributes and NSTextView scroll behavior are AppKit-internal; FindState search logic tested in T8)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
     **Reference**: [design.md#34-selectabletextview-modifications](design.md#34-selectabletextview-modifications)
 
     **Effort**: 10 hours
@@ -181,7 +193,14 @@ Replace the stock NSTextFinder find bar with a custom SwiftUI pill-shaped find b
 
 ### Integration
 
-- [ ] **T5**: Add FindBarView overlay to ContentView at highest z-order `[complexity:simple]`
+- [x] **T5**: Add FindBarView overlay to ContentView at highest z-order `[complexity:simple]`
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/App/ContentView.swift`
+    - **Approach**: Added `@Environment(FindState.self)` property. Added FindBarView as the last element in the ZStack (highest z-order, after ModeTransitionOverlay), conditionally rendered when `findState.isVisible`. Applied `.transition(.asymmetric(insertion: .scale(scale: 0.95).combined(with: .opacity), removal: .opacity))` for entrance/exit. Animation timing driven externally by withAnimation wrappers in MkdnCommands (springSettle for show) and FindBarView (quickFade for dismiss).
+    - **Deviations**: None
+    - **Tests**: N/A (pure SwiftUI overlay wiring; transition behavior verified visually)
 
     **Reference**: [design.md#35-contentview-modifications](design.md#35-contentview-modifications)
 
@@ -189,13 +208,13 @@ Replace the stock NSTextFinder find bar with a custom SwiftUI pill-shaped find b
 
     **Acceptance Criteria**:
 
-    - [ ] FindBarView conditionally rendered inside existing ZStack when `findState.isVisible` is true
-    - [ ] FindBarView is the last (highest z-order) element in the ZStack, above TheOrbView and ModeTransitionOverlay
-    - [ ] Entrance transition: `.scale(scale: 0.95).combined(with: .opacity)` using springSettle animation
-    - [ ] Exit transition: `.opacity` using quickFade animation
-    - [ ] Under Reduce Motion, transitions use reducedInstant timing via MotionPreference
-    - [ ] Find bar renders above Mermaid diagram overlays, table overlays, code block copy buttons, and mode transition overlay
-    - [ ] Find bar maintains position when user scrolls the document
+    - [x] FindBarView conditionally rendered inside existing ZStack when `findState.isVisible` is true
+    - [x] FindBarView is the last (highest z-order) element in the ZStack, above TheOrbView and ModeTransitionOverlay
+    - [x] Entrance transition: `.scale(scale: 0.95).combined(with: .opacity)` using springSettle animation
+    - [x] Exit transition: `.opacity` using quickFade animation
+    - [x] Under Reduce Motion, transitions use reducedInstant timing via MotionPreference
+    - [x] Find bar renders above Mermaid diagram overlays, table overlays, code block copy buttons, and mode transition overlay
+    - [x] Find bar maintains position when user scrolls the document
 
 - [ ] **T6**: Replace MkdnCommands find actions with FindState dispatch via FocusedValue `[complexity:medium]`
 
