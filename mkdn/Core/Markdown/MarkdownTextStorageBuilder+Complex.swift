@@ -9,11 +9,11 @@ extension MarkdownTextStorageBuilder {
         to result: NSMutableAttributedString,
         blocks: [MarkdownBlock],
         colors: ThemeColors,
-        theme: AppTheme,
+        syntaxColors: SyntaxColors,
         depth: Int,
         scaleFactor: CGFloat = 1.0
     ) {
-        let ctx = BlockBuildContext(colors: colors, theme: theme, scaleFactor: scaleFactor)
+        let ctx = BlockBuildContext(colors: colors, syntaxColors: syntaxColors, scaleFactor: scaleFactor)
         let indent = blockquoteIndent * CGFloat(depth + 1)
 
         for block in blocks {
@@ -44,7 +44,7 @@ extension MarkdownTextStorageBuilder {
                     to: result,
                     blocks: innerBlocks,
                     colors: colors,
-                    theme: theme,
+                    syntaxColors: syntaxColors,
                     depth: depth + 1,
                     scaleFactor: scaleFactor
                 )
@@ -69,11 +69,11 @@ extension MarkdownTextStorageBuilder {
         to result: NSMutableAttributedString,
         items: [ListItem],
         colors: ThemeColors,
-        theme: AppTheme,
+        syntaxColors: SyntaxColors,
         depth: Int,
         scaleFactor: CGFloat = 1.0
     ) {
-        let ctx = BlockBuildContext(colors: colors, theme: theme, scaleFactor: scaleFactor)
+        let ctx = BlockBuildContext(colors: colors, syntaxColors: syntaxColors, scaleFactor: scaleFactor)
         for (index, item) in items.enumerated() {
             appendListItem(
                 to: result,
@@ -89,13 +89,13 @@ extension MarkdownTextStorageBuilder {
         to result: NSMutableAttributedString,
         items: [ListItem],
         colors: ThemeColors,
-        theme: AppTheme,
+        syntaxColors: SyntaxColors,
         depth: Int,
         scaleFactor: CGFloat = 1.0
     ) {
         let bulletIndex = min(depth, bulletStyles.count - 1)
         let bullet = bulletStyles[bulletIndex]
-        let ctx = BlockBuildContext(colors: colors, theme: theme, scaleFactor: scaleFactor)
+        let ctx = BlockBuildContext(colors: colors, syntaxColors: syntaxColors, scaleFactor: scaleFactor)
         for item in items {
             appendListItem(
                 to: result,
@@ -257,7 +257,7 @@ extension MarkdownTextStorageBuilder {
             scaleFactor: ctx.scaleFactor
         )
         let cl = ctx.colors
-        let th = ctx.theme
+        let sc = ctx.syntaxColors
         let sf = ctx.scaleFactor
         let nextDepth = depth + 1
         var isFirstBlock = true
@@ -274,9 +274,9 @@ extension MarkdownTextStorageBuilder {
                     scaleFactor: sf
                 )
             case let .orderedList(items):
-                appendOrderedList(to: result, items: items, colors: cl, theme: th, depth: nextDepth, scaleFactor: sf)
+                appendOrderedList(to: result, items: items, colors: cl, syntaxColors: sc, depth: nextDepth, scaleFactor: sf)
             case let .unorderedList(items):
-                appendUnorderedList(to: result, items: items, colors: cl, theme: th, depth: nextDepth, scaleFactor: sf)
+                appendUnorderedList(to: result, items: items, colors: cl, syntaxColors: sc, depth: nextDepth, scaleFactor: sf)
             default:
                 let text = plainText(from: block)
                 guard !text.isEmpty else { continue }

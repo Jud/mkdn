@@ -1,0 +1,13 @@
+Debug Changes Log - mermaid-blue-outline
+==========================================
+
+CHANGE_ID: 001
+FILE: mkdn/Core/Mermaid/MermaidWebView.swift
+TYPE: debug_logging
+DESCRIPTION: Added investigateLog() function, dumpViewHierarchy, dumpLayerTree, dumpFullViewTree, findScrollViews helper methods, and renderComplete debug handler to trace view hierarchy, layer tree, focus state, and capture screenshots
+REVERT: Full file restored to original content
+STATUS: REVERTED
+
+All temporary investigation code has been removed.
+Verified: `grep -rn "\[INVESTIGATE\]" mkdn/ --include="*.swift"` returns no results.
+Clean build verified after revert.

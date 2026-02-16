@@ -33,13 +33,13 @@ struct ResolvedColors {
 /// Context for recursive list/blockquote rendering.
 struct BlockBuildContext {
     let colors: ThemeColors
-    let theme: AppTheme
+    let syntaxColors: SyntaxColors
     let resolved: ResolvedColors
     let scaleFactor: CGFloat
 
-    init(colors: ThemeColors, theme: AppTheme, scaleFactor: CGFloat = 1.0) {
+    init(colors: ThemeColors, syntaxColors: SyntaxColors, scaleFactor: CGFloat = 1.0) {
         self.colors = colors
-        self.theme = theme
+        self.syntaxColors = syntaxColors
         self.scaleFactor = scaleFactor
         resolved = ResolvedColors(colors: colors)
     }
@@ -77,16 +77,24 @@ enum MarkdownTextStorageBuilder {
         theme: AppTheme,
         scaleFactor: CGFloat = 1.0
     ) -> TextStorageResult {
+        build(blocks: blocks, colors: theme.colors, syntaxColors: theme.syntaxColors, scaleFactor: scaleFactor)
+    }
+
+    static func build(
+        blocks: [IndexedBlock],
+        colors: ThemeColors,
+        syntaxColors: SyntaxColors,
+        scaleFactor: CGFloat = 1.0
+    ) -> TextStorageResult {
         let result = NSMutableAttributedString()
         var attachments: [AttachmentInfo] = []
-        let colors = theme.colors
 
         for (offset, indexedBlock) in blocks.enumerated() {
             appendBlock(
                 indexedBlock,
                 to: result,
                 colors: colors,
-                theme: theme,
+                syntaxColors: syntaxColors,
                 scaleFactor: scaleFactor,
                 attachments: &attachments
             )
@@ -119,7 +127,7 @@ enum MarkdownTextStorageBuilder {
         _ indexedBlock: IndexedBlock,
         to result: NSMutableAttributedString,
         colors: ThemeColors,
-        theme: AppTheme,
+        syntaxColors: SyntaxColors,
         scaleFactor: CGFloat,
         attachments: inout [AttachmentInfo]
     ) {
@@ -132,15 +140,15 @@ enum MarkdownTextStorageBuilder {
         case let .paragraph(text):
             appendParagraph(to: result, text: text, colors: colors, scaleFactor: sf)
         case let .codeBlock(lang, code):
-            appendCodeBlock(to: result, language: lang, code: code, colors: colors, theme: theme, scaleFactor: sf)
+            appendCodeBlock(to: result, language: lang, code: code, colors: colors, syntaxColors: syntaxColors, scaleFactor: sf)
         case .mermaidBlock, .image:
             appendAttachmentPlaceholder(indexedBlock, to: result, attachments: &attachments)
         case let .blockquote(blocks):
-            appendBlockquote(to: result, blocks: blocks, colors: colors, theme: theme, depth: 0, scaleFactor: sf)
+            appendBlockquote(to: result, blocks: blocks, colors: colors, syntaxColors: syntaxColors, depth: 0, scaleFactor: sf)
         case let .orderedList(items):
-            appendOrderedList(to: result, items: items, colors: colors, theme: theme, depth: 0, scaleFactor: sf)
+            appendOrderedList(to: result, items: items, colors: colors, syntaxColors: syntaxColors, depth: 0, scaleFactor: sf)
         case let .unorderedList(items):
-            appendUnorderedList(to: result, items: items, colors: colors, theme: theme, depth: 0, scaleFactor: sf)
+            appendUnorderedList(to: result, items: items, colors: colors, syntaxColors: syntaxColors, depth: 0, scaleFactor: sf)
         case .thematicBreak:
             appendAttachmentPlaceholder(indexedBlock, to: result, attachments: &attachments)
         case let .table(columns, rows):
@@ -253,9 +261,8 @@ enum MarkdownTextStorageBuilder {
 
     static func highlightSwiftCode(
         _ code: String,
-        theme: AppTheme
+        syntaxColors: SyntaxColors
     ) -> NSMutableAttributedString {
-        let syntaxColors = theme.syntaxColors
         let format = ThemeOutputFormat(
             plainTextColor: PlatformTypeConverter.nsColor(from: syntaxColors.comment),
             tokenColorMap: [

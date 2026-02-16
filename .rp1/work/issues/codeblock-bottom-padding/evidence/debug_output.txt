@@ -1,0 +1,53 @@
+Evidence collected from debug logging runs
+==========================================
+
+Run 1: Single-line code block (test.md = "mkdn path/to/file.md")
+-----------------------------------------------------------------
+[INVESTIGATE] codeContent para[0]: range={0, 21}, spacing=0.0, spacingBefore=12.0, hasCodeBlockAttr=true, text="mkdn path/to/file.md\n"
+[INVESTIGATE] === Code block range {5, 21}, text: "mkdn path/to/file.md\n"
+[INVESTIGATE]   fragment[0]: frame=(17.0, 49.0, 160.72265625, 30.0), nsRange={5, 21}, text="mkdn path/to/file.md\n"
+[INVESTIGATE]   totalFragments=1, boundingRect=(17.0, 49.0, 160.72265625, 30.0)
+
+KEY OBSERVATION: Only ONE paragraph in codeContent. The trailing "\n" appended
+with codeBottomStyle was absorbed into para[0] as its paragraph terminator.
+No separate paragraph was created.
+
+Run 2: Multi-line code block ("line one\nline two\nmkdn path/to/file.md")
+--------------------------------------------------------------------------
+[INVESTIGATE] codeContent para[0]: range={0, 9}, spacing=0.0, spacingBefore=12.0, hasCodeBlockAttr=true, lastCharSpacing=0.0, text="line one\n"
+[INVESTIGATE] codeContent para[1]: range={9, 9}, spacing=0.0, spacingBefore=0.0, hasCodeBlockAttr=true, lastCharSpacing=0.0, text="line two\n"
+[INVESTIGATE] codeContent para[2]: range={18, 21}, spacing=0.0, spacingBefore=0.0, hasCodeBlockAttr=true, lastCharSpacing=12.0, text="mkdn path/to/file.md\n"
+[INVESTIGATE] === Code block range {5, 39}, text: "line one\nline two\nmkdn path/to/file.md\n"
+[INVESTIGATE]   fragment[0]: frame=(17.0, 49.0, 64.2890625, 30.0), nsRange={5, 9}, text="line one\n"
+[INVESTIGATE]   fragment[1]: frame=(17.0, 79.0, 64.2890625, 18.0), nsRange={14, 9}, text="line two\n"
+[INVESTIGATE]   fragment[2]: frame=(17.0, 97.0, 160.72265625, 18.0), nsRange={23, 21}, text="mkdn path/to/file.md\n"
+[INVESTIGATE]   totalFragments=3, boundingRect=(17.0, 49.0, 160.72265625, 66.0)
+
+KEY OBSERVATION: Para[2] has spacing=0.0 (from first char) but lastCharSpacing=12.0
+(from the appended "\n"). TextKit 2 uses the FIRST character's paragraph style,
+so the 12pt paragraphSpacing on the "\n" is silently ignored.
+
+Run 3: Attribute preservation verification
+-------------------------------------------
+[INVESTIGATE] After append to result: lastChar (pos 43) paragraphSpacing=12.0
+
+KEY OBSERVATION: The 12pt paragraphSpacing attribute IS preserved on the "\n"
+character in the final attributed string. It's not being lost -- it's just being
+ignored by TextKit 2's layout engine.
+
+Run 4: Post-setAttributedString verification (in drawBackground)
+------------------------------------------------------------------
+[INVESTIGATE]   lastPara firstCharStyle.spacing=0.0, lastCharStyle.spacing=0.0, lastFragFrame=(17.0, 97.0, 160.72265625, 18.0)
+[INVESTIGATE]   NEXT fragment after code block: frame=(5.0, 115.0, 0.0, 32.0)
+
+KEY OBSERVATION: After textStorage.setAttributedString(), both first and last char
+styles show spacing=0.0 -- suggesting TextKit 2's NSTextContentStorage may normalize
+paragraph styles to use the first character's style for the entire paragraph.
+The next fragment after the code block starts at y=115.0 (= 97.0 + 18.0), confirming
+zero bottom padding contribution from the code block.
+
+Fragment height analysis:
+- fragment[0] height = 30.0 = 18pt line + 12pt paragraphSpacingBefore (top padding)
+- fragment[1] height = 18.0 = standard monospaced line height
+- fragment[2] height = 18.0 = standard monospaced line height (NO extra bottom padding)
+- Total bounding height = 66.0 = 30 + 18 + 18

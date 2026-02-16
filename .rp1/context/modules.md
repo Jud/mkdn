@@ -114,6 +114,7 @@
 | SolarizedDark.swift | Dark theme values |
 | SolarizedLight.swift | Light theme values |
 | AnimationConstants.swift | Named animation primitives (breathe, haloBloom, springSettle, gentleSpring, quickSettle, fadeIn, fadeOut, crossfade, quickFade, quickShift), stagger/hover/focus constants, orb colors, overlay timing, reduce-motion alternatives. MARK-delimited groups. |
+| PrintPalette.swift | Print-friendly color palette enum. Static `colors: ThemeColors` (white bg, black text) and `syntaxColors: SyntaxColors` (ink-efficient, WCAG AA). Applied automatically during Cmd+P -- not user-selectable, not tied to AppTheme. |
 | MotionPreference.swift | Reduce Motion resolver. `MotionPreference(reduceMotion:)` struct with `Primitive` enum. `resolved(_:)` returns `Animation?` (nil for continuous when RM on). `allowsContinuousAnimation` bool, `staggerDelay` accessor. |
 
 ## Dependencies

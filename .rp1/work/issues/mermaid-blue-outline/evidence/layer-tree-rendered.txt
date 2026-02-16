@@ -1,0 +1,34 @@
+Layer Tree Dump - 3s After Render Complete (Full Size)
+======================================================
+NSHostingView frame=(37.0, 81.0, 888.0, 1378.89)
+
+LAYER: NSViewBackingLayer frame=(37.0, 81.0, 888.0, 1378.89)
+  LAYER: NSViewBackingLayer frame=(0.0, 10.5, 888.0, 1358.0) cornerRadius=6.0 bgColor=(0.027, 0.212, 0.259, 1) CLIPPED
+    -> This is .background(colors.backgroundSecondary) = base02 #073642
+  LAYER: NSViewBackingLayer frame=(0.0, 10.5, 888.0, 1358.0) cornerRadius=6.0 CLIPPED
+    LAYER: NSViewBackingLayer frame=(0.0, 0.0, 888.0, 1358.0)
+      LAYER: NSViewBackingLayer frame=(0.0, 0.0, 888.0, 1358.0)
+        LAYER: NSViewBackingLayer frame=(0.0, 0.0, 888.0, 1358.0) bgColor=transparent
+          LAYER: CALayer frame=(0.0, 0.0, 888.0, 1358.0) CLIPPED
+            LAYER: WKCompositingLayer (multiple nested compositing layers for web content)
+    -> This is the .clipShape(RoundedRectangle(cornerRadius: 6)) + MermaidWebView content
+  LAYER: NSViewBackingLayer frame=(0.0, 10.5, 888.0, 1358.0) cornerRadius=6.0 bgColor=(1, 1, 1, 0.03) CLIPPED
+    -> This is .hoverBrightness() overlay (white at 3% opacity)
+
+VIEW TREE:
+NSHostingView (focusRing=1/.none)
+  _NSGraphicsView (focusRing=0/.default, cornerR=6.0) -> background layer
+  _NSInheritedView (focusRing=0/.default, cornerR=6.0) -> content host
+    PlatformViewHost (focusRing=0/.default) -> NSViewRepresentable bridge
+      MermaidContainerView (focusRing=1/.none) -> custom hit-test gate
+        WKWebView (focusRing=1/.none) -> web content
+          WKFlippedView (focusRing=0/.default) -> internal flipped view
+  _NSGraphicsView (focusRing=0/.default, cornerR=6.0) -> hover overlay
+
+KEY FINDINGS:
+- NO layer has borderWidth > 0
+- NO scroll view has borderType != .noBorder
+- WKWebView.enclosingScrollView resolves to parent NSScrollView (borderType=0)
+- No internal scroll views found inside WKWebView
+- First responder is window, not any mermaid view
+- All layer contents are nil (no drawn bitmap content)

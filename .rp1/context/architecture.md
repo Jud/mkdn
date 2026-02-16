@@ -82,6 +82,22 @@ Code block with language tag
 -> SwiftUI Text
 ```
 
+### Print
+```
+Cmd+P
+-> CodeBlockBackgroundTextView.printView(_:)
+-> PrintPalette.colors + PrintPalette.syntaxColors
+-> MarkdownTextStorageBuilder.build(blocks:colors:syntaxColors:)
+-> Temporary CodeBlockBackgroundTextView (off-screen, white bg, 32pt inset)
+-> NSPrintOperation(view:printInfo:).run()
+```
+
+The on-screen view is never modified. The print override rebuilds the full
+attributed string from the current `printBlocks` using the fixed print palette,
+constructs a disposable TextKit 2 text view, and hands it to `NSPrintOperation`.
+After the print dialog closes, the temporary view is discarded. No flicker,
+no theme flash, no state mutation.
+
 ## Data Flow
 
 1. File opened (CLI arg, drag-drop, or open dialog)

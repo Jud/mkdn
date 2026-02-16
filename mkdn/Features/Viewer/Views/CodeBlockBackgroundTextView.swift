@@ -52,6 +52,11 @@ final class CodeBlockBackgroundTextView: NSTextView {
     private var copyButtonOverlay: NSView?
     private var cachedBlockRects: [CodeBlockGeometry] = []
 
+    // MARK: - Print Support
+
+    /// Current indexed blocks retained for print-time attributed string rebuild.
+    var printBlocks: [IndexedBlock] = []
+
     // MARK: - Cursor Rects
 
     override func resetCursorRects() {
@@ -248,9 +253,79 @@ final class CodeBlockBackgroundTextView: NSTextView {
 
     // MARK: - Drawing
 
+    // Required for offscreen (print) rendering: TextKit 2 only dispatches to
+    // drawBackground(in:) from draw(_:), not from display(), for non-windowed views.
+    // swiftlint:disable:next unneeded_override
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+    }
+
     override func drawBackground(in rect: NSRect) {
         super.drawBackground(in: rect)
         drawCodeBlockContainers(in: rect)
+    }
+
+    // MARK: - Print
+
+    override func printView(_ sender: Any?) {
+        guard !printBlocks.isEmpty else {
+            super.printView(sender)
+            return
+        }
+
+        let result = MarkdownTextStorageBuilder.build(
+            blocks: printBlocks,
+            colors: PrintPalette.colors,
+            syntaxColors: PrintPalette.syntaxColors
+        )
+
+        let cloneView = Self.makePrintTextView(
+            attributedString: result.attributedString,
+            size: bounds.size
+        )
+
+        // swiftlint:disable:next force_cast
+        let printInfo = NSPrintInfo.shared.copy() as! NSPrintInfo
+        let printOp = NSPrintOperation(view: cloneView, printInfo: printInfo)
+        printOp.showsPrintPanel = true
+        printOp.showsProgressPanel = true
+        printOp.run()
+    }
+
+    private static func makePrintTextView(
+        attributedString: NSAttributedString,
+        size: NSSize
+    ) -> CodeBlockBackgroundTextView {
+        let textContainer = NSTextContainer()
+        textContainer.widthTracksTextView = true
+
+        let layoutManager = NSTextLayoutManager()
+        layoutManager.textContainer = textContainer
+
+        let contentStorage = NSTextContentStorage()
+        contentStorage.addTextLayoutManager(layoutManager)
+
+        let textView = CodeBlockBackgroundTextView(
+            frame: NSRect(origin: .zero, size: size),
+            textContainer: textContainer
+        )
+        textView.isEditable = false
+        textView.isSelectable = false
+        textView.drawsBackground = true
+        textView.backgroundColor = PlatformTypeConverter.nsColor(
+            from: PrintPalette.colors.background
+        )
+        textView.textContainerInset = NSSize(width: 32, height: 32)
+        textView.textStorage?.setAttributedString(attributedString)
+
+        if let tlm = textView.textLayoutManager,
+           let tcm = tlm.textContentManager
+        {
+            tlm.ensureLayout(for: tcm.documentRange)
+        }
+
+        textView.sizeToFit()
+        return textView
     }
 
     private func drawCodeBlockContainers(in dirtyRect: NSRect) {

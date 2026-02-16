@@ -1,0 +1,22 @@
+View Hierarchy Dump - First Render Complete
+============================================
+Captured at: renderComplete message handler
+OS: macOS 15.5 (Darwin 24.5.0)
+
+--- WKWebView internal hierarchy ---
+WKWebView frame=(0.0, 0.0, 502.0, 100.0) focusRing=1(.none) hasLayer=true
+  child[0]: WKFlippedView frame=(0.0, 0.0, 502.0, 100.0) focusRing=0(.default) hasLayer=true
+
+--- Container upward chain ---
+MermaidContainerView focusRing=1(.none)
+PARENT[0] PlatformViewHost<PlatformViewRepresentableAdaptor<MermaidWebView>> focusRing=0(.default) borderW=0 acceptsFirstResponder=false
+PARENT[1] _NSInheritedView focusRing=0(.default) borderW=0 acceptsFirstResponder=false
+PARENT[2] NSHostingView<MermaidBlockView+env> focusRing=1(.none) borderW=0 acceptsFirstResponder=false
+PARENT[3] CodeBlockBackgroundTextView focusRing=0(.default) borderW=0 acceptsFirstResponder=true
+PARENT[4] NSClipView focusRing=0(.default) borderW=0 acceptsFirstResponder=true
+PARENT[5] NSScrollView focusRing=0(.default) borderW=0 borderType=0(.noBorder) acceptsFirstResponder=true
+PARENT[6] PlatformViewHost<SelectableTextView> focusRing=0(.default) borderW=0 acceptsFirstResponder=false
+PARENT[7] NSHostingView<root> focusRing=0(.default) borderW=0 acceptsFirstResponder=false
+PARENT[8] NSThemeFrame focusRing=0(.default) borderW=0 acceptsFirstResponder=false
+
+FIRST_RESPONDER: SwiftUI.AppKitWindow (the window itself, not any view)

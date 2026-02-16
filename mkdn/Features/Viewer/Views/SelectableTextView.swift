@@ -15,6 +15,7 @@ import SwiftUI
 struct SelectableTextView: NSViewRepresentable {
     let attributedText: NSAttributedString
     let attachments: [AttachmentInfo]
+    let blocks: [IndexedBlock]
     let theme: AppTheme
     let isFullReload: Bool
     let reduceMotion: Bool
@@ -38,6 +39,7 @@ struct SelectableTextView: NSViewRepresentable {
         coordinator.animator.textView = textView
 
         applyTheme(to: textView, scrollView: scrollView)
+        textView.printBlocks = blocks
 
         if isFullReload {
             coordinator.animator.beginEntrance(reduceMotion: reduceMotion)
@@ -60,13 +62,14 @@ struct SelectableTextView: NSViewRepresentable {
     }
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
-        guard let textView = scrollView.documentView as? NSTextView else {
+        guard let textView = scrollView.documentView as? CodeBlockBackgroundTextView else {
             return
         }
 
         let coordinator = context.coordinator
 
         applyTheme(to: textView, scrollView: scrollView)
+        textView.printBlocks = blocks
 
         let isNewContent = coordinator.lastAppliedText !== attributedText
         if isNewContent {

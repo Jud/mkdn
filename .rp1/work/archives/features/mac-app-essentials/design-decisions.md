@@ -1,0 +1,39 @@
+# Design Decisions: Mac App Essentials
+
+**Feature ID**: mac-app-essentials
+**Created**: 2026-02-13
+
+## Decision Log
+
+| ID | Decision | Choice | Rationale | Alternatives Considered |
+|----|----------|--------|-----------|------------------------|
+| D1 | Zoom implementation approach | Font-size scaling via MarkdownTextStorageBuilder | Produces crisp, sharp text at all scale factors (REQ-ZOOM-006). NSFont point sizes are resolution-independent; the text rendering system produces clean glyphs at any size. | (a) NSScrollView.magnification -- quick but produces blurry text at non-integer scales; (b) textView.scaleUnitSquare -- same blurriness issue; (c) CSS-style transform -- not applicable to NSTextView |
+| D2 | Find/Print dispatch mechanism | NSApp.sendAction via NSResponder chain | Zero custom plumbing. NSTextView already implements performFindPanelAction and print. The responder chain delivers actions to the first responder (the NSTextView) automatically. Standard macOS pattern. | (a) Store NSTextView reference in DocumentState and call methods directly -- breaks MVVM separation; (b) Custom @FocusedValue for NSTextView -- unnecessary complexity; (c) NotificationCenter -- fragile, not the macOS convention |
+| D3 | Code block copy button hosting | NSTextView-level hover tracking + NSHostingView overlay | Code blocks are inline attributed text in the NSTextView, not SwiftUI overlay views. The copy button must be positioned relative to code block geometry which is only available from TextKit 2 layout. CodeBlockBackgroundTextView already computes this geometry for drawing. | (a) Convert code blocks to overlay views (NSHostingView like Mermaid/tables) -- massive architectural change, breaks existing rendering pipeline; (b) NSTrackingArea on the scroll view -- less precise hit testing; (c) SwiftUI overlay via NSViewRepresentable coordinator -- can't access code block geometry from SwiftUI layer |
+| D4 | Multi-file CLI passing mechanism | Newline-delimited MKDN_LAUNCH_FILE env var | Simplest extension of existing execv pattern. File paths cannot contain newlines, so the delimiter is unambiguous. Works within existing process re-launch architecture. | (a) Multiple env vars (MKDN_LAUNCH_FILE_0, _1, ...) -- verbose, arbitrary limit; (b) Temp file listing paths -- extra filesystem I/O and cleanup; (c) Skip execv, use AppKit API to suppress AppleEvent handling -- risky, poorly documented |
+| D5 | Task list checkbox visual | SF Symbols (square, checkmark.square.fill) | Native macOS appearance consistent with the charter's "native feel" requirement. Available on macOS 11+ (project targets 14.0+). Automatically adapts to accessibility settings (Dynamic Type, VoiceOver). | (a) Unicode characters (ballot box, checked ballot box) -- inconsistent rendering across fonts; (b) Custom-drawn checkbox paths -- foreign appearance, maintenance burden; (c) NSButton embedded as NSTextAttachment -- interactive by default (conflicts with read-only requirement) |
+| D6 | About window implementation | NSApp.orderFrontStandardAboutPanel | The standard macOS About panel provides familiar, native appearance with minimal code. Automatically reads app name and version from Info.plist. The charter demands elegance -- the standard panel IS elegant. | (a) Custom SwiftUI window -- more code, risk of looking non-native; (b) NSPanel subclass -- unnecessary customization |
+| D7 | Zoom persistence location | UserDefaults via AppSettings | Consistent with existing persistence pattern (themeMode, autoReloadEnabled, hasShownDefaultHandlerHint all use UserDefaults via AppSettings). App-wide setting (not per-document). | (a) Per-document zoom stored in file metadata -- overkill for a viewer; (b) Separate preferences file -- inconsistent with existing pattern |
+| D8 | Find bar vs Find panel | usesFindBar (in-view bar) | The find bar integrates directly into the NSTextView/NSScrollView, keeping the document visible during search. This is the modern macOS pattern (used by Safari, Xcode, Preview). The find panel (floating sheet) obscures content. | (a) usesFindPanel (floating panel) -- obscures document content; (b) Custom find UI -- unnecessary when NSTextView provides native support |
+| D9 | Zoom scale factor range | 0.5x to 3.0x, 0.1 step | Covers accessibility needs (large text at 3x) and overview reading (small at 0.5x) without rendering extremes. 10% step matches common macOS app behavior (Safari, Preview). | (a) 0.25x to 5.0x -- extreme values produce unusable rendering; (b) 0.75x to 2.0x -- too restrictive for accessibility; (c) Continuous zoom (trackpad pinch) -- more complex, deferred |
+| D10 | Zoom overlay feedback | Reuse ModeTransitionOverlay with percentage string | The ephemeral overlay mechanism already exists in ContentView for mode transitions and theme changes. Reusing it for zoom provides visual consistency and zero new UI components. | (a) Dedicated zoom indicator view -- unnecessary new component; (b) Status bar text -- mkdn has no status bar; (c) No feedback -- violates usability expectations |
+| D11 | Save As file type restriction | .md only (allowedContentTypes) | Charter scope is Markdown only. Save As saves the Markdown source, not an export. Consistent with the app's single-format focus. | (a) Allow any extension -- confusing, user might expect format conversion; (b) .md and .markdown -- .markdown is uncommon as a save target |
+| D12 | Print theme handling | Use existing themed NSAttributedString as-is | The NSTextView's textStorage already contains the themed attributed string with correct colors, fonts, and formatting. NSTextView.print prints this directly. No custom print formatter needed. | (a) Custom NSPrintOperation with print-specific theme -- unnecessary complexity when screen theme works for print; (b) Always print with light theme -- violates REQ-PRINT-002 |
+
+## AFK Mode: Auto-Selected Technology Decisions
+
+| Decision | Choice | Source | Rationale |
+|----------|--------|--------|-----------|
+| Find bar dispatch mechanism | NSApp.sendAction with tagged sender | Codebase pattern (responder chain is standard macOS) | NSTextView is the first responder; standard macOS pattern for menu-to-view communication |
+| Zoom increment | 0.1x (10%) per Cmd+/- | Requirements (BR-004) | Explicitly specified in business rules |
+| Zoom bounds | 0.5x to 3.0x | Requirements (BR-003) | Explicitly specified in business rules |
+| Copy button position | Top-right corner of code block | Requirements (REQ-COPY-001 acceptance criteria) | Most common convention (GitHub, VS Code) |
+| Copy button animation | quickShift for symbol transition, quickFade for appear/disappear | KB patterns.md (animation primitives) | Consistent with existing hover feedback patterns |
+| Checkbox SF Symbols | square (unchecked), checkmark.square.fill (checked) | Requirements (REQ-TASK-004) | Standard SF Symbol names for checkbox representation |
+| About panel | NSApp.orderFrontStandardAboutPanel | Requirements (REQ-ABOUT-004) | Explicitly suggested in requirements |
+| Multi-file env delimiter | Newline (\n) | Requirements (clarification #8) | Pre-resolved in requirements document |
+| Save As file type | .md only | Requirements (clarification #5) | Pre-resolved in requirements document |
+| Scale factor persistence | UserDefaults via AppSettings | KB patterns.md (existing persistence pattern) | Consistent with themeMode, autoReloadEnabled |
+| Print action dispatch | NSApp.sendAction(printView:) | Codebase pattern | Standard macOS responder chain pattern |
+| Page Setup action | NSApp.sendAction(runPageLayout:) | Codebase pattern | Standard macOS responder chain pattern |
+| Version string alignment | Match Info.plist to MkdnCLI version | Requirements (BR-011) | About panel reads from Info.plist; CLI reads from MkdnCLI.configuration.version |
