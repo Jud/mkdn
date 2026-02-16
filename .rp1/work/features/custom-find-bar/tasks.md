@@ -2,7 +2,7 @@
 
 **Feature ID**: custom-find-bar
 **Status**: In Progress
-**Progress**: 38% (5 of 13 tasks)
+**Progress**: 46% (6 of 13 tasks)
 **Estimated Effort**: 4.5 days
 **Started**: 2026-02-15
 
@@ -202,6 +202,18 @@ Replace the stock NSTextFinder find bar with a custom SwiftUI pill-shaped find b
     - **Deviations**: None
     - **Tests**: N/A (pure SwiftUI overlay wiring; transition behavior verified visually)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ⏭️ N/A |
+
     **Reference**: [design.md#35-contentview-modifications](design.md#35-contentview-modifications)
 
     **Effort**: 1.5 hours
@@ -216,7 +228,14 @@ Replace the stock NSTextFinder find bar with a custom SwiftUI pill-shaped find b
     - [x] Find bar renders above Mermaid diagram overlays, table overlays, code block copy buttons, and mode transition overlay
     - [x] Find bar maintains position when user scrolls the document
 
-- [ ] **T6**: Replace MkdnCommands find actions with FindState dispatch via FocusedValue `[complexity:medium]`
+- [x] **T6**: Replace MkdnCommands find actions with FindState dispatch via FocusedValue `[complexity:medium]`
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/App/MkdnCommands.swift`
+    - **Approach**: Added @FocusedValue for findState. Replaced all four find menu items (Cmd+F, Cmd+G, Cmd+Shift+G, Cmd+E) to dispatch through FindState instead of NSTextFinder's performFindPanelAction. Removed sendFindAction method and viewportStartOffset helper (only used by sendFindAction). Added motionAnimation helper resolving MotionPreference from NSWorkspace accessibility. Cmd+E extracts selected text via NSTextView.selectedRange and Swift String range conversion, guarding on non-empty selection. Retained findTextView() static method for Print functionality.
+    - **Deviations**: Also removed `viewportStartOffset(in:)` private method which was exclusively used by `sendFindAction` and is no longer needed. This is a natural consequence of removing `sendFindAction`.
+    - **Tests**: N/A (menu command wiring; FindState logic tested in T8)
 
     **Reference**: [design.md#36-mkdncommands-modifications](design.md#36-mkdncommands-modifications)
 
@@ -224,13 +243,13 @@ Replace the stock NSTextFinder find bar with a custom SwiftUI pill-shaped find b
 
     **Acceptance Criteria**:
 
-    - [ ] MkdnCommands declares `@FocusedValue(\.findState) private var findState`
-    - [ ] Cmd+F calls `findState?.show()` wrapped in `withAnimation(motionAnimation(.springSettle))`
-    - [ ] Cmd+G calls `findState?.nextMatch()`
-    - [ ] Cmd+Shift+G calls `findState?.previousMatch()`
-    - [ ] Cmd+E reads selected text from text view, calls `findState?.useSelection(selectedText)` wrapped in `withAnimation(motionAnimation(.springSettle))`
-    - [ ] Previous `sendFindAction` method and `performFindPanelAction` calls are removed entirely
-    - [ ] Private `motionAnimation` helper resolves MotionPreference from `NSWorkspace.shared.accessibilityDisplayShouldReduceMotion`
+    - [x] MkdnCommands declares `@FocusedValue(\.findState) private var findState`
+    - [x] Cmd+F calls `findState?.show()` wrapped in `withAnimation(motionAnimation(.springSettle))`
+    - [x] Cmd+G calls `findState?.nextMatch()`
+    - [x] Cmd+Shift+G calls `findState?.previousMatch()`
+    - [x] Cmd+E reads selected text from text view, calls `findState?.useSelection(selectedText)` wrapped in `withAnimation(motionAnimation(.springSettle))`
+    - [x] Previous `sendFindAction` method and `performFindPanelAction` calls are removed entirely
+    - [x] Private `motionAnimation` helper resolves MotionPreference from `NSWorkspace.shared.accessibilityDisplayShouldReduceMotion`
 
 - [ ] **T7**: Create and inject FindState in DocumentWindow via environment and focusedSceneValue `[complexity:simple]`
 

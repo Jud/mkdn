@@ -8,6 +8,7 @@ import UniformTypeIdentifiers
 public struct MkdnCommands: Commands {
     public let appSettings: AppSettings
     @FocusedValue(\.documentState) private var documentState
+    @FocusedValue(\.findState) private var findState
 
     public init(appSettings: AppSettings) {
         self.appSettings = appSettings
@@ -56,24 +57,33 @@ public struct MkdnCommands: Commands {
         }
 
         CommandGroup(after: .pasteboard) {
-            // NSFindPanelAction tags: showFindPanel=1, next=2, previous=3, setFindString=7
             Button("Find...") {
-                sendFindAction(tag: 1)
+                withAnimation(motionAnimation(.springSettle)) {
+                    findState?.show()
+                }
             }
             .keyboardShortcut("f", modifiers: .command)
 
             Button("Find Next") {
-                sendFindAction(tag: 2)
+                findState?.nextMatch()
             }
             .keyboardShortcut("g", modifiers: .command)
 
             Button("Find Previous") {
-                sendFindAction(tag: 3)
+                findState?.previousMatch()
             }
             .keyboardShortcut("g", modifiers: [.command, .shift])
 
             Button("Use Selection for Find") {
-                sendFindAction(tag: 7)
+                guard let textView = Self.findTextView() else { return }
+                let range = textView.selectedRange()
+                guard range.length > 0,
+                      let swiftRange = Range(range, in: textView.string)
+                else { return }
+                let selectedText = String(textView.string[swiftRange])
+                withAnimation(motionAnimation(.springSettle)) {
+                    findState?.useSelection(selectedText)
+                }
             }
             .keyboardShortcut("e", modifiers: .command)
         }
@@ -159,15 +169,6 @@ public struct MkdnCommands: Commands {
     }
 
     @MainActor
-    private func sendFindAction(tag: Int) {
-        guard let textView = Self.findTextView() else { return }
-        textView.window?.makeFirstResponder(textView)
-        let menuItem = NSMenuItem()
-        menuItem.tag = tag
-        textView.performFindPanelAction(menuItem)
-    }
-
-    @MainActor
     static func findTextView() -> CodeBlockBackgroundTextView? {
         guard let contentView = NSApp.keyWindow?.contentView else { return nil }
         return findTextView(in: contentView)
@@ -183,6 +184,11 @@ public struct MkdnCommands: Commands {
             }
         }
         return nil
+    }
+
+    private func motionAnimation(_ primitive: MotionPreference.Primitive) -> Animation? {
+        let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        return MotionPreference(reduceMotion: reduceMotion).resolved(primitive)
     }
 
     @MainActor
