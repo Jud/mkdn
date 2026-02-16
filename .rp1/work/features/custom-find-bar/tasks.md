@@ -2,7 +2,7 @@
 
 **Feature ID**: custom-find-bar
 **Status**: In Progress
-**Progress**: 54% (7 of 13 tasks)
+**Progress**: 62% (8 of 13 tasks)
 **Estimated Effort**: 4.5 days
 **Started**: 2026-02-15
 
@@ -283,9 +283,28 @@ Replace the stock NSTextFinder find bar with a custom SwiftUI pill-shaped find b
     - [x] FindState published via `.focusedSceneValue(\.findState, findState)` for menu command access
     - [x] FindState injection is parallel to existing DocumentState and AppSettings injection
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ⏭️ N/A |
+
 ### Testing
 
-- [ ] **T8**: Write FindState unit tests covering search, navigation, and lifecycle `[complexity:medium]`
+- [x] **T8**: Write FindState unit tests covering search, navigation, and lifecycle `[complexity:medium]`
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdnTests/Unit/FindStateTests.swift`
+    - **Approach**: Created 16 tests in a @Suite("FindState") struct covering search (empty query, case-insensitive, multiple matches, no matches), navigation (wrap forward, wrap backward, sequential next/prev, no-op when empty), lifecycle (dismiss clears state, useSelection, show), and content change scenarios (recompute on new text, index clamping, index reset on zero matches). All test functions use @MainActor annotation on the function (not the struct).
+    - **Deviations**: None
+    - **Tests**: 16/16 passing
 
     **Reference**: [design.md#7-testing-strategy](design.md#7-testing-strategy)
 
@@ -293,18 +312,18 @@ Replace the stock NSTextFinder find bar with a custom SwiftUI pill-shaped find b
 
     **Acceptance Criteria**:
 
-    - [ ] New file `mkdnTests/Unit/FindStateTests.swift` using Swift Testing (`@Suite`, `@Test`, `#expect`)
-    - [ ] Test: empty query produces no matches
-    - [ ] Test: case-insensitive search finds matches regardless of case
-    - [ ] Test: multiple matches found with correct ranges
-    - [ ] Test: navigation wraps forward from last match to first
-    - [ ] Test: navigation wraps backward from first match to last
-    - [ ] Test: `dismiss()` clears query, matchRanges, currentMatchIndex, and isVisible
-    - [ ] Test: `useSelection` sets query and shows bar
-    - [ ] Test: content change recomputes matches (call `performSearch` with different text)
-    - [ ] Test: currentMatchIndex clamped when match count decreases
-    - [ ] All test functions annotated with `@MainActor` (not the `@Suite` struct)
-    - [ ] Tests import `@testable import mkdnLib`
+    - [x] New file `mkdnTests/Unit/FindStateTests.swift` using Swift Testing (`@Suite`, `@Test`, `#expect`)
+    - [x] Test: empty query produces no matches
+    - [x] Test: case-insensitive search finds matches regardless of case
+    - [x] Test: multiple matches found with correct ranges
+    - [x] Test: navigation wraps forward from last match to first
+    - [x] Test: navigation wraps backward from first match to last
+    - [x] Test: `dismiss()` clears query, matchRanges, currentMatchIndex, and isVisible
+    - [x] Test: `useSelection` sets query and shows bar
+    - [x] Test: content change recomputes matches (call `performSearch` with different text)
+    - [x] Test: currentMatchIndex clamped when match count decreases
+    - [x] All test functions annotated with `@MainActor` (not the `@Suite` struct)
+    - [x] Tests import `@testable import mkdnLib`
 
 ### User Docs
 
