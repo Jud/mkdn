@@ -89,11 +89,7 @@ public struct MkdnCommands: Commands {
             .keyboardShortcut("P", modifiers: [.command, .shift])
 
             Button("Print...") {
-                NSApp.sendAction(
-                    #selector(NSView.printView(_:)),
-                    to: nil,
-                    from: nil
-                )
+                Self.findTextView()?.printView(nil)
             }
             .keyboardShortcut("p", modifiers: .command)
         }
@@ -164,13 +160,29 @@ public struct MkdnCommands: Commands {
 
     @MainActor
     private func sendFindAction(tag: Int) {
+        guard let textView = Self.findTextView() else { return }
+        textView.window?.makeFirstResponder(textView)
         let menuItem = NSMenuItem()
         menuItem.tag = tag
-        NSApp.sendAction(
-            #selector(NSTextView.performFindPanelAction(_:)),
-            to: nil,
-            from: menuItem
-        )
+        textView.performFindPanelAction(menuItem)
+    }
+
+    @MainActor
+    static func findTextView() -> CodeBlockBackgroundTextView? {
+        guard let contentView = NSApp.keyWindow?.contentView else { return nil }
+        return findTextView(in: contentView)
+    }
+
+    private static func findTextView(in view: NSView) -> CodeBlockBackgroundTextView? {
+        if let textView = view as? CodeBlockBackgroundTextView {
+            return textView
+        }
+        for subview in view.subviews {
+            if let found = findTextView(in: subview) {
+                return found
+            }
+        }
+        return nil
     }
 
     @MainActor

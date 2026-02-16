@@ -193,9 +193,8 @@ final class CodeBlockBackgroundTextView: NSTextView {
         colorInfo: CodeBlockColorInfo,
         range: NSRange
     ) -> CodeBlockCopyButton {
-        let capturedRange = range
-        return CodeBlockCopyButton(codeBlockColors: colorInfo) { [weak self] in
-            self?.copyCodeBlock(at: capturedRange)
+        CodeBlockCopyButton(codeBlockColors: colorInfo) { [weak self] in
+            self?.copyCodeBlock(at: range)
         }
     }
 
@@ -280,59 +279,28 @@ final class CodeBlockBackgroundTextView: NSTextView {
             return
         }
 
+        let savedString = textStorage.map { NSAttributedString(attributedString: $0) }
+        let savedBgColor = backgroundColor
+
         let result = MarkdownTextStorageBuilder.build(
             blocks: printBlocks,
             colors: PrintPalette.colors,
             syntaxColors: PrintPalette.syntaxColors
         )
-
-        let cloneView = Self.makePrintTextView(
-            attributedString: result.attributedString,
-            size: bounds.size
-        )
+        textStorage?.setAttributedString(result.attributedString)
+        backgroundColor = PlatformTypeConverter.nsColor(from: PrintPalette.colors.background)
 
         // swiftlint:disable:next force_cast
         let printInfo = NSPrintInfo.shared.copy() as! NSPrintInfo
-        let printOp = NSPrintOperation(view: cloneView, printInfo: printInfo)
+        let printOp = NSPrintOperation(view: self, printInfo: printInfo)
         printOp.showsPrintPanel = true
         printOp.showsProgressPanel = true
         printOp.run()
-    }
 
-    private static func makePrintTextView(
-        attributedString: NSAttributedString,
-        size: NSSize
-    ) -> CodeBlockBackgroundTextView {
-        let textContainer = NSTextContainer()
-        textContainer.widthTracksTextView = true
-
-        let layoutManager = NSTextLayoutManager()
-        layoutManager.textContainer = textContainer
-
-        let contentStorage = NSTextContentStorage()
-        contentStorage.addTextLayoutManager(layoutManager)
-
-        let textView = CodeBlockBackgroundTextView(
-            frame: NSRect(origin: .zero, size: size),
-            textContainer: textContainer
-        )
-        textView.isEditable = false
-        textView.isSelectable = false
-        textView.drawsBackground = true
-        textView.backgroundColor = PlatformTypeConverter.nsColor(
-            from: PrintPalette.colors.background
-        )
-        textView.textContainerInset = NSSize(width: 32, height: 32)
-        textView.textStorage?.setAttributedString(attributedString)
-
-        if let tlm = textView.textLayoutManager,
-           let tcm = tlm.textContentManager
-        {
-            tlm.ensureLayout(for: tcm.documentRange)
+        if let saved = savedString {
+            textStorage?.setAttributedString(saved)
         }
-
-        textView.sizeToFit()
-        return textView
+        backgroundColor = savedBgColor
     }
 
     private func drawCodeBlockContainers(in dirtyRect: NSRect) {
