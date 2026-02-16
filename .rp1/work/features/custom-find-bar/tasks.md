@@ -2,7 +2,7 @@
 
 **Feature ID**: custom-find-bar
 **Status**: In Progress
-**Progress**: 15% (2 of 13 tasks)
+**Progress**: 23% (3 of 13 tasks)
 **Estimated Effort**: 4.5 days
 **Started**: 2026-02-15
 
@@ -85,6 +85,18 @@ Replace the stock NSTextFinder find bar with a custom SwiftUI pill-shaped find b
     - **Deviations**: None
     - **Tests**: N/A (pure SwiftUI view; FindState logic tested in T8)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
     **Reference**: [design.md#32-findbarview](design.md#32-findbarview)
 
     **Effort**: 6 hours
@@ -104,7 +116,14 @@ Replace the stock NSTextFinder find bar with a custom SwiftUI pill-shaped find b
     - [x] Icons and text use `.secondary` foreground style
     - [x] Legible against both Solarized Dark and Solarized Light themes
 
-- [ ] **T3**: Create FocusedFindStateKey for menu command access to per-window FindState `[complexity:simple]`
+- [x] **T3**: Create FocusedFindStateKey for menu command access to per-window FindState `[complexity:simple]`
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/App/FocusedFindStateKey.swift`
+    - **Approach**: Created FocusedValueKey struct and FocusedValues extension following the exact pattern of the existing FocusedDocumentStateKey. Wraps FindState type for per-window menu command access.
+    - **Deviations**: None
+    - **Tests**: N/A (pure plumbing; no testable logic)
 
     **Reference**: [design.md#33-focusedfindstatekey](design.md#33-focusedfindstatekey)
 
@@ -112,10 +131,10 @@ Replace the stock NSTextFinder find bar with a custom SwiftUI pill-shaped find b
 
     **Acceptance Criteria**:
 
-    - [ ] New file `mkdn/App/FocusedFindStateKey.swift` parallel to existing `FocusedDocumentStateKey.swift`
-    - [ ] `struct FocusedFindStateKey: FocusedValueKey` with `typealias Value = FindState`
-    - [ ] `FocusedValues` extension with `var findState: FindState?` computed property
-    - [ ] Compiles and follows the same pattern as the existing FocusedDocumentStateKey
+    - [x] New file `mkdn/App/FocusedFindStateKey.swift` parallel to existing `FocusedDocumentStateKey.swift`
+    - [x] `struct FocusedFindStateKey: FocusedValueKey` with `typealias Value = FindState`
+    - [x] `FocusedValues` extension with `var findState: FindState?` computed property
+    - [x] Compiles and follows the same pattern as the existing FocusedDocumentStateKey
 
 - [ ] **T4**: Integrate find highlighting and scroll-to-match into SelectableTextView Coordinator and wire MarkdownPreviewView `[complexity:complex]`
 
