@@ -18,6 +18,7 @@ import SwiftUI
 struct MarkdownPreviewView: View {
     @Environment(DocumentState.self) private var documentState
     @Environment(AppSettings.self) private var appSettings
+    @Environment(FindState.self) private var findState
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var renderedBlocks: [IndexedBlock] = []
@@ -38,7 +39,11 @@ struct MarkdownPreviewView: View {
             isFullReload: isFullReload,
             reduceMotion: reduceMotion,
             appSettings: appSettings,
-            documentState: documentState
+            documentState: documentState,
+            findQuery: findState.query,
+            findCurrentIndex: findState.currentMatchIndex,
+            findIsVisible: findState.isVisible,
+            findState: findState
         )
         .ignoresSafeArea()
         .background(appSettings.theme.colors.background)

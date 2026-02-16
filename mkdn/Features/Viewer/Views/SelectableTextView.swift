@@ -21,6 +21,10 @@ struct SelectableTextView: NSViewRepresentable {
     let reduceMotion: Bool
     let appSettings: AppSettings
     let documentState: DocumentState
+    let findQuery: String
+    let findCurrentIndex: Int
+    let findIsVisible: Bool
+    let findState: FindState
 
     // MARK: - NSViewRepresentable
 
@@ -93,6 +97,15 @@ struct SelectableTextView: NSViewRepresentable {
             coordinator.lastAppliedText = attributedText
             RenderCompletionSignal.shared.signalRenderComplete()
         }
+
+        coordinator.handleFindUpdate(
+            findQuery: findQuery,
+            findCurrentIndex: findCurrentIndex,
+            findIsVisible: findIsVisible,
+            findState: findState,
+            theme: theme,
+            isNewContent: isNewContent
+        )
     }
 }
 
@@ -139,8 +152,6 @@ extension SelectableTextView {
         textView.allowsUndo = false
         textView.isAutomaticLinkDetectionEnabled = false
         textView.textContainerInset = NSSize(width: 32, height: 32)
-        textView.usesFindBar = true
-        textView.isIncrementalSearchingEnabled = true
         textView.isRichText = true
         textView.isHorizontallyResizable = false
         textView.isVerticallyResizable = true
@@ -197,6 +208,160 @@ extension SelectableTextView {
         let animator = EntranceAnimator()
         let overlayCoordinator = OverlayCoordinator()
         var lastAppliedText: NSAttributedString?
+
+        // MARK: - Find State Tracking
+
+        var lastFindQuery = ""
+        var lastFindIndex = 0
+        var lastFindVisible = false
+        var lastHighlightedRanges: [NSRange] = []
+        var lastFindTheme: AppTheme?
+
+        // MARK: - Find Highlight Integration
+
+        func handleFindUpdate(
+            findQuery: String,
+            findCurrentIndex: Int,
+            findIsVisible: Bool,
+            findState: FindState,
+            theme: AppTheme,
+            isNewContent: Bool
+        ) {
+            guard let textView else { return }
+
+            if findIsVisible {
+                let queryChanged = findQuery != lastFindQuery
+                let indexChanged = findCurrentIndex != lastFindIndex
+                let themeChanged = theme != lastFindTheme
+                let becameVisible = !lastFindVisible
+
+                if queryChanged || isNewContent || becameVisible {
+                    applyFindHighlights(
+                        findState: findState,
+                        textView: textView,
+                        theme: theme,
+                        performSearch: true
+                    )
+                } else if indexChanged || themeChanged {
+                    applyFindHighlights(
+                        findState: findState,
+                        textView: textView,
+                        theme: theme,
+                        performSearch: false
+                    )
+                }
+            } else if lastFindVisible {
+                clearFindHighlights(textView: textView)
+                textView.window?.makeFirstResponder(textView)
+            }
+
+            lastFindQuery = findQuery
+            lastFindIndex = findCurrentIndex
+            lastFindVisible = findIsVisible
+            lastFindTheme = theme
+        }
+
+        private func applyFindHighlights(
+            findState: FindState,
+            textView: NSTextView,
+            theme: AppTheme,
+            performSearch: Bool
+        ) {
+            guard let layoutManager = textView.textLayoutManager,
+                  let contentManager = layoutManager.textContentManager
+            else { return }
+
+            clearRenderingAttributes(
+                layoutManager: layoutManager,
+                contentManager: contentManager
+            )
+
+            if performSearch {
+                let text = textView.textStorage?.string ?? ""
+                findState.performSearch(in: text)
+            }
+
+            guard !findState.matchRanges.isEmpty else {
+                lastHighlightedRanges = []
+                return
+            }
+
+            let accentNSColor = PlatformTypeConverter.nsColor(
+                from: theme.colors.accent
+            )
+
+            for (index, range) in findState.matchRanges.enumerated() {
+                let alpha: CGFloat =
+                    (index == findState.currentMatchIndex) ? 0.4 : 0.15
+                if let textRange = Self.textRange(
+                    from: range,
+                    contentManager: contentManager
+                ) {
+                    layoutManager.setRenderingAttributes(
+                        [.backgroundColor: accentNSColor.withAlphaComponent(alpha)],
+                        for: textRange
+                    )
+                }
+            }
+
+            lastHighlightedRanges = findState.matchRanges
+
+            if let currentRange =
+                findState.matchRanges[safe: findState.currentMatchIndex]
+            {
+                textView.scrollRangeToVisible(currentRange)
+            }
+        }
+
+        private func clearFindHighlights(textView: NSTextView) {
+            guard let layoutManager = textView.textLayoutManager,
+                  let contentManager = layoutManager.textContentManager
+            else { return }
+
+            clearRenderingAttributes(
+                layoutManager: layoutManager,
+                contentManager: contentManager
+            )
+            lastHighlightedRanges = []
+        }
+
+        private func clearRenderingAttributes(
+            layoutManager: NSTextLayoutManager,
+            contentManager: NSTextContentManager
+        ) {
+            for range in lastHighlightedRanges {
+                if let textRange = Self.textRange(
+                    from: range,
+                    contentManager: contentManager
+                ) {
+                    layoutManager.setRenderingAttributes([:], for: textRange)
+                }
+            }
+        }
+
+        private static func textRange(
+            from nsRange: NSRange,
+            contentManager: NSTextContentManager
+        ) -> NSTextRange? {
+            guard let start = contentManager.location(
+                contentManager.documentRange.location,
+                offsetBy: nsRange.location
+            ),
+                let end = contentManager.location(
+                    start,
+                    offsetBy: nsRange.length
+                )
+            else { return nil }
+            return NSTextRange(location: start, end: end)
+        }
+    }
+}
+
+// MARK: - Safe Collection Subscript
+
+private extension Collection {
+    subscript(safe index: Index) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }
 

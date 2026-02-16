@@ -2,7 +2,7 @@
 
 **Feature ID**: custom-find-bar
 **Status**: In Progress
-**Progress**: 23% (3 of 13 tasks)
+**Progress**: 31% (4 of 13 tasks)
 **Estimated Effort**: 4.5 days
 **Started**: 2026-02-15
 
@@ -125,6 +125,18 @@ Replace the stock NSTextFinder find bar with a custom SwiftUI pill-shaped find b
     - **Deviations**: None
     - **Tests**: N/A (pure plumbing; no testable logic)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
     **Reference**: [design.md#33-focusedfindstatekey](design.md#33-focusedfindstatekey)
 
     **Effort**: 1 hour
@@ -136,7 +148,14 @@ Replace the stock NSTextFinder find bar with a custom SwiftUI pill-shaped find b
     - [x] `FocusedValues` extension with `var findState: FindState?` computed property
     - [x] Compiles and follows the same pattern as the existing FocusedDocumentStateKey
 
-- [ ] **T4**: Integrate find highlighting and scroll-to-match into SelectableTextView Coordinator and wire MarkdownPreviewView `[complexity:complex]`
+- [x] **T4**: Integrate find highlighting and scroll-to-match into SelectableTextView Coordinator and wire MarkdownPreviewView `[complexity:complex]`
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Features/Viewer/Views/SelectableTextView.swift`, `mkdn/Features/Viewer/Views/MarkdownPreviewView.swift`
+    - **Approach**: Added four find parameters to SelectableTextView. Expanded Coordinator with find state tracking (lastFindQuery, lastFindIndex, lastFindVisible, lastHighlightedRanges, lastFindTheme) and three find methods: handleFindUpdate (entry point from updateNSView), applyFindHighlights (search + TextKit 2 rendering attributes + scrollRangeToVisible), clearFindHighlights (remove attributes + restore focus). Removed stock NSTextFinder config. MarkdownPreviewView reads FindState from environment and passes value parameters to SelectableTextView.
+    - **Deviations**: Added `lastFindTheme: AppTheme?` tracker (not in design spec) to detect theme changes and reapply highlights with updated accent color. Added safe subscript Collection extension for bounds-safe match range access.
+    - **Tests**: N/A (TextKit 2 rendering attributes and NSTextView scroll behavior are AppKit-internal; FindState search logic tested in T8)
 
     **Reference**: [design.md#34-selectabletextview-modifications](design.md#34-selectabletextview-modifications)
 
@@ -144,21 +163,21 @@ Replace the stock NSTextFinder find bar with a custom SwiftUI pill-shaped find b
 
     **Acceptance Criteria**:
 
-    - [ ] SelectableTextView gains new parameters: `findQuery: String`, `findCurrentIndex: Int`, `findIsVisible: Bool`, `findState: FindState`
-    - [ ] Coordinator gains tracked state: `lastFindQuery`, `lastFindIndex`, `lastFindVisible`, `lastHighlightedRanges`
-    - [ ] Coordinator method `applyFindHighlights` performs search via `findState.performSearch(in:)` when query or content has changed
-    - [ ] Non-current matches highlighted with theme accent color at 0.15 alpha via TextKit 2 `setRenderingAttributes`
-    - [ ] Current match highlighted with theme accent color at 0.4 alpha via TextKit 2 `setRenderingAttributes`
-    - [ ] Previous highlights cleared before applying new ones
-    - [ ] Current match scrolled into view via `scrollRangeToVisible`
-    - [ ] Coordinator method `clearFindHighlights` removes all rendering attributes for previous match ranges
-    - [ ] `updateNSView` calls `applyFindHighlights` when find is visible and query/index/content changed, calls `clearFindHighlights` when find becomes not visible
-    - [ ] Remove `textView.usesFindBar = true` and `textView.isIncrementalSearchingEnabled = true` from `configureTextView()` to disable stock NSTextFinder
-    - [ ] When `findIsVisible` transitions to false, Coordinator calls `textView.window?.makeFirstResponder(textView)` to return focus
-    - [ ] Theme changes trigger reapplication of highlight rendering attributes with updated accent color
-    - [ ] Document content changes while find bar is open recompute matches and reapply highlights
-    - [ ] Helper method `textRange(from:contentManager:)` converts `NSRange` to `NSTextRange` for TextKit 2 API
-    - [ ] MarkdownPreviewView reads `@Environment(FindState.self)` and passes `findQuery`, `findCurrentIndex`, `findIsVisible`, and `findState` to SelectableTextView (per [design.md#38-markdownpreviewview-modifications](design.md#38-markdownpreviewview-modifications))
+    - [x] SelectableTextView gains new parameters: `findQuery: String`, `findCurrentIndex: Int`, `findIsVisible: Bool`, `findState: FindState`
+    - [x] Coordinator gains tracked state: `lastFindQuery`, `lastFindIndex`, `lastFindVisible`, `lastHighlightedRanges`
+    - [x] Coordinator method `applyFindHighlights` performs search via `findState.performSearch(in:)` when query or content has changed
+    - [x] Non-current matches highlighted with theme accent color at 0.15 alpha via TextKit 2 `setRenderingAttributes`
+    - [x] Current match highlighted with theme accent color at 0.4 alpha via TextKit 2 `setRenderingAttributes`
+    - [x] Previous highlights cleared before applying new ones
+    - [x] Current match scrolled into view via `scrollRangeToVisible`
+    - [x] Coordinator method `clearFindHighlights` removes all rendering attributes for previous match ranges
+    - [x] `updateNSView` calls `applyFindHighlights` when find is visible and query/index/content changed, calls `clearFindHighlights` when find becomes not visible
+    - [x] Remove `textView.usesFindBar = true` and `textView.isIncrementalSearchingEnabled = true` from `configureTextView()` to disable stock NSTextFinder
+    - [x] When `findIsVisible` transitions to false, Coordinator calls `textView.window?.makeFirstResponder(textView)` to return focus
+    - [x] Theme changes trigger reapplication of highlight rendering attributes with updated accent color
+    - [x] Document content changes while find bar is open recompute matches and reapply highlights
+    - [x] Helper method `textRange(from:contentManager:)` converts `NSRange` to `NSTextRange` for TextKit 2 API
+    - [x] MarkdownPreviewView reads `@Environment(FindState.self)` and passes `findQuery`, `findCurrentIndex`, `findIsVisible`, and `findState` to SelectableTextView (per [design.md#38-markdownpreviewview-modifications](design.md#38-markdownpreviewview-modifications))
 
 ### Integration
 
