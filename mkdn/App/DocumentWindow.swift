@@ -17,6 +17,7 @@ import SwiftUI
 public struct DocumentWindow: View {
     public let fileURL: URL?
     @State private var documentState = DocumentState()
+    @State private var findState = FindState()
     @State private var isReady = false
     @Environment(AppSettings.self) private var appSettings
     @Environment(\.openWindow) private var openWindow
@@ -28,8 +29,10 @@ public struct DocumentWindow: View {
     public var body: some View {
         ContentView()
             .environment(documentState)
+            .environment(findState)
             .environment(appSettings)
             .focusedSceneValue(\.documentState, documentState)
+            .focusedSceneValue(\.findState, findState)
             .opacity(isReady ? 1 : 0)
             .onAppear {
                 if let fileURL {

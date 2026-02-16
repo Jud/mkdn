@@ -2,7 +2,7 @@
 
 **Feature ID**: custom-find-bar
 **Status**: In Progress
-**Progress**: 46% (6 of 13 tasks)
+**Progress**: 54% (7 of 13 tasks)
 **Estimated Effort**: 4.5 days
 **Started**: 2026-02-15
 
@@ -251,7 +251,26 @@ Replace the stock NSTextFinder find bar with a custom SwiftUI pill-shaped find b
     - [x] Previous `sendFindAction` method and `performFindPanelAction` calls are removed entirely
     - [x] Private `motionAnimation` helper resolves MotionPreference from `NSWorkspace.shared.accessibilityDisplayShouldReduceMotion`
 
-- [ ] **T7**: Create and inject FindState in DocumentWindow via environment and focusedSceneValue `[complexity:simple]`
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
+- [x] **T7**: Create and inject FindState in DocumentWindow via environment and focusedSceneValue `[complexity:simple]`
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/App/DocumentWindow.swift`
+    - **Approach**: Added `@State private var findState = FindState()` alongside existing DocumentState. Injected into ContentView via `.environment(findState)` and published for menu commands via `.focusedSceneValue(\.findState, findState)`, following the exact same pattern as DocumentState and AppSettings.
+    - **Deviations**: None
+    - **Tests**: N/A (pure wiring; FindState logic tested in T8)
 
     **Reference**: [design.md#37-documentwindow-modifications](design.md#37-documentwindow-modifications)
 
@@ -259,10 +278,10 @@ Replace the stock NSTextFinder find bar with a custom SwiftUI pill-shaped find b
 
     **Acceptance Criteria**:
 
-    - [ ] DocumentWindow declares `@State private var findState = FindState()`
-    - [ ] ContentView receives FindState via `.environment(findState)`
-    - [ ] FindState published via `.focusedSceneValue(\.findState, findState)` for menu command access
-    - [ ] FindState injection is parallel to existing DocumentState and AppSettings injection
+    - [x] DocumentWindow declares `@State private var findState = FindState()`
+    - [x] ContentView receives FindState via `.environment(findState)`
+    - [x] FindState published via `.focusedSceneValue(\.findState, findState)` for menu command access
+    - [x] FindState injection is parallel to existing DocumentState and AppSettings injection
 
 ### Testing
 
