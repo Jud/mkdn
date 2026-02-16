@@ -14,7 +14,7 @@ The Orb is a unified, stateful indicator system that replaces the current two se
 - **Green** -- App update available (placeholder for future infrastructure)
 - **Hidden** -- No actionable state; the orb is not visible
 
-The existing `OrbVisual` three-layer rendering (outer halo, mid-glow, inner core) is reused with animated color crossfades between states. The orb occupies a single fixed position (bottom-right, `padding(16)`) and transitions between states based on a priority hierarchy.
+The existing `OrbVisual` three-layer rendering (outer halo, mid-glow, inner core) is reused with animated color crossfades between states. The orb occupies a single fixed position (bottom-right, `padding(8)`) and transitions between states based on a priority hierarchy.
 
 ## Scope
 
@@ -54,7 +54,7 @@ The existing `OrbVisual` three-layer rendering (outer halo, mid-glow, inner core
 | FR-8 | **Pulse cycle cancellation**: if the user taps the orb during an auto-reload pulse cycle (FR-5), cancel the auto-reload timer and present the manual popover (FR-4) instead. | Should |
 | FR-9 | **Green state (placeholder)**: orb appears green when triggered. Tap shows informational popover (e.g., "An update is available."). No backend action. Triggering mechanism is a placeholder for future update-checking infrastructure. | Could |
 | FR-10 | **Color crossfade**: animated transition between orb colors when state changes, using `AnimationConstants.crossfade` timing. | Must |
-| FR-11 | Orb positioned fixed bottom-right with `.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)` and `.padding(16)`, matching current FileChangeOrbView placement. | Must |
+| FR-11 | Orb positioned fixed bottom-right with `.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)` and `.padding(8)`, tight to the corner to avoid overlapping page content. | Must |
 | FR-12 | Remove `FileChangeOrbView.swift` and `DefaultHandlerHintView.swift`. Update `ContentView.swift` to use the single unified `TheOrbView` overlay. | Must |
 
 ### Non-Functional Requirements
