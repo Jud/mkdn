@@ -140,15 +140,43 @@ enum MarkdownTextStorageBuilder {
         case let .paragraph(text):
             appendParagraph(to: result, text: text, colors: colors, scaleFactor: sf)
         case let .codeBlock(lang, code):
-            appendCodeBlock(to: result, language: lang, code: code, colors: colors, syntaxColors: syntaxColors, scaleFactor: sf)
+            appendCodeBlock(
+                to: result,
+                language: lang,
+                code: code,
+                colors: colors,
+                syntaxColors: syntaxColors,
+                scaleFactor: sf
+            )
         case .mermaidBlock, .image:
             appendAttachmentPlaceholder(indexedBlock, to: result, attachments: &attachments)
         case let .blockquote(blocks):
-            appendBlockquote(to: result, blocks: blocks, colors: colors, syntaxColors: syntaxColors, depth: 0, scaleFactor: sf)
+            appendBlockquote(
+                to: result,
+                blocks: blocks,
+                colors: colors,
+                syntaxColors: syntaxColors,
+                depth: 0,
+                scaleFactor: sf
+            )
         case let .orderedList(items):
-            appendOrderedList(to: result, items: items, colors: colors, syntaxColors: syntaxColors, depth: 0, scaleFactor: sf)
+            appendOrderedList(
+                to: result,
+                items: items,
+                colors: colors,
+                syntaxColors: syntaxColors,
+                depth: 0,
+                scaleFactor: sf
+            )
         case let .unorderedList(items):
-            appendUnorderedList(to: result, items: items, colors: colors, syntaxColors: syntaxColors, depth: 0, scaleFactor: sf)
+            appendUnorderedList(
+                to: result,
+                items: items,
+                colors: colors,
+                syntaxColors: syntaxColors,
+                depth: 0,
+                scaleFactor: sf
+            )
         case .thematicBreak:
             appendAttachmentPlaceholder(indexedBlock, to: result, attachments: &attachments)
         case let .table(columns, rows):

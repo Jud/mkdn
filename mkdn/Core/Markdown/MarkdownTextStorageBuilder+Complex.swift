@@ -274,9 +274,23 @@ extension MarkdownTextStorageBuilder {
                     scaleFactor: sf
                 )
             case let .orderedList(items):
-                appendOrderedList(to: result, items: items, colors: cl, syntaxColors: sc, depth: nextDepth, scaleFactor: sf)
+                appendOrderedList(
+                    to: result,
+                    items: items,
+                    colors: cl,
+                    syntaxColors: sc,
+                    depth: nextDepth,
+                    scaleFactor: sf
+                )
             case let .unorderedList(items):
-                appendUnorderedList(to: result, items: items, colors: cl, syntaxColors: sc, depth: nextDepth, scaleFactor: sf)
+                appendUnorderedList(
+                    to: result,
+                    items: items,
+                    colors: cl,
+                    syntaxColors: sc,
+                    depth: nextDepth,
+                    scaleFactor: sf
+                )
             default:
                 let text = plainText(from: block)
                 guard !text.isEmpty else { continue }
