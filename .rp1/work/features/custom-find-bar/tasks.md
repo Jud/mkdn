@@ -2,7 +2,7 @@
 
 **Feature ID**: custom-find-bar
 **Status**: In Progress
-**Progress**: 8% (1 of 13 tasks)
+**Progress**: 15% (2 of 13 tasks)
 **Estimated Effort**: 4.5 days
 **Started**: 2026-02-15
 
@@ -44,6 +44,18 @@ Replace the stock NSTextFinder find bar with a custom SwiftUI pill-shaped find b
     - **Deviations**: Used `String.range(of:options:range:)` instead of `NSString.range(of:options:range:)` to avoid SwiftLint legacy_objc_type violation; functionally equivalent.
     - **Tests**: Deferred to T8
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
     **Reference**: [design.md#31-findstate-model](design.md#31-findstate-model)
 
     **Effort**: 5 hours
@@ -64,7 +76,14 @@ Replace the stock NSTextFinder find bar with a custom SwiftUI pill-shaped find b
 
 ### Parallel Components
 
-- [ ] **T2**: Build FindBarView SwiftUI pill UI with text field, match count, navigation buttons, and animations `[complexity:medium]`
+- [x] **T2**: Build FindBarView SwiftUI pill UI with text field, match count, navigation buttons, and animations `[complexity:medium]`
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Features/Viewer/Views/FindBarView.swift`
+    - **Approach**: Created SwiftUI pill view with HStack layout containing magnifyingglass icon, plain TextField bound via @Bindable, conditional match count label, chevron prev/next buttons, and xmark close button. Uses .ultraThinMaterial + Capsule clip, 300pt fixed width, top-right alignment. Keyboard: .onKeyPress for Shift+Return (previousMatch) and Escape (dismiss), .onSubmit for Return (nextMatch). @FocusState toggled on isVisible change. Dismiss wraps findState.dismiss() in withAnimation(quickFade) via MotionPreference.
+    - **Deviations**: None
+    - **Tests**: N/A (pure SwiftUI view; FindState logic tested in T8)
 
     **Reference**: [design.md#32-findbarview](design.md#32-findbarview)
 
@@ -72,18 +91,18 @@ Replace the stock NSTextFinder find bar with a custom SwiftUI pill-shaped find b
 
     **Acceptance Criteria**:
 
-    - [ ] New file `mkdn/Features/Viewer/Views/FindBarView.swift`
-    - [ ] Pill layout (left to right): magnifyingglass icon, TextField bound to `findState.query`, match count label, chevron.left button, chevron.right button, xmark button
-    - [ ] Container is approximately 300pt fixed width with Capsule clip and `.ultraThinMaterial` background
-    - [ ] Match count shows "{current + 1} of {total}" when matches exist, "No matches" when query is non-empty with zero matches, hidden when query is empty
-    - [ ] Prev/Next buttons call `findState.previousMatch()` / `findState.nextMatch()`
-    - [ ] Close button calls `findState.dismiss()`
-    - [ ] Positioned top-right via `.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)` with padding
-    - [ ] Return key calls `findState.nextMatch()`, Shift+Return calls `findState.previousMatch()` via `.onSubmit` and `.onKeyPress`
-    - [ ] Escape key calls `findState.dismiss()` via `.onKeyPress`
-    - [ ] `@FocusState` on TextField, toggled true when `isVisible` becomes true
-    - [ ] Icons and text use `.secondary` foreground style
-    - [ ] Legible against both Solarized Dark and Solarized Light themes
+    - [x] New file `mkdn/Features/Viewer/Views/FindBarView.swift`
+    - [x] Pill layout (left to right): magnifyingglass icon, TextField bound to `findState.query`, match count label, chevron.left button, chevron.right button, xmark button
+    - [x] Container is approximately 300pt fixed width with Capsule clip and `.ultraThinMaterial` background
+    - [x] Match count shows "{current + 1} of {total}" when matches exist, "No matches" when query is non-empty with zero matches, hidden when query is empty
+    - [x] Prev/Next buttons call `findState.previousMatch()` / `findState.nextMatch()`
+    - [x] Close button calls `findState.dismiss()`
+    - [x] Positioned top-right via `.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)` with padding
+    - [x] Return key calls `findState.nextMatch()`, Shift+Return calls `findState.previousMatch()` via `.onSubmit` and `.onKeyPress`
+    - [x] Escape key calls `findState.dismiss()` via `.onKeyPress`
+    - [x] `@FocusState` on TextField, toggled true when `isVisible` becomes true
+    - [x] Icons and text use `.secondary` foreground style
+    - [x] Legible against both Solarized Dark and Solarized Light themes
 
 - [ ] **T3**: Create FocusedFindStateKey for menu command access to per-window FindState `[complexity:simple]`
 
