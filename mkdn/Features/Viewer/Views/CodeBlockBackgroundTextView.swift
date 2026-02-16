@@ -52,6 +52,10 @@ final class CodeBlockBackgroundTextView: NSTextView {
     private var copyButtonOverlay: NSView?
     private var cachedBlockRects: [CodeBlockGeometry] = []
 
+    // MARK: - Find State
+
+    weak var findState: FindState?
+
     // MARK: - Print Support
 
     /// Current indexed blocks retained for print-time attributed string rebuild.
@@ -62,6 +66,18 @@ final class CodeBlockBackgroundTextView: NSTextView {
     override func setFrameSize(_ newSize: NSSize) {
         super.setFrameSize(newSize)
         needsDisplay = true
+    }
+
+    // MARK: - Escape to Dismiss Find
+
+    override func cancelOperation(_ sender: Any?) {
+        if let findState, findState.isVisible {
+            withAnimation(AnimationConstants.quickFade) {
+                findState.dismiss()
+            }
+            return
+        }
+        super.cancelOperation(sender)
     }
 
     // MARK: - Cursor Rects

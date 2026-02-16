@@ -43,6 +43,7 @@ struct SelectableTextView: NSViewRepresentable {
         coordinator.animator.textView = textView
 
         applyTheme(to: textView, scrollView: scrollView)
+        textView.findState = findState
         textView.printBlocks = blocks
 
         if isFullReload {
@@ -73,6 +74,7 @@ struct SelectableTextView: NSViewRepresentable {
         let coordinator = context.coordinator
 
         applyTheme(to: textView, scrollView: scrollView)
+        textView.findState = findState
         textView.printBlocks = blocks
 
         let isNewContent = coordinator.lastAppliedText !== attributedText
