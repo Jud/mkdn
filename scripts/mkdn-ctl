@@ -15,7 +15,7 @@ def find_socket():
 
 def send(sock_path, cmd):
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    s.settimeout(15)
+    s.settimeout(30)
     s.connect(sock_path)
     s.sendall((json.dumps(cmd) + "\n").encode())
     data = b""
@@ -60,6 +60,20 @@ def main():
             r = send(sock, {"setSidebarWidth": {"width": float(sys.argv[2])}})
         elif cmd_name == "toggleSidebar":
             r = send(sock, {"toggleSidebar": {}})
+        elif cmd_name == "begin-capture":
+            fps = int(sys.argv[2]) if len(sys.argv) > 2 else 60
+            out = sys.argv[3] if len(sys.argv) > 3 else "/tmp/mkdn-frames"
+            r = send(sock, {"startQuickCapture": {"fps": fps, "outputDir": os.path.abspath(out)}})
+        elif cmd_name == "end-capture":
+            r = send(sock, {"stopQuickCapture": {}})
+        elif cmd_name == "simulate-scroll":
+            delta = float(sys.argv[2]) if len(sys.argv) > 2 else -200
+            dur = float(sys.argv[3]) if len(sys.argv) > 3 else 0.8
+            r = send(sock, {"simulateScroll": {"deltaY": delta, "duration": dur}})
+        elif cmd_name == "capture-region":
+            x, y, w, h = float(sys.argv[2]), float(sys.argv[3]), float(sys.argv[4]), float(sys.argv[5])
+            path = sys.argv[6] if len(sys.argv) > 6 else "/tmp/mkdn-region.png"
+            r = send(sock, {"captureRegion": {"region": {"x": x, "y": y, "width": w, "height": h}, "outputPath": os.path.abspath(path)}})
         elif cmd_name == "quit":
             r = send(sock, {"quit": {}})
         else:

@@ -81,6 +81,18 @@ public enum HarnessCommand: Codable, Sendable {
     /// Toggle sidebar visibility (directory mode only).
     case toggleSidebar
 
+    /// Simulate smooth scroll by animating contentView.scroll(to:) at 60Hz.
+    case simulateScroll(deltaY: Double, duration: Double)
+
+    /// Start lightweight frame capture using CGWindowListCreateImage at the
+    /// given FPS. Frames are written to outputDir. Call ``stopQuickCapture``
+    /// to stop and get results. Does not require screen recording permission.
+    case startQuickCapture(fps: Int, outputDir: String)
+
+    /// Stop a quick capture started with ``startQuickCapture`` and return
+    /// the captured frame paths.
+    case stopQuickCapture
+
     /// Connectivity check. The server responds with `pong`.
     case ping
 

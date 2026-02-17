@@ -33,6 +33,12 @@ enum TestHarnessHandler {
             handleSetReduceMotion(enabled)
         case let .scrollTo(yOffset):
             await handleScrollTo(yOffset)
+        case let .simulateScroll(deltaY, duration):
+            await handleSimulateScroll(deltaY, duration)
+        case let .startQuickCapture(fps, outputDir):
+            handleStartQuickCapture(fps, outputDir)
+        case .stopQuickCapture:
+            handleStopQuickCapture()
         case let .setSidebarWidth(width):
             handleSetSidebarWidth(width)
         case .toggleSidebar:
@@ -354,6 +360,56 @@ enum TestHarnessHandler {
         return .ok(message: "Scrolled to y=\(actualY)")
     }
 
+    private static func handleSimulateScroll(
+        _ totalDeltaY: Double,
+        _ duration: Double
+    ) async -> HarnessResponse {
+        guard let window = findMainWindow() else {
+            return .error("No visible window found")
+        }
+        guard let scrollView = findScrollView(in: window.contentView) else {
+            return .error("No scroll view found in window hierarchy")
+        }
+
+        let stepCount = max(Int(duration * 60), 2)
+        let perStepDelta = totalDeltaY / Double(stepCount)
+
+        // Use a continuation so we can schedule events on the main run loop
+        // with proper timing via DispatchSourceTimer
+        let finalY: Double = await withCheckedContinuation { continuation in
+            var step = 0
+            let timer = DispatchSource.makeTimerSource(queue: .main)
+            timer.schedule(
+                deadline: .now(),
+                repeating: .milliseconds(16),
+                leeway: .milliseconds(1)
+            )
+            timer.setEventHandler {
+                let progress = Double(step) / Double(stepCount)
+                let factor = 2.0 * (1.0 - progress)
+                let delta = perStepDelta * factor
+
+                let currentY = scrollView.contentView.bounds.origin.y
+                let newY = currentY + delta
+                scrollView.contentView.scroll(to: NSPoint(x: 0, y: newY))
+                scrollView.reflectScrolledClipView(scrollView.contentView)
+
+                step += 1
+                if step >= stepCount {
+                    timer.cancel()
+                    let y = scrollView.contentView.bounds.origin.y
+                    continuation.resume(returning: y)
+                }
+            }
+            timer.resume()
+        }
+
+        return .ok(
+            message: "Simulated scroll: requested=\(totalDeltaY), " +
+                "finalY=\(finalY), steps=\(stepCount)"
+        )
+    }
+
     private static func findScrollView(in view: NSView?) -> NSScrollView? {
         guard let view else { return nil }
         if let scrollView = view as? NSScrollView,
@@ -367,6 +423,84 @@ enum TestHarnessHandler {
             }
         }
         return nil
+    }
+
+    // MARK: - Quick Capture (CGWindowListCreateImage)
+
+    private static var quickCaptureTimer: DispatchSourceTimer?
+    private nonisolated(unsafe) static var quickCaptureFrames: [String] = []
+    private nonisolated(unsafe) static var quickCaptureCounter = 0
+
+    private static func handleStartQuickCapture(
+        _ fps: Int,
+        _ outputDir: String
+    ) -> HarnessResponse {
+        guard quickCaptureTimer == nil else {
+            return .error("Quick capture already in progress")
+        }
+
+        try? FileManager.default.createDirectory(
+            atPath: outputDir, withIntermediateDirectories: true
+        )
+
+        quickCaptureFrames = []
+        quickCaptureCounter = 0
+
+        guard let window = findMainWindow() else {
+            return .error("No visible window found")
+        }
+        let windowID = CGWindowID(window.windowNumber)
+        let intervalMs = max(1_000 / max(fps, 1), 1)
+
+        let timer = DispatchSource.makeTimerSource(queue: .main)
+        timer.schedule(
+            deadline: .now(),
+            repeating: .milliseconds(intervalMs),
+            leeway: .milliseconds(1)
+        )
+        timer.setEventHandler {
+            guard let image = CGWindowListCreateImage(
+                .null,
+                .optionIncludingWindow,
+                windowID,
+                [.boundsIgnoreFraming, .bestResolution]
+            )
+            else { return }
+
+            quickCaptureCounter += 1
+            let path = "\(outputDir)/frame_\(String(format: "%04d", quickCaptureCounter)).png"
+            let rep = NSBitmapImageRep(cgImage: image)
+            if let data = rep.representation(using: .png, properties: [:]) {
+                try? data.write(to: URL(fileURLWithPath: path))
+                quickCaptureFrames.append(path)
+            }
+        }
+        quickCaptureTimer = timer
+        timer.resume()
+
+        return .ok(message: "Quick capture started at \(fps) fps -> \(outputDir)")
+    }
+
+    private static func handleStopQuickCapture() -> HarnessResponse {
+        guard let timer = quickCaptureTimer else {
+            return .error("No quick capture in progress")
+        }
+        timer.cancel()
+        quickCaptureTimer = nil
+
+        let frames = quickCaptureFrames
+        quickCaptureFrames = []
+
+        return .ok(
+            data: .frameCapture(FrameCaptureResult(
+                frameDir: frames.first.map { URL(fileURLWithPath: $0).deletingLastPathComponent().path } ?? "",
+                frameCount: frames.count,
+                fps: 0,
+                duration: 0,
+                framePaths: frames
+            )),
+            message: "Quick capture stopped: \(frames.count) frames"
+        )
     }
 
     // MARK: - Sidebar Commands
