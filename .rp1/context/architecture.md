@@ -77,9 +77,10 @@ Mermaid code block detected
 ### Code Blocks
 ```
 Code block with language tag
--> Splash SyntaxHighlighter
--> AttributedString with theme colors
--> SwiftUI Text
+-> SyntaxHighlightEngine (tree-sitter, 16 languages)
+-> NSMutableAttributedString with token-level foreground colors
+-> NSTextView (via CodeBlockBackgroundTextView)
+Unsupported/untagged -> plain monospace text (no coloring)
 ```
 
 ### Print

@@ -23,13 +23,20 @@
 | MarkdownRenderer.swift | Parse + render coordinator |
 | MarkdownBlock.swift | Block element enum (11 cases incl. htmlBlock, image). CheckboxState enum (checked/unchecked). ListItem with optional checkbox. IndexedBlock for positional identity. DJB2 stableHash for deterministic IDs |
 | MarkdownVisitor.swift | swift-markdown Document walker -> [MarkdownBlock]. Inline text conversion with emphasis/strong/strikethrough/code/link support. Checkbox extraction from ListItem.checkbox. Standalone image promotion to block-level. Table column alignment mapping |
-| MarkdownTextStorageBuilder.swift | Converts [IndexedBlock] -> NSAttributedString + [AttachmentInfo]. Inline content conversion (bold/italic/code/link/strikethrough). Splash syntax highlighting for Swift. Paragraph style helpers. Plain text extraction |
+| MarkdownTextStorageBuilder.swift | Converts [IndexedBlock] -> NSAttributedString + [AttachmentInfo]. Inline content conversion (bold/italic/code/link/strikethrough). Delegates to SyntaxHighlightEngine for multi-language syntax highlighting. Paragraph style helpers. Plain text extraction |
 | MarkdownTextStorageBuilder+Blocks.swift | Block-type rendering: heading, paragraph, code block (with language label, CodeBlockAttributes marking, rawCode storage), attachment placeholder, HTML block. Code block padding/indent constants |
 | MarkdownTextStorageBuilder+Complex.swift | Blockquote (recursive depth), ordered/unordered lists (nested, with checkbox rendering via SF Symbols), table fallback rendering (tab-stop-based) |
 | PlatformTypeConverter.swift | SwiftUI-to-AppKit type bridge: Color->NSColor, scaled font factory (heading/body/monospaced/captionMonospaced), paragraph style builder |
 | CodeBlockAttributes.swift | Custom NSAttributedString.Key constants: range (block ID), colors (CodeBlockColorInfo), rawCode (clipboard source). CodeBlockColorInfo class (NSObject subclass for attribute storage) |
-| ThemeOutputFormat.swift | Splash OutputFormat producing AttributedString with AppKit NSColor foreground colors for NSTextView rendering. Token-to-color mapping |
 | TableColumnSizer.swift | Pure column width computation from cell content |
+
+### Highlighting (`Core/Highlighting/`)
+| File | Purpose |
+|------|---------|
+| SyntaxHighlightEngine.swift | Stateless enum. `highlight(code:language:syntaxColors:)` creates tree-sitter Parser per call, parses code, executes highlight query, maps captures to TokenType, applies NSColor foreground attributes. Returns nil for unsupported languages. Falls back to plain text if query compilation fails |
+| TreeSitterLanguageMap.swift | LanguageConfig struct + TreeSitterLanguageMap enum. Case-insensitive alias resolution (js, ts, py, rb, sh, yml, cpp) for 16 languages. `configuration(for:)` returns parser Language + highlight query. `supportedLanguages` lists canonical names |
+| TokenType.swift | 13-case enum (keyword, string, comment, type, number, function, property, preprocessor, operator, variable, constant, attribute, punctuation). `from(captureName:)` maps tree-sitter capture names (with subcategory prefix splitting). `color(from:)` resolves to SyntaxColors property |
+| HighlightQueries.swift | Embedded tree-sitter highlight query strings (.scm) for all 16 languages. Sourced verbatim from grammar repositories. TypeScript/C++ queries concatenate base + override queries |
 
 ### Mermaid (`Core/Mermaid/`)
 | File | Purpose |
@@ -125,7 +132,9 @@
 | swhitty/SwiftDraw | SVG -> NSImage | Core/Mermaid |
 | jectivex/JXKit | Swift JSC wrapper | Core/Mermaid |
 | apple/swift-argument-parser | CLI args | Core/CLI |
-| JohnSundell/Splash | Syntax highlighting | Features/Viewer |
+| ChimeHQ/SwiftTreeSitter | Tree-sitter parsing | Core/Highlighting |
+| tree-sitter-{lang} (16 grammars) | Language grammars (swift, python, javascript, typescript, rust, go, bash, json, yaml, html, css, c, cpp, ruby, java, kotlin) | Core/Highlighting |
+
 ## Test Layer (`mkdnTests/`)
 
 ### Support (`mkdnTests/Support/`)

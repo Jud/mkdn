@@ -2,7 +2,7 @@
 
 **Feature ID**: highlighting
 **Status**: In Progress
-**Progress**: 100% (8 of 8 tasks, 0 of 6 doc tasks)
+**Progress**: 100% (8 of 8 tasks, 6 of 6 doc tasks)
 **Estimated Effort**: 4 days
 **Started**: 2026-02-17
 
@@ -300,9 +300,21 @@ Replace Splash-based Swift-only syntax highlighting with a tree-sitter-based eng
     - **Deviations**: None
     - **Tests**: 20/20 passing (443 total, 3 pre-existing cycleTheme failures unrelated)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ✅ PASS |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
 ### User Docs
 
-- [ ] **TD1**: Update modules.md Dependencies table `[complexity:simple]`
+- [x] **TD1**: Update modules.md Dependencies table `[complexity:simple]`
 
     **Reference**: [design.md#documentation-impact](design.md#documentation-impact)
 
@@ -318,11 +330,11 @@ Replace Splash-based Swift-only syntax highlighting with a tree-sitter-based eng
 
     **Acceptance Criteria**:
 
-    - [ ] SwiftTreeSitter added to Dependencies table with purpose "Tree-sitter parsing" and Used In "Core/Highlighting"
-    - [ ] Splash entry removed from Dependencies table
-    - [ ] 16 grammar packages noted (as a group entry or individually)
+    - [x] SwiftTreeSitter added to Dependencies table with purpose "Tree-sitter parsing" and Used In "Core/Highlighting"
+    - [x] Splash entry removed from Dependencies table
+    - [x] 16 grammar packages noted (as a group entry or individually)
 
-- [ ] **TD2**: Update modules.md Core Layer Markdown section `[complexity:simple]`
+- [x] **TD2**: Update modules.md Core Layer Markdown section `[complexity:simple]`
 
     **Reference**: [design.md#documentation-impact](design.md#documentation-impact)
 
@@ -338,10 +350,10 @@ Replace Splash-based Swift-only syntax highlighting with a tree-sitter-based eng
 
     **Acceptance Criteria**:
 
-    - [ ] MarkdownTextStorageBuilder.swift description updated to reference SyntaxHighlightEngine instead of "Splash syntax highlighting for Swift"
-    - [ ] ThemeOutputFormat.swift entry removed from Core/Markdown table
+    - [x] MarkdownTextStorageBuilder.swift description updated to reference SyntaxHighlightEngine instead of "Splash syntax highlighting for Swift"
+    - [x] ThemeOutputFormat.swift entry removed from Core/Markdown table
 
-- [ ] **TD3**: Add modules.md Core Layer Highlighting section `[complexity:simple]`
+- [x] **TD3**: Add modules.md Core Layer Highlighting section `[complexity:simple]`
 
     **Reference**: [design.md#documentation-impact](design.md#documentation-impact)
 
@@ -357,10 +369,10 @@ Replace Splash-based Swift-only syntax highlighting with a tree-sitter-based eng
 
     **Acceptance Criteria**:
 
-    - [ ] New "Highlighting (Core/Highlighting/)" section created under Core Layer
-    - [ ] Entries for SyntaxHighlightEngine.swift, TreeSitterLanguageMap.swift, TokenType.swift, HighlightQueries.swift with purpose descriptions
+    - [x] New "Highlighting (Core/Highlighting/)" section created under Core Layer
+    - [x] Entries for SyntaxHighlightEngine.swift, TreeSitterLanguageMap.swift, TokenType.swift, HighlightQueries.swift with purpose descriptions
 
-- [ ] **TD4**: Update architecture.md Code Blocks rendering pipeline `[complexity:simple]`
+- [x] **TD4**: Update architecture.md Code Blocks rendering pipeline `[complexity:simple]`
 
     **Reference**: [design.md#documentation-impact](design.md#documentation-impact)
 
@@ -376,9 +388,9 @@ Replace Splash-based Swift-only syntax highlighting with a tree-sitter-based eng
 
     **Acceptance Criteria**:
 
-    - [ ] Pipeline diagram updated to reference "SyntaxHighlightEngine (tree-sitter)" instead of "Splash SyntaxHighlighter"
+    - [x] Pipeline diagram updated to reference "SyntaxHighlightEngine (tree-sitter)" instead of "Splash SyntaxHighlighter"
 
-- [ ] **TD5**: Review and update patterns.md Anti-Patterns section `[complexity:simple]`
+- [x] **TD5**: Review and update patterns.md Anti-Patterns section `[complexity:simple]`
 
     **Reference**: [design.md#documentation-impact](design.md#documentation-impact)
 
@@ -394,9 +406,9 @@ Replace Splash-based Swift-only syntax highlighting with a tree-sitter-based eng
 
     **Acceptance Criteria**:
 
-    - [ ] Any Splash-specific references removed or updated; generic wording preserved if already generic
+    - [x] Any Splash-specific references removed or updated; generic wording preserved if already generic
 
-- [ ] **TD6**: Add syntax highlighting entry to index.md Quick Reference `[complexity:simple]`
+- [x] **TD6**: Add syntax highlighting entry to index.md Quick Reference `[complexity:simple]`
 
     **Reference**: [design.md#documentation-impact](design.md#documentation-impact)
 
@@ -412,7 +424,7 @@ Replace Splash-based Swift-only syntax highlighting with a tree-sitter-based eng
 
     **Acceptance Criteria**:
 
-    - [ ] "Syntax highlighting: mkdn/Core/Highlighting/" entry added to Quick Reference list
+    - [x] "Syntax highlighting: mkdn/Core/Highlighting/" entry added to Quick Reference list
 
 ## Acceptance Criteria Checklist
 
@@ -450,7 +462,7 @@ Replace Splash-based Swift-only syntax highlighting with a tree-sitter-based eng
 ## Definition of Done
 
 - [ ] All 8 implementation tasks completed
-- [ ] All 6 documentation tasks completed
+- [x] All 6 documentation tasks completed
 - [ ] All acceptance criteria verified
 - [ ] All unit tests pass (`swift test`)
 - [ ] Code reviewed
