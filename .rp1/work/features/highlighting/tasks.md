@@ -2,7 +2,7 @@
 
 **Feature ID**: highlighting
 **Status**: In Progress
-**Progress**: 87% (7 of 8 tasks, 0 of 6 doc tasks)
+**Progress**: 100% (8 of 8 tasks, 0 of 6 doc tasks)
 **Estimated Effort**: 4 days
 **Started**: 2026-02-17
 
@@ -260,7 +260,19 @@ Replace Splash-based Swift-only syntax highlighting with a tree-sitter-based eng
     - **Deviations**: CodeBlockView.swift was not listed in the task's Files section but required changes to remove its `import Splash` and Splash-based highlighting (AC-4.2 requires no source file imports or references Splash). ThemeOutputFormatTests.swift also deleted as it tested the removed file.
     - **Tests**: 423/423 passing (6 ThemeOutputFormat tests removed, 3 pre-existing cycleTheme failures unrelated)
 
-- [ ] **T8**: Write unit tests for language map, token mapping, and highlight engine `[complexity:medium]`
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
+- [x] **T8**: Write unit tests for language map, token mapping, and highlight engine `[complexity:medium]`
 
     **Reference**: [design.md#8-unit-tests](design.md#8-unit-tests)
 
@@ -268,18 +280,25 @@ Replace Splash-based Swift-only syntax highlighting with a tree-sitter-based eng
 
     **Acceptance Criteria**:
 
-    - [ ] TreeSitterLanguageMapTests created at `mkdnTests/Unit/TreeSitterLanguageMapTests.swift` using Swift Testing (@Suite, @Test, #expect)
-    - [ ] Tests canonical name resolution for all 16 languages
-    - [ ] Tests alias resolution: js, ts, py, rb, sh, shell, yml, cpp, c++
-    - [ ] Tests case-insensitive lookup: "Python", "PYTHON", "python" all resolve
-    - [ ] Tests unsupported language returns nil; empty string returns nil; whitespace-padded tags resolve
-    - [ ] SyntaxHighlightEngineTests created at `mkdnTests/Unit/SyntaxHighlightEngineTests.swift` using Swift Testing
-    - [ ] Tests all 16 languages produce non-nil highlighted result
-    - [ ] Tests unsupported language returns nil
-    - [ ] Tests result string content matches input code (text preservation)
-    - [ ] Tests result contains multiple foreground colors (not monochrome) for code with mixed token types
-    - [ ] Tests TokenType.from(captureName:) for known captures (keyword, string, comment) and unknown captures (returns nil)
-    - [ ] `swift test` passes with all new tests
+    - [x] TreeSitterLanguageMapTests created at `mkdnTests/Unit/TreeSitterLanguageMapTests.swift` using Swift Testing (@Suite, @Test, #expect)
+    - [x] Tests canonical name resolution for all 16 languages
+    - [x] Tests alias resolution: js, ts, py, rb, sh, shell, yml, cpp, c++
+    - [x] Tests case-insensitive lookup: "Python", "PYTHON", "python" all resolve
+    - [x] Tests unsupported language returns nil; empty string returns nil; whitespace-padded tags resolve
+    - [x] SyntaxHighlightEngineTests created at `mkdnTests/Unit/SyntaxHighlightEngineTests.swift` using Swift Testing
+    - [x] Tests all 16 languages produce non-nil highlighted result
+    - [x] Tests unsupported language returns nil
+    - [x] Tests result string content matches input code (text preservation)
+    - [x] Tests result contains multiple foreground colors (not monochrome) for code with mixed token types
+    - [x] Tests TokenType.from(captureName:) for known captures (keyword, string, comment) and unknown captures (returns nil)
+    - [x] `swift test` passes with all new tests
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdnTests/Unit/TreeSitterLanguageMapTests.swift` (new), `mkdnTests/Unit/SyntaxHighlightEngineTests.swift` (new)
+    - **Approach**: Created three test suites: TreeSitterLanguageMap (8 tests covering canonical names, aliases, case-insensitivity, unsupported/empty/whitespace-padded tags), SyntaxHighlightEngine (8 tests covering all 16 languages, unsupported/empty languages, text preservation, multiple foreground colors, keyword/string color verification), and TokenType (3 tests covering 37 capture name mappings, unknown captures returning nil, subcategory prefix resolution). Used parameterized tests for broad coverage.
+    - **Deviations**: None
+    - **Tests**: 20/20 passing (443 total, 3 pre-existing cycleTheme failures unrelated)
 
 ### User Docs
 
