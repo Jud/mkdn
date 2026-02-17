@@ -4,6 +4,8 @@ public enum CLIError: LocalizedError {
     case unsupportedExtension(path: String, ext: String)
     case fileNotFound(resolvedPath: String)
     case fileNotReadable(resolvedPath: String, reason: String)
+    case directoryNotFound(resolvedPath: String)
+    case directoryNotReadable(resolvedPath: String, reason: String)
 
     public var errorDescription: String? {
         switch self {
@@ -14,14 +16,18 @@ public enum CLIError: LocalizedError {
             return "file not found: \(resolvedPath)"
         case let .fileNotReadable(resolvedPath, reason):
             return "cannot read file: \(resolvedPath) (\(reason))"
+        case let .directoryNotFound(resolvedPath):
+            return "directory not found: \(resolvedPath)"
+        case let .directoryNotReadable(resolvedPath, reason):
+            return "cannot read directory: \(resolvedPath) (\(reason))"
         }
     }
 
     public var exitCode: Int32 {
         switch self {
-        case .unsupportedExtension, .fileNotFound:
+        case .unsupportedExtension, .fileNotFound, .directoryNotFound:
             1
-        case .fileNotReadable:
+        case .fileNotReadable, .directoryNotReadable:
             2
         }
     }

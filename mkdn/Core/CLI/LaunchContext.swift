@@ -1,6 +1,7 @@
 import Foundation
 
-/// Stores validated file URLs from CLI parsing for the App to read at launch.
+/// Stores validated file and directory URLs from CLI parsing for the App to
+/// read at launch.
 ///
 /// Set once in `main.swift` before `MkdnApp.main()` is called, then consumed
 /// once by `DocumentWindow.task`. This sequential access pattern has no
@@ -9,10 +10,20 @@ public enum LaunchContext {
     /// The validated file URLs, or empty for no-argument launch.
     public nonisolated(unsafe) static var fileURLs: [URL] = []
 
+    /// The validated directory URLs, or empty for no-argument launch.
+    public nonisolated(unsafe) static var directoryURLs: [URL] = []
+
     /// Returns all `fileURLs` and clears them so they are only consumed once.
     public static func consumeURLs() -> [URL] {
         let urls = fileURLs
         fileURLs = []
+        return urls
+    }
+
+    /// Returns all `directoryURLs` and clears them so they are only consumed once.
+    public static func consumeDirectoryURLs() -> [URL] {
+        let urls = directoryURLs
+        directoryURLs = []
         return urls
     }
 }

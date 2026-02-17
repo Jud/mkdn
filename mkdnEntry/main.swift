@@ -53,36 +53,79 @@ if rawArguments.contains("--test-harness") {
         TestHarnessMode.startWatchdog()
     }
     MkdnApp.main()
-} else if let envFile = ProcessInfo.processInfo.environment["MKDN_LAUNCH_FILE"] {
-    unsetenv("MKDN_LAUNCH_FILE")
-    let urls = envFile.split(separator: "\n").map { path in
-        URL(fileURLWithPath: String(path)).standardized.resolvingSymlinksInPath()
+} else if ProcessInfo.processInfo.environment["MKDN_LAUNCH_FILE"] != nil
+    || ProcessInfo.processInfo.environment["MKDN_LAUNCH_DIR"] != nil
+{
+    if let envFile = ProcessInfo.processInfo.environment["MKDN_LAUNCH_FILE"] {
+        unsetenv("MKDN_LAUNCH_FILE")
+        let urls = envFile.split(separator: "\n").map { path in
+            URL(fileURLWithPath: String(path)).standardized.resolvingSymlinksInPath()
+        }
+        LaunchContext.fileURLs = urls
     }
-    LaunchContext.fileURLs = urls
+    if let envDir = ProcessInfo.processInfo.environment["MKDN_LAUNCH_DIR"] {
+        unsetenv("MKDN_LAUNCH_DIR")
+        let urls = envDir.split(separator: "\n").map { path in
+            URL(fileURLWithPath: String(path)).standardized.resolvingSymlinksInPath()
+        }
+        LaunchContext.directoryURLs = urls
+    }
     MkdnApp.main()
 } else {
     do {
         let cli = try MkdnCLI.parse()
 
         if !cli.files.isEmpty {
-            var validURLs: [URL] = []
-            for filePath in cli.files {
-                do {
-                    let url = try FileValidator.validate(path: filePath)
-                    validURLs.append(url)
-                } catch let error as CLIError {
-                    FileHandle.standardError.write(
-                        Data("mkdn: error: \(error.localizedDescription)\n".utf8)
-                    )
+            var validFileURLs: [URL] = []
+            var validDirURLs: [URL] = []
+            for argPath in cli.files {
+                let resolved = FileValidator.resolvePath(argPath)
+                var isDir: ObjCBool = false
+                let exists = FileManager.default.fileExists(
+                    atPath: resolved.path, isDirectory: &isDir
+                )
+                if exists, isDir.boolValue {
+                    do {
+                        let url = try DirectoryValidator.validate(path: argPath)
+                        validDirURLs.append(url)
+                    } catch let error as CLIError {
+                        FileHandle.standardError.write(
+                            Data("mkdn: error: \(error.localizedDescription)\n".utf8)
+                        )
+                    }
+                } else if !exists, argPath.hasSuffix("/") {
+                    do {
+                        let url = try DirectoryValidator.validate(path: argPath)
+                        validDirURLs.append(url)
+                    } catch let error as CLIError {
+                        FileHandle.standardError.write(
+                            Data("mkdn: error: \(error.localizedDescription)\n".utf8)
+                        )
+                    }
+                } else {
+                    do {
+                        let url = try FileValidator.validate(path: argPath)
+                        validFileURLs.append(url)
+                    } catch let error as CLIError {
+                        FileHandle.standardError.write(
+                            Data("mkdn: error: \(error.localizedDescription)\n".utf8)
+                        )
+                    }
                 }
             }
 
-            guard !validURLs.isEmpty else {
+            guard !validFileURLs.isEmpty || !validDirURLs.isEmpty else {
                 Foundation.exit(1)
             }
 
-            let pathString = validURLs.map(\.path).joined(separator: "\n")
-            setenv("MKDN_LAUNCH_FILE", pathString, 1)
+            if !validFileURLs.isEmpty {
+                let pathString = validFileURLs.map(\.path).joined(separator: "\n")
+                setenv("MKDN_LAUNCH_FILE", pathString, 1)
+            }
+            if !validDirURLs.isEmpty {
+                let pathString = validDirURLs.map(\.path).joined(separator: "\n")
+                setenv("MKDN_LAUNCH_DIR", pathString, 1)
+            }
             let execPath = ProcessInfo.processInfo.arguments[0]
             let cArgs: [UnsafeMutablePointer<CChar>?] = [strdup(execPath), nil]
             cArgs.withUnsafeBufferPointer { buffer in
