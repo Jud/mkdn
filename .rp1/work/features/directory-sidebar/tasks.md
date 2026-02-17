@@ -2,7 +2,7 @@
 
 **Feature ID**: directory-sidebar
 **Status**: In Progress
-**Progress**: 29% (5 of 17 tasks)
+**Progress**: 35% (6 of 17 tasks)
 **Estimated Effort**: 7 days
 **Started**: 2026-02-16
 
@@ -211,9 +211,21 @@ Extends mkdn from a single-file viewer into a folder-browsable navigation experi
     - **Deviations**: None
     - **Tests**: 0 new (T9 handles unit tests); build succeeds, all existing unit tests pass
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
 ### Sidebar UI (Group 3)
 
-- [ ] **T6**: Sidebar views -- tree, rows, header, divider, empty state `[complexity:medium]`
+- [x] **T6**: Sidebar views -- tree, rows, header, divider, empty state `[complexity:medium]`
 
     **Reference**: [design.md#t6-sidebar-views](design.md#t6-sidebar-views)
 
@@ -221,15 +233,22 @@ Extends mkdn from a single-file viewer into a folder-browsable navigation experi
 
     **Acceptance Criteria**:
 
-    - [ ] `SidebarView` created at `mkdn/Features/Sidebar/Views/SidebarView.swift` with header, divider, scrollable tree (LazyVStack), and empty-state fallback
-    - [ ] Tree flattening function converts recursive `FileTreeNode` into a flat list of visible nodes respecting expansion state
-    - [ ] `SidebarRowView` created at `mkdn/Features/Sidebar/Views/SidebarRowView.swift` with depth-based indentation (`depth * 16 + 8` leading padding), disclosure chevrons for directories, folder/document icons, selection highlight (accent color at 0.2 opacity), and tap handling
-    - [ ] `SidebarDivider` created at `mkdn/Features/Sidebar/Views/SidebarDivider.swift` with 1pt border color fill, 7pt hit target, drag gesture clamped to min/max sidebar width, and resize cursor on hover
-    - [ ] `SidebarHeaderView` created at `mkdn/Features/Sidebar/Views/SidebarHeaderView.swift` displaying root directory name with folder icon
-    - [ ] `SidebarEmptyView` created at `mkdn/Features/Sidebar/Views/SidebarEmptyView.swift` with magnifying glass icon and "No Markdown files found" message
-    - [ ] All views use `appSettings.theme.colors` for Solarized theming (backgroundSecondary, foreground, foregroundSecondary, accent, border, headingColor)
-    - [ ] Truncation indicator rows are non-interactive (no tap gesture)
-    - [ ] File name text uses `.callout` font with single-line truncation (`.middle`)
+    - [x] `SidebarView` created at `mkdn/Features/Sidebar/Views/SidebarView.swift` with header, divider, scrollable tree (LazyVStack), and empty-state fallback
+    - [x] Tree flattening function converts recursive `FileTreeNode` into a flat list of visible nodes respecting expansion state
+    - [x] `SidebarRowView` created at `mkdn/Features/Sidebar/Views/SidebarRowView.swift` with depth-based indentation (`depth * 16 + 8` leading padding), disclosure chevrons for directories, folder/document icons, selection highlight (accent color at 0.2 opacity), and tap handling
+    - [x] `SidebarDivider` created at `mkdn/Features/Sidebar/Views/SidebarDivider.swift` with 1pt border color fill, 7pt hit target, drag gesture clamped to min/max sidebar width, and resize cursor on hover
+    - [x] `SidebarHeaderView` created at `mkdn/Features/Sidebar/Views/SidebarHeaderView.swift` displaying root directory name with folder icon
+    - [x] `SidebarEmptyView` created at `mkdn/Features/Sidebar/Views/SidebarEmptyView.swift` with magnifying glass icon and "No Markdown files found" message
+    - [x] All views use `appSettings.theme.colors` for Solarized theming (backgroundSecondary, foreground, foregroundSecondary, accent, border, headingColor)
+    - [x] Truncation indicator rows are non-interactive (no tap gesture)
+    - [x] File name text uses `.callout` font with single-line truncation (`.middle`)
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Features/Sidebar/Views/SidebarView.swift`, `mkdn/Features/Sidebar/Views/SidebarRowView.swift`, `mkdn/Features/Sidebar/Views/SidebarDivider.swift`, `mkdn/Features/Sidebar/Views/SidebarHeaderView.swift`, `mkdn/Features/Sidebar/Views/SidebarEmptyView.swift`
+    - **Approach**: Implemented all 5 sidebar views per design spec. SidebarView uses LazyVStack with tree flattening that walks FileTreeNode recursively respecting expansion state. SidebarRowView splits into 3 variants (directory/file/truncation) for clarity; directory rows toggle expansion, file rows trigger selection, truncation rows are inert. SidebarDivider tracks drag start width for stable resizing. All views read theme colors from AppSettings environment.
+    - **Deviations**: SidebarDivider stores dragStartWidth @State to compute absolute width from drag start rather than incremental translation, preventing jitter on rapid drags. SidebarRowView splits into separate computed properties per row type rather than one body with conditionals, for readability and to keep SwiftLint body length in check.
+    - **Tests**: 0 new (T9 handles unit tests); build succeeds, 424/424 tests run (30 pre-existing UI compliance failures)
 
 - [ ] **T8**: WelcomeView adaptation and menu commands `[complexity:simple]`
 
