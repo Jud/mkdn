@@ -361,6 +361,18 @@ Extends mkdn from a single-file viewer into a folder-browsable navigation experi
     - **Deviations**: Test files placed in `mkdnTests/Unit/Core/` and `mkdnTests/Unit/Features/` subdirectories (following existing convention) rather than flat `mkdnTests/Unit/` as listed in design. DirectoryStateTests skips scan/refresh-dependent assertions (first-level expansion defaults, expansion preservation on refresh, deleted file clears selection) because scan() creates DispatchSources whose cleanup races with test process teardown per project MEMORY.md. These behaviors are covered transitively by DirectoryScannerTests (pure scanning logic) and can be verified via integration/UI tests.
     - **Tests**: 53/53 passing; 477 total suite (30 pre-existing UI compliance failures)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ✅ PASS |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
 ### User Docs
 
 - [ ] **TD1**: Update index.md -- Quick Reference `[complexity:simple]`
