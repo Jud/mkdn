@@ -35,27 +35,12 @@ struct TableBlockView: View {
         let result = sizingResult
         let columnWidths = result.columnWidths
 
-        tableContent(columnWidths: columnWidths, needsScroll: result.needsHorizontalScroll)
+        tableBody(columnWidths: columnWidths)
             .onGeometryChange(for: CGSize.self) { proxy in
                 proxy.size
             } action: { newSize in
                 onSizeChange?(newSize.width, newSize.height)
             }
-    }
-
-    @ViewBuilder
-    private func tableContent(
-        columnWidths: [CGFloat],
-        needsScroll: Bool
-    ) -> some View {
-        if needsScroll {
-            ScrollView(.horizontal, showsIndicators: true) {
-                tableBody(columnWidths: columnWidths)
-            }
-            .frame(maxWidth: containerWidth)
-        } else {
-            tableBody(columnWidths: columnWidths)
-        }
     }
 
     private func tableBody(columnWidths: [CGFloat]) -> some View {
@@ -65,11 +50,11 @@ struct TableBlockView: View {
                 .background(colors.border)
             dataRows(columnWidths: columnWidths)
         }
-        .fixedSize(horizontal: true, vertical: false)
+        .frame(maxWidth: containerWidth)
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .overlay(
             RoundedRectangle(cornerRadius: 6)
-                .stroke(colors.border.opacity(0.3), lineWidth: 1)
+                .stroke(colors.border.opacity(0.5), lineWidth: 1)
         )
     }
 
@@ -92,6 +77,7 @@ struct TableBlockView: View {
             }
         }
         .background(colors.backgroundSecondary)
+        .background(colors.foregroundSecondary.opacity(0.06))
     }
 
     private func dataRows(columnWidths: [CGFloat]) -> some View {
@@ -120,7 +106,7 @@ struct TableBlockView: View {
             .background(
                 rowIndex.isMultiple(of: 2)
                     ? colors.background
-                    : colors.backgroundSecondary.opacity(0.5)
+                    : colors.backgroundSecondary.opacity(0.7)
             )
         }
     }

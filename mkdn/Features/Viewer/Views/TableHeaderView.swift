@@ -25,7 +25,7 @@ struct TableHeaderView: View {
         VStack(spacing: 0) {
             headerCells
             Divider()
-                .background(colors.border)
+                .background(colors.border.opacity(0.5))
         }
     }
 
@@ -47,5 +47,6 @@ struct TableHeaderView: View {
             }
         }
         .background(colors.backgroundSecondary)
+        .background(colors.foregroundSecondary.opacity(0.06))
     }
 }

@@ -10,7 +10,7 @@ struct TableColumnSizerTests {
 
     // MARK: - Width Computation
 
-    @Test("Narrow table fits content without horizontal scroll")
+    @Test("Narrow table fits content within container")
     func narrowTableFitsContent() {
         let columns = [
             TableColumn(header: AttributedString("Name"), alignment: .left),
@@ -28,7 +28,7 @@ struct TableColumnSizerTests {
         )
 
         #expect(result.totalWidth < containerWidth)
-        #expect(!result.needsHorizontalScroll)
+        #expect(result.totalWidth <= containerWidth)
     }
 
     @Test("Widest cell sets column width with 26pt padding")
@@ -92,8 +92,8 @@ struct TableColumnSizerTests {
         #expect(maxWidth - minWidth <= 2)
     }
 
-    @Test("Wide table with 12 columns flags horizontal scroll")
-    func wideTableFlagsHorizontalScroll() {
+    @Test("Wide table with 12 columns compresses to fit container")
+    func wideTableCompressesToFitContainer() {
         let columns = (0 ..< 12).map { idx in
             TableColumn(
                 header: AttributedString("Column\(idx)"),
@@ -111,11 +111,15 @@ struct TableColumnSizerTests {
             font: font
         )
 
-        #expect(result.needsHorizontalScroll)
+        #expect(result.totalWidth <= containerWidth)
+        #expect(result.columnWidths.count == 12)
+        for width in result.columnWidths {
+            #expect(width >= TableColumnSizer.totalHorizontalPadding)
+        }
     }
 
-    @Test("Column width capped at containerWidth * 0.6")
-    func columnWidthCapped() {
+    @Test("Single wide column capped at containerWidth")
+    func singleWideColumnCappedAtContainer() {
         let longString = String(repeating: "W", count: 500)
         let columns = [
             TableColumn(header: AttributedString("H"), alignment: .left),
@@ -131,9 +135,8 @@ struct TableColumnSizerTests {
             font: font
         )
 
-        let maxAllowed = containerWidth * TableColumnSizer.maxColumnWidthFraction
         #expect(result.columnWidths.count == 1)
-        #expect(result.columnWidths[0] <= maxAllowed)
+        #expect(result.totalWidth <= containerWidth)
     }
 
     @Test("Padding included in every column width (>= 26pt)")

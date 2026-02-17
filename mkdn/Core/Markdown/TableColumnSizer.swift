@@ -10,7 +10,6 @@ enum TableColumnSizer {
     static let horizontalCellPadding: CGFloat = 13
     static let verticalCellPadding: CGFloat = 6
     static let totalHorizontalPadding: CGFloat = horizontalCellPadding * 2
-    static let maxColumnWidthFraction: CGFloat = 0.6
     static let headerDividerHeight: CGFloat = 1
     static let borderChrome: CGFloat = 2
 
@@ -19,19 +18,19 @@ enum TableColumnSizer {
     struct Result {
         let columnWidths: [CGFloat]
         let totalWidth: CGFloat
-        let needsHorizontalScroll: Bool
     }
 
     // MARK: - Column Width Computation
 
-    /// Computes content-aware column widths for a Markdown table.
+    /// Computes content-aware column widths for a Markdown table, always fitting
+    /// within `containerWidth`.
     ///
     /// Algorithm:
     /// 1. Measure intrinsic single-line width of every cell (header + data rows).
-    /// 2. Take the maximum intrinsic width per column.
-    /// 3. Add horizontal cell padding (13pt x 2 = 26pt) to each column.
-    /// 4. Cap each column at `containerWidth * 0.6`.
-    /// 5. Sum all column widths; determine table width and scroll need.
+    /// 2. Take the maximum intrinsic width per column, add horizontal cell padding.
+    /// 3. If total fits within `containerWidth`, use intrinsic widths as-is.
+    /// 4. Otherwise, lock columns at or below their fair share and distribute
+    ///    remaining space proportionally among wider columns.
     static func computeWidths(
         columns: [TableColumn],
         rows: [[AttributedString]],
@@ -40,41 +39,75 @@ enum TableColumnSizer {
     ) -> Result {
         let columnCount = columns.count
         guard columnCount > 0 else {
-            return Result(columnWidths: [], totalWidth: 0, needsHorizontalScroll: false)
+            return Result(columnWidths: [], totalWidth: 0)
         }
 
         let boldFont = NSFontManager.shared.convert(font, toHaveTrait: .boldFontMask)
-        let maxColumnWidth = containerWidth * maxColumnWidthFraction
 
-        var columnWidths = [CGFloat](repeating: 0, count: columnCount)
-
+        var intrinsicWidths = [CGFloat](repeating: 0, count: columnCount)
         for (colIndex, column) in columns.enumerated() {
-            let headerWidth = measureCellWidth(column.header, font: boldFont)
-            columnWidths[colIndex] = headerWidth
+            intrinsicWidths[colIndex] = measureCellWidth(column.header, font: boldFont)
         }
-
         for row in rows {
             for colIndex in 0 ..< min(row.count, columnCount) {
                 let cellWidth = measureCellWidth(row[colIndex], font: font)
-                columnWidths[colIndex] = max(columnWidths[colIndex], cellWidth)
+                intrinsicWidths[colIndex] = max(intrinsicWidths[colIndex], cellWidth)
             }
         }
 
-        for colIndex in 0 ..< columnCount {
-            let paddedWidth = columnWidths[colIndex] + totalHorizontalPadding
-            columnWidths[colIndex] = min(paddedWidth, maxColumnWidth)
-            columnWidths[colIndex] = max(columnWidths[colIndex], totalHorizontalPadding)
+        let paddedWidths = intrinsicWidths.map { width in
+            max(width + totalHorizontalPadding, totalHorizontalPadding)
         }
 
-        let totalContentWidth = columnWidths.reduce(0, +)
-        let needsHorizontalScroll = totalContentWidth > containerWidth
-        let totalWidth = min(totalContentWidth, containerWidth)
+        let totalPadded = paddedWidths.reduce(0, +)
+        if totalPadded <= containerWidth {
+            return Result(columnWidths: paddedWidths, totalWidth: totalPadded)
+        }
 
-        return Result(
-            columnWidths: columnWidths,
-            totalWidth: totalWidth,
-            needsHorizontalScroll: needsHorizontalScroll
-        )
+        let compressed = compressColumns(paddedWidths, toFit: containerWidth)
+        let totalWidth = min(compressed.reduce(0, +), containerWidth)
+        return Result(columnWidths: compressed, totalWidth: totalWidth)
+    }
+
+    /// Proportionally compresses columns to fit within `targetWidth`.
+    ///
+    /// Columns at or below their fair share keep their intrinsic width.
+    /// Remaining space is distributed proportionally among wider columns.
+    private static func compressColumns(
+        _ paddedWidths: [CGFloat],
+        toFit targetWidth: CGFloat
+    ) -> [CGFloat] {
+        let count = paddedWidths.count
+        var widths = paddedWidths
+        var locked = [Bool](repeating: false, count: count)
+        var lockedWidth: CGFloat = 0
+        var remaining = count
+
+        var changed = true
+        while changed {
+            changed = false
+            guard remaining > 0 else { break }
+            let fairShare = (targetWidth - lockedWidth) / CGFloat(remaining)
+            for idx in 0 ..< count where !locked[idx] {
+                if paddedWidths[idx] <= fairShare {
+                    locked[idx] = true
+                    lockedWidth += paddedWidths[idx]
+                    remaining -= 1
+                    widths[idx] = paddedWidths[idx]
+                    changed = true
+                }
+            }
+        }
+
+        let available = targetWidth - lockedWidth
+        let unlockedTotal = (0 ..< count).filter { !locked[$0] }.map { paddedWidths[$0] }.reduce(0, +)
+        if unlockedTotal > 0 {
+            for idx in 0 ..< count where !locked[idx] {
+                let proportion = paddedWidths[idx] / unlockedTotal
+                widths[idx] = max(floor(proportion * available), totalHorizontalPadding)
+            }
+        }
+        return widths
     }
 
     // MARK: - Height Estimation
@@ -136,6 +169,12 @@ enum TableColumnSizer {
         return ceil(nsAttrString.size().width)
     }
 
+    /// Word wrapping overhead factor applied when columns are compressed.
+    /// Accounts for word-boundary breaks producing lines shorter than the
+    /// available width, which makes the simple `contentWidth / availableWidth`
+    /// estimate too optimistic.
+    static let wrappingOverhead: CGFloat = 1.2
+
     private static func estimateRowHeight(
         cells: [AttributedString],
         columnWidths: [CGFloat],
@@ -149,8 +188,9 @@ enum TableColumnSizer {
             let contentWidth = measureCellWidth(cells[colIndex], font: font)
             let availableWidth = columnWidths[colIndex] - totalHorizontalPadding
             if availableWidth > 0, contentWidth > availableWidth {
-                let estimatedLines = Int(ceil(contentWidth / availableWidth))
-                maxLines = max(maxLines, estimatedLines)
+                let rawLines = contentWidth / availableWidth
+                let adjustedLines = rawLines * wrappingOverhead
+                maxLines = max(maxLines, Int(ceil(adjustedLines)))
             }
         }
 
