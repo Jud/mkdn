@@ -1,0 +1,70 @@
+#!/usr/bin/env python3
+"""Minimal CLI to drive mkdn via its test harness socket."""
+import json
+import socket
+import sys
+import glob
+import os
+
+def find_socket():
+    socks = glob.glob("/tmp/mkdn-test-harness-*.sock")
+    for s in sorted(socks, key=os.path.getmtime, reverse=True):
+        if os.path.exists(f"/proc/{s.split('-')[-1].replace('.sock','')}/status") or True:
+            return s
+    return socks[0] if socks else None
+
+def send(sock_path, cmd):
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    s.settimeout(15)
+    s.connect(sock_path)
+    s.sendall((json.dumps(cmd) + "\n").encode())
+    data = b""
+    while b"\n" not in data:
+        chunk = s.recv(4096)
+        if not chunk:
+            break
+        data += chunk
+    s.close()
+    return json.loads(data.decode().strip())
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: mkdn-ctl <command> [args]")
+        print("Commands: ping, load <path>, capture [path], scroll <y>,")
+        print("          theme <name>, cycle, info, quit")
+        sys.exit(1)
+
+    sock = os.environ.get("MKDN_SOCK") or find_socket()
+    if not sock:
+        print("No harness socket found. Launch mkdn with --test-harness", file=sys.stderr)
+        sys.exit(1)
+
+    cmd_name = sys.argv[1]
+    try:
+        if cmd_name == "ping":
+            r = send(sock, {"ping": {}})
+        elif cmd_name == "load":
+            r = send(sock, {"loadFile": {"path": os.path.abspath(sys.argv[2])}})
+        elif cmd_name == "capture":
+            path = sys.argv[2] if len(sys.argv) > 2 else "/tmp/mkdn-capture.png"
+            r = send(sock, {"captureWindow": {"outputPath": os.path.abspath(path)}})
+        elif cmd_name == "scroll":
+            r = send(sock, {"scrollTo": {"yOffset": float(sys.argv[2])}})
+        elif cmd_name == "theme":
+            r = send(sock, {"setTheme": {"theme": sys.argv[2]}})
+        elif cmd_name == "cycle":
+            r = send(sock, {"cycleTheme": {}})
+        elif cmd_name == "info":
+            r = send(sock, {"getWindowInfo": {}})
+        elif cmd_name == "quit":
+            r = send(sock, {"quit": {}})
+        else:
+            print(f"Unknown command: {cmd_name}", file=sys.stderr)
+            sys.exit(1)
+        print(json.dumps(r, indent=2))
+    except ConnectionRefusedError:
+        print(f"Connection refused: {sock}", file=sys.stderr)
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()

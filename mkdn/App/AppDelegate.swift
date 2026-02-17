@@ -8,6 +8,7 @@ import AppKit
 @MainActor
 public final class AppDelegate: NSObject, NSApplicationDelegate {
     public func applicationWillFinishLaunching(_: Notification) {
+        guard !TestHarnessMode.isEnabled else { return }
         NSApp.setActivationPolicy(.regular)
 
         if let iconURL = Bundle.module.url(forResource: "AppIcon", withExtension: "icns"),
@@ -105,6 +106,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         _ sender: NSApplication,
         hasVisibleWindows: Bool
     ) -> Bool {
+        guard !TestHarnessMode.isEnabled else { return false }
         if hasVisibleWindows {
             sender.activate(ignoringOtherApps: true)
             sender.keyWindow?.makeKeyAndOrderFront(nil)

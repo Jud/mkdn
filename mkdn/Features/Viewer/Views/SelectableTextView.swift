@@ -288,6 +288,7 @@ extension SelectableTextView {
         }
 
         // MARK: - Text Storage Highlight Strategy
+
         //
         // Uses direct NSTextStorage attribute modifications instead of
         // NSTextLayoutManager.setRenderingAttributes. Rendering attributes

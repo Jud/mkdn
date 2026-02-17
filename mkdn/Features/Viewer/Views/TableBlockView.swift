@@ -34,8 +34,9 @@ struct TableBlockView: View {
     var body: some View {
         let result = sizingResult
         let columnWidths = result.columnWidths
+        let totalWidth = result.totalWidth
 
-        tableBody(columnWidths: columnWidths)
+        tableBody(columnWidths: columnWidths, totalWidth: totalWidth)
             .onGeometryChange(for: CGSize.self) { proxy in
                 proxy.size
             } action: { newSize in
@@ -43,14 +44,14 @@ struct TableBlockView: View {
             }
     }
 
-    private func tableBody(columnWidths: [CGFloat]) -> some View {
+    private func tableBody(columnWidths: [CGFloat], totalWidth: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             headerRow(columnWidths: columnWidths)
             Divider()
                 .background(colors.border)
             dataRows(columnWidths: columnWidths)
         }
-        .frame(maxWidth: containerWidth)
+        .frame(width: totalWidth)
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .overlay(
             RoundedRectangle(cornerRadius: 6)

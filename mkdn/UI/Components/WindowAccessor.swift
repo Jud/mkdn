@@ -32,6 +32,7 @@ public final class WindowAccessorView: NSView {
         window.standardWindowButton(.miniaturizeButton)?.isHidden = true
         window.standardWindowButton(.zoomButton)?.isHidden = true
 
+        guard !TestHarnessMode.isEnabled else { return }
         DispatchQueue.main.async {
             window.makeKeyAndOrderFront(nil)
             window.orderFrontRegardless()

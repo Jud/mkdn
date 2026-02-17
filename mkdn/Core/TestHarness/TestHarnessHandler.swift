@@ -337,7 +337,11 @@ enum TestHarnessHandler {
         guard let scrollView = findScrollView(in: window.contentView) else {
             return .error("No scroll view found in window hierarchy")
         }
-        let point = NSPoint(x: 0, y: yOffset)
+        let documentHeight = scrollView.documentView?.frame.height ?? 0
+        let visibleHeight = scrollView.contentView.bounds.height
+        let maxY = max(0, documentHeight - visibleHeight)
+        let clampedY = min(max(0, yOffset), maxY)
+        let point = NSPoint(x: 0, y: clampedY)
         scrollView.contentView.scroll(to: point)
         scrollView.reflectScrolledClipView(scrollView.contentView)
         try? await Task.sleep(for: .milliseconds(50))

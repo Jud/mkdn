@@ -56,53 +56,17 @@ Feature-Based MVVM. Two-target layout:
 - All `.rp1/` artifacts (work/, context/, settings.toml) are tracked in git. Always commit them.
 - `GIT_COMMIT=true` is the default (see `.rp1/settings.toml`).
 
-### Visual Verification Workflow
+### Visual Testing with mkdn-ctl
 
-Scripts in `scripts/visual-verification/` implement an on-demand LLM vision-based design compliance workflow. The workflow captures deterministic screenshots via the test harness and evaluates them against PRD specifications using Claude Code's vision capabilities, reporting findings for developer review.
-
-#### Quick Reference
+The app includes a test harness for visual verification. Launch with `--test-harness`, then drive it with `scripts/mkdn-ctl`. See `docs/visual-testing-with-mkdn-ctl.md` for the full workflow.
 
 ```bash
-# Full verification (capture + evaluate + summary)
-scripts/visual-verification/verify-visual.sh
-
-# Dry run (capture + show what would be evaluated, no API calls)
-scripts/visual-verification/verify-visual.sh --dry-run
-
-# Skip build step (use existing binary)
-scripts/visual-verification/verify-visual.sh --skip-build
-
-# Bypass cache for fresh evaluation
-scripts/visual-verification/verify-visual.sh --force-fresh
-
-# Raw JSON output instead of summary
-scripts/visual-verification/verify-visual.sh --json
-
-# Individual phases
-scripts/visual-verification/capture.sh          # Capture screenshots only
-scripts/visual-verification/evaluate.sh         # Vision evaluation only
+swift run mkdn --test-harness                     # launch with harness
+scripts/mkdn-ctl load fixtures/table-test.md      # load a fixture
+scripts/mkdn-ctl capture /tmp/shot.png            # screenshot
+scripts/mkdn-ctl scroll 500                       # scroll to y=500pt
+scripts/mkdn-ctl theme solarizedDark              # set theme
+scripts/mkdn-ctl info                             # window state
 ```
 
-#### Flags
-
-| Script | Flag | Description |
-|--------|------|-------------|
-| `verify-visual.sh` | `--dry-run` | Capture + show what would be evaluated (no API calls) |
-| `verify-visual.sh` | `--skip-build` | Skip swift build step |
-| `verify-visual.sh` | `--force-fresh` | Bypass evaluation cache |
-| `verify-visual.sh` | `--json` | Output raw JSON instead of summary |
-| `capture.sh` | `--skip-build` | Skip `swift build --product mkdn` step |
-| `evaluate.sh` | `--dry-run` | Assemble prompts and report what would be evaluated without API calls |
-| `evaluate.sh` | `--batch-size N` | Maximum images per evaluation batch (default: 4) |
-| `evaluate.sh` | `--force-fresh` | Bypass cache, force fresh evaluation |
-
-#### Artifacts
-
-| Location | Purpose |
-|----------|---------|
-| `.rp1/work/verification/captures/` | Captured screenshots and `manifest.json` |
-| `.rp1/work/verification/reports/` | Evaluation and dry-run reports |
-| `.rp1/work/verification/cache/` | Cached evaluation results keyed by content hash |
-| `.rp1/work/verification/audit.jsonl` | Audit trail of evaluation operations (JSON Lines) |
-| `mkdnTests/UITest/VisionCompliance/` | Capture orchestrator test suite |
-| `scripts/visual-verification/prompts/` | Prompt templates and output schema |
+When verifying UI changes: create a fixture, load it, capture screenshots at various scroll positions and themes, then `Read` the PNGs to evaluate rendering.
