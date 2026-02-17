@@ -72,9 +72,7 @@ final class CodeBlockBackgroundTextView: NSTextView {
 
     override func cancelOperation(_ sender: Any?) {
         if let findState, findState.isVisible {
-            withAnimation(AnimationConstants.quickFade) {
-                findState.dismiss()
-            }
+            findState.dismiss()
             return
         }
         super.cancelOperation(sender)

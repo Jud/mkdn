@@ -52,11 +52,19 @@ struct FindBarView: View {
         .frame(width: 300)
         .background(.ultraThinMaterial)
         .clipShape(Capsule())
+        .opacity(findState.isVisible ? 1 : 0)
+        .scaleEffect(findState.isVisible ? 1 : 0.95)
+        .animation(
+            reduceMotion ? AnimationConstants.reducedCrossfade : AnimationConstants.springSettle,
+            value: findState.isVisible
+        )
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
         .padding()
         .onChange(of: findState.isVisible) { _, isVisible in
             if isVisible {
-                isInputFocused = true
+                DispatchQueue.main.async {
+                    isInputFocused = true
+                }
             }
         }
     }
@@ -142,8 +150,7 @@ struct FindBarView: View {
     // MARK: - Dismiss
 
     private func dismissFindBar() {
-        withAnimation(motion.resolved(.quickFade)) {
-            findState.dismiss()
-        }
+        isInputFocused = false
+        findState.dismiss()
     }
 }

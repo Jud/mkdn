@@ -14,6 +14,7 @@ struct ThemeColors: Sendable {
     let headingColor: Color
     let blockquoteBorder: Color
     let blockquoteBackground: Color
+    let findHighlight: Color
 }
 
 /// Syntax highlighting colors.

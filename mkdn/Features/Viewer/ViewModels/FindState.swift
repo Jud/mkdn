@@ -54,11 +54,21 @@ public final class FindState {
     }
 
     /// Dismiss the find bar and clear all find state.
+    ///
+    /// - Note: Callers that need an animated exit should set `isVisible = false`
+    ///   inside `withAnimation` first, then call ``clearSearch()`` outside it.
+    ///   Using `dismiss()` directly inside `withAnimation` causes layout churn
+    ///   that kills the exit transition.
     public func dismiss() {
+        isVisible = false
+        clearSearch()
+    }
+
+    /// Clear search state without changing visibility.
+    public func clearSearch() {
         query = ""
         matchRanges = []
         currentMatchIndex = 0
-        isVisible = false
     }
 
     /// Populate the find bar with the given selection and show it.

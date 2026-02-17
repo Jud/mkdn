@@ -42,15 +42,9 @@ public struct ContentView: View {
                 .id(label)
             }
 
-            if findState.isVisible {
-                FindBarView()
-                    .transition(
-                        .asymmetric(
-                            insertion: .scale(scale: 0.95).combined(with: .opacity),
-                            removal: .opacity
-                        )
-                    )
-            }
+            FindBarView()
+                .allowsHitTesting(findState.isVisible)
+                .accessibilityHidden(!findState.isVisible)
         }
         .frame(minWidth: 600, minHeight: 400)
         .background(WindowAccessor())

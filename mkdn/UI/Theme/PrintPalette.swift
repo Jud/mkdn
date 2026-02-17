@@ -35,7 +35,8 @@ enum PrintPalette {
         linkColor: darkBlue,
         headingColor: black,
         blockquoteBorder: midGray,
-        blockquoteBackground: nearWhite
+        blockquoteBackground: nearWhite,
+        findHighlight: darkAmber
     )
 
     static let syntaxColors = SyntaxColors(
