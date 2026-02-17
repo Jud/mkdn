@@ -19,6 +19,7 @@ public struct DocumentWindow: View {
     public let launchItem: LaunchItem?
     @State private var documentState = DocumentState()
     @State private var findState = FindState()
+    @State private var directoryState: DirectoryState?
     @State private var isReady = false
     @Environment(AppSettings.self) private var appSettings
     @Environment(\.openWindow) private var openWindow
@@ -28,27 +29,35 @@ public struct DocumentWindow: View {
     }
 
     public var body: some View {
-        ContentView()
-            .environment(documentState)
-            .environment(findState)
-            .environment(appSettings)
-            .focusedSceneValue(\.documentState, documentState)
-            .focusedSceneValue(\.findState, findState)
-            .opacity(isReady ? 1 : 0)
-            .onAppear {
-                handleLaunch()
-                if TestHarnessMode.isEnabled {
-                    TestHarnessHandler.appSettings = appSettings
-                    TestHarnessHandler.documentState = documentState
-                    TestHarnessServer.shared.start()
-                }
-                isReady = true
+        Group {
+            if let directoryState {
+                DirectoryContentView()
+                    .environment(directoryState)
+                    .focusedSceneValue(\.directoryState, directoryState)
+            } else {
+                ContentView()
             }
-            .onChange(of: FileOpenCoordinator.shared.pendingURLs) {
-                for url in FileOpenCoordinator.shared.consumeAll() {
-                    openWindow(value: LaunchItem.file(url))
-                }
+        }
+        .environment(documentState)
+        .environment(findState)
+        .environment(appSettings)
+        .focusedSceneValue(\.documentState, documentState)
+        .focusedSceneValue(\.findState, findState)
+        .opacity(isReady ? 1 : 0)
+        .onAppear {
+            handleLaunch()
+            if TestHarnessMode.isEnabled {
+                TestHarnessHandler.appSettings = appSettings
+                TestHarnessHandler.documentState = documentState
+                TestHarnessServer.shared.start()
             }
+            isReady = true
+        }
+        .onChange(of: FileOpenCoordinator.shared.pendingURLs) {
+            for url in FileOpenCoordinator.shared.consumeAll() {
+                openWindow(value: LaunchItem.file(url))
+            }
+        }
     }
 
     private func handleLaunch() {
@@ -57,12 +66,19 @@ public struct DocumentWindow: View {
             try? documentState.loadFile(at: url)
             NSDocumentController.shared.noteNewRecentDocumentURL(url)
 
-        case .directory:
-            break
+        case let .directory(url):
+            setupDirectoryState(rootURL: url)
 
         case nil:
             consumeLaunchContext()
         }
+    }
+
+    private func setupDirectoryState(rootURL: URL) {
+        let dirState = DirectoryState(rootURL: rootURL)
+        dirState.documentState = documentState
+        directoryState = dirState
+        dirState.scan()
     }
 
     private func consumeLaunchContext() {
@@ -73,11 +89,16 @@ public struct DocumentWindow: View {
             if let first = launchFileURLs.first {
                 try? documentState.loadFile(at: first)
                 NSDocumentController.shared.noteNewRecentDocumentURL(first)
+            } else if let firstDir = launchDirURLs.first {
+                setupDirectoryState(rootURL: firstDir)
             }
             for url in launchFileURLs.dropFirst() {
                 openWindow(value: LaunchItem.file(url))
             }
-            for url in launchDirURLs {
+            let remainingDirs = launchFileURLs.isEmpty
+                ? Array(launchDirURLs.dropFirst())
+                : launchDirURLs
+            for url in remainingDirs {
                 openWindow(value: LaunchItem.directory(url))
             }
         } else {

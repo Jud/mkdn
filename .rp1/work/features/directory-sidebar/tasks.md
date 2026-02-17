@@ -2,7 +2,7 @@
 
 **Feature ID**: directory-sidebar
 **Status**: In Progress
-**Progress**: 35% (6 of 17 tasks)
+**Progress**: 41% (7 of 17 tasks)
 **Estimated Effort**: 7 days
 **Started**: 2026-02-16
 
@@ -250,6 +250,18 @@ Extends mkdn from a single-file viewer into a folder-browsable navigation experi
     - **Deviations**: SidebarDivider stores dragStartWidth @State to compute absolute width from drag start rather than incremental translation, preventing jitter on rapid drags. SidebarRowView splits into separate computed properties per row type rather than one body with conditionals, for readability and to keep SwiftLint body length in check.
     - **Tests**: 0 new (T9 handles unit tests); build succeeds, 424/424 tests run (30 pre-existing UI compliance failures)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
 - [ ] **T8**: WelcomeView adaptation and menu commands `[complexity:simple]`
 
     **Reference**: [design.md#t8-welcomeview--menu-commands](design.md#t8-welcomeview--menu-commands)
@@ -268,7 +280,7 @@ Extends mkdn from a single-file viewer into a folder-browsable navigation experi
 
 ### Layout Integration (Group 4)
 
-- [ ] **T7**: DirectoryContentView and DocumentWindow integration `[complexity:medium]`
+- [x] **T7**: DirectoryContentView and DocumentWindow integration `[complexity:medium]`
 
     **Reference**: [design.md#t7-directorycontentview--layout-integration](design.md#t7-directorycontentview--layout-integration)
 
@@ -276,14 +288,21 @@ Extends mkdn from a single-file viewer into a folder-browsable navigation experi
 
     **Acceptance Criteria**:
 
-    - [ ] `DirectoryContentView` created at `mkdn/Features/Sidebar/Views/DirectoryContentView.swift` as HStack(spacing: 0) wrapper with sidebar + divider + ContentView
-    - [ ] Sidebar visibility animated with `gentleSpring` via `MotionPreference`, using `.move(edge: .leading).combined(with: .opacity)` transition
-    - [ ] Animation respects system Reduce Motion preference
-    - [ ] Minimum window size set to 600x400
-    - [ ] `DocumentWindow` conditionally renders `DirectoryContentView` (when `directoryState` is non-nil) or `ContentView` (when nil)
-    - [ ] `DocumentWindow.handleLaunch()` creates `DirectoryState` for `.directory` launch items, sets `dirState.documentState = documentState`, calls `dirState.scan()`
-    - [ ] Environment injections: `.environment(directoryState)`, `.environment(\.isDirectoryMode, true)`, `.focusedSceneValue(\.directoryState, directoryState)`
-    - [ ] Content area resizes to fill available space when sidebar is hidden
+    - [x] `DirectoryContentView` created at `mkdn/Features/Sidebar/Views/DirectoryContentView.swift` as HStack(spacing: 0) wrapper with sidebar + divider + ContentView
+    - [x] Sidebar visibility animated with `gentleSpring` via `MotionPreference`, using `.move(edge: .leading).combined(with: .opacity)` transition
+    - [x] Animation respects system Reduce Motion preference
+    - [x] Minimum window size set to 600x400
+    - [x] `DocumentWindow` conditionally renders `DirectoryContentView` (when `directoryState` is non-nil) or `ContentView` (when nil)
+    - [x] `DocumentWindow.handleLaunch()` creates `DirectoryState` for `.directory` launch items, sets `dirState.documentState = documentState`, calls `dirState.scan()`
+    - [x] Environment injections: `.environment(directoryState)`, `.environment(\.isDirectoryMode, true)`, `.focusedSceneValue(\.directoryState, directoryState)`
+    - [x] Content area resizes to fill available space when sidebar is hidden
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Features/Sidebar/Views/DirectoryContentView.swift`, `mkdn/App/DocumentWindow.swift`
+    - **Approach**: Created DirectoryContentView as HStack(spacing: 0) wrapping SidebarView + SidebarDivider (conditionally visible) + ContentView. Sidebar show/hide animated with gentleSpring via MotionPreference, using move+opacity transition. Sets isDirectoryMode environment key for WelcomeView. DocumentWindow gains @State directoryState optional; body conditionally renders DirectoryContentView (with environment/focusedSceneValue injections) or plain ContentView. handleLaunch .directory case creates DirectoryState, wires documentState reference, calls scan(). Extracted setupDirectoryState helper reused in consumeLaunchContext to adopt first directory into current window (avoids dangling empty window when only directories are launched).
+    - **Deviations**: Enhanced consumeLaunchContext to adopt the first directory URL into the current window when no file URLs are present, preventing an empty window from remaining when launching with only directory arguments. This is a necessary integration fix not explicitly in the design but required for correct end-to-end behavior.
+    - **Tests**: 424/424 tests run (30 pre-existing UI compliance failures unrelated to changes)
 
 ### Unit Tests (Group 5)
 
