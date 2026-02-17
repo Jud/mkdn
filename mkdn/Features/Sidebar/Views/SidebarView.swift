@@ -13,9 +13,6 @@ struct SidebarView: View {
         VStack(alignment: .leading, spacing: 0) {
             SidebarHeaderView()
 
-            Divider()
-                .overlay(appSettings.theme.colors.border)
-
             if let tree = directoryState.tree, !tree.children.isEmpty {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {

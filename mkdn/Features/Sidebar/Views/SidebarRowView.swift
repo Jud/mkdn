@@ -46,7 +46,7 @@ struct SidebarRowView: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
         }
-        .padding(.leading, CGFloat(node.depth) * 16 + 8)
+        .padding(.leading, CGFloat(node.depth - 1) * 16 + 12)
         .padding(.trailing, 8)
         .padding(.vertical, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -74,7 +74,7 @@ struct SidebarRowView: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
         }
-        .padding(.leading, CGFloat(node.depth) * 16 + 8)
+        .padding(.leading, CGFloat(node.depth - 1) * 16 + 12)
         .padding(.trailing, 8)
         .padding(.vertical, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -94,7 +94,7 @@ struct SidebarRowView: View {
                 .font(.callout)
                 .foregroundStyle(appSettings.theme.colors.foregroundSecondary)
         }
-        .padding(.leading, CGFloat(node.depth) * 16 + 8)
+        .padding(.leading, CGFloat(node.depth - 1) * 16 + 12)
         .padding(.trailing, 8)
         .padding(.vertical, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
