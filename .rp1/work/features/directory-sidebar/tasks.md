@@ -2,7 +2,7 @@
 
 **Feature ID**: directory-sidebar
 **Status**: In Progress
-**Progress**: 12% (2 of 17 tasks)
+**Progress**: 18% (3 of 17 tasks)
 **Estimated Effort**: 7 days
 **Started**: 2026-02-16
 
@@ -96,7 +96,19 @@ Extends mkdn from a single-file viewer into a folder-browsable navigation experi
     - **Deviations**: None
     - **Tests**: 0 new (T9 handles unit tests); all existing tests pass
 
-- [ ] **T3**: DirectoryWatcher -- filesystem monitoring `[complexity:medium]`
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
+- [x] **T3**: DirectoryWatcher -- filesystem monitoring `[complexity:medium]`
 
     **Reference**: [design.md#t3-directorywatcher](design.md#t3-directorywatcher)
 
@@ -104,17 +116,24 @@ Extends mkdn from a single-file viewer into a folder-browsable navigation experi
 
     **Acceptance Criteria**:
 
-    - [ ] `DirectoryWatcher` class created at `mkdn/Core/DirectoryWatcher/DirectoryWatcher.swift` with `@MainActor` and `@Observable` annotations
-    - [ ] Watches root directory and first-level subdirectories using `DispatchSource.makeFileSystemObjectSource` with `O_EVTONLY` file descriptors
-    - [ ] Event mask includes `.write`, `.rename`, `.delete`, `.link`
-    - [ ] All sources share a single serial `DispatchQueue`
-    - [ ] Events bridged to `@MainActor` via `AsyncStream` (following `FileWatcher` pattern)
-    - [ ] `nonisolated static func installHandlers` pattern used for Swift 6 concurrency compliance
-    - [ ] `hasChanges` observable property set to `true` on filesystem events
-    - [ ] `watch(rootURL:subdirectories:)` method starts monitoring
-    - [ ] `stopWatching()` cancels all sources and closes file descriptors
-    - [ ] `acknowledge()` resets `hasChanges` to `false`
-    - [ ] File descriptor cleanup in cancel handlers; `deinit` cancels all sources
+    - [x] `DirectoryWatcher` class created at `mkdn/Core/DirectoryWatcher/DirectoryWatcher.swift` with `@MainActor` and `@Observable` annotations
+    - [x] Watches root directory and first-level subdirectories using `DispatchSource.makeFileSystemObjectSource` with `O_EVTONLY` file descriptors
+    - [x] Event mask includes `.write`, `.rename`, `.delete`, `.link`
+    - [x] All sources share a single serial `DispatchQueue`
+    - [x] Events bridged to `@MainActor` via `AsyncStream` (following `FileWatcher` pattern)
+    - [x] `nonisolated static func installHandlers` pattern used for Swift 6 concurrency compliance
+    - [x] `hasChanges` observable property set to `true` on filesystem events
+    - [x] `watch(rootURL:subdirectories:)` method starts monitoring
+    - [x] `stopWatching()` cancels all sources and closes file descriptors
+    - [x] `acknowledge()` resets `hasChanges` to `false`
+    - [x] File descriptor cleanup in cancel handlers; `deinit` cancels all sources
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Core/DirectoryWatcher/DirectoryWatcher.swift`
+    - **Approach**: Followed FileWatcher pattern with adaptations for multi-directory watching. Uses a single AsyncStream shared across all DispatchSources (one per watched directory). The stream continuation is stored as a property and finished explicitly in stopWatching()/deinit rather than in individual cancel handlers (since multiple sources share one stream). Cancel handlers only close file descriptors. Event mask adds .link (beyond FileWatcher's .write/.rename/.delete) per design spec.
+    - **Deviations**: None
+    - **Tests**: 0 new (T9 handles unit tests); build succeeds, all existing unit tests pass
 
 ### Window Routing and State (Group 2)
 
