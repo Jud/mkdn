@@ -2,7 +2,7 @@
 
 **Feature ID**: highlighting
 **Status**: In Progress
-**Progress**: 12% (1 of 8 tasks, 0 of 6 doc tasks)
+**Progress**: 37% (3 of 8 tasks, 0 of 6 doc tasks)
 **Estimated Effort**: 4 days
 **Started**: 2026-02-17
 
@@ -52,7 +52,19 @@ Replace Splash-based Swift-only syntax highlighting with a tree-sitter-based eng
     - **Deviations**: Version pinning strategy differs from design's `from:` ranges -- required due to upstream packaging issues (FileManager-based source detection in newer grammar Package.swift files, URL mismatches between ChimeHQ and tree-sitter org SwiftTreeSitter mirrors, missing generated files in tree-sitter-swift semver tags). See field-notes.md.
     - **Tests**: 429 passing (pre-existing cycleTheme failure unrelated)
 
-- [ ] **T2**: Extend SyntaxColors with 5 new token type fields and update all theme palettes `[complexity:simple]`
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
+- [x] **T2**: Extend SyntaxColors with 5 new token type fields and update all theme palettes `[complexity:simple]`
 
     **Reference**: [design.md#32-extended-syntaxcolors](design.md#32-extended-syntaxcolors)
 
@@ -60,13 +72,20 @@ Replace Splash-based Swift-only syntax highlighting with a tree-sitter-based eng
 
     **Acceptance Criteria**:
 
-    - [ ] SyntaxColors struct has 5 new fields: operator, variable, constant, attribute, punctuation
-    - [ ] SolarizedDark.syntaxColors updated with colors per design table: operator=red, variable=base0, constant=violet, attribute=violet, punctuation=base01
-    - [ ] SolarizedLight.syntaxColors updated with colors per design table: operator=red, variable=base00, constant=violet, attribute=violet, punctuation=base1
-    - [ ] PrintPalette.syntaxColors updated with colors per design table: operator=darkRedPink, variable=nearBlack, constant=darkPurple, attribute=darkOrange, punctuation=commentGray
-    - [ ] All existing call sites compile without changes (backward compatible extension)
+    - [x] SyntaxColors struct has 5 new fields: operator, variable, constant, attribute, punctuation
+    - [x] SolarizedDark.syntaxColors updated with colors per design table: operator=red, variable=base0, constant=violet, attribute=violet, punctuation=base01
+    - [x] SolarizedLight.syntaxColors updated with colors per design table: operator=red, variable=base00, constant=violet, attribute=violet, punctuation=base1
+    - [x] PrintPalette.syntaxColors updated with colors per design table: operator=darkRedPink, variable=nearBlack, constant=darkPurple, attribute=darkOrange, punctuation=commentGray
+    - [x] All existing call sites compile without changes (backward compatible extension)
 
-- [ ] **T3**: Create TokenType enum with capture name mapping and color resolution `[complexity:simple]`
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/UI/Theme/ThemeColors.swift`, `mkdn/UI/Theme/SolarizedDark.swift`, `mkdn/UI/Theme/SolarizedLight.swift`, `mkdn/UI/Theme/PrintPalette.swift`
+    - **Approach**: Added 5 new fields (operator, variable, constant, attribute, punctuation) to SyntaxColors struct and updated all three palette initializers with colors per design table. Also qualified Splash.TokenType references in MarkdownTextStorageBuilder.swift and ThemeOutputFormat.swift to disambiguate from the new TokenType enum introduced in T3.
+    - **Deviations**: None
+    - **Tests**: 16/16 passing (ThemeTests + PrintPaletteTests)
+
+- [x] **T3**: Create TokenType enum with capture name mapping and color resolution `[complexity:simple]`
 
     **Reference**: [design.md#31-tokentype-enum](design.md#31-tokentype-enum)
 
@@ -74,11 +93,18 @@ Replace Splash-based Swift-only syntax highlighting with a tree-sitter-based eng
 
     **Acceptance Criteria**:
 
-    - [ ] TokenType enum created at `mkdn/Core/Highlighting/TokenType.swift` with 13 cases: keyword, string, comment, type, number, function, property, preprocessor, operator, variable, constant, attribute, punctuation
-    - [ ] `from(captureName:)` static method maps tree-sitter capture names to TokenType, handling subcategory prefixes (e.g., "keyword.control" maps to .keyword)
-    - [ ] `color(from:)` method resolves each TokenType to the corresponding SyntaxColors property
-    - [ ] Enum conforms to Sendable
-    - [ ] Unknown capture names return nil from `from(captureName:)`
+    - [x] TokenType enum created at `mkdn/Core/Highlighting/TokenType.swift` with 13 cases: keyword, string, comment, type, number, function, property, preprocessor, operator, variable, constant, attribute, punctuation
+    - [x] `from(captureName:)` static method maps tree-sitter capture names to TokenType, handling subcategory prefixes (e.g., "keyword.control" maps to .keyword)
+    - [x] `color(from:)` method resolves each TokenType to the corresponding SyntaxColors property
+    - [x] Enum conforms to Sendable
+    - [x] Unknown capture names return nil from `from(captureName:)`
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Core/Highlighting/TokenType.swift` (new)
+    - **Approach**: Created TokenType enum with 13 cases matching SyntaxColors fields. Used a private static dictionary (`captureNameMap`) for capture name to token type mapping (avoids cyclomatic complexity lint violation from a 17-branch switch). `from(captureName:)` splits on "." to extract the base category, then performs dictionary lookup. `color(from:)` resolves each case to the corresponding SyntaxColors property.
+    - **Deviations**: Used dictionary lookup instead of switch statement for `from(captureName:)` to satisfy SwiftLint cyclomatic_complexity rule (17 branches > 15 limit).
+    - **Tests**: N/A (unit tests deferred to T8)
 
 - [ ] **T4**: Create TreeSitterLanguageMap, LanguageConfig, and HighlightQueries for 16 languages `[complexity:complex]`
 

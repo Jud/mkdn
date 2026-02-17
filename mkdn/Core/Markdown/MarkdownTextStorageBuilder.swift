@@ -294,15 +294,15 @@ enum MarkdownTextStorageBuilder {
         let format = ThemeOutputFormat(
             plainTextColor: PlatformTypeConverter.nsColor(from: syntaxColors.comment),
             tokenColorMap: [
-                .keyword: PlatformTypeConverter.nsColor(from: syntaxColors.keyword),
-                .string: PlatformTypeConverter.nsColor(from: syntaxColors.string),
-                .type: PlatformTypeConverter.nsColor(from: syntaxColors.type),
-                .call: PlatformTypeConverter.nsColor(from: syntaxColors.function),
-                .number: PlatformTypeConverter.nsColor(from: syntaxColors.number),
-                .comment: PlatformTypeConverter.nsColor(from: syntaxColors.comment),
-                .property: PlatformTypeConverter.nsColor(from: syntaxColors.property),
-                .dotAccess: PlatformTypeConverter.nsColor(from: syntaxColors.property),
-                .preprocessing: PlatformTypeConverter.nsColor(from: syntaxColors.preprocessor),
+                Splash.TokenType.keyword: PlatformTypeConverter.nsColor(from: syntaxColors.keyword),
+                Splash.TokenType.string: PlatformTypeConverter.nsColor(from: syntaxColors.string),
+                Splash.TokenType.type: PlatformTypeConverter.nsColor(from: syntaxColors.type),
+                Splash.TokenType.call: PlatformTypeConverter.nsColor(from: syntaxColors.function),
+                Splash.TokenType.number: PlatformTypeConverter.nsColor(from: syntaxColors.number),
+                Splash.TokenType.comment: PlatformTypeConverter.nsColor(from: syntaxColors.comment),
+                Splash.TokenType.property: PlatformTypeConverter.nsColor(from: syntaxColors.property),
+                Splash.TokenType.dotAccess: PlatformTypeConverter.nsColor(from: syntaxColors.property),
+                Splash.TokenType.preprocessing: PlatformTypeConverter.nsColor(from: syntaxColors.preprocessor),
             ]
         )
         let highlighter = SyntaxHighlighter(format: format)

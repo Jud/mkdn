@@ -7,7 +7,7 @@ import AppKit
 /// actually reads for text rendering.
 struct ThemeOutputFormat: OutputFormat, Sendable {
     let plainTextColor: NSColor
-    let tokenColorMap: [TokenType: NSColor]
+    let tokenColorMap: [Splash.TokenType: NSColor]
 
     func makeBuilder() -> Builder {
         Builder(plainTextColor: plainTextColor, tokenColorMap: tokenColorMap)
@@ -15,10 +15,10 @@ struct ThemeOutputFormat: OutputFormat, Sendable {
 
     struct Builder: OutputBuilder, Sendable {
         let plainTextColor: NSColor
-        let tokenColorMap: [TokenType: NSColor]
+        let tokenColorMap: [Splash.TokenType: NSColor]
         var result = AttributedString()
 
-        mutating func addToken(_ token: String, ofType type: TokenType) {
+        mutating func addToken(_ token: String, ofType type: Splash.TokenType) {
             var attributed = AttributedString(token)
             attributed.appKit.foregroundColor = tokenColorMap[type] ?? plainTextColor
             result.append(attributed)

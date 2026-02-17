@@ -27,4 +27,9 @@ struct SyntaxColors: Sendable {
     let function: Color
     let property: Color
     let preprocessor: Color
+    let `operator`: Color
+    let variable: Color
+    let constant: Color
+    let attribute: Color
+    let punctuation: Color
 }

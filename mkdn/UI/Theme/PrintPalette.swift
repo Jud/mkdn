@@ -47,6 +47,11 @@ enum PrintPalette {
         number: darkPurple,
         function: functionBlue,
         property: darkOrange,
-        preprocessor: darkRedPink
+        preprocessor: darkRedPink,
+        operator: darkRedPink,
+        variable: nearBlack,
+        constant: darkPurple,
+        attribute: darkOrange,
+        punctuation: commentGray
     )
 }

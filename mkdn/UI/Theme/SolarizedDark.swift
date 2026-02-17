@@ -42,6 +42,11 @@ enum SolarizedDark {
         number: magenta,
         function: blue,
         property: orange,
-        preprocessor: red
+        preprocessor: red,
+        operator: red,
+        variable: base0,
+        constant: violet,
+        attribute: violet,
+        punctuation: base01
     )
 }
