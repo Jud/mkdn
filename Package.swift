@@ -43,10 +43,7 @@ let package = Package(
         .testTarget(
             name: "mkdnTests",
             dependencies: ["mkdnLib"],
-            path: "mkdnTests",
-            resources: [
-                .copy("Fixtures"),
-            ]
+            path: "mkdnTests"
         ),
     ]
 )

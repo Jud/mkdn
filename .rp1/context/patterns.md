@@ -94,7 +94,7 @@ enum MermaidError: LocalizedError {
 
 ## Testing Pattern
 
-Use Swift Testing, organize in @Suite structs. Unit tests live in `mkdnTests/Unit/`, UI compliance tests in `mkdnTests/UITest/`.
+Use Swift Testing, organize in @Suite structs. Unit tests live in `mkdnTests/Unit/`.
 
 ```swift
 @Suite("MarkdownRenderer")
@@ -105,74 +105,6 @@ struct MarkdownRendererTests {
         #expect(!blocks.isEmpty)
     }
 }
-```
-
-For UI compliance testing, see the **UI Test Pattern** section below.
-
-## UI Test Pattern
-
-UI compliance tests use a two-process harness: the test runner drives the app via Unix domain socket IPC. No XCUITest, no accessibility permissions for basic control.
-
-### Suite Structure
-
-Each compliance suite uses `@Suite(.serialized)` to ensure test ordering, shares one app instance via a harness singleton, and begins with a calibration gate:
-
-```swift
-@Suite("Spatial Compliance", .serialized)
-struct SpatialComplianceTests {
-    @Test("Calibration gate")
-    func test_spatialDesignLanguage_calibration() async throws {
-        let client = try await SpatialHarness.shared.client()
-        _ = try await client.loadFile(path: fixturePath("geometry-calibration.md"))
-        let response = try await client.captureWindow()
-        // Validate measurement infrastructure accuracy
-        // If this fails, downstream tests are skipped
-    }
-
-    @Test("Document margin")
-    func test_documentMargin() async throws {
-        // Uses ImageAnalyzer for pixel-level spatial measurement
-    }
-}
-```
-
-### Calibration-Gate Pattern
-
-The first test in each suite validates capture infrastructure before running compliance assertions:
-- **Spatial**: measurement accuracy within 1pt at Retina
-- **Visual**: background color sampling matches ThemeColors exactly
-- **Animation**: frame capture infrastructure + crossfade timing within 1 frame at 30fps
-
-If calibration fails, remaining tests skip (not fail) to prevent false positives from broken infrastructure.
-
-### Capture and Analysis
-
-```swift
-// Static capture -> pixel analysis
-let response = try await client.captureWindow()
-let image = loadCGImage(from: response)
-let analyzer = ImageAnalyzer(image: image, scaleFactor: 2.0)
-let color = analyzer.sampleColor(at: CGPoint(x: 10, y: 10))
-
-// Frame capture -> animation analysis
-let frameResponse = try await client.startFrameCapture(fps: 30, duration: 3.0)
-let frames = loadFrames(from: frameResponse)
-let frameAnalyzer = FrameAnalyzer(frames: frames, fps: 30, scaleFactor: 2.0)
-let pulse = frameAnalyzer.measureOrbPulse(orbRegion: orbRect)
-```
-
-### PRD-Driven Assertions
-
-Each test maps to a specific PRD functional requirement. Failures include the PRD reference, expected value, and actual measured value:
-
-```swift
-reporter.record(
-    name: "spatial-design-language FR-2: documentMargin",
-    status: measured == expected ? .pass : .fail,
-    prdReference: "spatial-design-language FR-2",
-    expected: "\(expected)",
-    actual: "\(measured)"
-)
 ```
 
 ## Animation Pattern

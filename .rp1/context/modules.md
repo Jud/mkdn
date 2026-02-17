@@ -126,8 +126,6 @@
 | jectivex/JXKit | Swift JSC wrapper | Core/Mermaid |
 | apple/swift-argument-parser | CLI args | Core/CLI |
 | JohnSundell/Splash | Syntax highlighting | Features/Viewer |
-| ScreenCaptureKit (system) | SCStream frame capture for animation verification | Core/TestHarness |
-
 ## Test Layer (`mkdnTests/`)
 
 ### Support (`mkdnTests/Support/`)
@@ -141,29 +139,3 @@
 | FrameAnalyzer.swift | Animation curve extraction from frame sequences. measureOrbPulse (peak counting, CPM), measureTransitionDuration (progress 10%--90%, curve inference), measureSpringCurve (overshoot peak, damping estimation, settle time), measureStaggerDelays (per-region appearance frame detection) |
 | JSONResultReporter.swift | Structured test result collection. Writes JSON report to `.build/test-results/mkdn-ui-test-report.json` |
 | PRDCoverageTracker.swift | Maps test results to PRD functional requirements. Reports covered/uncovered FRs per PRD |
-
-### UI Compliance Suites (`mkdnTests/UITest/`)
-| File | Purpose |
-|------|---------|
-| SpatialComplianceTests.swift + SpatialComplianceTests+Typography.swift | 16 spatial tests: margins, spacing, indentation. Calibration gate validates measurement accuracy within 1pt |
-| SpatialPRD.swift | PRD constants for spatial-design-language FR-1 through FR-6. Tolerance: 1.0pt spatial, 10 color |
-| VisualComplianceTests.swift + VisualComplianceTests+Syntax.swift | 12 visual tests: theme colors, syntax highlighting tokens. Calibration gate validates background color sampling |
-| VisualPRD.swift | PRD constants for automated-ui-testing AC-004. Tolerances: 10 color, 15 text, 25 syntax |
-| AnimationComplianceTests.swift + AnimationComplianceTests+FadeDurations.swift + AnimationComplianceTests+ReduceMotion.swift | 13 animation tests: orb pulse, fade durations, spring curves, stagger delays, reduce motion. Calibration gate validates frame capture + crossfade timing |
-| AnimationPRD.swift | PRD constants for animation-design-language FR-1 through FR-5. Tolerances: 33.3ms at 30fps, 16.7ms at 60fps, 25% CPM relative |
-
-### Vision Compliance (`mkdnTests/UITest/VisionCompliance/`)
-| File | Purpose |
-|------|---------|
-| VisionCaptureTests.swift | Capture orchestrator: produces deterministic screenshots of all fixtures (canonical, theme-tokens, mermaid-focus, geometry-calibration) across both Solarized themes in preview-only mode (4 fixtures x 2 themes = 8 captures). Writes manifest.json with metadata and SHA-256 image hashes for the LLM visual verification workflow |
-| VisionCapturePRD.swift | VisionCaptureHarness singleton, VisionCaptureConfig (fixtures, themes, viewMode), fixture path resolution, output directory resolution, capture ID generation, SHA-256 hash computation (CryptoKit), CaptureManifestEntry/CaptureManifest types, manifest writing |
-| VisionCompliancePRD.swift | Shared harness for vision compliance tests. VisionComplianceHarness singleton (same pattern as SpatialHarness/VisualHarness/AnimationHarness), visionFixturePath resolution, visionExtractCapture response validation, visionLoadAnalyzer CGImage loading + ImageAnalyzer initialization |
-
-### Fixtures (`mkdnTests/Fixtures/UITest/`)
-| File | Purpose |
-|------|---------|
-| canonical.md | All Markdown element types for comprehensive rendering verification |
-| long-document.md | 31 top-level blocks for stagger animation testing |
-| mermaid-focus.md | 4 Mermaid diagram types (flowchart, sequence, class, state) |
-| theme-tokens.md | Code blocks isolating each SyntaxColors token type |
-| geometry-calibration.md | Known-spacing elements for spatial measurement calibration |
