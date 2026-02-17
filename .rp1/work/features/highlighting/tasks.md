@@ -2,7 +2,7 @@
 
 **Feature ID**: highlighting
 **Status**: In Progress
-**Progress**: 37% (3 of 8 tasks, 0 of 6 doc tasks)
+**Progress**: 50% (4 of 8 tasks, 0 of 6 doc tasks)
 **Estimated Effort**: 4 days
 **Started**: 2026-02-17
 
@@ -85,6 +85,18 @@ Replace Splash-based Swift-only syntax highlighting with a tree-sitter-based eng
     - **Deviations**: None
     - **Tests**: 16/16 passing (ThemeTests + PrintPaletteTests)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
 - [x] **T3**: Create TokenType enum with capture name mapping and color resolution `[complexity:simple]`
 
     **Reference**: [design.md#31-tokentype-enum](design.md#31-tokentype-enum)
@@ -106,7 +118,19 @@ Replace Splash-based Swift-only syntax highlighting with a tree-sitter-based eng
     - **Deviations**: Used dictionary lookup instead of switch statement for `from(captureName:)` to satisfy SwiftLint cyclomatic_complexity rule (17 branches > 15 limit).
     - **Tests**: N/A (unit tests deferred to T8)
 
-- [ ] **T4**: Create TreeSitterLanguageMap, LanguageConfig, and HighlightQueries for 16 languages `[complexity:complex]`
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
+- [x] **T4**: Create TreeSitterLanguageMap, LanguageConfig, and HighlightQueries for 16 languages `[complexity:complex]`
 
     **Reference**: [design.md#34-treesitterlanguagemap](design.md#34-treesitterlanguagemap)
 
@@ -114,13 +138,20 @@ Replace Splash-based Swift-only syntax highlighting with a tree-sitter-based eng
 
     **Acceptance Criteria**:
 
-    - [ ] LanguageConfig struct created with `language` and `highlightQuery` fields, conforming to Sendable
-    - [ ] TreeSitterLanguageMap enum created at `mkdn/Core/Highlighting/TreeSitterLanguageMap.swift` with alias table and `configuration(for:)` method
-    - [ ] All 16 languages have entries in languageConfigs: swift, python, javascript, typescript, rust, go, bash, json, yaml, html, css, c, c++, ruby, java, kotlin
-    - [ ] Alias table maps: js->javascript, ts->typescript, py->python, rb->ruby, sh->bash, shell->bash, yml->yaml, cpp->c++
-    - [ ] Language tag lookup is case-insensitive and trims whitespace
-    - [ ] HighlightQueries enum created at `mkdn/Core/Highlighting/HighlightQueries.swift` with embedded .scm query strings for all 16 languages sourced from grammar repositories
-    - [ ] `supportedLanguages` property returns sorted list of canonical names
+    - [x] LanguageConfig struct created with `language` and `highlightQuery` fields, conforming to Sendable
+    - [x] TreeSitterLanguageMap enum created at `mkdn/Core/Highlighting/TreeSitterLanguageMap.swift` with alias table and `configuration(for:)` method
+    - [x] All 16 languages have entries in languageConfigs: swift, python, javascript, typescript, rust, go, bash, json, yaml, html, css, c, c++, ruby, java, kotlin
+    - [x] Alias table maps: js->javascript, ts->typescript, py->python, rb->ruby, sh->bash, shell->bash, yml->yaml, cpp->c++
+    - [x] Language tag lookup is case-insensitive and trims whitespace
+    - [x] HighlightQueries enum created at `mkdn/Core/Highlighting/HighlightQueries.swift` with embedded .scm query strings for all 16 languages sourced from grammar repositories
+    - [x] `supportedLanguages` property returns sorted list of canonical names
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Core/Highlighting/TreeSitterLanguageMap.swift` (new), `mkdn/Core/Highlighting/HighlightQueries.swift` (new), `mkdn/Core/Highlighting/TokenType.swift` (modified)
+    - **Approach**: Created LanguageConfig struct and TreeSitterLanguageMap enum with case-insensitive alias resolution for all 16 languages. Embedded highlight query strings sourced verbatim from each grammar's queries/highlights.scm. TypeScript queries concatenate JavaScript base + TypeScript overrides (TypeScript inherits from JavaScript). C++ queries concatenate C base + C++ overrides. Added 6 additional capture name mappings to TokenType (conditional, repeat, exception, character, escape, delimiter) needed by nvim-treesitter-convention captures in Kotlin and other grammars. Renamed HighlightQueries.c to .cLang to satisfy SwiftLint identifier_name rule.
+    - **Deviations**: Added capture name mappings to TokenType.swift (T3 file) because embedded queries use capture names not in the original mapping. Used swiftlint:disable for file_length, type_body_length, and line_length in HighlightQueries.swift (1992-line file with embedded query strings containing long regex patterns).
+    - **Tests**: N/A (unit tests deferred to T8). Build succeeds, 429 tests passing (pre-existing cycleTheme failure unrelated).
 
 ### Engine (Parallel Group 2)
 

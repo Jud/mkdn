@@ -20,7 +20,12 @@ enum TokenType: Sendable {
 
     private static let captureNameMap: [String: Self] = [
         "keyword": .keyword,
+        "conditional": .keyword,
+        "repeat": .keyword,
+        "exception": .keyword,
         "string": .string,
+        "character": .string,
+        "escape": .string,
         "comment": .comment,
         "type": .type,
         "number": .number,
@@ -39,6 +44,7 @@ enum TokenType: Sendable {
         "attribute": .attribute,
         "decorator": .attribute,
         "punctuation": .punctuation,
+        "delimiter": .punctuation,
         "constructor": .type,
         "label": .keyword,
         "tag": .keyword,
