@@ -173,12 +173,12 @@ struct CodeBlockStylingTests {
 
     // MARK: - Non-Swift Code Foreground
 
-    @Test("Non-Swift code block uses codeForeground color")
-    func nonSwiftCodeForeground() {
-        let result = buildSingle(.codeBlock(language: "python", code: "print('hello')"))
+    @Test("Unsupported language code block uses codeForeground color")
+    func unsupportedLanguageCodeForeground() {
+        let result = buildSingle(.codeBlock(language: "elixir", code: "IO.puts(\"hello\")"))
         let str = result.attributedString
 
-        guard let location = locationOf("print", in: str.string) else {
+        guard let location = locationOf("IO.puts", in: str.string) else {
             Issue.record("Expected to find code content in attributed string")
             return
         }

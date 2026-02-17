@@ -2,7 +2,7 @@
 
 **Feature ID**: highlighting
 **Status**: In Progress
-**Progress**: 63% (5 of 8 tasks, 0 of 6 doc tasks)
+**Progress**: 75% (6 of 8 tasks, 0 of 6 doc tasks)
 **Estimated Effort**: 4 days
 **Started**: 2026-02-17
 
@@ -190,9 +190,21 @@ Replace Splash-based Swift-only syntax highlighting with a tree-sitter-based eng
     - **Deviations**: None
     - **Tests**: 429 passing (pre-existing cycleTheme failure unrelated)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
 ### Integration (Parallel Group 3)
 
-- [ ] **T6**: Replace Splash integration in MarkdownTextStorageBuilder with SyntaxHighlightEngine `[complexity:medium]`
+- [x] **T6**: Replace Splash integration in MarkdownTextStorageBuilder with SyntaxHighlightEngine `[complexity:medium]`
 
     **Reference**: [design.md#37-integration-markdowntextstoragebuilder-changes](design.md#37-integration-markdowntextstoragebuilder-changes)
 
@@ -200,12 +212,19 @@ Replace Splash-based Swift-only syntax highlighting with a tree-sitter-based eng
 
     **Acceptance Criteria**:
 
-    - [ ] `highlightSwiftCode` method replaced with generic `highlightCode(_:language:syntaxColors:)` that delegates to SyntaxHighlightEngine
-    - [ ] `appendCodeBlock` in MarkdownTextStorageBuilder+Blocks.swift updated to attempt highlighting for all language-tagged code blocks, not just Swift
-    - [ ] Unsupported languages and untagged blocks fall through to plain monospace text path (FR-5 preserved)
-    - [ ] Font and paragraph style attributes applied after highlighting (not overwritten by engine)
-    - [ ] CodeBlockAttributes.rawCode still set with original unformatted code (BR-5 preserved)
-    - [ ] `import Splash` removed from MarkdownTextStorageBuilder.swift
+    - [x] `highlightSwiftCode` method replaced with generic `highlightCode(_:language:syntaxColors:)` that delegates to SyntaxHighlightEngine
+    - [x] `appendCodeBlock` in MarkdownTextStorageBuilder+Blocks.swift updated to attempt highlighting for all language-tagged code blocks, not just Swift
+    - [x] Unsupported languages and untagged blocks fall through to plain monospace text path (FR-5 preserved)
+    - [x] Font and paragraph style attributes applied after highlighting (not overwritten by engine)
+    - [x] CodeBlockAttributes.rawCode still set with original unformatted code (BR-5 preserved)
+    - [x] `import Splash` removed from MarkdownTextStorageBuilder.swift
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Core/Markdown/MarkdownTextStorageBuilder.swift`, `mkdn/Core/Markdown/MarkdownTextStorageBuilder+Blocks.swift`, `mkdnTests/Unit/Core/CodeBlockStylingTests.swift`
+    - **Approach**: Removed `import Splash` and replaced `highlightSwiftCode()` (Splash-based, Swift-only) with `highlightCode(_:language:syntaxColors:)` that delegates to `SyntaxHighlightEngine`. Updated `appendCodeBlock` to attempt tree-sitter highlighting for all language-tagged blocks, falling back to plain monospace for unsupported/untagged blocks. Updated one test that expected Python to be unhighlighted (now uses "elixir" as the unsupported language example).
+    - **Deviations**: None
+    - **Tests**: 426/429 passing (3 pre-existing cycleTheme failures unrelated)
 
 ### Cleanup and Verification (Parallel Group 4)
 

@@ -95,9 +95,12 @@ extension MarkdownTextStorageBuilder {
         )
 
         let codeContent: NSMutableAttributedString
-        if language == "swift" {
-            codeContent = highlightSwiftCode(trimmedCode, syntaxColors: syntaxColors)
-            codeContent.addAttribute(.font, value: monoFont, range: NSRange(location: 0, length: codeContent.length))
+        if let lang = language,
+           let highlighted = highlightCode(trimmedCode, language: lang, syntaxColors: syntaxColors)
+        {
+            codeContent = highlighted
+            let highlightRange = NSRange(location: 0, length: codeContent.length)
+            codeContent.addAttribute(.font, value: monoFont, range: highlightRange)
         } else {
             codeContent = NSMutableAttributedString(
                 string: trimmedCode,
