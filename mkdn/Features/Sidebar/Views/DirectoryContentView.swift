@@ -1,4 +1,21 @@
+import AppKit
 import SwiftUI
+
+/// Sets the hosting NSWindow's background color so that clipped SwiftUI
+/// views reveal the correct color rather than the system default.
+private struct WindowBackgroundColor: NSViewRepresentable {
+    let color: NSColor
+
+    func makeNSView(context _: Context) -> NSView {
+        NSView()
+    }
+
+    func updateNSView(_ nsView: NSView, context _: Context) {
+        DispatchQueue.main.async {
+            nsView.window?.backgroundColor = color
+        }
+    }
+}
 
 /// Top-level layout wrapper that places the sidebar alongside the existing
 /// ``ContentView`` using an HStack-based layout (per CON-3: no
@@ -28,9 +45,21 @@ struct DirectoryContentView: View {
             }
 
             ContentView()
+                .clipShape(
+                    UnevenRoundedRectangle(
+                        topLeadingRadius: directoryState.isSidebarVisible ? 10 : 0,
+                        bottomLeadingRadius: directoryState.isSidebarVisible ? 10 : 0
+                    )
+                )
         }
+        .background(
+            WindowBackgroundColor(
+                color: NSColor(appSettings.theme.colors.backgroundSecondary)
+            )
+        )
         .environment(\.isDirectoryMode, true)
         .animation(motion.resolved(.gentleSpring), value: directoryState.isSidebarVisible)
+        .ignoresSafeArea()
         .frame(minWidth: 600, minHeight: 400)
     }
 }

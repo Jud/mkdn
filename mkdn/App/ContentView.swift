@@ -47,6 +47,7 @@ public struct ContentView: View {
                 .accessibilityHidden(!findState.isVisible)
         }
         .frame(minWidth: 600, minHeight: 400)
+        .background(appSettings.theme.colors.background)
         .background(WindowAccessor())
         .onAppear {
             appSettings.systemColorScheme = colorScheme

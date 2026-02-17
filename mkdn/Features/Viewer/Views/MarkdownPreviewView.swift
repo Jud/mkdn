@@ -45,7 +45,6 @@ struct MarkdownPreviewView: View {
             findIsVisible: findState.isVisible,
             findState: findState
         )
-        .ignoresSafeArea()
         .background(appSettings.theme.colors.background)
         .task(id: documentState.markdownContent) {
             debugLog(

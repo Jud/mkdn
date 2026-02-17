@@ -52,6 +52,58 @@ if rawArguments.contains("--test-harness") {
         TestHarnessMode.parentPID = ppid
         TestHarnessMode.startWatchdog()
     }
+    // Positional arguments (after --) cause NSApplication to interpret them as
+    // kAEOpenDocuments, suppressing window creation. Use the same execv() strategy
+    // as the CLI branch: save paths to env vars and re-exec without them.
+    let nonFlagArgs = rawArguments.dropFirst().filter { !$0.hasPrefix("-") }
+    if !nonFlagArgs.isEmpty {
+        var fileURLs: [URL] = []
+        var dirURLs: [URL] = []
+        for arg in nonFlagArgs {
+            var isDir: ObjCBool = false
+            let resolved = URL(fileURLWithPath: arg).standardized.resolvingSymlinksInPath()
+            if FileManager.default.fileExists(atPath: resolved.path, isDirectory: &isDir) {
+                if isDir.boolValue {
+                    dirURLs.append(resolved)
+                } else {
+                    fileURLs.append(resolved)
+                }
+            }
+        }
+        if !fileURLs.isEmpty {
+            setenv("MKDN_LAUNCH_FILE", fileURLs.map(\.path).joined(separator: "\n"), 1)
+        }
+        if !dirURLs.isEmpty {
+            setenv("MKDN_LAUNCH_DIR", dirURLs.map(\.path).joined(separator: "\n"), 1)
+        }
+        // Re-exec with only flags (no positional args that NSApplication would consume)
+        var relaunchArgs = [rawArguments[0], "--test-harness"]
+        if let socketIdx = rawArguments.firstIndex(of: "--socket-path"),
+           socketIdx + 1 < rawArguments.count
+        {
+            relaunchArgs += ["--socket-path", rawArguments[socketIdx + 1]]
+        }
+        let cArgs: [UnsafeMutablePointer<CChar>?] = relaunchArgs.map { strdup($0) } + [nil]
+        cArgs.withUnsafeBufferPointer { buffer in
+            guard let baseAddress = buffer.baseAddress else { return }
+            _ = execv(rawArguments[0], baseAddress)
+        }
+        perror("execv")
+        Foundation.exit(1)
+    }
+    // Second launch (no positional args): read paths from env vars
+    if let envDir = ProcessInfo.processInfo.environment["MKDN_LAUNCH_DIR"] {
+        unsetenv("MKDN_LAUNCH_DIR")
+        LaunchContext.directoryURLs = envDir.split(separator: "\n").map { path in
+            URL(fileURLWithPath: String(path)).standardized.resolvingSymlinksInPath()
+        }
+    }
+    if let envFile = ProcessInfo.processInfo.environment["MKDN_LAUNCH_FILE"] {
+        unsetenv("MKDN_LAUNCH_FILE")
+        LaunchContext.fileURLs = envFile.split(separator: "\n").map { path in
+            URL(fileURLWithPath: String(path)).standardized.resolvingSymlinksInPath()
+        }
+    }
     MkdnApp.main()
 } else if ProcessInfo.processInfo.environment["MKDN_LAUNCH_FILE"] != nil
     || ProcessInfo.processInfo.environment["MKDN_LAUNCH_DIR"] != nil

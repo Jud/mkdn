@@ -36,6 +36,7 @@ public struct DocumentWindow: View {
                     .focusedSceneValue(\.directoryState, directoryState)
             } else {
                 ContentView()
+                    .background(appSettings.theme.colors.background.ignoresSafeArea())
             }
         }
         .environment(documentState)
@@ -49,6 +50,7 @@ public struct DocumentWindow: View {
             if TestHarnessMode.isEnabled {
                 TestHarnessHandler.appSettings = appSettings
                 TestHarnessHandler.documentState = documentState
+                TestHarnessHandler.directoryState = directoryState
                 TestHarnessServer.shared.start()
             }
             isReady = true

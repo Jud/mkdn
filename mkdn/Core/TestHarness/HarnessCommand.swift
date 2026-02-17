@@ -75,6 +75,12 @@ public enum HarnessCommand: Codable, Sendable {
     /// Scroll the content view to a specific vertical offset (in points).
     case scrollTo(yOffset: Double)
 
+    /// Set the sidebar width in points (directory mode only).
+    case setSidebarWidth(width: Double)
+
+    /// Toggle sidebar visibility (directory mode only).
+    case toggleSidebar
+
     /// Connectivity check. The server responds with `pong`.
     case ping
 
