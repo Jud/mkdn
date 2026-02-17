@@ -91,12 +91,19 @@ public final class AppSettings {
 
     // MARK: - Methods
 
-    /// Cycle to the next theme mode (Auto -> Dark -> Light -> Auto).
+    /// Cycle to the next theme mode, skipping modes that resolve to
+    /// the same visual theme (e.g. Auto and Dark on a dark system).
     public func cycleTheme() {
         let allModes = ThemeMode.allCases
         guard let currentIndex = allModes.firstIndex(of: themeMode) else { return }
-        let nextIndex = (currentIndex + 1) % allModes.count
-        themeMode = allModes[nextIndex]
+        let currentResolved = theme
+        for offset in 1 ... allModes.count {
+            let candidate = allModes[(currentIndex + offset) % allModes.count]
+            if candidate.resolved(for: systemColorScheme) != currentResolved {
+                themeMode = candidate
+                return
+            }
+        }
     }
 
     /// Increase zoom by 10%, clamped at 3.0x maximum.
