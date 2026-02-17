@@ -2,7 +2,7 @@
 
 **Feature ID**: directory-sidebar
 **Status**: In Progress
-**Progress**: 6% (1 of 17 tasks)
+**Progress**: 12% (2 of 17 tasks)
 **Estimated Effort**: 7 days
 **Started**: 2026-02-16
 
@@ -60,7 +60,19 @@ Extends mkdn from a single-file viewer into a folder-browsable navigation experi
     - **Deviations**: Made FileValidator.resolvePath public (was internal) so main.swift in the mkdn executable target can call it for argument routing. This is a minimal interface change required because main.swift is in a separate target.
     - **Tests**: 27/27 existing CLI tests passing
 
-- [ ] **T2**: Data model -- FileTreeNode and DirectoryScanner `[complexity:medium]`
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
+- [x] **T2**: Data model -- FileTreeNode and DirectoryScanner `[complexity:medium]`
 
     **Reference**: [design.md#t2-data-model--filetreenode--directoryscanner](design.md#t2-data-model--filetreenode--directoryscanner)
 
@@ -68,14 +80,21 @@ Extends mkdn from a single-file viewer into a folder-browsable navigation experi
 
     **Acceptance Criteria**:
 
-    - [ ] `FileTreeNode` struct created at `mkdn/Core/DirectoryScanner/FileTreeNode.swift` with `Identifiable`, `Hashable`, `Sendable` conformance and properties: `id` (URL), `name`, `url`, `isDirectory`, `children`, `depth`, `isTruncated`
-    - [ ] `DirectoryScanner` enum created at `mkdn/Core/DirectoryScanner/DirectoryScanner.swift` with `scan(url:maxDepth:)` pure static function
-    - [ ] Scanner filters to `.md` and `.markdown` extensions only
-    - [ ] Scanner excludes hidden files and directories (names starting with `.`)
-    - [ ] Scanner prunes empty directories (directories whose recursive children contain no Markdown files)
-    - [ ] Scanner sorts directories first, then files, alphabetically case-insensitive within each group
-    - [ ] Scanner respects `maxDepth` parameter (default 10) and creates truncation indicator nodes at the limit
-    - [ ] Scanner returns `nil` for nonexistent or unreadable directories
+    - [x] `FileTreeNode` struct created at `mkdn/Core/DirectoryScanner/FileTreeNode.swift` with `Identifiable`, `Hashable`, `Sendable` conformance and properties: `id` (URL), `name`, `url`, `isDirectory`, `children`, `depth`, `isTruncated`
+    - [x] `DirectoryScanner` enum created at `mkdn/Core/DirectoryScanner/DirectoryScanner.swift` with `scan(url:maxDepth:)` pure static function
+    - [x] Scanner filters to `.md` and `.markdown` extensions only
+    - [x] Scanner excludes hidden files and directories (names starting with `.`)
+    - [x] Scanner prunes empty directories (directories whose recursive children contain no Markdown files)
+    - [x] Scanner sorts directories first, then files, alphabetically case-insensitive within each group
+    - [x] Scanner respects `maxDepth` parameter (default 10) and creates truncation indicator nodes at the limit
+    - [x] Scanner returns `nil` for nonexistent or unreadable directories
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Core/DirectoryScanner/FileTreeNode.swift`, `mkdn/Core/DirectoryScanner/DirectoryScanner.swift`
+    - **Approach**: FileTreeNode is a recursive value-type struct with URL-based identity. DirectoryScanner is a pure static enum using FileManager.contentsOfDirectory with .skipsHiddenFiles, recursive descent with depth tracking, empty-directory pruning, and directories-first alphabetical sorting. At the depth limit, directories with Markdown content get a truncation indicator child node. Refactored scanChildren into smaller helpers (scanDirectory, truncatedDirectoryNode, isMarkdownFile) to satisfy SwiftLint function body length rule.
+    - **Deviations**: None
+    - **Tests**: 0 new (T9 handles unit tests); all existing tests pass
 
 - [ ] **T3**: DirectoryWatcher -- filesystem monitoring `[complexity:medium]`
 
