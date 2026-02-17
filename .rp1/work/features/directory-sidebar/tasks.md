@@ -2,7 +2,7 @@
 
 **Feature ID**: directory-sidebar
 **Status**: In Progress
-**Progress**: 41% (7 of 17 tasks)
+**Progress**: 47% (8 of 17 tasks)
 **Estimated Effort**: 7 days
 **Started**: 2026-02-16
 
@@ -262,7 +262,7 @@ Extends mkdn from a single-file viewer into a folder-browsable navigation experi
     | Commit | ✅ PASS |
     | Comments | ✅ PASS |
 
-- [ ] **T8**: WelcomeView adaptation and menu commands `[complexity:simple]`
+- [x] **T8**: WelcomeView adaptation and menu commands `[complexity:simple]`
 
     **Reference**: [design.md#t8-welcomeview--menu-commands](design.md#t8-welcomeview--menu-commands)
 
@@ -270,13 +270,20 @@ Extends mkdn from a single-file viewer into a folder-browsable navigation experi
 
     **Acceptance Criteria**:
 
-    - [ ] `WelcomeView` reads `@Environment(\.isDirectoryMode)` and displays different icon (`sidebar.left` vs `doc.richtext`) and message text ("Select a file from the sidebar to begin reading" vs existing)
-    - [ ] Instruction rows hidden in directory mode
-    - [ ] Default `isDirectoryMode` is `false` (backward compatible)
-    - [ ] `MkdnCommands` gains `@FocusedValue(\.directoryState) private var directoryState`
-    - [ ] "Toggle Sidebar" button added to View menu (after `.sidebar`) with `Cmd+Shift+L` keyboard shortcut
-    - [ ] "Toggle Sidebar" menu item disabled when `directoryState == nil`
-    - [ ] Toggle sidebar action uses `withAnimation(motionAnimation(.gentleSpring))` and calls `directoryState?.toggleSidebar()`
+    - [x] `WelcomeView` reads `@Environment(\.isDirectoryMode)` and displays different icon (`sidebar.left` vs `doc.richtext`) and message text ("Select a file from the sidebar to begin reading" vs existing)
+    - [x] Instruction rows hidden in directory mode
+    - [x] Default `isDirectoryMode` is `false` (backward compatible)
+    - [x] `MkdnCommands` gains `@FocusedValue(\.directoryState) private var directoryState`
+    - [x] "Toggle Sidebar" button added to View menu (after `.sidebar`) with `Cmd+Shift+L` keyboard shortcut
+    - [x] "Toggle Sidebar" menu item disabled when `directoryState == nil`
+    - [x] Toggle sidebar action uses `withAnimation(motionAnimation(.gentleSpring))` and calls `directoryState?.toggleSidebar()`
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/UI/Components/WelcomeView.swift`, `mkdn/App/MkdnCommands.swift`
+    - **Approach**: Added @Environment(\.isDirectoryMode) to WelcomeView; conditionally shows sidebar.left icon and "Select a file from the sidebar to begin reading" message in directory mode, hides instruction rows. Added @FocusedValue(\.directoryState) to MkdnCommands with "Toggle Sidebar" button in CommandGroup(after: .sidebar) using Cmd+Shift+L shortcut, disabled when directoryState is nil, animated with gentleSpring via existing motionAnimation helper.
+    - **Deviations**: None
+    - **Tests**: 383/383 passing (4 pre-existing failures in AppSettings and MermaidHTMLTemplate unrelated to changes)
 
 ### Layout Integration (Group 4)
 
@@ -303,6 +310,18 @@ Extends mkdn from a single-file viewer into a folder-browsable navigation experi
     - **Approach**: Created DirectoryContentView as HStack(spacing: 0) wrapping SidebarView + SidebarDivider (conditionally visible) + ContentView. Sidebar show/hide animated with gentleSpring via MotionPreference, using move+opacity transition. Sets isDirectoryMode environment key for WelcomeView. DocumentWindow gains @State directoryState optional; body conditionally renders DirectoryContentView (with environment/focusedSceneValue injections) or plain ContentView. handleLaunch .directory case creates DirectoryState, wires documentState reference, calls scan(). Extracted setupDirectoryState helper reused in consumeLaunchContext to adopt first directory into current window (avoids dangling empty window when only directories are launched).
     - **Deviations**: Enhanced consumeLaunchContext to adopt the first directory URL into the current window when no file URLs are present, preventing an empty window from remaining when launching with only directory arguments. This is a necessary integration fix not explicitly in the design but required for correct end-to-end behavior.
     - **Tests**: 424/424 tests run (30 pre-existing UI compliance failures unrelated to changes)
+
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
 
 ### Unit Tests (Group 5)
 
