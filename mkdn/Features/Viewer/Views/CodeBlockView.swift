@@ -1,4 +1,3 @@
-import Splash
 import SwiftUI
 
 /// Renders a fenced code block with syntax highlighting.
@@ -39,37 +38,32 @@ struct CodeBlockView: View {
         )
     }
 
-    /// Produce syntax-highlighted attributed text using Splash.
+    /// Produce syntax-highlighted attributed text using tree-sitter.
     ///
-    /// Splash only ships SwiftGrammar; it has no built-in grammars for Python,
-    /// JavaScript, or other languages. Code blocks whose language is anything
-    /// other than `"swift"` are rendered as plain monospace text with the
-    /// theme's `codeForeground` color -- never as an error or blank block.
+    /// Attempts tree-sitter highlighting for all supported languages.
+    /// Code blocks whose language is unsupported or untagged are rendered
+    /// as plain monospace text with the theme's `codeForeground` color.
     private var highlightedCode: AttributedString {
         let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        guard language == "swift" else {
+        guard let language,
+              let nsResult = SyntaxHighlightEngine.highlight(
+                  code: trimmed,
+                  language: language,
+                  syntaxColors: appSettings.theme.syntaxColors
+              )
+        else {
             var result = AttributedString(trimmed)
             result.foregroundColor = colors.codeForeground
             return result
         }
 
-        let syntaxColors = appSettings.theme.syntaxColors
-        let outputFormat = ThemeOutputFormat(
-            plainTextColor: PlatformTypeConverter.nsColor(from: syntaxColors.comment),
-            tokenColorMap: [
-                .keyword: PlatformTypeConverter.nsColor(from: syntaxColors.keyword),
-                .string: PlatformTypeConverter.nsColor(from: syntaxColors.string),
-                .type: PlatformTypeConverter.nsColor(from: syntaxColors.type),
-                .call: PlatformTypeConverter.nsColor(from: syntaxColors.function),
-                .number: PlatformTypeConverter.nsColor(from: syntaxColors.number),
-                .comment: PlatformTypeConverter.nsColor(from: syntaxColors.comment),
-                .property: PlatformTypeConverter.nsColor(from: syntaxColors.property),
-                .dotAccess: PlatformTypeConverter.nsColor(from: syntaxColors.property),
-                .preprocessing: PlatformTypeConverter.nsColor(from: syntaxColors.preprocessor),
-            ]
-        )
-        let highlighter = SyntaxHighlighter(format: outputFormat)
-        return highlighter.highlight(trimmed)
+        do {
+            return try AttributedString(nsResult, including: \.appKit)
+        } catch {
+            var result = AttributedString(trimmed)
+            result.foregroundColor = colors.codeForeground
+            return result
+        }
     }
 }

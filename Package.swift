@@ -17,7 +17,6 @@ let package = Package(
         // Markdown parsing (Apple's official parser)
         .package(url: "https://github.com/apple/swift-markdown.git", from: "0.5.0"),
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.5.0"),
-        .package(url: "https://github.com/JohnSundell/Splash.git", from: "0.9.0"),
 
         // Tree-sitter syntax highlighting
         .package(url: "https://github.com/ChimeHQ/SwiftTreeSitter.git", from: "0.25.0"),
@@ -52,7 +51,6 @@ let package = Package(
             dependencies: [
                 .product(name: "Markdown", package: "swift-markdown"),
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
-                .product(name: "Splash", package: "Splash"),
                 .product(name: "SwiftTreeSitter", package: "SwiftTreeSitter"),
                 .product(name: "TreeSitterSwift", package: "tree-sitter-swift"),
                 .product(name: "TreeSitterPython", package: "tree-sitter-python"),
