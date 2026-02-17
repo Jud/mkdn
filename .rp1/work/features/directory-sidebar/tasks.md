@@ -2,7 +2,7 @@
 
 **Feature ID**: directory-sidebar
 **Status**: In Progress
-**Progress**: 24% (4 of 17 tasks)
+**Progress**: 29% (5 of 17 tasks)
 **Estimated Effort**: 7 days
 **Started**: 2026-02-16
 
@@ -172,7 +172,19 @@ Extends mkdn from a single-file viewer into a folder-browsable navigation experi
     - **Deviations**: None
     - **Tests**: All existing tests pass (424 total; 30 pre-existing UI compliance failures unrelated to changes)
 
-- [ ] **T5**: DirectoryState observable and supporting keys `[complexity:medium]`
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
+- [x] **T5**: DirectoryState observable and supporting keys `[complexity:medium]`
 
     **Reference**: [design.md#t5-directorystate](design.md#t5-directorystate)
 
@@ -180,17 +192,24 @@ Extends mkdn from a single-file viewer into a folder-browsable navigation experi
 
     **Acceptance Criteria**:
 
-    - [ ] `DirectoryState` class created at `mkdn/Features/Sidebar/ViewModels/DirectoryState.swift` with `@Observable` and `@MainActor` annotations
-    - [ ] Properties: `rootURL`, `tree` (FileTreeNode?), `expandedDirectories` (Set<URL>), `selectedFileURL` (URL?), `isSidebarVisible` (Bool, default true), `sidebarWidth` (CGFloat, default 240)
-    - [ ] Static constants: `maxScanDepth` (10), `minSidebarWidth` (160), `maxSidebarWidth` (400)
-    - [ ] `scan()` method performs initial directory scan via `DirectoryScanner`, populates tree, expands first-level directories by default, starts `DirectoryWatcher`
-    - [ ] `refresh()` method rescans from disk, preserves expansion state and selection (unless selected file deleted)
-    - [ ] `toggleSidebar()` flips `isSidebarVisible`
-    - [ ] `selectFile(at:)` updates `selectedFileURL` and calls `documentState?.loadFile(at:)`
-    - [ ] Weak reference to `DocumentState` for file loading integration
-    - [ ] Observes `directoryWatcher.hasChanges` to trigger `refresh()` and restart watcher with updated subdirectory list
-    - [ ] `FocusedDirectoryStateKey` created at `mkdn/App/FocusedDirectoryStateKey.swift` following `FocusedDocumentStateKey` pattern
-    - [ ] `DirectoryModeKey` environment key created at `mkdn/App/DirectoryModeKey.swift` with default `false`
+    - [x] `DirectoryState` class created at `mkdn/Features/Sidebar/ViewModels/DirectoryState.swift` with `@Observable` and `@MainActor` annotations
+    - [x] Properties: `rootURL`, `tree` (FileTreeNode?), `expandedDirectories` (Set<URL>), `selectedFileURL` (URL?), `isSidebarVisible` (Bool, default true), `sidebarWidth` (CGFloat, default 240)
+    - [x] Static constants: `maxScanDepth` (10), `minSidebarWidth` (160), `maxSidebarWidth` (400)
+    - [x] `scan()` method performs initial directory scan via `DirectoryScanner`, populates tree, expands first-level directories by default, starts `DirectoryWatcher`
+    - [x] `refresh()` method rescans from disk, preserves expansion state and selection (unless selected file deleted)
+    - [x] `toggleSidebar()` flips `isSidebarVisible`
+    - [x] `selectFile(at:)` updates `selectedFileURL` and calls `documentState?.loadFile(at:)`
+    - [x] Weak reference to `DocumentState` for file loading integration
+    - [x] Observes `directoryWatcher.hasChanges` to trigger `refresh()` and restart watcher with updated subdirectory list
+    - [x] `FocusedDirectoryStateKey` created at `mkdn/App/FocusedDirectoryStateKey.swift` following `FocusedDocumentStateKey` pattern
+    - [x] `DirectoryModeKey` environment key created at `mkdn/App/DirectoryModeKey.swift` with default `false`
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Features/Sidebar/ViewModels/DirectoryState.swift`, `mkdn/App/FocusedDirectoryStateKey.swift`, `mkdn/App/DirectoryModeKey.swift`
+    - **Approach**: DirectoryState follows the established Observable/MainActor pattern (DocumentState, FindState). Owns DirectoryWatcher and observes hasChanges via withObservationTracking in a Task loop with 250ms debounce for rapid filesystem events. scan() builds tree via DirectoryScanner, expands first-level directories, starts watcher. refresh() preserves expansion/selection state, clears selection if file deleted, restarts watcher with updated subdirectory list. FocusedDirectoryStateKey follows FocusedDocumentStateKey pattern exactly. DirectoryModeKey provides a lightweight Bool environment key defaulting to false.
+    - **Deviations**: None
+    - **Tests**: 0 new (T9 handles unit tests); build succeeds, all existing unit tests pass
 
 ### Sidebar UI (Group 3)
 
