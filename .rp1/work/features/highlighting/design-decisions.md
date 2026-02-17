@@ -1,0 +1,29 @@
+# Design Decisions: Multi-Language Syntax Highlighting
+
+**Feature ID**: highlighting
+**Created**: 2026-02-17
+
+## Decision Log
+
+| ID | Decision | Choice | Rationale | Alternatives Considered |
+|----|----------|--------|-----------|------------------------|
+| D1 | Highlighting engine approach | Tree-sitter highlight queries (.scm) | Industry standard, accurate context-aware capture names, maintained by grammar communities. Handles complex patterns like distinguishing function definitions from function calls. | Direct node-type walking: simpler implementation but less accurate, requires per-language mapping tables, more maintenance burden |
+| D2 | Engine statefulness | Stateless -- parser and query created per call, no caching | Thread-safe by construction (no shared mutable state). Tree-sitter parser creation is O(1), query compilation is sub-millisecond for typical highlight queries. Avoids Swift 6 concurrency complexity (no need for @MainActor or nonisolated(unsafe) on caches). | Cached parsers/queries: marginal performance benefit (~0.5ms savings per call) but requires actor isolation or unsafe annotations. Can be added later if profiling shows need. |
+| D3 | Query embedding strategy | String constants in Swift source files (HighlightQueries.swift) | No runtime file loading or resource bundle configuration. Compile-time verifiable (syntax errors in queries caught at test time). Follows the "compiled into binary" philosophy of FR-3. | Bundled .scm resource files via Package.swift .copy(): adds build system complexity, requires runtime Bundle.module loading, and error handling for missing resources. |
+| D4 | Token type granularity | 13 types: 8 existing + 5 new (operator, variable, constant, attribute, punctuation) | Covers all AC-2.1 required types. Maps cleanly to tree-sitter's standard capture name categories. Fits within Solarized's 8-accent + base-tone palette without introducing non-Solarized colors. | Fewer types (7-8): less visual distinction between code elements, doesn't meet AC-2.1. More types (16+): exceeds Solarized palette capacity, creates hard-to-distinguish adjacent colors, diminishing readability returns. |
+| D5 | Color reuse within Solarized palette | operator=red (shared with preprocessor), variable=foreground, constant=violet (shared with attribute), punctuation=gray (shared with comment) | Solarized has 8 accent colors for 13 token types -- reuse is mandatory. Shared pairs were chosen for low co-occurrence (operator/preprocessor) or semantic similarity (constant/attribute as "annotations", punctuation/comment as "background structure"). | Introducing custom non-Solarized colors: breaks theme consistency, violates charter design philosophy. Using fewer token types to avoid reuse: reduces highlighting quality. |
+| D6 | New file location | mkdn/Core/Highlighting/ (new directory) | Syntax highlighting is a separable concern from markdown parsing. Has its own external dependency (SwiftTreeSitter). Parallels the existing Core/Mermaid/ directory pattern. Clean separation enables future reuse (e.g., editor-side highlighting). | Core/Markdown/: existing location of ThemeOutputFormat.swift, but couples highlighting to markdown pipeline. Would make the already-large Markdown directory even larger. |
+| D7 | Splash removal timing | Sequential: integrate tree-sitter first (T6), remove Splash after (T7) | Ensures Swift highlighting never regresses during development. Allows side-by-side comparison before commit. Clean atomic switchover in version control. | Simultaneous removal: faster but risky. If tree-sitter Swift quality is insufficient, rollback requires re-adding Splash. |
+| D8 | Engine API return type | Optional NSMutableAttributedString (nil = unsupported) | Clean separation: engine handles parsing and coloring only. Caller (MarkdownTextStorageBuilder) handles font, paragraph style, and CodeBlockAttributes. nil return enables the existing plain-text fallback path without engine needing to know display details. | Non-optional with plain text fallback inside engine: couples engine to display concerns (font, paragraph style). Error enum return: over-engineering for a binary supported/unsupported distinction. |
+
+## AFK Mode: Auto-Selected Technology Decisions
+
+| Decision | Choice | Source | Rationale |
+|----------|--------|--------|-----------|
+| Tree-sitter wrapper library | ChimeHQ/SwiftTreeSitter | Codebase analysis (Swift/SPM ecosystem) | Only mature Swift wrapper for tree-sitter with SPM support. Active maintenance, Swift 6 compatible. |
+| Grammar package source | tree-sitter-grammars org + fwcd (Kotlin) | Industry convention | tree-sitter-grammars is the canonical org for grammar distribution. Most grammars have SPM Package.swift. Kotlin grammar maintained by fwcd as the most active SPM-compatible fork. |
+| Highlight query approach | Standard .scm queries from grammar repos | tree-sitter ecosystem convention | Every major editor (Neovim, Helix, Zed) uses highlight queries. Well-tested, community-maintained, standardized capture names. |
+| New token color assignments | Solarized accent reuse per D5 | KB patterns.md (Theme Access), existing palette analysis | Must stay within Solarized palette. Reuse strategy follows Solarized's design philosophy of semantic color grouping. |
+| Performance optimization | None (stateless engine, no caching) | Conservative default | Tree-sitter is designed for speed. 16ms budget is generous for synchronous parse + query. Caching is premature optimization that adds concurrency complexity. Profiling can justify adding it later. |
+| Test approach | Swift Testing (@Suite, @Test, #expect) | KB patterns.md (Testing Pattern) | Existing project convention. Unit tests in mkdnTests/Unit/. |
+| Fallback behavior | Nil return, caller builds plain text | KB architecture.md (Rendering Pipeline) | Matches existing pattern where appendCodeBlock already has a plain-text path for non-Swift languages. |
