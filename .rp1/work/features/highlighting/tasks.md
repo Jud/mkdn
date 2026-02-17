@@ -2,7 +2,7 @@
 
 **Feature ID**: highlighting
 **Status**: In Progress
-**Progress**: 50% (4 of 8 tasks, 0 of 6 doc tasks)
+**Progress**: 63% (5 of 8 tasks, 0 of 6 doc tasks)
 **Estimated Effort**: 4 days
 **Started**: 2026-02-17
 
@@ -153,9 +153,21 @@ Replace Splash-based Swift-only syntax highlighting with a tree-sitter-based eng
     - **Deviations**: Added capture name mappings to TokenType.swift (T3 file) because embedded queries use capture names not in the original mapping. Used swiftlint:disable for file_length, type_body_length, and line_length in HighlightQueries.swift (1992-line file with embedded query strings containing long regex patterns).
     - **Tests**: N/A (unit tests deferred to T8). Build succeeds, 429 tests passing (pre-existing cycleTheme failure unrelated).
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
 ### Engine (Parallel Group 2)
 
-- [ ] **T5**: Create SyntaxHighlightEngine with tree-sitter parsing and token coloring `[complexity:medium]`
+- [x] **T5**: Create SyntaxHighlightEngine with tree-sitter parsing and token coloring `[complexity:medium]`
 
     **Reference**: [design.md#35-syntaxhighlightengine](design.md#35-syntaxhighlightengine)
 
@@ -163,13 +175,20 @@ Replace Splash-based Swift-only syntax highlighting with a tree-sitter-based eng
 
     **Acceptance Criteria**:
 
-    - [ ] SyntaxHighlightEngine enum created at `mkdn/Core/Highlighting/SyntaxHighlightEngine.swift` with `highlight(code:language:syntaxColors:)` static method
-    - [ ] Returns nil for unsupported languages (no grammar found)
-    - [ ] Creates parser per call (stateless, thread-safe by construction)
-    - [ ] Parses code with tree-sitter, executes highlight query, maps captures to TokenType
-    - [ ] Applies foreground colors from SyntaxColors to produce NSMutableAttributedString
-    - [ ] Uses PlatformTypeConverter.nsColor for SwiftUI Color to NSColor conversion
-    - [ ] Falls back to plain-colored text if query compilation fails (returns result without token colors)
+    - [x] SyntaxHighlightEngine enum created at `mkdn/Core/Highlighting/SyntaxHighlightEngine.swift` with `highlight(code:language:syntaxColors:)` static method
+    - [x] Returns nil for unsupported languages (no grammar found)
+    - [x] Creates parser per call (stateless, thread-safe by construction)
+    - [x] Parses code with tree-sitter, executes highlight query, maps captures to TokenType
+    - [x] Applies foreground colors from SyntaxColors to produce NSMutableAttributedString
+    - [x] Uses PlatformTypeConverter.nsColor for SwiftUI Color to NSColor conversion
+    - [x] Falls back to plain-colored text if query compilation fails (returns result without token colors)
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Core/Highlighting/SyntaxHighlightEngine.swift` (new)
+    - **Approach**: Stateless enum with single static `highlight(code:language:syntaxColors:)` method. Creates Parser per call, sets language from TreeSitterLanguageMap config, parses code to MutableTree, compiles highlight Query from embedded SCM data, executes query on parsed tree, iterates matches/captures, maps capture names to TokenType, and applies NSColor foreground attributes. Base text color uses syntaxColors.variable (standard foreground). Bounds-checks capture ranges against result length for safety.
+    - **Deviations**: None
+    - **Tests**: 429 passing (pre-existing cycleTheme failure unrelated)
 
 ### Integration (Parallel Group 3)
 
