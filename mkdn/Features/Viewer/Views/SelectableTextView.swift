@@ -73,12 +73,23 @@ struct SelectableTextView: NSViewRepresentable {
 
         let coordinator = context.coordinator
 
+        if let lastTheme = coordinator.lastAppliedTheme, lastTheme != theme {
+            let transition = CATransition()
+            transition.type = .fade
+            transition.duration = reduceMotion ? 0.15 : 0.35
+            transition.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            scrollView.layer?.add(transition, forKey: "themeTransition")
+        }
+        coordinator.lastAppliedTheme = theme
+
         applyTheme(to: textView, scrollView: scrollView)
         textView.findState = findState
         textView.printBlocks = blocks
 
         let isNewContent = coordinator.lastAppliedText !== attributedText
         if isNewContent {
+            let textChanged = textView.textStorage?.string != attributedText.string
+
             if isFullReload {
                 coordinator.animator.beginEntrance(reduceMotion: reduceMotion)
             } else {
@@ -87,7 +98,11 @@ struct SelectableTextView: NSViewRepresentable {
 
             textView.textStorage?.setAttributedString(attributedText)
             textView.window?.invalidateCursorRects(for: textView)
-            textView.setSelectedRange(NSRange(location: 0, length: 0))
+
+            if textChanged {
+                textView.setSelectedRange(NSRange(location: 0, length: 0))
+            }
+
             coordinator.animator.animateVisibleFragments()
 
             coordinator.overlayCoordinator.updateOverlays(
@@ -210,6 +225,7 @@ extension SelectableTextView {
         let animator = EntranceAnimator()
         let overlayCoordinator = OverlayCoordinator()
         var lastAppliedText: NSAttributedString?
+        var lastAppliedTheme: AppTheme?
 
         // MARK: - Find State Tracking
 
@@ -217,7 +233,9 @@ extension SelectableTextView {
         var lastFindIndex = 0
         var lastFindVisible = false
         var lastHighlightedRanges: [NSRange] = []
+        var savedBackgrounds: [(range: NSRange, color: NSColor?)] = []
         var lastFindTheme: AppTheme?
+        private var highlightFadeTask: Task<Void, Never>?
 
         // MARK: - Find Highlight Integration
 
@@ -230,6 +248,10 @@ extension SelectableTextView {
             isNewContent: Bool
         ) {
             guard let textView else { return }
+
+            if isNewContent {
+                savedBackgrounds = []
+            }
 
             if findIsVisible {
                 let queryChanged = findQuery != lastFindQuery
@@ -254,7 +276,9 @@ extension SelectableTextView {
                 }
             } else if lastFindVisible {
                 clearFindHighlights(textView: textView)
-                textView.window?.makeFirstResponder(textView)
+                DispatchQueue.main.async {
+                    textView.window?.makeFirstResponder(textView)
+                }
             }
 
             lastFindQuery = findQuery
@@ -263,50 +287,74 @@ extension SelectableTextView {
             lastFindTheme = theme
         }
 
+        // MARK: - Text Storage Highlight Strategy
+        //
+        // Uses direct NSTextStorage attribute modifications instead of
+        // NSTextLayoutManager.setRenderingAttributes. Rendering attributes
+        // don't trigger re-rendering of cached TextKit 2 layout fragments,
+        // but text storage edits do.
+
         private func applyFindHighlights(
             findState: FindState,
             textView: NSTextView,
             theme: AppTheme,
             performSearch: Bool
         ) {
-            guard let layoutManager = textView.textLayoutManager,
-                  let contentManager = layoutManager.textContentManager
-            else { return }
+            highlightFadeTask?.cancel()
+            highlightFadeTask = nil
 
-            clearRenderingAttributes(
-                layoutManager: layoutManager,
-                contentManager: contentManager
-            )
+            guard let textStorage = textView.textStorage else { return }
 
             if performSearch {
-                let text = textView.textStorage?.string ?? ""
-                findState.performSearch(in: text)
+                findState.performSearch(in: textStorage.string)
             }
 
             guard !findState.matchRanges.isEmpty else {
+                restoreBackgrounds(in: textStorage)
                 lastHighlightedRanges = []
+                ensureLayoutAndRepositionOverlays(textView: textView)
                 return
             }
 
-            let accentNSColor = PlatformTypeConverter.nsColor(
-                from: theme.colors.accent
+            let highlightNSColor = PlatformTypeConverter.nsColor(
+                from: theme.colors.findHighlight
             )
+
+            textStorage.beginEditing()
+
+            for saved in savedBackgrounds {
+                guard saved.range.location + saved.range.length <= textStorage.length
+                else { continue }
+                if let color = saved.color {
+                    textStorage.addAttribute(
+                        .backgroundColor, value: color, range: saved.range
+                    )
+                } else {
+                    textStorage.removeAttribute(
+                        .backgroundColor, range: saved.range
+                    )
+                }
+            }
+            savedBackgrounds = []
+
+            // Save original backgrounds for the new match ranges
+            // (safe to read mid-edit since old highlights are already restored)
+            saveBackgrounds(for: findState.matchRanges, in: textStorage)
 
             for (index, range) in findState.matchRanges.enumerated() {
                 let alpha: CGFloat =
                     (index == findState.currentMatchIndex) ? 0.4 : 0.15
-                if let textRange = Self.textRange(
-                    from: range,
-                    contentManager: contentManager
-                ) {
-                    layoutManager.setRenderingAttributes(
-                        [.backgroundColor: accentNSColor.withAlphaComponent(alpha)],
-                        for: textRange
-                    )
-                }
+                textStorage.addAttribute(
+                    .backgroundColor,
+                    value: highlightNSColor.withAlphaComponent(alpha),
+                    range: range
+                )
             }
 
+            textStorage.endEditing()
+
             lastHighlightedRanges = findState.matchRanges
+            ensureLayoutAndRepositionOverlays(textView: textView)
 
             if let currentRange =
                 findState.matchRanges[safe: findState.currentMatchIndex]
@@ -316,45 +364,115 @@ extension SelectableTextView {
         }
 
         private func clearFindHighlights(textView: NSTextView) {
-            guard let layoutManager = textView.textLayoutManager,
-                  let contentManager = layoutManager.textContentManager
+            guard let textStorage = textView.textStorage,
+                  !lastHighlightedRanges.isEmpty
             else { return }
 
-            clearRenderingAttributes(
-                layoutManager: layoutManager,
-                contentManager: contentManager
-            )
+            highlightFadeTask?.cancel()
+
+            var rangeColors: [(range: NSRange, color: NSColor)] = []
+            for range in lastHighlightedRanges {
+                guard range.location + range.length <= textStorage.length,
+                      let color = textStorage.attribute(
+                          .backgroundColor,
+                          at: range.location,
+                          effectiveRange: nil
+                      ) as? NSColor
+                else { continue }
+                rangeColors.append((range: range, color: color))
+            }
+
+            // Clear tracking (savedBackgrounds kept intact for restore)
             lastHighlightedRanges = []
+
+            guard !rangeColors.isEmpty,
+                  !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+            else {
+                restoreBackgrounds(in: textStorage)
+                ensureLayoutAndRepositionOverlays(textView: textView)
+                return
+            }
+
+            let fadeSteps = 4
+            let stepNanos: UInt64 = 40_000_000 // 40ms per step = 160ms total
+
+            highlightFadeTask = Task { @MainActor [weak self] in
+                for step in 1 ... fadeSteps {
+                    try? await Task.sleep(nanoseconds: stepNanos)
+                    guard !Task.isCancelled else { return }
+                    guard textStorage.length > 0 else { break }
+
+                    let progress = CGFloat(step) / CGFloat(fadeSteps)
+                    textStorage.beginEditing()
+                    for (range, color) in rangeColors {
+                        guard range.location + range.length <= textStorage.length
+                        else { continue }
+                        let fadedAlpha = color.alphaComponent * (1.0 - progress)
+                        textStorage.addAttribute(
+                            .backgroundColor,
+                            value: color.withAlphaComponent(fadedAlpha),
+                            range: range
+                        )
+                    }
+                    textStorage.endEditing()
+                    self?.ensureLayoutAndRepositionOverlays(textView: textView)
+                }
+
+                guard !Task.isCancelled, let self else { return }
+                self.restoreBackgrounds(in: textStorage)
+                self.ensureLayoutAndRepositionOverlays(textView: textView)
+            }
         }
 
-        private func clearRenderingAttributes(
-            layoutManager: NSTextLayoutManager,
-            contentManager: NSTextContentManager
+        private func ensureLayoutAndRepositionOverlays(textView: NSTextView) {
+            if let layoutManager = textView.textLayoutManager {
+                layoutManager.ensureLayout(for: layoutManager.documentRange)
+            }
+            overlayCoordinator.repositionOverlays()
+        }
+
+        // MARK: - Theme Crossfade
+
+        private func saveBackgrounds(
+            for ranges: [NSRange],
+            in textStorage: NSTextStorage
         ) {
-            for range in lastHighlightedRanges {
-                if let textRange = Self.textRange(
-                    from: range,
-                    contentManager: contentManager
-                ) {
-                    layoutManager.setRenderingAttributes([:], for: textRange)
+            savedBackgrounds = []
+            for matchRange in ranges {
+                textStorage.enumerateAttribute(
+                    .backgroundColor,
+                    in: matchRange,
+                    options: []
+                ) { value, subRange, _ in
+                    savedBackgrounds.append(
+                        (range: subRange, color: value as? NSColor)
+                    )
                 }
             }
         }
 
-        private static func textRange(
-            from nsRange: NSRange,
-            contentManager: NSTextContentManager
-        ) -> NSTextRange? {
-            guard let start = contentManager.location(
-                contentManager.documentRange.location,
-                offsetBy: nsRange.location
-            ),
-                let end = contentManager.location(
-                    start,
-                    offsetBy: nsRange.length
-                )
-            else { return nil }
-            return NSTextRange(location: start, end: end)
+        private func restoreBackgrounds(in textStorage: NSTextStorage) {
+            guard !savedBackgrounds.isEmpty else { return }
+            let length = textStorage.length
+            textStorage.beginEditing()
+            for saved in savedBackgrounds {
+                guard saved.range.location + saved.range.length <= length
+                else { continue }
+                if let color = saved.color {
+                    textStorage.addAttribute(
+                        .backgroundColor,
+                        value: color,
+                        range: saved.range
+                    )
+                } else {
+                    textStorage.removeAttribute(
+                        .backgroundColor,
+                        range: saved.range
+                    )
+                }
+            }
+            textStorage.endEditing()
+            savedBackgrounds = []
         }
     }
 }
