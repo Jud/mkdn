@@ -83,3 +83,9 @@ The **highlighting** surface expands mkdn's syntax highlighting from Swift-only 
 | A-3 | Tree-sitter Swift grammar produces token quality equal to or better than Splash | Regression in Swift highlighting quality; may need to keep Splash as fallback | Will Do: Syntax highlighting |
 | A-4 | Bundling 16 grammar binaries has acceptable impact on app binary size | May need to load grammars dynamically or reduce language count | Design Philosophy: simplicity |
 | A-5 | Tree-sitter node types map cleanly to a finite set of SyntaxColors token types | May need per-language mapping tables, increasing maintenance complexity | Terminal-consistent theming |
+
+## Discoveries
+
+- **Design Deviation: FileManager-Based Source Detection in Grammar Package.swift**: Many tree-sitter grammar packages (Python, JavaScript, Go, CSS, YAML at >=0.24.0) use `FileManager.default.fileExists` with relative paths in Package.swift for scanner detection; this resolves against the consuming project's CWD, not the grammar checkout, causing linker errors. Pin to 0.23.x versions with static source lists. -- *Ref: [field-notes.md](archives/features/highlighting/field-notes.md)*
+- **Codebase Discovery: SwiftTreeSitter URL Split**: The tree-sitter grammar ecosystem has two SwiftTreeSitter mirror URLs (`ChimeHQ/SwiftTreeSitter` vs `tree-sitter/swift-tree-sitter`); SPM treats them as different packages due to URL-derived identities, and `tree-sitter-c` at v0.24.0+ has an identity mismatch bug. Pin grammar packages to versions referencing `ChimeHQ/SwiftTreeSitter`. -- *Ref: [field-notes.md](archives/features/highlighting/field-notes.md)*
+- **Workaround: tree-sitter-swift Missing Generated Files**: The `alex-pinkus/tree-sitter-swift` package at semver tags does not include the generated `parser.c`; use a revision-based dependency pinned to the `-with-generated-files` tag commit (277b583). -- *Ref: [field-notes.md](archives/features/highlighting/field-notes.md)*
