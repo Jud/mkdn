@@ -9,8 +9,8 @@ struct MkdnApp: App {
     @State private var appSettings = AppSettings()
 
     var body: some Scene {
-        WindowGroup(for: URL.self) { $fileURL in // swiftlint:disable:this unused_parameter
-            DocumentWindow(fileURL: fileURL)
+        WindowGroup(for: LaunchItem.self) { $launchItem in // swiftlint:disable:this unused_parameter
+            DocumentWindow(launchItem: launchItem)
                 .environment(appSettings)
         }
         .handlesExternalEvents(matching: [])

@@ -2,7 +2,7 @@
 
 **Feature ID**: directory-sidebar
 **Status**: In Progress
-**Progress**: 18% (3 of 17 tasks)
+**Progress**: 24% (4 of 17 tasks)
 **Estimated Effort**: 7 days
 **Started**: 2026-02-16
 
@@ -135,9 +135,21 @@ Extends mkdn from a single-file viewer into a folder-browsable navigation experi
     - **Deviations**: None
     - **Tests**: 0 new (T9 handles unit tests); build succeeds, all existing unit tests pass
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
 ### Window Routing and State (Group 2)
 
-- [ ] **T4**: LaunchItem enum and window routing `[complexity:medium]`
+- [x] **T4**: LaunchItem enum and window routing `[complexity:medium]`
 
     **Reference**: [design.md#t4-launchitem--window-routing](design.md#t4-launchitem--window-routing)
 
@@ -145,13 +157,20 @@ Extends mkdn from a single-file viewer into a folder-browsable navigation experi
 
     **Acceptance Criteria**:
 
-    - [ ] `LaunchItem` enum created at `mkdn/App/LaunchItem.swift` with `.file(URL)` and `.directory(URL)` cases, conforming to `Hashable`, `Codable`, `Sendable`
-    - [ ] `LaunchItem` has a computed `url` property returning the underlying URL regardless of case
-    - [ ] `WindowGroup(for: URL.self)` changed to `WindowGroup(for: LaunchItem.self)` in `main.swift`
-    - [ ] `DocumentWindow` updated to accept `LaunchItem?` instead of `URL?`
-    - [ ] `consumeLaunchContext()` creates appropriate `LaunchItem` values from `LaunchContext.fileURLs` and `LaunchContext.directoryURLs`
-    - [ ] Mixed file + directory arguments open separate windows via `openWindow(value:)`
-    - [ ] Existing single-file behavior preserved (no sidebar when opened with `.file` launch item)
+    - [x] `LaunchItem` enum created at `mkdn/App/LaunchItem.swift` with `.file(URL)` and `.directory(URL)` cases, conforming to `Hashable`, `Codable`, `Sendable`
+    - [x] `LaunchItem` has a computed `url` property returning the underlying URL regardless of case
+    - [x] `WindowGroup(for: URL.self)` changed to `WindowGroup(for: LaunchItem.self)` in `main.swift`
+    - [x] `DocumentWindow` updated to accept `LaunchItem?` instead of `URL?`
+    - [x] `consumeLaunchContext()` creates appropriate `LaunchItem` values from `LaunchContext.fileURLs` and `LaunchContext.directoryURLs`
+    - [x] Mixed file + directory arguments open separate windows via `openWindow(value:)`
+    - [x] Existing single-file behavior preserved (no sidebar when opened with `.file` launch item)
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/App/LaunchItem.swift`, `mkdn/App/DocumentWindow.swift`, `mkdnEntry/main.swift`
+    - **Approach**: Created LaunchItem enum (Hashable, Codable, Sendable) with .file(URL) and .directory(URL) cases and url accessor. Changed WindowGroup routing from URL.self to LaunchItem.self. Refactored DocumentWindow to accept LaunchItem? with handleLaunch() switch for file/directory/nil cases. consumeLaunchContext() drains both file and directory URLs, opening separate windows with appropriate LaunchItem values. FileOpenCoordinator onChange handler wraps URLs in LaunchItem.file(). Directory launch items currently no-op (T5/T7 will wire DirectoryState).
+    - **Deviations**: None
+    - **Tests**: All existing tests pass (424 total; 30 pre-existing UI compliance failures unrelated to changes)
 
 - [ ] **T5**: DirectoryState observable and supporting keys `[complexity:medium]`
 

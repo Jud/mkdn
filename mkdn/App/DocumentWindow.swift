@@ -5,25 +5,26 @@ import SwiftUI
 /// the environment. Each ``WindowGroup`` instance embeds one `DocumentWindow`,
 /// giving every window its own independent document lifecycle.
 ///
-/// On appearance the view loads the file at `fileURL` (if non-nil), records it
-/// in Open Recent, and publishes the ``DocumentState`` via `focusedSceneValue`
-/// so menu commands can operate on the active window's document.
+/// On appearance the view loads the file at the launch item URL (if a file),
+/// records it in Open Recent, and publishes the ``DocumentState`` via
+/// `focusedSceneValue` so menu commands can operate on the active window's
+/// document.
 ///
 /// The view also observes ``FileOpenCoordinator/pendingURLs`` and opens a new
 /// window for every URL that arrives at runtime (Finder, dock, other apps).
-/// On the initial launch window (where `fileURL` is nil), pending URLs from
+/// On the initial launch window (where `launchItem` is nil), pending URLs from
 /// the CLI or a cold-start Finder open are adopted directly to avoid an extra
 /// empty window.
 public struct DocumentWindow: View {
-    public let fileURL: URL?
+    public let launchItem: LaunchItem?
     @State private var documentState = DocumentState()
     @State private var findState = FindState()
     @State private var isReady = false
     @Environment(AppSettings.self) private var appSettings
     @Environment(\.openWindow) private var openWindow
 
-    public init(fileURL: URL?) {
-        self.fileURL = fileURL
+    public init(launchItem: LaunchItem?) {
+        self.launchItem = launchItem
     }
 
     public var body: some View {
@@ -35,28 +36,7 @@ public struct DocumentWindow: View {
             .focusedSceneValue(\.findState, findState)
             .opacity(isReady ? 1 : 0)
             .onAppear {
-                if let fileURL {
-                    try? documentState.loadFile(at: fileURL)
-                    NSDocumentController.shared.noteNewRecentDocumentURL(fileURL)
-                } else if !LaunchContext.fileURLs.isEmpty {
-                    let launchURLs = LaunchContext.consumeURLs()
-                    if let first = launchURLs.first {
-                        try? documentState.loadFile(at: first)
-                        NSDocumentController.shared.noteNewRecentDocumentURL(first)
-                    }
-                    for url in launchURLs.dropFirst() {
-                        openWindow(value: url)
-                    }
-                } else {
-                    let pending = FileOpenCoordinator.shared.consumeAll()
-                    if let first = pending.first {
-                        try? documentState.loadFile(at: first)
-                        NSDocumentController.shared.noteNewRecentDocumentURL(first)
-                    }
-                    for url in pending.dropFirst() {
-                        openWindow(value: url)
-                    }
-                }
+                handleLaunch()
                 if TestHarnessMode.isEnabled {
                     TestHarnessHandler.appSettings = appSettings
                     TestHarnessHandler.documentState = documentState
@@ -66,8 +46,49 @@ public struct DocumentWindow: View {
             }
             .onChange(of: FileOpenCoordinator.shared.pendingURLs) {
                 for url in FileOpenCoordinator.shared.consumeAll() {
-                    openWindow(value: url)
+                    openWindow(value: LaunchItem.file(url))
                 }
             }
+    }
+
+    private func handleLaunch() {
+        switch launchItem {
+        case let .file(url):
+            try? documentState.loadFile(at: url)
+            NSDocumentController.shared.noteNewRecentDocumentURL(url)
+
+        case .directory:
+            break
+
+        case nil:
+            consumeLaunchContext()
+        }
+    }
+
+    private func consumeLaunchContext() {
+        let launchFileURLs = LaunchContext.consumeURLs()
+        let launchDirURLs = LaunchContext.consumeDirectoryURLs()
+
+        if !launchFileURLs.isEmpty || !launchDirURLs.isEmpty {
+            if let first = launchFileURLs.first {
+                try? documentState.loadFile(at: first)
+                NSDocumentController.shared.noteNewRecentDocumentURL(first)
+            }
+            for url in launchFileURLs.dropFirst() {
+                openWindow(value: LaunchItem.file(url))
+            }
+            for url in launchDirURLs {
+                openWindow(value: LaunchItem.directory(url))
+            }
+        } else {
+            let pending = FileOpenCoordinator.shared.consumeAll()
+            if let first = pending.first {
+                try? documentState.loadFile(at: first)
+                NSDocumentController.shared.noteNewRecentDocumentURL(first)
+            }
+            for url in pending.dropFirst() {
+                openWindow(value: LaunchItem.file(url))
+            }
+        }
     }
 }
