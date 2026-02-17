@@ -67,8 +67,11 @@ Test fixtures live in `fixtures/`. Each should target a specific rendering conce
 
 | Fixture | Purpose |
 |---------|---------|
-| `test-content.md` | General rendering (headings, code, blockquotes, lists, mermaid) |
-| `table-test.md` | Table column sizing, wrapping, alignment, visual contrast |
+| `test-content.md` | Quick smoke test (one of each element type + mermaid) |
+| `elements-test.md` | Comprehensive element rendering (headings, inline formatting, blockquotes, lists, code blocks, thematic breaks, mixed flow) |
+| `table-test.md` | Table column sizing, wrapping, alignment, sticky headers, visual contrast |
+| `codeblocks-test.md` | Code blocks across all supported languages (Swift highlighted, others monospace) |
+| `mermaid-test.md` | All mermaid diagram types (flowchart, sequence, state, class, ER, Gantt, pie) |
 
 When adding fixtures, include content that pushes boundaries: long text in cells, many columns, mixed narrow and wide content, deeply nested structures.
 
