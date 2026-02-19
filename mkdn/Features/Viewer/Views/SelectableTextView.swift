@@ -96,11 +96,14 @@ struct SelectableTextView: NSViewRepresentable {
                 coordinator.animator.reset()
             }
 
+            coordinator.overlayCoordinator.hideAllOverlays()
             textView.textStorage?.setAttributedString(attributedText)
             textView.window?.invalidateCursorRects(for: textView)
 
             if textChanged {
                 textView.setSelectedRange(NSRange(location: 0, length: 0))
+                scrollView.contentView.scroll(to: .zero)
+                scrollView.reflectScrolledClipView(scrollView.contentView)
             }
 
             coordinator.animator.animateVisibleFragments()
@@ -168,7 +171,7 @@ extension SelectableTextView {
         textView.usesRuler = false
         textView.allowsUndo = false
         textView.isAutomaticLinkDetectionEnabled = false
-        textView.textContainerInset = NSSize(width: 32, height: 16)
+        textView.textContainerInset = NSSize(width: 32, height: 32)
         textView.isRichText = true
         textView.isHorizontallyResizable = false
         textView.isVerticallyResizable = true

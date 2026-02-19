@@ -134,6 +134,41 @@ final class CodeBlockBackgroundTextView: NSTextView {
         addTrackingArea(area)
     }
 
+    override func mouseDown(with event: NSEvent) {
+        let viewPoint = convert(event.locationInWindow, from: nil)
+        if isPointOverEmptySpace(viewPoint) {
+            window?.performDrag(with: event)
+            return
+        }
+        super.mouseDown(with: event)
+    }
+
+    /// Returns `true` when the point is not over any text layout fragment,
+    /// i.e. it's in the textContainerInset margins or below the last line.
+    private func isPointOverEmptySpace(_ viewPoint: CGPoint) -> Bool {
+        guard let textLayoutManager else { return true }
+
+        let containerPoint = CGPoint(
+            x: viewPoint.x - textContainerInset.width,
+            y: viewPoint.y - textContainerInset.height
+        )
+
+        var isOverFragment = false
+        textLayoutManager.enumerateTextLayoutFragments(
+            from: textLayoutManager.documentRange.location,
+            options: [.ensuresLayout]
+        ) { fragment in
+            let frame = fragment.layoutFragmentFrame
+            if frame.minY > containerPoint.y { return false }
+            if frame.contains(containerPoint) {
+                isOverFragment = true
+                return false
+            }
+            return true
+        }
+        return !isOverFragment
+    }
+
     override func mouseMoved(with event: NSEvent) {
         super.mouseMoved(with: event)
         let point = convert(event.locationInWindow, from: nil)

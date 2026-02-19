@@ -65,6 +65,16 @@ final class OverlayCoordinator {
         repositionOverlays()
     }
 
+    /// Hides all overlay views to prevent flash during content replacement.
+    func hideAllOverlays() {
+        for (_, entry) in entries {
+            entry.view.isHidden = true
+        }
+        for (_, header) in stickyHeaders {
+            header.isHidden = true
+        }
+    }
+
     /// Recalculates all overlay positions from the current layout geometry.
     func repositionOverlays() {
         guard let context = makeLayoutContext() else { return }
@@ -250,6 +260,7 @@ final class OverlayCoordinator {
             return
         }
 
+        overlayView.isHidden = true
         textView.addSubview(overlayView)
         entries[info.blockIndex] = OverlayEntry(
             view: overlayView,
@@ -377,6 +388,14 @@ final class OverlayCoordinator {
 
         let fragmentFrame = fragment.layoutFragmentFrame
         let overlayWidth = entry.preferredWidth ?? context.containerWidth
+
+        // Skip positioning if layout hasn't settled — fragment at y≈0 with
+        // near-zero height indicates TextKit 2 hasn't computed the real position yet.
+        guard fragmentFrame.height > 1 else {
+            entry.view.isHidden = true
+            return
+        }
+
         entry.view.frame = CGRect(
             x: context.origin.x,
             y: fragmentFrame.origin.y + context.origin.y,

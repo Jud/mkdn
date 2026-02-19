@@ -51,6 +51,10 @@ public final class DocumentState {
     /// Load a Markdown file from the given URL.
     public func loadFile(at url: URL) throws {
         let content = try String(contentsOf: url, encoding: .utf8)
+        if currentFileURL == url, markdownContent == content {
+            // Same file, unchanged content — skip to avoid overlay flash
+            return
+        }
         currentFileURL = url
         markdownContent = content
         lastSavedContent = content

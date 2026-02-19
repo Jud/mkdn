@@ -35,6 +35,8 @@ enum TestHarnessHandler {
             await handleScrollTo(yOffset)
         case let .simulateScroll(deltaY, duration):
             await handleSimulateScroll(deltaY, duration)
+        case let .scrollSidebar(yOffset):
+            await handleScrollSidebar(yOffset)
         case let .startQuickCapture(fps, outputDir):
             handleStartQuickCapture(fps, outputDir)
         case .stopQuickCapture:
@@ -410,6 +412,21 @@ enum TestHarnessHandler {
         )
     }
 
+    private static func findSidebarScrollView(in view: NSView?) -> NSScrollView? {
+        guard let view else { return nil }
+        if let scrollView = view as? NSScrollView,
+           !(scrollView.documentView is NSTextView)
+        {
+            return scrollView
+        }
+        for subview in view.subviews {
+            if let found = findSidebarScrollView(in: subview) {
+                return found
+            }
+        }
+        return nil
+    }
+
     private static func findScrollView(in view: NSView?) -> NSScrollView? {
         guard let view else { return nil }
         if let scrollView = view as? NSScrollView,
@@ -423,6 +440,26 @@ enum TestHarnessHandler {
             }
         }
         return nil
+    }
+
+    private static func handleScrollSidebar(
+        _ yOffset: Double
+    ) async -> HarnessResponse {
+        guard let window = findMainWindow() else {
+            return .error("No visible window found")
+        }
+        guard let scrollView = findSidebarScrollView(in: window.contentView) else {
+            return .error("No sidebar scroll view found")
+        }
+        let documentHeight = scrollView.documentView?.frame.height ?? 0
+        let visibleHeight = scrollView.contentView.bounds.height
+        let maxY = max(0, documentHeight - visibleHeight)
+        let clampedY = min(max(0, yOffset), maxY)
+        scrollView.contentView.scroll(to: NSPoint(x: 0, y: clampedY))
+        scrollView.reflectScrolledClipView(scrollView.contentView)
+        try? await Task.sleep(for: .milliseconds(50))
+        let actualY = scrollView.contentView.bounds.origin.y
+        return .ok(message: "Sidebar scrolled to y=\(actualY)")
     }
 
     // MARK: - Quick Capture (CGWindowListCreateImage)
