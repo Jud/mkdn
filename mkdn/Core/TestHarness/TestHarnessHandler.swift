@@ -45,6 +45,8 @@ enum TestHarnessHandler {
             handleSetSidebarWidth(width)
         case .toggleSidebar:
             handleToggleSidebar()
+        case let .resizeWindow(width, height):
+            handleResizeWindow(width, height)
         case .ping:
             .ok(data: .pong)
         case .quit:
@@ -537,6 +539,29 @@ enum TestHarnessHandler {
                 framePaths: frames
             )),
             message: "Quick capture stopped: \(frames.count) frames"
+        )
+    }
+
+    // MARK: - Window Commands
+
+    private static func handleResizeWindow(
+        _ width: Double,
+        _ height: Double
+    ) -> HarnessResponse {
+        guard let window = findMainWindow() else {
+            return .error("No visible window found")
+        }
+        let origin = window.frame.origin
+        let newFrame = NSRect(
+            x: origin.x,
+            y: origin.y,
+            width: width,
+            height: height
+        )
+        window.setFrame(newFrame, display: true)
+        let actual = window.frame
+        return .ok(
+            message: "Window resized to \(actual.width)x\(actual.height)"
         )
     }
 

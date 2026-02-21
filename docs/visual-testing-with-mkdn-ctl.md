@@ -25,6 +25,7 @@ scripts/mkdn-ctl theme solarizedDark           # set theme
 scripts/mkdn-ctl theme solarizedLight
 scripts/mkdn-ctl cycle                         # cycle through themes
 scripts/mkdn-ctl info                          # window size, theme, loaded file
+scripts/mkdn-ctl resize 1024 768               # resize window to 1024x768pt
 scripts/mkdn-ctl quit                          # close the app
 ```
 
