@@ -12,5 +12,10 @@ cask "mkdn" do
   app "mkdn.app"
   binary "#{appdir}/mkdn.app/Contents/MacOS/mkdn"
 
+  postflight do
+    system_command "/usr/bin/xattr",
+                   args: ["-rd", "com.apple.quarantine", "#{appdir}/mkdn.app"]
+  end
+
   zap trash: []
 end
