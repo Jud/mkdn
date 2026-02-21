@@ -38,6 +38,38 @@ body {
   line-height: 1.6;
 }
 
+/* ── Accessibility ── */
+
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 1rem;
+  padding: 0.5rem 1rem;
+  background: var(--cyan);
+  color: var(--base03);
+  border-radius: 0 0 4px 4px;
+  z-index: 100;
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* ── Layout ── */
 
 .container {
@@ -122,6 +154,15 @@ section {
   background: var(--base01);
   color: var(--base3);
   transform: translateY(-1px);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+
+.btn:active {
+  transform: translateY(0);
 }
 
 /* ── Screenshot showcase ── */
@@ -270,7 +311,7 @@ section {
 
 .theme-label {
   font-size: 0.85rem;
-  color: var(--base01);
+  color: var(--base00);
   margin-top: 0.75rem;
   text-align: center;
 }
@@ -303,10 +344,10 @@ section {
   margin: 0 auto;
 }
 
-.install-method label {
+.install-label {
   font-size: 0.85rem;
   font-weight: 500;
-  color: var(--base01);
+  color: var(--base00);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   display: block;
@@ -314,6 +355,7 @@ section {
 }
 
 .install-code {
+  position: relative;
   background: var(--base02);
   border: 1px solid rgba(147, 161, 161, 0.1);
   border-radius: 8px;
@@ -323,6 +365,26 @@ section {
   color: var(--cyan);
   text-align: left;
   user-select: all;
+  margin: 0;
+  overflow-x: auto;
+}
+
+.install-code::after {
+  content: "click to select";
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  font-size: 0.7rem;
+  color: var(--base01);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.install-code:hover::after {
+  opacity: 1;
 }
 
 /* ── Footer ── */
@@ -335,7 +397,7 @@ section {
 
 .footer p {
   font-size: 0.85rem;
-  color: var(--base01);
+  color: var(--base00);
 }
 
 .footer a {
@@ -343,7 +405,8 @@ section {
   text-decoration: none;
 }
 
-.footer a:hover {
+.footer a:hover,
+.footer a:focus-visible {
   color: var(--cyan);
 }
 
