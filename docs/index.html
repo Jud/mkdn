@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mkdn — the reading side of the agentic loop</title>
+  <meta name="description" content="native macOS viewer for agentic workflows. code, diagrams, math -- rendered natively, updated live.">
+  <link rel="icon" href="images/icon.png" type="image/png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <a href="#main" class="skip-link">Skip to content</a>
+  <main id="main">
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="container">
+      <img src="images/icon.png" alt="mkdn" class="hero-icon" width="180" height="180">
+      <h1>mkdn</h1>
+      <p class="tagline">the reading side of the agentic loop. code, diagrams, math -- rendered natively, updated live.</p>
+      <div class="hero-actions">
+        <a href="#install" class="btn btn-primary">Install</a>
+        <a href="https://github.com/jud/mkdn" class="btn btn-secondary">View on GitHub</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Screenshot showcase -->
+  <section class="showcase">
+    <div class="container">
+      <div class="showcase-frame">
+        <video autoplay muted playsinline width="1024" height="768">
+          <source src="images/hero.mp4" type="video/mp4">
+          <img src="images/hero-dark.png" alt="mkdn rendering its own README in Solarized Dark" width="1024" height="768">
+        </video>
+      </div>
+    </div>
+  </section>
+
+  <!-- Philosophy strip -->
+  <section class="philosophy">
+    <div class="container">
+      <h2 class="sr-only">Philosophy</h2>
+      <div class="philosophy-grid">
+        <div class="philosophy-item">
+          <h3><span class="accent">Review</span>, not write</h3>
+          <p>not a code editor. a code viewer built for comprehension.</p>
+        </div>
+        <div class="philosophy-item">
+          <h3><span class="accent">Native</span>, not Electron</h3>
+          <p>pure SwiftUI. launches instantly, idles at nothing, feels like it belongs on your Mac.</p>
+        </div>
+        <div class="philosophy-item">
+          <h3><span class="accent">Live</span>, not stale</h3>
+          <p>File watching at the kernel level. When an agent writes a file, mkdn re-renders it instantly. No reload button.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="features">
+    <div class="container">
+      <h2>what agents produce, rendered natively</h2>
+      <div class="features-grid">
+        <div class="feature-card">
+          <h3>Mermaid diagrams</h3>
+          <p>flowcharts, sequence diagrams, state machines -- inline and interactive.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Syntax highlighting</h3>
+          <p>Tree-sitter highlighting across 16 languages. Code blocks with language labels, themed backgrounds, and click-to-copy.</p>
+        </div>
+        <div class="feature-card">
+          <h3>LaTeX math</h3>
+          <p>block and inline equations. renders like a textbook, not a code block.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Tables, lists, rich text</h3>
+          <p>full CommonMark. tables, lists, blockquotes -- everything agents use to organize output.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Solarized theming</h3>
+          <p>dark and light modes that match your terminal. built for long sessions.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Directory browsing</h3>
+          <p>point it at a folder. sidebar, file watching, the whole tree at a glance.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Install -->
+  <section class="install" id="install">
+    <div class="container">
+      <h2>Get started</h2>
+      <p>macOS 14.0 or later.</p>
+      <div class="install-methods">
+        <div class="install-method">
+          <span class="install-label">Homebrew</span>
+          <pre class="install-code"><code>brew install jud/mkdn/mkdn</code></pre>
+        </div>
+        <div class="install-method">
+          <span class="install-label">Build from source</span>
+          <pre class="install-code"><code>git clone https://github.com/jud/mkdn.git && cd mkdn && swift run mkdn</code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <p>mkdn is open source. <a href="https://github.com/jud/mkdn">GitHub</a></p>
+    </div>
+  </footer>
+
+</body>
+</html>

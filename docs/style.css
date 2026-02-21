@@ -1,0 +1,407 @@
+/* mkdn marketing site — Solarized palette */
+
+:root {
+  --base03:  #002b36;
+  --base02:  #073642;
+  --base01:  #586e75;
+  --base00:  #657b83;
+  --base0:   #839496;
+  --base1:   #93a1a1;
+  --base2:   #eee8d5;
+  --base3:   #fdf6e3;
+  --yellow:  #b58900;
+  --orange:  #cb4b16;
+  --red:     #dc322f;
+  --magenta: #d33682;
+  --violet:  #6c71c4;
+  --blue:    #268bd2;
+  --cyan:    #2aa198;
+  --green:   #859900;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  background: var(--base03);
+  color: var(--base1);
+  line-height: 1.6;
+}
+
+/* ── Layout ── */
+
+.container {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+section {
+  padding: 5rem 0;
+}
+
+/* ── Hero ── */
+
+.hero {
+  text-align: center;
+  padding: 6rem 0 4rem;
+}
+
+.hero-icon {
+  width: 180px;
+  height: 180px;
+  border-radius: 36px;
+  filter: drop-shadow(0 0 40px rgba(42, 161, 152, 0.25));
+  margin-bottom: 2rem;
+}
+
+.hero h1 {
+  font-size: 3.5rem;
+  font-weight: 700;
+  color: var(--base3);
+  letter-spacing: -0.02em;
+  margin-bottom: 0.5rem;
+}
+
+.hero .tagline {
+  font-size: 1.35rem;
+  color: var(--base0);
+  font-weight: 400;
+  margin-bottom: 2.5rem;
+  max-width: 520px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.btn-primary {
+  background: var(--cyan);
+  color: var(--base03);
+}
+
+.btn-primary:hover {
+  background: #35b5ac;
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: var(--base02);
+  color: var(--base1);
+  border: 1px solid var(--base01);
+}
+
+.btn-secondary:hover {
+  background: var(--base01);
+  color: var(--base3);
+  transform: translateY(-1px);
+}
+
+/* ── Screenshot showcase ── */
+
+.showcase {
+  text-align: center;
+  padding: 2rem 0 5rem;
+}
+
+.showcase-frame {
+  position: relative;
+  max-width: 960px;
+  margin: 0 auto;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow:
+    0 4px 6px rgba(0, 0, 0, 0.3),
+    0 20px 60px rgba(0, 0, 0, 0.4),
+    0 0 80px rgba(42, 161, 152, 0.08);
+}
+
+.showcase-frame img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* ── Philosophy strip ── */
+
+.philosophy {
+  border-top: 1px solid var(--base02);
+  border-bottom: 1px solid var(--base02);
+  padding: 4rem 0;
+}
+
+.philosophy-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3rem;
+  text-align: center;
+}
+
+.philosophy-item h3 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--base3);
+  margin-bottom: 0.5rem;
+}
+
+.philosophy-item p {
+  font-size: 0.95rem;
+  color: var(--base00);
+  line-height: 1.5;
+}
+
+.philosophy-item .accent {
+  color: var(--cyan);
+}
+
+/* ── Features grid ── */
+
+.features {
+  padding: 5rem 0;
+}
+
+.features h2 {
+  text-align: center;
+  font-size: 2rem;
+  font-weight: 600;
+  color: var(--base3);
+  margin-bottom: 3rem;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+
+.feature-card {
+  background: var(--base02);
+  border: 1px solid rgba(147, 161, 161, 0.08);
+  border-radius: 12px;
+  padding: 1.75rem;
+  transition: border-color 0.2s ease;
+}
+
+.feature-card:hover {
+  border-color: rgba(42, 161, 152, 0.3);
+}
+
+.feature-card h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--base3);
+  margin-bottom: 0.5rem;
+}
+
+.feature-card p {
+  font-size: 0.9rem;
+  color: var(--base00);
+  line-height: 1.5;
+}
+
+/* ── Theme showcase ── */
+
+.themes {
+  padding: 4rem 0;
+  text-align: center;
+}
+
+.themes h2 {
+  font-size: 2rem;
+  font-weight: 600;
+  color: var(--base3);
+  margin-bottom: 1rem;
+}
+
+.themes p {
+  color: var(--base00);
+  margin-bottom: 2.5rem;
+  max-width: 480px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.themes-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.theme-preview {
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+}
+
+.theme-preview img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.theme-label {
+  font-size: 0.85rem;
+  color: var(--base01);
+  margin-top: 0.75rem;
+  text-align: center;
+}
+
+/* ── Install ── */
+
+.install {
+  border-top: 1px solid var(--base02);
+  padding: 5rem 0;
+  text-align: center;
+}
+
+.install h2 {
+  font-size: 2rem;
+  font-weight: 600;
+  color: var(--base3);
+  margin-bottom: 1rem;
+}
+
+.install > .container > p {
+  color: var(--base00);
+  margin-bottom: 2rem;
+}
+
+.install-methods {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.install-method label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--base01);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.install-code {
+  background: var(--base02);
+  border: 1px solid rgba(147, 161, 161, 0.1);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  font-family: "SF Mono", "Fira Code", "Menlo", monospace;
+  font-size: 0.9rem;
+  color: var(--cyan);
+  text-align: left;
+  user-select: all;
+}
+
+/* ── Footer ── */
+
+.footer {
+  border-top: 1px solid var(--base02);
+  padding: 2.5rem 0;
+  text-align: center;
+}
+
+.footer p {
+  font-size: 0.85rem;
+  color: var(--base01);
+}
+
+.footer a {
+  color: var(--base0);
+  text-decoration: none;
+}
+
+.footer a:hover {
+  color: var(--cyan);
+}
+
+/* ── Responsive ── */
+
+@media (max-width: 768px) {
+  .hero {
+    padding: 4rem 0 3rem;
+  }
+
+  .hero-icon {
+    width: 120px;
+    height: 120px;
+    border-radius: 24px;
+  }
+
+  .hero h1 {
+    font-size: 2.5rem;
+  }
+
+  .hero .tagline {
+    font-size: 1.1rem;
+  }
+
+  .philosophy-grid {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+
+  .features-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .themes-row {
+    grid-template-columns: 1fr;
+  }
+
+  section {
+    padding: 3rem 0;
+  }
+
+  .container {
+    padding: 0 1.25rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero h1 {
+    font-size: 2rem;
+  }
+
+  .hero .tagline {
+    font-size: 1rem;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+    align-items: center;
+  }
+}
