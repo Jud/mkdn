@@ -1,5 +1,5 @@
 cask "mkdn" do
-  version "1.0.0"
+  version "0.0.0"
   sha256 "PLACEHOLDER_SHA256"
 
   url "https://github.com/jud/mkdn/releases/download/v#{version}/mkdn-#{version}.zip"

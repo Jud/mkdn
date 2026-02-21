@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>mkdn — Beautiful markdown artifacts</title>
+  <meta name="description" content="A native macOS markdown viewer. Real typography, real colors, real diagrams. Your markdown, beautifully rendered.">
+  <link rel="icon" href="images/icon.png" type="image/png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="container">
+      <img src="images/icon.png" alt="mkdn" class="hero-icon" width="180" height="180">
+      <h1>mkdn</h1>
+      <p class="tagline">Your markdown, beautifully rendered. Native macOS. No compromises.</p>
+      <div class="hero-actions">
+        <a href="https://github.com/judcole/mkdn" class="btn btn-primary">View on GitHub</a>
+        <a href="#install" class="btn btn-secondary">Install</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Screenshot showcase -->
+  <section class="showcase">
+    <div class="container">
+      <div class="showcase-frame">
+        <img src="images/hero-dark.png" alt="mkdn rendering a technical document with code blocks, Mermaid diagrams, and tables in Solarized Dark" width="1338" height="972">
+      </div>
+    </div>
+  </section>
+
+  <!-- Philosophy strip -->
+  <section class="philosophy">
+    <div class="container">
+      <div class="philosophy-grid">
+        <div class="philosophy-item">
+          <h3><span class="accent">Native</span>, not Electron</h3>
+          <p>Pure SwiftUI. Launches instantly, uses minimal resources, and feels like it belongs on your Mac.</p>
+        </div>
+        <div class="philosophy-item">
+          <h3><span class="accent">120fps</span>, not loading spinners</h3>
+          <p>Butter-smooth scrolling through even the longest documents. No jank, no lag, no waiting.</p>
+        </div>
+        <div class="philosophy-item">
+          <h3><span class="accent">Calm</span>, not noisy</h3>
+          <p>Chrome-less window. Distraction-free reading. Keyboard-first. Just you and the document.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="features">
+    <div class="container">
+      <h2>Built for markdown that matters</h2>
+      <div class="features-grid">
+        <div class="feature-card">
+          <h3>Native SwiftUI rendering</h3>
+          <p>Every heading, table, and code block rendered by the platform — not a web engine pretending to be native.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Mermaid diagrams</h3>
+          <p>Embedded, interactive diagrams. Flowcharts, sequence diagrams, state machines — click to focus, rendered in place.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Solarized theming</h3>
+          <p>Dark, light, and auto modes. The Solarized palette designed for long reading sessions and code-heavy documents.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Syntax highlighting</h3>
+          <p>Swift-first highlighting with support for common languages. Code blocks that look like they belong in Xcode.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Distraction-free window</h3>
+          <p>No toolbar clutter. No tab bars. A clean, chrome-less window that puts your content front and center.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Keyboard-first workflow</h3>
+          <p>Navigate, scroll, switch themes, toggle sidebar — all without reaching for the mouse.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Theme showcase -->
+  <section class="themes">
+    <div class="container">
+      <h2>Two palettes. One philosophy.</h2>
+      <p>Solarized Dark for focus. Solarized Light for daylight. Both precision-tuned for readability.</p>
+      <div class="themes-row">
+        <div>
+          <div class="theme-preview">
+            <img src="images/hero-dark.png" alt="Solarized Dark theme" width="1338" height="972">
+          </div>
+          <p class="theme-label">Solarized Dark</p>
+        </div>
+        <div>
+          <div class="theme-preview">
+            <img src="images/hero-light.png" alt="Solarized Light theme" width="1338" height="972">
+          </div>
+          <p class="theme-label">Solarized Light</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Install -->
+  <section class="install" id="install">
+    <div class="container">
+      <h2>Get started</h2>
+      <p>macOS 14.0 or later.</p>
+      <div class="install-methods">
+        <div class="install-method">
+          <label>Build from source</label>
+          <div class="install-code">git clone https://github.com/judcole/mkdn.git && cd mkdn && swift run mkdn</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <p>mkdn is open source. <a href="https://github.com/judcole/mkdn">GitHub</a></p>
+    </div>
+  </footer>
+
+</body>
+</html>
