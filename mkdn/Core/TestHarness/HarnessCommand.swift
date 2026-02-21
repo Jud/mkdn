@@ -87,6 +87,10 @@ public enum HarnessCommand: Codable, Sendable {
     /// Scroll the sidebar file tree to a specific vertical offset (in points).
     case scrollSidebar(yOffset: Double)
 
+    /// Resize the main window to the given width and height (in points),
+    /// preserving the current window origin.
+    case resizeWindow(width: Double, height: Double)
+
     /// Start lightweight frame capture using CGWindowListCreateImage at the
     /// given FPS. Frames are written to outputDir. Call ``stopQuickCapture``
     /// to stop and get results. Does not require screen recording permission.

@@ -31,7 +31,7 @@ def main():
     if len(sys.argv) < 2:
         print("Usage: mkdn-ctl <command> [args]")
         print("Commands: ping, load <path>, capture [path], scroll <y>,")
-        print("          theme <name>, cycle, info, quit")
+        print("          theme <name>, cycle, info, resize <w> <h>, quit")
         sys.exit(1)
 
     sock = os.environ.get("MKDN_SOCK") or find_socket()
@@ -72,6 +72,8 @@ def main():
             r = send(sock, {"simulateScroll": {"deltaY": delta, "duration": dur}})
         elif cmd_name == "scroll-sidebar":
             r = send(sock, {"scrollSidebar": {"yOffset": float(sys.argv[2])}})
+        elif cmd_name == "resize":
+            r = send(sock, {"resizeWindow": {"width": float(sys.argv[2]), "height": float(sys.argv[3])}})
         elif cmd_name == "capture-region":
             x, y, w, h = float(sys.argv[2]), float(sys.argv[3]), float(sys.argv[4]), float(sys.argv[5])
             path = sys.argv[6] if len(sys.argv) > 6 else "/tmp/mkdn-region.png"
