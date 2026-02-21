@@ -40,7 +40,9 @@ struct SelectableTextView: NSViewRepresentable {
 
         let coordinator = context.coordinator
         coordinator.textView = textView
+        coordinator.documentState = documentState
         coordinator.animator.textView = textView
+        textView.delegate = coordinator
 
         applyTheme(to: textView, scrollView: scrollView)
         textView.findState = findState
@@ -223,12 +225,58 @@ extension SelectableTextView {
 
 extension SelectableTextView {
     @MainActor
-    final class Coordinator: NSObject {
+    final class Coordinator: NSObject, NSTextViewDelegate {
         weak var textView: NSTextView?
+        weak var documentState: DocumentState?
         let animator = EntranceAnimator()
         let overlayCoordinator = OverlayCoordinator()
         var lastAppliedText: NSAttributedString?
         var lastAppliedTheme: AppTheme?
+
+        // MARK: - Link Navigation
+
+        func textView(
+            _: NSTextView,
+            clickedOnLink link: Any,
+            at _: Int
+        ) -> Bool {
+            let url: URL
+            if let linkURL = link as? URL {
+                url = linkURL
+            } else if let linkString = link as? String,
+                      let parsed = URL(string: linkString)
+            {
+                url = parsed
+            } else {
+                return false
+            }
+
+            if url.scheme == nil, url.path.isEmpty {
+                return true
+            }
+
+            let destination = LinkNavigationHandler.classify(
+                url: url,
+                relativeTo: documentState?.currentFileURL
+            )
+
+            let isCmdClick = NSApp.currentEvent?.modifierFlags.contains(.command) == true
+
+            switch destination {
+            case let .localMarkdown(resolvedURL):
+                if isCmdClick {
+                    FileOpenCoordinator.shared.pendingURLs.append(resolvedURL)
+                } else {
+                    try? documentState?.loadFile(at: resolvedURL)
+                }
+            case let .external(externalURL):
+                NSWorkspace.shared.open(externalURL)
+            case let .otherLocalFile(fileURL):
+                NSWorkspace.shared.open(fileURL)
+            }
+
+            return true
+        }
 
         // MARK: - Find State Tracking
 
