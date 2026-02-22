@@ -89,11 +89,16 @@ section {
   padding: 6rem 0 4rem;
 }
 
+@keyframes orb-pulse {
+  0%, 100% { filter: drop-shadow(0 0 40px rgba(42, 161, 152, 0.25)); }
+  50%      { filter: drop-shadow(0 0 60px rgba(42, 161, 152, 0.5)); }
+}
+
 .hero-icon {
   width: 180px;
   height: 180px;
   border-radius: 36px;
-  filter: drop-shadow(0 0 40px rgba(42, 161, 152, 0.25));
+  animation: orb-pulse 3s ease-in-out infinite;
   margin-bottom: 2rem;
 }
 
@@ -177,7 +182,6 @@ section {
   max-width: 960px;
   margin: 0 auto;
   border-radius: 12px;
-  overflow: hidden;
   box-shadow:
     0 4px 6px rgba(0, 0, 0, 0.3),
     0 20px 60px rgba(0, 0, 0, 0.4),
@@ -188,6 +192,26 @@ section {
   width: 100%;
   height: auto;
   display: block;
+  border-radius: 12px;
+}
+
+@keyframes orb-glow {
+  0%, 100% { box-shadow: 0 0 15px 5px rgba(108, 113, 196, 0.4); }
+  50%      { box-shadow: 0 0 25px 8px rgba(108, 113, 196, 0.7); }
+}
+
+.showcase-frame::after {
+  content: "";
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(108, 113, 196, 0.9), rgba(108, 113, 196, 0.3));
+  animation: orb-glow 3s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 1;
 }
 
 /* ── Philosophy strip ── */
@@ -439,6 +463,10 @@ section {
   .features-grid {
     grid-template-columns: 1fr;
     gap: 1rem;
+  }
+
+  .showcase-frame::after {
+    display: none;
   }
 
   .themes-row {
