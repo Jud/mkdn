@@ -112,6 +112,11 @@ cp "${INFO_PLIST_SRC}" "${APP_BUNDLE}/Contents/Info.plist"
 sed -i '' "s|<string>0\.0\.0</string>|<string>${VERSION}</string>|g" "${APP_BUNDLE}/Contents/Info.plist"
 echo "  Installed Info.plist (version ${VERSION})"
 
+ICON_SRC="${PROJECT_ROOT}/Resources/AppIcon.icns"
+[ -f "${ICON_SRC}" ] || error "Resources/AppIcon.icns not found at ${ICON_SRC}"
+cp "${ICON_SRC}" "${APP_BUNDLE}/Contents/Resources/AppIcon.icns"
+echo "  Installed AppIcon.icns"
+
 # ---------------------------------------------------------------------------
 # Phase 6: Code signing
 # ---------------------------------------------------------------------------
