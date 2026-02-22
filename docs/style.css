@@ -98,7 +98,7 @@ section {
   width: 180px;
   height: 180px;
   border-radius: 36px;
-  animation: orb-pulse 3s ease-in-out infinite;
+  animation: orb-pulse 5s ease-in-out infinite;
   margin-bottom: 2rem;
 }
 
@@ -209,7 +209,7 @@ section {
   height: 20px;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(108, 113, 196, 0.9), rgba(108, 113, 196, 0.3));
-  animation: orb-glow 3s ease-in-out infinite;
+  animation: orb-glow 6s ease-in-out infinite;
   pointer-events: none;
   z-index: 1;
 }
