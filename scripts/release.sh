@@ -167,8 +167,7 @@ info "Updating Homebrew tap"
 TAP_DIR=$(mktemp -d)
 trap "rm -rf '${TAP_DIR}'; cleanup" EXIT
 
-git clone --depth 1 "https://github.com/jud/homebrew-mkdn.git" "${TAP_DIR}" 2>/dev/null \
-    || git clone --depth 1 "git@github.com:jud/homebrew-mkdn.git" "${TAP_DIR}"
+git clone --depth 1 "git@github.com:jud/homebrew-mkdn.git" "${TAP_DIR}"
 
 CASK_FILE="${TAP_DIR}/Casks/mkdn.rb"
 [ -f "${CASK_FILE}" ] || error "Cask file not found at ${CASK_FILE}"
