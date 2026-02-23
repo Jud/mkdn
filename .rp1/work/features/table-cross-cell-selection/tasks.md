@@ -2,7 +2,7 @@
 
 **Feature ID**: table-cross-cell-selection
 **Status**: Not Started
-**Progress**: 8% (1 of 12 tasks)
+**Progress**: 17% (2 of 12 tasks)
 **Estimated Effort**: 7 days
 **Started**: 2026-02-23
 
@@ -64,9 +64,21 @@ Make table cell content part of the document's NSTextStorage as invisible text s
     - **Deviations**: None
     - **Tests**: 37/37 passing
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ✅ PASS |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
 ### Builder and Parallel Dependents
 
-- [ ] **T2**: Implement table invisible text generation in MarkdownTextStorageBuilder `[complexity:complex]`
+- [x] **T2**: Implement table invisible text generation in MarkdownTextStorageBuilder `[complexity:complex]`
 
     **Reference**: [design.md#34-tableoverlayinfo](design.md#34-tableoverlayinfo), [design.md#35-markdowntextstoragebuilder-changes](design.md#35-markdowntextstoragebuilder-changes)
 
@@ -74,19 +86,26 @@ Make table cell content part of the document's NSTextStorage as invisible text s
 
     **Acceptance Criteria**:
 
-    - [ ] `TableOverlayInfo` struct added to `MarkdownTextStorageBuilder.swift` with blockIndex, block, tableRangeID, cellMap fields
-    - [ ] `TextStorageResult` extended with `tableOverlays: [TableOverlayInfo]` property
-    - [ ] New `appendTableInlineText` method in `MarkdownTextStorageBuilder+Complex.swift` replacing attachment-based table rendering
-    - [ ] Table text uses `.foregroundColor: NSColor.clear` for invisible rendering
-    - [ ] Tab stops match cumulative column widths from `TableColumnSizer.computeWidths`
-    - [ ] Each row ends with newline; cells separated by tab characters
-    - [ ] `TableAttributes.range` set to unique UUID string on all table characters
-    - [ ] `TableAttributes.cellMap` set to same TableCellMap instance on all table characters
-    - [ ] `TableAttributes.colors` set to TableColorInfo on all table characters
-    - [ ] `TableAttributes.isHeader` set to true on header row characters only
-    - [ ] Paragraph style has fixed minimum line height matching visual row height, paragraphSpacing 0 for tight rows
-    - [ ] `isPrint: Bool` parameter added to builder; when true, uses visible foreground color instead of clear
-    - [ ] Modified tests in `mkdnTests/Unit/Core/MarkdownTextStorageBuilderTests.swift` for invisible text attributes, tab structure, TableAttributes presence, print mode visibility, tableOverlays population
+    - [x] `TableOverlayInfo` struct added to `MarkdownTextStorageBuilder.swift` with blockIndex, block, tableRangeID, cellMap fields
+    - [x] `TextStorageResult` extended with `tableOverlays: [TableOverlayInfo]` property
+    - [x] New `appendTableInlineText` method in `MarkdownTextStorageBuilder+TableInline.swift` replacing attachment-based table rendering
+    - [x] Table text uses `.foregroundColor: NSColor.clear` for invisible rendering
+    - [x] Tab stops match cumulative column widths from `TableColumnSizer.computeWidths`
+    - [x] Each row ends with newline; cells separated by tab characters
+    - [x] `TableAttributes.range` set to unique UUID string on all table characters
+    - [x] `TableAttributes.cellMap` set to same TableCellMap instance on all table characters
+    - [x] `TableAttributes.colors` set to TableColorInfo on all table characters
+    - [x] `TableAttributes.isHeader` set to true on header row characters only
+    - [x] Paragraph style has fixed minimum line height matching visual row height, paragraphSpacing 0 for tight rows
+    - [x] `isPrint: Bool` parameter added to builder; when true, uses visible foreground color instead of clear
+    - [x] Modified tests in `mkdnTests/Unit/Core/MarkdownTextStorageBuilderTableTests.swift` for invisible text attributes, tab structure, TableAttributes presence, print mode visibility, tableOverlays population
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Core/Markdown/MarkdownTextStorageBuilder.swift`, `mkdn/Core/Markdown/MarkdownTextStorageBuilder+Complex.swift`, `mkdn/Core/Markdown/MarkdownTextStorageBuilder+TableInline.swift`, `mkdnTests/Unit/Core/MarkdownTextStorageBuilderTests.swift`, `mkdnTests/Unit/Core/MarkdownTextStorageBuilderTableTests.swift`
+    - **Approach**: Added TableOverlayInfo struct and extended TextStorageResult with tableOverlays array (default empty for backward compat). Extracted table inline text generation into new +TableInline.swift extension with TableRowContext struct to bundle row-building parameters. appendTableInlineText replaces attachment-based table rendering, generating invisible (clear foreground) tab-separated text with fixed line heights and all four TableAttributes set on appropriate characters. Tab stops computed from cumulative TableColumnSizer column widths. isPrint parameter propagated through both build methods to switch between clear and visible foreground. Table tests extracted into dedicated MarkdownTextStorageBuilderTableTests.swift suite with 16 tests covering all acceptance criteria.
+    - **Deviations**: Method placed in new +TableInline.swift file instead of +Complex.swift to satisfy SwiftLint file_length limit. Test file split into separate table test suite for the same reason.
+    - **Tests**: 53/53 passing (37 original + 16 table)
 
 - [ ] **T5**: Implement copy handler for RTF and tab-delimited clipboard output `[complexity:medium]`
 

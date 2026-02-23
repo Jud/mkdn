@@ -107,7 +107,7 @@ extension MarkdownTextStorageBuilder {
         }
     }
 
-    // MARK: - Table
+    // MARK: - Legacy Table (fallback, unused)
 
     static func appendTable(
         to result: NSMutableAttributedString,
@@ -235,6 +235,7 @@ extension MarkdownTextStorageBuilder {
 
     // MARK: - List Helpers
 
+    // swiftlint:disable:next function_body_length
     private static func appendListItem(
         to result: NSMutableAttributedString,
         item: ListItem,
