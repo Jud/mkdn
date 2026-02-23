@@ -2,7 +2,7 @@
 
 **Feature ID**: table-cross-cell-selection
 **Status**: In Progress
-**Progress**: 42% (5 of 12 tasks)
+**Progress**: 50% (6 of 12 tasks)
 **Estimated Effort**: 7 days
 **Started**: 2026-02-23
 
@@ -143,7 +143,19 @@ Make table cell content part of the document's NSTextStorage as invisible text s
     - **Deviations**: Extension file created to stay within SwiftLint file_length (500 lines). Pre-existing type_body_length violation (373 lines > 350 warning) was not addressed as it predates this task.
     - **Tests**: 512/512 passing (3 pre-existing failures in AppSettings unrelated)
 
-- [ ] **T6**: Extend EntranceAnimator to group table layout fragments `[complexity:simple]`
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
+- [x] **T6**: Extend EntranceAnimator to group table layout fragments `[complexity:simple]`
 
     **Reference**: [design.md#310-entranceanimator-table-grouping](design.md#310-entranceanimator-table-grouping)
 
@@ -151,12 +163,19 @@ Make table cell content part of the document's NSTextStorage as invisible text s
 
     **Acceptance Criteria**:
 
-    - [ ] Existing `codeBlockID(for:...)` method renamed to `blockGroupID(for:...)`
-    - [ ] `blockGroupID` checks `TableAttributes.range` after `CodeBlockAttributes.range`
-    - [ ] Table fragments return `"table-\(tableID)"` as group ID
-    - [ ] All fragments sharing a table group ID get a single cover layer and shared stagger timing
-    - [ ] Code block grouping behavior unchanged (no regression)
-    - [ ] Reduce Motion respected (immediate appearance when enabled)
+    - [x] Existing `codeBlockID(for:...)` method renamed to `blockGroupID(for:...)`
+    - [x] `blockGroupID` checks `TableAttributes.range` after `CodeBlockAttributes.range`
+    - [x] Table fragments return `"table-\(tableID)"` as group ID
+    - [x] All fragments sharing a table group ID get a single cover layer and shared stagger timing
+    - [x] Code block grouping behavior unchanged (no regression)
+    - [x] Reduce Motion respected (immediate appearance when enabled)
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Features/Viewer/Views/EntranceAnimator.swift`
+    - **Approach**: Renamed `codeBlockID(for:contentManager:textStorage:)` to `blockGroupID(for:contentManager:textStorage:)`. Extended the method to check `TableAttributes.range` after `CodeBlockAttributes.range`, returning prefixed group IDs (`"code-\(id)"` and `"table-\(id)"`). Renamed supporting types and methods (`CodeBlockGroup` to `BlockGroup`, `codeBlockGroups` to `blockGroups`, `addCodeBlockCovers` to `addBlockGroupCovers`, `makeCodeBlockCoverLayer` to `makeBlockGroupCoverLayer`). Updated doc comments and MARK sections. Existing code block grouping logic is unchanged; table fragments now share the same unified cover layer and stagger timing mechanism. Reduce Motion continues to short-circuit in `beginEntrance(reduceMotion:)`.
+    - **Deviations**: None
+    - **Tests**: 512/512 passing (3 pre-existing failures in AppSettings unrelated)
 
 ### Overlay Positioning and Print Path
 

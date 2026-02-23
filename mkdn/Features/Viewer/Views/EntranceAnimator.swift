@@ -9,10 +9,10 @@ import QuartzCore
 /// cover layer, and the text view content drifts upward from a slight offset
 /// to its final position.
 ///
-/// Code block fragments are grouped by block ID and share a single full-width
-/// cover layer that hides both the container (background + border) and text,
-/// so the entire code block fades in as a unit. Non-code-block fragments use
-/// individual per-fragment cover layers as before.
+/// Code block and table fragments are grouped by block ID and share a single
+/// full-width cover layer that hides both the container (background + border)
+/// and text, so each code block or table fades in as a unit. Ungrouped
+/// fragments use individual per-fragment cover layers.
 ///
 /// The stagger delay and cap use ``AnimationConstants/staggerDelay`` and
 /// ``AnimationConstants/staggerCap``. The fade-in duration matches
@@ -43,7 +43,7 @@ final class EntranceAnimator {
 
     // MARK: - Types
 
-    private struct CodeBlockGroup {
+    private struct BlockGroup {
         let staggerIndex: Int
         var frames: [CGRect] = []
     }
@@ -90,12 +90,11 @@ final class EntranceAnimator {
     /// Enumerates all layout fragments from the text layout manager and
     /// applies cover-layer entrance animation to each one.
     ///
-    /// Code block fragments are grouped by block ID so that each code block
-    /// receives a single full-width cover layer (matching the container drawn
-    /// by ``CodeBlockBackgroundTextView``). Non-code-block fragments receive
-    /// individual per-fragment cover layers. Call this after setting attributed
-    /// string content on the text view so that TextKit 2 has completed layout
-    /// and fragments are available.
+    /// Code block and table fragments are grouped by block ID so that each
+    /// code block or table receives a single full-width cover layer. Ungrouped
+    /// fragments receive individual per-fragment cover layers. Call this after
+    /// setting attributed string content on the text view so that TextKit 2
+    /// has completed layout and fragments are available.
     func animateVisibleFragments() {
         guard isAnimating, !reduceMotion else { return }
         guard let textView,
@@ -105,7 +104,7 @@ final class EntranceAnimator {
               let viewLayer = textView.layer
         else { return }
 
-        var codeBlockGroups: [String: CodeBlockGroup] = [:]
+        var blockGroups: [String: BlockGroup] = [:]
 
         layoutManager.enumerateTextLayoutFragments(
             from: layoutManager.documentRange.location,
@@ -117,18 +116,18 @@ final class EntranceAnimator {
             }
             self.animatedFragments.insert(fragmentID)
 
-            let blockID = self.codeBlockID(
+            let groupID = self.blockGroupID(
                 for: fragment,
                 contentManager: contentManager,
                 textStorage: textStorage
             )
 
-            if let blockID {
-                if var group = codeBlockGroups[blockID] {
+            if let groupID {
+                if var group = blockGroups[groupID] {
                     group.frames.append(fragment.layoutFragmentFrame)
-                    codeBlockGroups[blockID] = group
+                    blockGroups[groupID] = group
                 } else {
-                    codeBlockGroups[blockID] = CodeBlockGroup(
+                    blockGroups[groupID] = BlockGroup(
                         staggerIndex: self.fragmentIndex,
                         frames: [fragment.layoutFragmentFrame]
                     )
@@ -147,16 +146,16 @@ final class EntranceAnimator {
             return true
         }
 
-        addCodeBlockCovers(codeBlockGroups, in: textView, to: viewLayer)
+        addBlockGroupCovers(blockGroups, in: textView, to: viewLayer)
     }
 
-    private func addCodeBlockCovers(
-        _ groups: [String: CodeBlockGroup],
+    private func addBlockGroupCovers(
+        _ groups: [String: BlockGroup],
         in textView: NSTextView,
         to viewLayer: CALayer
     ) {
         for group in groups.values {
-            let coverLayer = makeCodeBlockCoverLayer(
+            let coverLayer = makeBlockGroupCoverLayer(
                 frames: group.frames, in: textView
             )
             let delay = staggerDelay(for: group.staggerIndex)
@@ -166,9 +165,9 @@ final class EntranceAnimator {
         }
     }
 
-    // MARK: - Code Block Detection
+    // MARK: - Block Group Detection
 
-    private func codeBlockID(
+    private func blockGroupID(
         for fragment: NSTextLayoutFragment,
         contentManager: NSTextContentManager,
         textStorage: NSTextStorage
@@ -181,11 +180,23 @@ final class EntranceAnimator {
             return nil
         }
 
-        return textStorage.attribute(
+        if let codeBlockID = textStorage.attribute(
             CodeBlockAttributes.range,
             at: charOffset,
             effectiveRange: nil
-        ) as? String
+        ) as? String {
+            return "code-\(codeBlockID)"
+        }
+
+        if let tableID = textStorage.attribute(
+            TableAttributes.range,
+            at: charOffset,
+            effectiveRange: nil
+        ) as? String {
+            return "table-\(tableID)"
+        }
+
+        return nil
     }
 
     // MARK: - Stagger Timing
@@ -214,7 +225,7 @@ final class EntranceAnimator {
         return layer
     }
 
-    private func makeCodeBlockCoverLayer(
+    private func makeBlockGroupCoverLayer(
         frames: [CGRect],
         in textView: NSTextView
     ) -> CALayer {
