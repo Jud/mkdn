@@ -162,6 +162,47 @@ Two reusable hover feedback modifiers:
 
 Both use `quickSettle` animation and disable animation (not feedback) for RM.
 
+## Dual-Layer Table Rendering Pattern
+
+Tables use a dual-layer approach: invisible text in `NSTextStorage` provides selection, find, and clipboard semantics, while a SwiftUI `TableBlockView` overlay provides the visual rendering. A third `TableHighlightOverlay` draws cell-level selection and find feedback on top.
+
+### Invisible Text Layer (NSTextStorage)
+
+Table cell content is written as tab-separated, newline-delimited text with `.foregroundColor: NSColor.clear` so it participates in TextKit 2 selection, find, and clipboard operations without being visible. Custom attributes mark the text:
+
+```swift
+// TableAttributes -- mirrors CodeBlockAttributes pattern
+TableAttributes.range    // unique String ID per table (UUID)
+TableAttributes.cellMap  // TableCellMap instance (cell geometry + lookup)
+TableAttributes.colors   // TableColorInfo (resolved NSColor values)
+TableAttributes.isHeader // NSNumber(booleanLiteral: true) on header row
+```
+
+### TableCellMap (Cell Geometry + Lookup)
+
+`TableCellMap` is an `NSObject` subclass stored as an attributed string attribute on every character in the table's invisible text. It provides:
+
+- **O(log n) cell lookup**: binary search on sorted cell start positions (`cellAt(offset:)`)
+- **Range intersection**: selected character range to set of cell positions (`cellsInRange(_:)`)
+- **Content extraction**: tab-delimited plain text and RTF table data for clipboard (`tabDelimitedText(for:)`, `rtfData(for:colors:)`)
+- **Geometry**: `columnWidths`, `rowHeights` (index 0 = header), `columnCount`, `rowCount`
+
+### Visual Overlay Layer (TableBlockView)
+
+The existing SwiftUI `TableBlockView` is hosted in `NSHostingView` and positioned by `OverlayCoordinator` using text-range-based positioning (bounding rect of layout fragments matching the table's `TableAttributes.range`). This replaces attachment-based positioning.
+
+### Highlight Overlay Layer (TableHighlightOverlay)
+
+A lightweight `NSView` sibling positioned identically to the visual overlay, on top of it. Draws cell rectangles computed from `TableCellMap.columnWidths` and `rowHeights`. All mouse events pass through (`hitTest` returns `nil`).
+
+### Copy Override
+
+`CodeBlockBackgroundTextView.copy(_:)` detects `TableAttributes.cellMap` in the selection, extracts selected cells via `TableCellMap`, and writes both RTF table data and tab-delimited plain text to `NSPasteboard`. Non-table portions of the selection are passed through as-is.
+
+### Print Path
+
+During `Cmd+P`, the builder's `isPrint: true` flag makes table text visible (non-clear foreground). `CodeBlockBackgroundTextView+TablePrint.swift` draws table containers (border, header fill, alternating rows) via `NSBezierPath` in `drawBackground`, matching the `CodeBlockBackgroundTextView` code block container pattern.
+
 ## Anti-Patterns
 
 - **NO WKWebView** -- ever, for any reason
