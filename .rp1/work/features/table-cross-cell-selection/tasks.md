@@ -2,7 +2,7 @@
 
 **Feature ID**: table-cross-cell-selection
 **Status**: In Progress
-**Progress**: 25% (3 of 12 tasks)
+**Progress**: 33% (4 of 12 tasks)
 **Estimated Effort**: 7 days
 **Started**: 2026-02-23
 
@@ -202,7 +202,7 @@ Make table cell content part of the document's NSTextStorage as invisible text s
 
 ### Highlight Overlay and Integration
 
-- [ ] **T4**: Implement TableHighlightOverlay for cell-level selection and find drawing `[complexity:medium]`
+- [x] **T4**: Implement TableHighlightOverlay for cell-level selection and find drawing `[complexity:medium]`
 
     **Reference**: [design.md#37-tablehighlightoverlay](design.md#37-tablehighlightoverlay)
 
@@ -210,16 +210,23 @@ Make table cell content part of the document's NSTextStorage as invisible text s
 
     **Acceptance Criteria**:
 
-    - [ ] New file `mkdn/Features/Viewer/Views/TableHighlightOverlay.swift` with NSView subclass
-    - [ ] `hitTest(_:)` returns nil (all mouse events pass through)
-    - [ ] `selectedCells` property drives selection highlight drawing
-    - [ ] `findHighlightCells` and `currentFindCell` properties drive find highlight drawing
-    - [ ] Cell rectangles computed from `TableCellMap.columnWidths` and `TableCellMap.rowHeights`
-    - [ ] Selection highlight uses system accent color at 0.3 opacity for data cells
-    - [ ] Header cell selection uses 0.4 opacity for subtle differentiation (FR-012)
-    - [ ] Find highlights use theme's findHighlight color at 0.15 opacity for passive matches
-    - [ ] Current find match uses 0.4 opacity
-    - [ ] `setNeedsDisplay()` called on state changes to trigger redraw
+    - [x] New file `mkdn/Features/Viewer/Views/TableHighlightOverlay.swift` with NSView subclass
+    - [x] `hitTest(_:)` returns nil (all mouse events pass through)
+    - [x] `selectedCells` property drives selection highlight drawing
+    - [x] `findHighlightCells` and `currentFindCell` properties drive find highlight drawing
+    - [x] Cell rectangles computed from `TableCellMap.columnWidths` and `TableCellMap.rowHeights`
+    - [x] Selection highlight uses system accent color at 0.3 opacity for data cells
+    - [x] Header cell selection uses 0.4 opacity for subtle differentiation (FR-012)
+    - [x] Find highlights use theme's findHighlight color at 0.15 opacity for passive matches
+    - [x] Current find match uses 0.4 opacity
+    - [x] `setNeedsDisplay()` called on state changes to trigger redraw
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Features/Viewer/Views/TableHighlightOverlay.swift`
+    - **Approach**: Completed the T3 stub with full drawing implementation. Added accentColor and findHighlightColor properties with system defaults. Override isFlipped to true for correct top-to-bottom coordinate alignment with the flipped NSTextView parent. Cell rectangles computed from cumulative columnWidths and rowHeights arrays in TableCellMap. Selection highlights drawn at 0.3 opacity for data cells and 0.4 for header cells (FR-012). Find highlights drawn at 0.15 passive / 0.4 current opacity. Drawing uses dirtyRect intersection to skip off-screen cells.
+    - **Deviations**: None
+    - **Tests**: 512/512 passing (3 pre-existing failures in AppSettings unrelated)
 
 - [ ] **T8**: Wire selection change and find integration through SelectableTextView `[complexity:medium]`
 
