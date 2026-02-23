@@ -8,10 +8,29 @@ struct AttachmentInfo {
     let attachment: NSTextAttachment
 }
 
+/// Information about a table rendered as invisible inline text in the attributed string.
+struct TableOverlayInfo {
+    let blockIndex: Int
+    let block: MarkdownBlock
+    let tableRangeID: String
+    let cellMap: TableCellMap
+}
+
 /// Result of converting `[IndexedBlock]` to an `NSAttributedString`.
 struct TextStorageResult {
     let attributedString: NSAttributedString
     let attachments: [AttachmentInfo]
+    let tableOverlays: [TableOverlayInfo]
+
+    init(
+        attributedString: NSAttributedString,
+        attachments: [AttachmentInfo],
+        tableOverlays: [TableOverlayInfo] = []
+    ) {
+        self.attributedString = attributedString
+        self.attachments = attachments
+        self.tableOverlays = tableOverlays
+    }
 }
 
 /// Resolved NSColor values from a ThemeColors palette for text storage building.
@@ -74,19 +93,28 @@ enum MarkdownTextStorageBuilder {
     static func build(
         blocks: [IndexedBlock],
         theme: AppTheme,
-        scaleFactor: CGFloat = 1.0
+        scaleFactor: CGFloat = 1.0,
+        isPrint: Bool = false
     ) -> TextStorageResult {
-        build(blocks: blocks, colors: theme.colors, syntaxColors: theme.syntaxColors, scaleFactor: scaleFactor)
+        build(
+            blocks: blocks,
+            colors: theme.colors,
+            syntaxColors: theme.syntaxColors,
+            scaleFactor: scaleFactor,
+            isPrint: isPrint
+        )
     }
 
     static func build(
         blocks: [IndexedBlock],
         colors: ThemeColors,
         syntaxColors: SyntaxColors,
-        scaleFactor: CGFloat = 1.0
+        scaleFactor: CGFloat = 1.0,
+        isPrint: Bool = false
     ) -> TextStorageResult {
         let result = NSMutableAttributedString()
         var attachments: [AttachmentInfo] = []
+        var tableOverlays: [TableOverlayInfo] = []
 
         for (offset, indexedBlock) in blocks.enumerated() {
             appendBlock(
@@ -95,7 +123,9 @@ enum MarkdownTextStorageBuilder {
                 colors: colors,
                 syntaxColors: syntaxColors,
                 scaleFactor: scaleFactor,
-                attachments: &attachments
+                attachments: &attachments,
+                tableOverlays: &tableOverlays,
+                isPrint: isPrint
             )
 
             // Collapse the first block's top spacing so textContainerInset
@@ -116,26 +146,35 @@ enum MarkdownTextStorageBuilder {
 
         return TextStorageResult(
             attributedString: result,
-            attachments: attachments
+            attachments: attachments,
+            tableOverlays: tableOverlays
         )
     }
 
     // MARK: - Block Dispatch
 
+    // swiftlint:disable:next function_parameter_count function_body_length
     private static func appendBlock(
         _ indexedBlock: IndexedBlock,
         to result: NSMutableAttributedString,
         colors: ThemeColors,
         syntaxColors: SyntaxColors,
         scaleFactor: CGFloat,
-        attachments: inout [AttachmentInfo]
+        attachments: inout [AttachmentInfo],
+        tableOverlays: inout [TableOverlayInfo],
+        isPrint: Bool
     ) {
         let sf = scaleFactor
-        let idx = indexedBlock.index
         let block = indexedBlock.block
         switch block {
         case let .heading(level, text):
-            appendHeading(to: result, level: level, text: text, colors: colors, scaleFactor: sf)
+            appendHeading(
+                to: result,
+                level: level,
+                text: text,
+                colors: colors,
+                scaleFactor: sf
+            )
         case let .paragraph(text):
             appendParagraph(to: result, text: text, colors: colors, scaleFactor: sf)
         case let .codeBlock(lang, code):
@@ -179,13 +218,15 @@ enum MarkdownTextStorageBuilder {
         case .thematicBreak:
             appendAttachmentPlaceholder(indexedBlock, to: result, attachments: &attachments)
         case let .table(columns, rows):
-            let ht = estimatedTableAttachmentHeight(columns: columns, rows: rows, scaleFactor: sf)
-            appendAttachmentBlock(
+            appendTableInlineText(
                 to: result,
-                blockIndex: idx,
+                blockIndex: indexedBlock.index,
                 block: block,
-                height: ht,
-                attachments: &attachments
+                columns: columns,
+                rows: rows,
+                colors: colors,
+                isPrint: isPrint,
+                tableOverlays: &tableOverlays
             )
         case let .htmlBlock(content):
             appendHTMLBlock(to: result, content: content, colors: colors, scaleFactor: sf)
@@ -212,7 +253,7 @@ enum MarkdownTextStorageBuilder {
 
     // MARK: - Table Height Estimation
 
-    private static let defaultEstimationContainerWidth: CGFloat = 600
+    static let defaultEstimationContainerWidth: CGFloat = 600
 
     private static func estimatedTableAttachmentHeight(
         columns: [TableColumn],
