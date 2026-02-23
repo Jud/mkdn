@@ -1,20 +1,44 @@
 import AppKit
 import SwiftUI
 
-/// Manages overlay views (Mermaid, images, tables) at `NSTextAttachment` locations
-/// within an `NSTextView`. Includes sticky header positioning for long tables.
+/// Manages overlay views (Mermaid, images, tables) positioned within an
+/// `NSTextView`. Attachment-based overlays are positioned via their
+/// `NSTextAttachment` placeholder. Table overlays use text-range-based
+/// positioning via `TableAttributes.range` in the text storage. Includes
+/// sticky header positioning for long tables.
 @MainActor
 final class OverlayCoordinator {
     // MARK: - Types
 
-    private struct OverlayEntry {
+    struct OverlayEntry {
         let view: NSView
-        let attachment: NSTextAttachment
+        let attachment: NSTextAttachment?
         let block: MarkdownBlock
         var preferredWidth: CGFloat?
+        var tableRangeID: String?
+        var highlightOverlay: TableHighlightOverlay?
+        var cellMap: TableCellMap?
+
+        init(
+            view: NSView,
+            block: MarkdownBlock,
+            attachment: NSTextAttachment? = nil,
+            preferredWidth: CGFloat? = nil,
+            tableRangeID: String? = nil,
+            highlightOverlay: TableHighlightOverlay? = nil,
+            cellMap: TableCellMap? = nil
+        ) {
+            self.view = view
+            self.attachment = attachment
+            self.block = block
+            self.preferredWidth = preferredWidth
+            self.tableRangeID = tableRangeID
+            self.highlightOverlay = highlightOverlay
+            self.cellMap = cellMap
+        }
     }
 
-    private struct LayoutContext {
+    struct LayoutContext {
         let origin: NSPoint
         let containerWidth: CGFloat
         let textStorage: NSTextStorage
@@ -24,20 +48,18 @@ final class OverlayCoordinator {
 
     // MARK: - Properties
 
-    private weak var textView: NSTextView?
-    private var entries: [Int: OverlayEntry] = [:]
-    private var layoutObserver: NSObjectProtocol?
-    private var appSettings: AppSettings?
-    private var stickyHeaders: [Int: NSView] = [:]
-    private var scrollObserver: NSObjectProtocol?
-    private var tableColumnWidths: [Int: [CGFloat]] = [:]
+    weak var textView: NSTextView?
+    var entries: [Int: OverlayEntry] = [:]
+    var layoutObserver: NSObjectProtocol?
+    var appSettings: AppSettings?
+    var stickyHeaders: [Int: NSView] = [:]
+    var scrollObserver: NSObjectProtocol?
 
-    // MARK: - Public API
+    // MARK: - Attachment-Based Overlay API
 
-    /// Creates, updates, or removes overlay views for non-text blocks.
-    ///
-    /// Existing overlays whose content has not changed are reused to avoid
-    /// recreating expensive subviews such as `WKWebView` instances.
+    /// Creates, updates, or removes overlay views for non-text blocks
+    /// (Mermaid, images, thematic breaks) that use `NSTextAttachment`
+    /// placeholders.
     func updateOverlays(
         attachments: [AttachmentInfo],
         appSettings: AppSettings,
@@ -48,7 +70,7 @@ final class OverlayCoordinator {
         self.appSettings = appSettings
 
         let validIndices = Set(attachments.map(\.blockIndex))
-        removeStaleOverlays(keeping: validIndices)
+        removeStaleAttachmentOverlays(keeping: validIndices)
 
         for info in attachments {
             guard needsOverlay(info.block) else { continue }
@@ -65,10 +87,13 @@ final class OverlayCoordinator {
         repositionOverlays()
     }
 
+    // MARK: - Common API
+
     /// Hides all overlay views to prevent flash during content replacement.
     func hideAllOverlays() {
         for (_, entry) in entries {
             entry.view.isHidden = true
+            entry.highlightOverlay?.isHidden = true
         }
         for (_, header) in stickyHeaders {
             header.isHidden = true
@@ -87,34 +112,37 @@ final class OverlayCoordinator {
     func removeAllOverlays() {
         for (_, entry) in entries {
             entry.view.removeFromSuperview()
+            entry.highlightOverlay?.removeFromSuperview()
         }
         entries.removeAll()
         stickyHeaders.values.forEach { $0.removeFromSuperview() }
         stickyHeaders.removeAll()
-        tableColumnWidths.removeAll()
         removeObservers()
     }
 
     /// Updates the placeholder height, triggering layout invalidation and repositioning.
     func updateAttachmentHeight(blockIndex: Int, newHeight: CGFloat) {
         guard let entry = entries[blockIndex],
+              let attachment = entry.attachment,
               let textView,
               let textStorage = textView.textStorage
         else { return }
 
-        guard abs(entry.attachment.bounds.height - newHeight) > 1 else { return }
-        invalidateAttachmentHeight(entry.attachment, newHeight: newHeight, textView: textView, textStorage: textStorage)
+        guard abs(attachment.bounds.height - newHeight) > 1 else { return }
+        invalidateAttachmentHeight(
+            attachment, newHeight: newHeight, textView: textView, textStorage: textStorage
+        )
         repositionOverlays()
     }
 
-    /// Updates both the preferred width and placeholder height for a table overlay,
-    /// triggering layout invalidation and repositioning as needed.
+    /// Updates both the preferred width and placeholder height for an attachment overlay.
     func updateAttachmentSize(
         blockIndex: Int,
         newWidth: CGFloat?,
         newHeight: CGFloat
     ) {
         guard var entry = entries[blockIndex],
+              let attachment = entry.attachment,
               let textView,
               let textStorage = textView.textStorage
         else { return }
@@ -126,13 +154,10 @@ final class OverlayCoordinator {
             widthChanged = true
         }
 
-        let heightChanged = abs(entry.attachment.bounds.height - newHeight) > 1
+        let heightChanged = abs(attachment.bounds.height - newHeight) > 1
         if heightChanged {
             invalidateAttachmentHeight(
-                entry.attachment,
-                newHeight: newHeight,
-                textView: textView,
-                textStorage: textStorage
+                attachment, newHeight: newHeight, textView: textView, textStorage: textStorage
             )
         }
 
@@ -140,6 +165,8 @@ final class OverlayCoordinator {
             repositionOverlays()
         }
     }
+
+    // MARK: - Attachment Height
 
     private func invalidateAttachmentHeight(
         _ attachment: NSTextAttachment,
@@ -161,11 +188,11 @@ final class OverlayCoordinator {
         }
     }
 
-    // MARK: - Overlay Lifecycle
+    // MARK: - Attachment Overlay Lifecycle
 
     private func needsOverlay(_ block: MarkdownBlock) -> Bool {
         switch block {
-        case .mermaidBlock, .image, .thematicBreak, .table:
+        case .mermaidBlock, .image, .thematicBreak:
             true
         default:
             false
@@ -179,19 +206,21 @@ final class OverlayCoordinator {
         in textView: NSTextView
     ) {
         if let existing = entries[info.blockIndex],
+           existing.attachment != nil,
            blocksMatch(existing.block, info.block)
         {
             entries[info.blockIndex] = OverlayEntry(
                 view: existing.view,
-                attachment: info.attachment,
                 block: info.block,
+                attachment: info.attachment,
                 preferredWidth: existing.preferredWidth
             )
             return
         }
 
         entries[info.blockIndex]?.view.removeFromSuperview()
-        createOverlay(
+        entries[info.blockIndex]?.highlightOverlay?.removeFromSuperview()
+        createAttachmentOverlay(
             for: info,
             appSettings: appSettings,
             documentState: documentState,
@@ -199,7 +228,7 @@ final class OverlayCoordinator {
         )
     }
 
-    private func blocksMatch(_ lhs: MarkdownBlock, _ rhs: MarkdownBlock) -> Bool {
+    func blocksMatch(_ lhs: MarkdownBlock, _ rhs: MarkdownBlock) -> Bool {
         switch (lhs, rhs) {
         case let (.mermaidBlock(code1), .mermaidBlock(code2)):
             code1 == code2
@@ -215,17 +244,17 @@ final class OverlayCoordinator {
         }
     }
 
-    private func removeStaleOverlays(keeping validIndices: Set<Int>) {
+    private func removeStaleAttachmentOverlays(keeping validIndices: Set<Int>) {
         for (index, entry) in entries where !validIndices.contains(index) {
+            guard entry.tableRangeID == nil else { continue }
             entry.view.removeFromSuperview()
             entries.removeValue(forKey: index)
             stickyHeaders[index]?.removeFromSuperview()
             stickyHeaders.removeValue(forKey: index)
-            tableColumnWidths.removeValue(forKey: index)
         }
     }
 
-    private func createOverlay(
+    private func createAttachmentOverlay(
         for info: AttachmentInfo,
         appSettings: AppSettings,
         documentState: DocumentState,
@@ -236,26 +265,14 @@ final class OverlayCoordinator {
         switch info.block {
         case let .mermaidBlock(code):
             overlayView = makeMermaidOverlay(
-                code: code,
-                blockIndex: info.blockIndex,
-                appSettings: appSettings
+                code: code, blockIndex: info.blockIndex, appSettings: appSettings
             )
         case let .image(source, alt):
             overlayView = makeImageOverlay(
-                source: source,
-                alt: alt,
-                appSettings: appSettings,
-                documentState: documentState
+                source: source, alt: alt, appSettings: appSettings, documentState: documentState
             )
         case .thematicBreak:
             overlayView = makeThematicBreakOverlay(appSettings: appSettings)
-        case let .table(columns, rows):
-            overlayView = makeTableOverlay(
-                columns: columns,
-                rows: rows,
-                blockIndex: info.blockIndex,
-                appSettings: appSettings
-            )
         default:
             return
         }
@@ -263,85 +280,13 @@ final class OverlayCoordinator {
         overlayView.isHidden = true
         textView.addSubview(overlayView)
         entries[info.blockIndex] = OverlayEntry(
-            view: overlayView,
-            attachment: info.attachment,
-            block: info.block
+            view: overlayView, block: info.block, attachment: info.attachment
         )
-    }
-
-    // MARK: - Overlay Factories
-
-    private func makeMermaidOverlay(
-        code: String,
-        blockIndex: Int,
-        appSettings: AppSettings
-    ) -> NSView {
-        let rootView = MermaidBlockView(code: code) { [weak self] _, aspectRatio in
-            guard let self, let textView else { return }
-            let width = textContainerWidth(in: textView)
-            let height = width * aspectRatio
-            updateAttachmentHeight(blockIndex: blockIndex, newHeight: height)
-        }
-        .environment(appSettings)
-        return NSHostingView(rootView: rootView)
-    }
-
-    private func makeImageOverlay(
-        source: String,
-        alt: String,
-        appSettings: AppSettings,
-        documentState: DocumentState
-    ) -> NSView {
-        let rootView = ImageBlockView(source: source, alt: alt)
-            .environment(appSettings)
-            .environment(documentState)
-        return NSHostingView(rootView: rootView)
-    }
-
-    private func makeThematicBreakOverlay(
-        appSettings: AppSettings
-    ) -> NSView {
-        let borderColor = appSettings.theme.colors.border
-        let rootView = borderColor
-            .frame(height: 1)
-            .padding(.vertical, 8)
-        return NSHostingView(rootView: rootView)
-    }
-
-    private func makeTableOverlay(
-        columns: [TableColumn],
-        rows: [[AttributedString]],
-        blockIndex: Int,
-        appSettings: AppSettings
-    ) -> NSView {
-        let containerWidth = textView.map { textContainerWidth(in: $0) } ?? 600
-        let scaleFactor = appSettings.scaleFactor
-        let sizing = TableColumnSizer.computeWidths(
-            columns: columns,
-            rows: rows,
-            containerWidth: containerWidth,
-            font: PlatformTypeConverter.bodyFont(scaleFactor: scaleFactor)
-        )
-        tableColumnWidths[blockIndex] = sizing.columnWidths
-        let rootView = TableBlockView(
-            columns: columns,
-            rows: rows,
-            containerWidth: containerWidth
-        ) { [weak self] width, height in
-            guard let self else { return }
-            updateAttachmentSize(
-                blockIndex: blockIndex,
-                newWidth: width,
-                newHeight: height
-            )
-        }
-        .environment(appSettings)
-        return NSHostingView(rootView: rootView)
     }
 
     // MARK: - Positioning
 
-    private func makeLayoutContext() -> LayoutContext? {
+    func makeLayoutContext() -> LayoutContext? {
         guard let textView,
               let layoutManager = textView.textLayoutManager,
               let textStorage = textView.textStorage,
@@ -357,13 +302,25 @@ final class OverlayCoordinator {
         )
     }
 
-    private func positionEntry(
+    func positionEntry(
         _ entry: OverlayEntry,
         context: LayoutContext
     ) {
-        guard let range = attachmentRange(
-            for: entry.attachment, in: context.textStorage
-        )
+        if entry.tableRangeID != nil {
+            positionTextRangeEntry(entry, context: context)
+        } else if entry.attachment != nil {
+            positionAttachmentEntry(entry, context: context)
+        } else {
+            entry.view.isHidden = true
+        }
+    }
+
+    private func positionAttachmentEntry(
+        _ entry: OverlayEntry,
+        context: LayoutContext
+    ) {
+        guard let attachment = entry.attachment,
+              let range = attachmentRange(for: attachment, in: context.textStorage)
         else {
             entry.view.isHidden = true
             return
@@ -389,8 +346,6 @@ final class OverlayCoordinator {
         let fragmentFrame = fragment.layoutFragmentFrame
         let overlayWidth = entry.preferredWidth ?? context.containerWidth
 
-        // Skip positioning if layout hasn't settled — fragment at y≈0 with
-        // near-zero height indicates TextKit 2 hasn't computed the real position yet.
         guard fragmentFrame.height > 1 else {
             entry.view.isHidden = true
             return
@@ -404,6 +359,8 @@ final class OverlayCoordinator {
         )
         entry.view.isHidden = false
     }
+
+    // MARK: - Helpers
 
     private func attachmentRange(
         for attachment: NSTextAttachment,
@@ -422,7 +379,7 @@ final class OverlayCoordinator {
         return foundRange
     }
 
-    private func textContainerWidth(in textView: NSTextView) -> CGFloat {
+    func textContainerWidth(in textView: NSTextView) -> CGFloat {
         if let container = textView.textContainer {
             return container.size.width
         }
@@ -431,90 +388,43 @@ final class OverlayCoordinator {
     }
 }
 
-// MARK: - Observation & Sticky Headers
+// MARK: - Attachment Overlay Factories
 
 extension OverlayCoordinator {
-    func observeLayoutChanges(on textView: NSTextView) {
-        guard layoutObserver == nil else { return }
-        textView.postsFrameChangedNotifications = true
-        layoutObserver = NotificationCenter.default.addObserver(
-            forName: NSView.frameDidChangeNotification,
-            object: textView,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                self?.repositionOverlays()
-            }
+    func makeMermaidOverlay(
+        code: String,
+        blockIndex: Int,
+        appSettings: AppSettings
+    ) -> NSView {
+        let rootView = MermaidBlockView(code: code) { [weak self] _, aspectRatio in
+            guard let self, let textView else { return }
+            let width = textContainerWidth(in: textView)
+            let height = width * aspectRatio
+            updateAttachmentHeight(blockIndex: blockIndex, newHeight: height)
         }
+        .environment(appSettings)
+        return NSHostingView(rootView: rootView)
     }
 
-    func observeScrollChanges(on textView: NSTextView) {
-        guard scrollObserver == nil,
-              let clipView = textView.enclosingScrollView?.contentView
-        else { return }
-        clipView.postsBoundsChangedNotifications = true
-        scrollObserver = NotificationCenter.default.addObserver(
-            forName: NSView.boundsDidChangeNotification,
-            object: clipView,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                self?.handleScrollBoundsChange()
-            }
-        }
+    func makeImageOverlay(
+        source: String,
+        alt: String,
+        appSettings: AppSettings,
+        documentState: DocumentState
+    ) -> NSView {
+        let rootView = ImageBlockView(source: source, alt: alt)
+            .environment(appSettings)
+            .environment(documentState)
+        return NSHostingView(rootView: rootView)
     }
 
-    private func handleScrollBoundsChange() {
-        guard let textView,
-              let scrollView = textView.enclosingScrollView
-        else { return }
-        let visibleRect = scrollView.contentView.bounds
-        let headerHeight = stickyHeaderHeight()
-        for (blockIndex, entry) in entries {
-            guard case let .table(columns, _) = entry.block,
-                  let columnWidths = tableColumnWidths[blockIndex]
-            else { continue }
-            let tableFrame = entry.view.frame
-            guard tableFrame.height > visibleRect.height else {
-                stickyHeaders[blockIndex]?.isHidden = true
-                continue
-            }
-            let headerBottom = tableFrame.origin.y + headerHeight
-            let tableBottom = tableFrame.origin.y + tableFrame.height
-            if visibleRect.origin.y > headerBottom,
-               visibleRect.origin.y < tableBottom - headerHeight
-            {
-                if stickyHeaders[blockIndex] == nil, let appSettings {
-                    let header = TableHeaderView(columns: columns, columnWidths: columnWidths)
-                    let hosting = NSHostingView(rootView: header.environment(appSettings))
-                    textView.addSubview(hosting)
-                    stickyHeaders[blockIndex] = hosting
-                }
-                stickyHeaders[blockIndex]?.frame = CGRect(
-                    x: tableFrame.origin.x,
-                    y: visibleRect.origin.y,
-                    width: tableFrame.width,
-                    height: headerHeight
-                )
-                stickyHeaders[blockIndex]?.isHidden = false
-            } else {
-                stickyHeaders[blockIndex]?.isHidden = true
-            }
-        }
-    }
-
-    private func stickyHeaderHeight() -> CGFloat {
-        let baseFont = PlatformTypeConverter.bodyFont(scaleFactor: appSettings?.scaleFactor ?? 1.0)
-        let font = NSFontManager.shared.convert(baseFont, toHaveTrait: .boldFontMask)
-        return ceil(font.ascender - font.descender + font.leading)
-            + 2 * TableColumnSizer.verticalCellPadding + TableColumnSizer.headerDividerHeight
-    }
-
-    func removeObservers() {
-        for observer in [layoutObserver, scrollObserver].compactMap(\.self) {
-            NotificationCenter.default.removeObserver(observer)
-        }
-        layoutObserver = nil
-        scrollObserver = nil
+    func makeThematicBreakOverlay(
+        appSettings: AppSettings
+    ) -> NSView {
+        let borderColor = appSettings.theme.colors.border
+        let rootView = borderColor
+            .frame(height: 1)
+            .padding(.vertical, 8)
+        return NSHostingView(rootView: rootView)
     }
 }
