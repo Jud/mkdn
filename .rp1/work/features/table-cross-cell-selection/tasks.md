@@ -2,7 +2,7 @@
 
 **Feature ID**: table-cross-cell-selection
 **Status**: In Progress
-**Progress**: 50% (6 of 12 tasks)
+**Progress**: 58% (7 of 12 tasks)
 **Estimated Effort**: 7 days
 **Started**: 2026-02-23
 
@@ -177,6 +177,18 @@ Make table cell content part of the document's NSTextStorage as invisible text s
     - **Deviations**: None
     - **Tests**: 512/512 passing (3 pre-existing failures in AppSettings unrelated)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
 ### Overlay Positioning and Print Path
 
 - [x] **T3**: Extend OverlayCoordinator for text-range-based table overlay positioning `[complexity:complex]`
@@ -209,7 +221,7 @@ Make table cell content part of the document's NSTextStorage as invisible text s
         - [comments] Task ID reference "(T4)" in doc comment of TableHighlightOverlay.swift. Removed in Attempt 2.
     - **Resolution**: Replaced "(T4)" with neutral phrasing "in a separate pass" in the doc comment.
 
-- [ ] **T7**: Implement print path table container rendering `[complexity:medium]`
+- [x] **T7**: Implement print path table container rendering `[complexity:medium]`
 
     **Reference**: [design.md#313-print-path](design.md#313-print-path)
 
@@ -217,14 +229,21 @@ Make table cell content part of the document's NSTextStorage as invisible text s
 
     **Acceptance Criteria**:
 
-    - [ ] `drawTableContainers(in:)` method in `CodeBlockBackgroundTextView` renders table backgrounds during print only
-    - [ ] Enumerates `TableAttributes.range` in textStorage to find table regions
-    - [ ] Computes bounding rects from layout fragments for each table
-    - [ ] Draws rounded-rect border using `TableColorInfo.border`
-    - [ ] Draws header row background using `TableColorInfo.headerBackground`
-    - [ ] Draws alternating row backgrounds using `TableColorInfo.background` and `TableColorInfo.backgroundSecondary`
-    - [ ] `drawTableContainers` called from `drawBackground` only when `isPrinting` is true
-    - [ ] Print output shows visible table text (verified by builder's `isPrint: true` flag)
+    - [x] `drawTableContainers(in:)` method in `CodeBlockBackgroundTextView` renders table backgrounds during print only
+    - [x] Enumerates `TableAttributes.range` in textStorage to find table regions
+    - [x] Computes bounding rects from layout fragments for each table
+    - [x] Draws rounded-rect border using `TableColorInfo.border`
+    - [x] Draws header row background using `TableColorInfo.headerBackground`
+    - [x] Draws alternating row backgrounds using `TableColorInfo.background` and `TableColorInfo.backgroundSecondary`
+    - [x] `drawTableContainers` called from `drawBackground` only when `isPrinting` is true
+    - [x] Print output shows visible table text (verified by builder's `isPrint: true` flag)
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Features/Viewer/Views/CodeBlockBackgroundTextView.swift`, `mkdn/Features/Viewer/Views/CodeBlockBackgroundTextView+TablePrint.swift`
+    - **Approach**: Added `isPrint: true` to the `MarkdownTextStorageBuilder.build` call in `printView(_:)` to generate visible-foreground table text during print. Created new +TablePrint extension file with `drawTableContainers(in:)` method guarded by `NSPrintOperation.current != nil` (no-op on screen). The method enumerates `TableAttributes.range` in the text storage to collect table regions, retrieves `TableColorInfo` and `TableCellMap` from attributes, computes the table top position from the first layout fragment, and draws: base background fill, header row fill, alternating odd-row secondary fills (0.7 opacity), header-body divider line, and rounded-rect border stroke (0.5 opacity). Drawing is clipped to a 6pt rounded rect matching the on-screen `TableBlockView` visual style. Constants match the screen rendering: corner radius 6, border width 1, border opacity 0.5, alternating row opacity 0.7.
+    - **Deviations**: Extension file created to stay within SwiftLint file_length limit (500 lines). Pre-existing type_body_length violation (378 lines > 350 warning) not addressed as it predates this task (was 373 at T5). The `MarkdownTextStorageBuilder+Complex.swift` file listed in design scope required no changes since T2 already implemented the builder-side `isPrint` parameter.
+    - **Tests**: 512/512 passing (3 pre-existing failures in AppSettings unrelated)
 
 ### Highlight Overlay and Integration
 
