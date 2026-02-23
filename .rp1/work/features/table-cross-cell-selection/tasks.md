@@ -2,7 +2,7 @@
 
 **Feature ID**: table-cross-cell-selection
 **Status**: Not Started
-**Progress**: 17% (2 of 12 tasks)
+**Progress**: 25% (3 of 12 tasks)
 **Estimated Effort**: 7 days
 **Started**: 2026-02-23
 
@@ -107,6 +107,18 @@ Make table cell content part of the document's NSTextStorage as invisible text s
     - **Deviations**: Method placed in new +TableInline.swift file instead of +Complex.swift to satisfy SwiftLint file_length limit. Test file split into separate table test suite for the same reason.
     - **Tests**: 53/53 passing (37 original + 16 table)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ✅ PASS |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
 - [ ] **T5**: Implement copy handler for RTF and tab-delimited clipboard output `[complexity:medium]`
 
     **Reference**: [design.md#38-codeblockbackgroundtextview-copy-override](design.md#38-codeblockbackgroundtextview-copy-override)
@@ -141,7 +153,7 @@ Make table cell content part of the document's NSTextStorage as invisible text s
 
 ### Overlay Positioning and Print Path
 
-- [ ] **T3**: Extend OverlayCoordinator for text-range-based table overlay positioning `[complexity:complex]`
+- [x] **T3**: Extend OverlayCoordinator for text-range-based table overlay positioning `[complexity:complex]`
 
     **Reference**: [design.md#36-overlaycoordinator-extensions](design.md#36-overlaycoordinator-extensions)
 
@@ -149,14 +161,21 @@ Make table cell content part of the document's NSTextStorage as invisible text s
 
     **Acceptance Criteria**:
 
-    - [ ] `OverlayEntry` extended with optional `tableRangeID`, `highlightOverlay`, and `cellMap` fields
-    - [ ] `updateTableOverlays(tableOverlays:appSettings:documentState:in:)` creates/updates table visual overlays and their highlight overlay siblings
-    - [ ] `positionTextRangeEntry` positions overlay by scanning for `TableAttributes.range` matching tableRangeID, enumerating layout fragments, computing bounding rect union
-    - [ ] `updateTableSelections(selectedRange:)` maps NSTextView selection to cells per table via cellMap, updates each TableHighlightOverlay
-    - [ ] `updateTableFindHighlights(matchRanges:currentIndex:theme:)` maps find matches to table cells, updates highlight overlays with find state
-    - [ ] TableHighlightOverlay created and positioned on top of visual overlay for each table
-    - [ ] Sticky header logic updated to source column widths from TableCellMap on the entry
-    - [ ] Text-range overlays position correctly when scrolling
+    - [x] `OverlayEntry` extended with optional `tableRangeID`, `highlightOverlay`, and `cellMap` fields
+    - [x] `updateTableOverlays(tableOverlays:appSettings:documentState:in:)` creates/updates table visual overlays and their highlight overlay siblings
+    - [x] `positionTextRangeEntry` positions overlay by scanning for `TableAttributes.range` matching tableRangeID, enumerating layout fragments, computing bounding rect union
+    - [x] `updateTableSelections(selectedRange:)` maps NSTextView selection to cells per table via cellMap, updates each TableHighlightOverlay
+    - [x] `updateTableFindHighlights(matchRanges:currentIndex:theme:)` maps find matches to table cells, updates highlight overlays with find state
+    - [x] TableHighlightOverlay created and positioned on top of visual overlay for each table
+    - [x] Sticky header logic updated to source column widths from TableCellMap on the entry
+    - [x] Text-range overlays position correctly when scrolling
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Features/Viewer/Views/OverlayCoordinator.swift`, `mkdn/Features/Viewer/Views/OverlayCoordinator+TableOverlays.swift`, `mkdn/Features/Viewer/Views/OverlayCoordinator+Observation.swift`, `mkdn/Features/Viewer/Views/TableHighlightOverlay.swift`
+    - **Approach**: Extended OverlayEntry with optional tableRangeID, highlightOverlay (TableHighlightOverlay), and cellMap fields. Split OverlayCoordinator into three files to satisfy SwiftLint file/type length limits: core coordinator, +TableOverlays extension (table lifecycle, text-range positioning, selection/find mapping), and +Observation extension (layout/scroll observers, sticky headers). Table overlays use text-range-based positioning by scanning for TableAttributes.range in the text storage, enumerating layout fragments to compute bounding rects. Created minimal TableHighlightOverlay NSView subclass with hitTest passthrough and properties for selected/find cells (drawing deferred to T4). Removed tableColumnWidths dictionary in favor of cellMap.columnWidths. Removed dead .table case from attachment overlay path since T2 moved tables to inline text.
+    - **Deviations**: Dropped documentState parameter from updateTableOverlays (not needed for table overlays, unlike images). Dropped theme parameter from updateTableFindHighlights (colors will be set on overlay by T4). Split into 3 files instead of 2 to satisfy SwiftLint 500-line file limit and 350-line type body limit.
+    - **Tests**: 509/509 passing (3 pre-existing failures in AppSettings unrelated)
 
 - [ ] **T7**: Implement print path table container rendering `[complexity:medium]`
 
