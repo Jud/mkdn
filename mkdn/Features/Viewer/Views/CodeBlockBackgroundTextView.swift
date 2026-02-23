@@ -324,6 +324,7 @@ final class CodeBlockBackgroundTextView: NSTextView {
     override func drawBackground(in rect: NSRect) {
         super.drawBackground(in: rect)
         drawCodeBlockContainers(in: rect)
+        drawTableContainers(in: rect)
     }
 
     // MARK: - Print
@@ -336,11 +337,11 @@ final class CodeBlockBackgroundTextView: NSTextView {
 
         let savedString = textStorage.map { NSAttributedString(attributedString: $0) }
         let savedBgColor = backgroundColor
-
         let result = MarkdownTextStorageBuilder.build(
             blocks: printBlocks,
             colors: PrintPalette.colors,
-            syntaxColors: PrintPalette.syntaxColors
+            syntaxColors: PrintPalette.syntaxColors,
+            isPrint: true
         )
         textStorage?.setAttributedString(result.attributedString)
         backgroundColor = PlatformTypeConverter.nsColor(from: PrintPalette.colors.background)
