@@ -11,7 +11,9 @@ public struct ContentView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var motion: MotionPreference { MotionPreference(reduceMotion: reduceMotion) }
+    private var motion: MotionPreference {
+        MotionPreference(reduceMotion: reduceMotion)
+    }
 
     public init() {}
 
