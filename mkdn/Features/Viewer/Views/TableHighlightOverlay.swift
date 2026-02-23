@@ -13,7 +13,7 @@ import AppKit
 /// ``TableCellMap/rowHeights``. Selection uses the system accent color;
 /// find uses the theme's find highlight color.
 ///
-/// Drawing implementation is provided separately (T4). This file defines
+/// Drawing implementation is provided in a separate pass. This file defines
 /// the structure, properties, and hit-test passthrough needed by
 /// ``OverlayCoordinator`` to create and manage highlight overlays.
 @MainActor
