@@ -12,18 +12,117 @@ import AppKit
 /// Cell rectangles are computed from ``TableCellMap/columnWidths`` and
 /// ``TableCellMap/rowHeights``. Selection uses the system accent color;
 /// find uses the theme's find highlight color.
-///
-/// Drawing implementation is provided in a separate pass. This file defines
-/// the structure, properties, and hit-test passthrough needed by
-/// ``OverlayCoordinator`` to create and manage highlight overlays.
 @MainActor
 final class TableHighlightOverlay: NSView {
+    // MARK: - Selection State
+
     var selectedCells: Set<TableCellMap.CellPosition> = []
+
+    // MARK: - Find State
+
     var findHighlightCells: Set<TableCellMap.CellPosition> = []
     var currentFindCell: TableCellMap.CellPosition?
+
+    // MARK: - Data
+
     var cellMap: TableCellMap?
+
+    // MARK: - Colors
+
+    var accentColor: NSColor = .controlAccentColor
+    var findHighlightColor: NSColor = .yellow
+
+    // MARK: - Coordinate System
+
+    override var isFlipped: Bool {
+        true
+    }
+
+    // MARK: - Hit Testing
 
     override func hitTest(_: NSPoint) -> NSView? {
         nil
+    }
+
+    // MARK: - Drawing
+
+    override func draw(_ dirtyRect: NSRect) {
+        guard let cellMap else { return }
+        drawSelectionHighlights(cellMap: cellMap, in: dirtyRect)
+        drawFindHighlights(cellMap: cellMap, in: dirtyRect)
+    }
+
+    // MARK: - Selection Highlights
+
+    private func drawSelectionHighlights(
+        cellMap: TableCellMap,
+        in dirtyRect: NSRect
+    ) {
+        guard !selectedCells.isEmpty else { return }
+
+        let dataColor = accentColor.withAlphaComponent(0.3)
+        let headerColor = accentColor.withAlphaComponent(0.4)
+
+        for cell in selectedCells {
+            let rect = cellRect(for: cell, cellMap: cellMap)
+            guard rect.intersects(dirtyRect) else { continue }
+
+            let color = cell.row == -1 ? headerColor : dataColor
+            color.setFill()
+            rect.fill()
+        }
+    }
+
+    // MARK: - Find Highlights
+
+    private func drawFindHighlights(
+        cellMap: TableCellMap,
+        in dirtyRect: NSRect
+    ) {
+        guard !findHighlightCells.isEmpty else { return }
+
+        let passiveColor = findHighlightColor.withAlphaComponent(0.15)
+        let currentColor = findHighlightColor.withAlphaComponent(0.4)
+
+        for cell in findHighlightCells {
+            let rect = cellRect(for: cell, cellMap: cellMap)
+            guard rect.intersects(dirtyRect) else { continue }
+
+            let isCurrent = cell == currentFindCell
+            let color = isCurrent ? currentColor : passiveColor
+            color.setFill()
+            rect.fill()
+        }
+    }
+
+    // MARK: - Cell Geometry
+
+    private func cellRect(
+        for position: TableCellMap.CellPosition,
+        cellMap: TableCellMap
+    ) -> NSRect {
+        let col = position.column
+        let rowHeightIndex = position.row + 1
+
+        guard col >= 0, col < cellMap.columnWidths.count,
+              rowHeightIndex >= 0, rowHeightIndex < cellMap.rowHeights.count
+        else { return .zero }
+
+        var xOrigin: CGFloat = 0
+        for colIdx in 0 ..< col {
+            xOrigin += cellMap.columnWidths[colIdx]
+        }
+
+        var yOrigin: CGFloat = 0
+        for rowIdx in 0 ..< rowHeightIndex {
+            yOrigin += cellMap.rowHeights[rowIdx]
+        }
+
+        return NSRect(
+            x: xOrigin,
+            y: yOrigin,
+            width: cellMap.columnWidths[col],
+            height: cellMap.rowHeights[rowHeightIndex]
+        )
     }
 }
