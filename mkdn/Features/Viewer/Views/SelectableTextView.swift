@@ -15,6 +15,7 @@ import SwiftUI
 struct SelectableTextView: NSViewRepresentable {
     let attributedText: NSAttributedString
     let attachments: [AttachmentInfo]
+    let tableOverlays: [TableOverlayInfo]
     let blocks: [IndexedBlock]
     let theme: AppTheme
     let isFullReload: Bool
@@ -56,12 +57,7 @@ struct SelectableTextView: NSViewRepresentable {
         textView.window?.invalidateCursorRects(for: textView)
         coordinator.animator.animateVisibleFragments()
 
-        coordinator.overlayCoordinator.updateOverlays(
-            attachments: attachments,
-            appSettings: appSettings,
-            documentState: documentState,
-            in: textView
-        )
+        refreshOverlays(coordinator: coordinator, in: textView)
         coordinator.lastAppliedText = attributedText
         RenderCompletionSignal.shared.signalRenderComplete()
 
@@ -110,12 +106,7 @@ struct SelectableTextView: NSViewRepresentable {
 
             coordinator.animator.animateVisibleFragments()
 
-            coordinator.overlayCoordinator.updateOverlays(
-                attachments: attachments,
-                appSettings: appSettings,
-                documentState: documentState,
-                in: textView
-            )
+            refreshOverlays(coordinator: coordinator, in: textView)
             coordinator.lastAppliedText = attributedText
             RenderCompletionSignal.shared.signalRenderComplete()
         }
@@ -190,6 +181,20 @@ extension SelectableTextView {
         scrollView.autohidesScrollers = true
         scrollView.layerContentsRedrawPolicy = .duringViewResize
         scrollView.contentView.layerContentsRedrawPolicy = .duringViewResize
+    }
+
+    private func refreshOverlays(coordinator: Coordinator, in textView: NSTextView) {
+        coordinator.overlayCoordinator.updateOverlays(
+            attachments: attachments,
+            appSettings: appSettings,
+            documentState: documentState,
+            in: textView
+        )
+        coordinator.overlayCoordinator.updateTableOverlays(
+            tableOverlays: tableOverlays,
+            appSettings: appSettings,
+            in: textView
+        )
     }
 
     private func applyTheme(
@@ -278,6 +283,18 @@ extension SelectableTextView {
             return true
         }
 
+        // MARK: - Selection Change
+
+        func textViewDidChangeSelection(_ notification: Notification) {
+            guard let textView = notification.object as? NSTextView,
+                  let selectedRange = textView.selectedRanges.first
+            else { return }
+
+            overlayCoordinator.updateTableSelections(
+                selectedRange: selectedRange.rangeValue
+            )
+        }
+
         // MARK: - Find State Tracking
 
         var lastFindQuery = ""
@@ -325,6 +342,10 @@ extension SelectableTextView {
                         performSearch: false
                     )
                 }
+                overlayCoordinator.updateTableFindHighlights(
+                    matchRanges: findState.matchRanges,
+                    currentIndex: findState.currentMatchIndex
+                )
             } else if lastFindVisible {
                 clearFindHighlights(textView: textView)
                 DispatchQueue.main.async {
@@ -416,25 +437,17 @@ extension SelectableTextView {
         }
 
         private func clearFindHighlights(textView: NSTextView) {
+            overlayCoordinator.updateTableFindHighlights(
+                matchRanges: [],
+                currentIndex: 0
+            )
+
             guard let textStorage = textView.textStorage,
                   !lastHighlightedRanges.isEmpty
             else { return }
 
             highlightFadeTask?.cancel()
-
-            var rangeColors: [(range: NSRange, color: NSColor)] = []
-            for range in lastHighlightedRanges {
-                guard range.location + range.length <= textStorage.length,
-                      let color = textStorage.attribute(
-                          .backgroundColor,
-                          at: range.location,
-                          effectiveRange: nil
-                      ) as? NSColor
-                else { continue }
-                rangeColors.append((range: range, color: color))
-            }
-
-            // Clear tracking (savedBackgrounds kept intact for restore)
+            let rangeColors = collectHighlightColors(from: textStorage)
             lastHighlightedRanges = []
 
             guard !rangeColors.isEmpty,
@@ -471,9 +484,26 @@ extension SelectableTextView {
                 }
 
                 guard !Task.isCancelled, let self else { return }
-                self.restoreBackgrounds(in: textStorage)
-                self.ensureLayoutAndRepositionOverlays(textView: textView)
+                restoreBackgrounds(in: textStorage)
+                ensureLayoutAndRepositionOverlays(textView: textView)
             }
+        }
+
+        private func collectHighlightColors(
+            from textStorage: NSTextStorage
+        ) -> [(range: NSRange, color: NSColor)] {
+            var results: [(range: NSRange, color: NSColor)] = []
+            for range in lastHighlightedRanges {
+                guard range.location + range.length <= textStorage.length,
+                      let color = textStorage.attribute(
+                          .backgroundColor,
+                          at: range.location,
+                          effectiveRange: nil
+                      ) as? NSColor
+                else { continue }
+                results.append((range: range, color: color))
+            }
+            return results
         }
 
         private func ensureLayoutAndRepositionOverlays(textView: NSTextView) {

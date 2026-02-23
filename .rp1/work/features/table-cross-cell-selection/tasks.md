@@ -2,7 +2,7 @@
 
 **Feature ID**: table-cross-cell-selection
 **Status**: In Progress
-**Progress**: 58% (7 of 12 tasks)
+**Progress**: 67% (8 of 12 tasks)
 **Estimated Effort**: 7 days
 **Started**: 2026-02-23
 
@@ -245,6 +245,18 @@ Make table cell content part of the document's NSTextStorage as invisible text s
     - **Deviations**: Extension file created to stay within SwiftLint file_length limit (500 lines). Pre-existing type_body_length violation (378 lines > 350 warning) not addressed as it predates this task (was 373 at T5). The `MarkdownTextStorageBuilder+Complex.swift` file listed in design scope required no changes since T2 already implemented the builder-side `isPrint` parameter.
     - **Tests**: 512/512 passing (3 pre-existing failures in AppSettings unrelated)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
 ### Highlight Overlay and Integration
 
 - [x] **T4**: Implement TableHighlightOverlay for cell-level selection and find drawing `[complexity:medium]`
@@ -285,7 +297,7 @@ Make table cell content part of the document's NSTextStorage as invisible text s
     | Commit | ✅ PASS |
     | Comments | ✅ PASS |
 
-- [ ] **T8**: Wire selection change and find integration through SelectableTextView `[complexity:medium]`
+- [x] **T8**: Wire selection change and find integration through SelectableTextView `[complexity:medium]`
 
     **Reference**: [design.md#39-selection-change-handler](design.md#39-selection-change-handler), [design.md#312-find-integration](design.md#312-find-integration)
 
@@ -293,13 +305,20 @@ Make table cell content part of the document's NSTextStorage as invisible text s
 
     **Acceptance Criteria**:
 
-    - [ ] `textViewDidChangeSelection(_:)` implemented in `SelectableTextView.Coordinator`
-    - [ ] Selection change delegates to `overlayCoordinator.updateTableSelections(selectedRange:)`
-    - [ ] `handleFindUpdate` calls `overlayCoordinator.updateTableFindHighlights` after `applyFindHighlights`
-    - [ ] `tableOverlays` from `TextStorageResult` passed through `SelectableTextView` to `OverlayCoordinator`
-    - [ ] Find Next/Previous navigates to matches inside tables via `scrollRangeToVisible`
-    - [ ] Find match count includes table cell matches
-    - [ ] Selection highlight updates in real time as mouse moves
+    - [x] `textViewDidChangeSelection(_:)` implemented in `SelectableTextView.Coordinator`
+    - [x] Selection change delegates to `overlayCoordinator.updateTableSelections(selectedRange:)`
+    - [x] `handleFindUpdate` calls `overlayCoordinator.updateTableFindHighlights` after `applyFindHighlights`
+    - [x] `tableOverlays` from `TextStorageResult` passed through `SelectableTextView` to `OverlayCoordinator`
+    - [x] Find Next/Previous navigates to matches inside tables via `scrollRangeToVisible`
+    - [x] Find match count includes table cell matches
+    - [x] Selection highlight updates in real time as mouse moves
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Features/Viewer/Views/SelectableTextView.swift`, `mkdn/Features/Viewer/Views/MarkdownPreviewView.swift`
+    - **Approach**: Added `tableOverlays` property to `SelectableTextView` and wired it from `MarkdownPreviewView` via `TextStorageResult.tableOverlays`. Extracted `refreshOverlays` helper to consolidate attachment and table overlay update calls in both `makeNSView` and `updateNSView`. Implemented `textViewDidChangeSelection(_:)` as NSTextViewDelegate method that delegates to `overlayCoordinator.updateTableSelections(selectedRange:)` for real-time cell highlight updates. Integrated table find highlights into `handleFindUpdate` by calling `overlayCoordinator.updateTableFindHighlights(matchRanges:currentIndex:)` after text storage highlights are applied, and clearing them in `clearFindHighlights`. Find naturally includes table cell text since it is part of the text storage; `scrollRangeToVisible` navigates to matches in table regions. Extracted `collectHighlightColors` helper to keep `clearFindHighlights` within SwiftLint body length limits.
+    - **Deviations**: Table find highlight coordination placed in `handleFindUpdate` rather than inside `applyFindHighlights` to keep `applyFindHighlights` within SwiftLint's 50-line function body limit.
+    - **Tests**: 512/512 passing (3 pre-existing failures in AppSettings unrelated)
 
 ### User Docs
 
