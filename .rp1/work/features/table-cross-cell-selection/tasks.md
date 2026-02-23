@@ -2,7 +2,7 @@
 
 **Feature ID**: table-cross-cell-selection
 **Status**: In Progress
-**Progress**: 33% (4 of 12 tasks)
+**Progress**: 42% (5 of 12 tasks)
 **Estimated Effort**: 7 days
 **Started**: 2026-02-23
 
@@ -119,7 +119,7 @@ Make table cell content part of the document's NSTextStorage as invisible text s
     | Commit | ✅ PASS |
     | Comments | ✅ PASS |
 
-- [ ] **T5**: Implement copy handler for RTF and tab-delimited clipboard output `[complexity:medium]`
+- [x] **T5**: Implement copy handler for RTF and tab-delimited clipboard output `[complexity:medium]`
 
     **Reference**: [design.md#38-codeblockbackgroundtextview-copy-override](design.md#38-codeblockbackgroundtextview-copy-override)
 
@@ -127,14 +127,21 @@ Make table cell content part of the document's NSTextStorage as invisible text s
 
     **Acceptance Criteria**:
 
-    - [ ] `copy(_:)` override in `CodeBlockBackgroundTextView` detects table text in selection via `TableAttributes.cellMap`
-    - [ ] When selection contains no table text, delegates to `super.copy(_:)`
-    - [ ] `buildMixedClipboard` method walks selected range in document order, concatenating non-table text and formatted table content
-    - [ ] RTF data placed on pasteboard as `.rtf` type
-    - [ ] Tab-delimited plain text placed on pasteboard as `.string` type
-    - [ ] Each table row maps to one line; columns separated by tab characters
-    - [ ] Mixed selections (paragraph + table + paragraph) produce correctly ordered output
-    - [ ] Header row included in output when selected (no separator line)
+    - [x] `copy(_:)` override in `CodeBlockBackgroundTextView` detects table text in selection via `TableAttributes.cellMap`
+    - [x] When selection contains no table text, delegates to `super.copy(_:)`
+    - [x] `buildMixedClipboard` method walks selected range in document order, concatenating non-table text and formatted table content
+    - [x] RTF data placed on pasteboard as `.rtf` type
+    - [x] Tab-delimited plain text placed on pasteboard as `.string` type
+    - [x] Each table row maps to one line; columns separated by tab characters
+    - [x] Mixed selections (paragraph + table + paragraph) produce correctly ordered output
+    - [x] Header row included in output when selected (no separator line)
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Features/Viewer/Views/CodeBlockBackgroundTextView.swift`, `mkdn/Features/Viewer/Views/CodeBlockBackgroundTextView+TableCopy.swift`
+    - **Approach**: Added compact `copy(_:)` override in main class delegating to `handleTableCopy()` in a new +TableCopy extension file. The extension detects table segments in the selection by enumerating `TableAttributes.cellMap` with `longestEffectiveRange` to find full table bounds. `buildMixedClipboard` walks the selected range in document order, interleaving non-table text (RTF paragraphs via `\pard`) with table content (RTF `\trowd`/`\cell`/`\row` markup). Tab-delimited plain text delegates to `TableCellMap.tabDelimitedText(for:)`. RTF color table uses `TableColorInfo` from the text storage attributes. Split into extension file to satisfy SwiftLint file_length limit.
+    - **Deviations**: Extension file created to stay within SwiftLint file_length (500 lines). Pre-existing type_body_length violation (373 lines > 350 warning) was not addressed as it predates this task.
+    - **Tests**: 512/512 passing (3 pre-existing failures in AppSettings unrelated)
 
 - [ ] **T6**: Extend EntranceAnimator to group table layout fragments `[complexity:simple]`
 
@@ -227,6 +234,18 @@ Make table cell content part of the document's NSTextStorage as invisible text s
     - **Approach**: Completed the T3 stub with full drawing implementation. Added accentColor and findHighlightColor properties with system defaults. Override isFlipped to true for correct top-to-bottom coordinate alignment with the flipped NSTextView parent. Cell rectangles computed from cumulative columnWidths and rowHeights arrays in TableCellMap. Selection highlights drawn at 0.3 opacity for data cells and 0.4 for header cells (FR-012). Find highlights drawn at 0.15 passive / 0.4 current opacity. Drawing uses dirtyRect intersection to skip off-screen cells.
     - **Deviations**: None
     - **Tests**: 512/512 passing (3 pre-existing failures in AppSettings unrelated)
+
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
 
 - [ ] **T8**: Wire selection change and find integration through SelectableTextView `[complexity:medium]`
 

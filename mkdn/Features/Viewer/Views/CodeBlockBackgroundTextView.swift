@@ -61,6 +61,12 @@ final class CodeBlockBackgroundTextView: NSTextView {
     /// Current indexed blocks retained for print-time attributed string rebuild.
     var printBlocks: [IndexedBlock] = []
 
+    // MARK: - Table-Aware Copy
+
+    override func copy(_ sender: Any?) {
+        if !handleTableCopy() { super.copy(sender) }
+    }
+
     // MARK: - Live Resize
 
     override func setFrameSize(_ newSize: NSSize) {
