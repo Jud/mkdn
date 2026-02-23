@@ -34,6 +34,7 @@ struct MarkdownPreviewView: View {
         SelectableTextView(
             attributedText: textStorageResult.attributedString,
             attachments: textStorageResult.attachments,
+            tableOverlays: textStorageResult.tableOverlays,
             blocks: renderedBlocks,
             theme: appSettings.theme,
             isFullReload: isFullReload,
@@ -65,10 +66,10 @@ struct MarkdownPreviewView: View {
                 theme: appSettings.theme
             )
             debugLog("[PREVIEW] rendered \(newBlocks.count) blocks: \(newBlocks.map { type(of: $0) })")
-            let mermaidCount = newBlocks.filter { indexedBlock in
+            let mermaidCount = newBlocks.count(where: { indexedBlock in
                 if case .mermaidBlock = indexedBlock.block { return true }
                 return false
-            }.count
+            })
             debugLog("[PREVIEW] mermaid blocks: \(mermaidCount)")
 
             let anyKnown = newBlocks.contains { knownBlockIDs.contains($0.id) }
