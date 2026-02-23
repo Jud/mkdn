@@ -442,6 +442,17 @@ Make table cell content part of the document's NSTextStorage as invisible text s
 - [ ] NFR-009: SwiftLint strict mode + SwiftFormat clean
 - [ ] NFR-010: Correct Swift 6 concurrency annotations
 
+## Manual Verification
+
+- [ ] FR-001 AC-1: Click-drag cell selection visual verification
+- [ ] FR-001 AC-3: Selection highlight real-time 60fps performance
+- [ ] FR-004 AC-3: RTF paste into TextEdit produces formatted table
+- [ ] FR-004 AC-4: Tab-delimited paste into Numbers correct columns
+- [ ] FR-007 AC-1: Screenshot comparison shows no visual differences
+- [ ] FR-007 AC-2: All themes render tables identically
+- [ ] FR-008 AC-3: Print output matches on-screen appearance
+- [ ] FR-012 AC-2: Header selection distinction subtle, not distracting
+
 ## Definition of Done
 
 - [ ] All 12 tasks completed
