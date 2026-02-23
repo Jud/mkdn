@@ -64,14 +64,36 @@ Mermaid code block detected
 
 ### Tables
 ```
-.table(columns, rows) in MarkdownBlock
--> MarkdownTextStorageBuilder estimates height via TableColumnSizer
--> NSTextAttachment placeholder in NSTextView
--> OverlayCoordinator creates NSHostingView overlay
--> TableBlockView calls TableColumnSizer.computeWidths for content-aware column widths
--> TableBlockView reports actual size via onSizeChange callback
--> OverlayCoordinator.updateAttachmentSize adjusts overlay width + attachment height
--> OverlayCoordinator observes scroll for sticky headers (TableHeaderView)
+Dual-layer rendering: invisible text + visual overlay + highlight overlay
+
+1. Build Layer (MarkdownTextStorageBuilder+TableInline):
+   .table(columns, rows) in MarkdownBlock
+   -> appendTableInlineText: invisible text in NSTextStorage (clear foreground)
+   -> Tab-separated cell content per row, newline-delimited rows
+   -> TableAttributes.range (unique ID), .cellMap (TableCellMap), .colors (TableColorInfo)
+   -> TableColumnSizer.computeWidths for column geometry
+   -> Paragraph style: tab stops at cumulative column widths, fixed row height
+   -> Output: TableOverlayInfo (blockIndex, tableRangeID, cellMap)
+
+2. Visual Layer (OverlayCoordinator+TableOverlays -> TableBlockView):
+   -> OverlayCoordinator.updateTableOverlays creates NSHostingView<TableBlockView>
+   -> positionTextRangeEntry: bounding rect from layout fragments in text range
+   -> TableBlockView provides pixel-identical visual rendering (unchanged)
+   -> OverlayCoordinator observes scroll for sticky headers (TableHeaderView)
+
+3. Highlight Layer (TableHighlightOverlay):
+   -> NSView sibling on top of visual overlay, hitTest returns nil
+   -> updateTableSelections: selection range -> cellMap.cellsInRange -> cell highlights
+   -> updateTableFindHighlights: find match ranges -> cell highlights + current match
+   -> System accent color (0.3 data, 0.4 header) for selection
+   -> Theme findHighlight color (0.15 passive, 0.4 current) for find
+
+4. Interaction:
+   -> Selection: NSTextView native (invisible text participates in TextKit 2 selection)
+   -> Find (Cmd+F): text storage search works natively on invisible text
+   -> Copy (Cmd+C): CodeBlockBackgroundTextView.copy override detects TableAttributes,
+      generates RTF table + tab-delimited plain text via TableCellMap
+   -> Cmd+A: selects all including table text (cross-block continuity)
 ```
 
 ### Code Blocks
@@ -88,8 +110,15 @@ Unsupported/untagged -> plain monospace text (no coloring)
 Cmd+P
 -> CodeBlockBackgroundTextView.printView(_:)
 -> PrintPalette.colors + PrintPalette.syntaxColors
--> MarkdownTextStorageBuilder.build(blocks:colors:syntaxColors:)
+-> MarkdownTextStorageBuilder.build(blocks:colors:syntaxColors:isPrint:true)
+-> Table text gets visible foreground (not clear) via isPrint flag
 -> Temporary CodeBlockBackgroundTextView (off-screen, white bg, 32pt inset)
+-> drawBackground calls drawTableContainers(in:) for table visual structure
+   (CodeBlockBackgroundTextView+TablePrint.swift):
+   -> Enumerates TableAttributes.range regions in textStorage
+   -> Computes bounding rects from layout fragments
+   -> Draws rounded-rect border, header fill, alternating row fills, header-body divider
+   -> Uses TableColorInfo from attributes (adapted to PrintPalette)
 -> NSPrintOperation(view:printInfo:).run()
 ```
 
