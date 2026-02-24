@@ -32,10 +32,14 @@ struct ImageAnalyzer: Sendable {
     private let pixelHeight: Int
 
     /// Width of the image in points.
-    var pointWidth: CGFloat { CGFloat(pixelWidth) / scaleFactor }
+    var pointWidth: CGFloat {
+        CGFloat(pixelWidth) / scaleFactor
+    }
 
     /// Height of the image in points.
-    var pointHeight: CGFloat { CGFloat(pixelHeight) / scaleFactor }
+    var pointHeight: CGFloat {
+        CGFloat(pixelHeight) / scaleFactor
+    }
 
     init(image: CGImage, scaleFactor: CGFloat = 2.0) {
         self.image = image

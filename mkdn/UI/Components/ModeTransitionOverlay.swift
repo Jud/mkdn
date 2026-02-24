@@ -18,7 +18,9 @@ struct ModeTransitionOverlay: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isVisible = false
 
-    private var motion: MotionPreference { MotionPreference(reduceMotion: reduceMotion) }
+    private var motion: MotionPreference {
+        MotionPreference(reduceMotion: reduceMotion)
+    }
 
     var body: some View {
         Text(label)

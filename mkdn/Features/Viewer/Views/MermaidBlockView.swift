@@ -71,7 +71,6 @@ struct MermaidBlockView: View {
             }
     }
 
-    @ViewBuilder
     private var diagramContent: some View {
         ZStack {
             MermaidWebView(

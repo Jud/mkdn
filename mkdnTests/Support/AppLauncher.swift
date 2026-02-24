@@ -1,5 +1,4 @@
 import Foundation
-
 @testable import mkdnLib
 
 /// Builds and launches the mkdn executable in test harness mode,

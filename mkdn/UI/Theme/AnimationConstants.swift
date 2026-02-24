@@ -304,49 +304,73 @@ enum AnimationConstants {
 
     /// Use ``breathe`` instead.
     @available(*, deprecated, renamed: "breathe")
-    static var orbPulse: Animation { breathe }
+    static var orbPulse: Animation {
+        breathe
+    }
 
     /// Use ``haloBloom`` instead.
     @available(*, deprecated, renamed: "haloBloom")
-    static var orbHaloBloom: Animation { haloBloom }
+    static var orbHaloBloom: Animation {
+        haloBloom
+    }
 
     /// Use ``breathe`` instead. All orbs share the same breathing rhythm.
     @available(*, deprecated, renamed: "breathe")
-    static var fileChangeOrbPulse: Animation { breathe }
+    static var fileChangeOrbPulse: Animation {
+        breathe
+    }
 
     /// Use ``breathe`` instead. All orbs share the same breathing rhythm.
     @available(*, deprecated, renamed: "breathe")
-    static var defaultHandlerOrbPulse: Animation { breathe }
+    static var defaultHandlerOrbPulse: Animation {
+        breathe
+    }
 
     /// Use ``fadeIn`` instead.
     @available(*, deprecated, renamed: "fadeIn")
-    static var orbAppear: Animation { fadeIn }
+    static var orbAppear: Animation {
+        fadeIn
+    }
 
     /// Use ``fadeOut`` instead.
     @available(*, deprecated, renamed: "fadeOut")
-    static var orbDissolve: Animation { fadeOut }
+    static var orbDissolve: Animation {
+        fadeOut
+    }
 
     /// Use ``springSettle`` instead.
     @available(*, deprecated, renamed: "springSettle")
-    static var overlaySpringIn: Animation { springSettle }
+    static var overlaySpringIn: Animation {
+        springSettle
+    }
 
     /// Use ``quickFade`` instead.
     @available(*, deprecated, renamed: "quickFade")
-    static var overlayFadeOut: Animation { quickFade }
+    static var overlayFadeOut: Animation {
+        quickFade
+    }
 
     /// Use ``gentleSpring`` instead.
     @available(*, deprecated, renamed: "gentleSpring")
-    static var viewModeTransition: Animation { gentleSpring }
+    static var viewModeTransition: Animation {
+        gentleSpring
+    }
 
     /// Use ``crossfade`` instead.
     @available(*, deprecated, renamed: "crossfade")
-    static var themeCrossfade: Animation { crossfade }
+    static var themeCrossfade: Animation {
+        crossfade
+    }
 
     /// Use ``orbDefaultHandlerColor`` instead.
     @available(*, deprecated, renamed: "orbDefaultHandlerColor")
-    static var orbGlowColor: Color { orbDefaultHandlerColor }
+    static var orbGlowColor: Color {
+        orbDefaultHandlerColor
+    }
 
     /// Use ``orbFileChangedColor`` instead.
     @available(*, deprecated, renamed: "orbFileChangedColor")
-    static var fileChangeOrbColor: Color { orbFileChangedColor }
+    static var fileChangeOrbColor: Color {
+        orbFileChangedColor
+    }
 }

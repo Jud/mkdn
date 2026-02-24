@@ -1,6 +1,5 @@
 import AppKit
 import Testing
-
 @testable import mkdnLib
 
 @Suite("TableColumnSizer")

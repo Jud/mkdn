@@ -653,7 +653,7 @@ enum HighlightQueries {
 
     // MARK: - TypeScript
 
-    // TypeScript inherits JavaScript queries; TypeScript-specific overrides appended.
+    /// TypeScript inherits JavaScript queries; TypeScript-specific overrides appended.
     static let typescript = javascript + "\n" + #"""
     (type_identifier) @type
     (predefined_type) @type.builtin
@@ -1295,7 +1295,7 @@ enum HighlightQueries {
 
     // MARK: - C++
 
-    // C++ inherits C queries; C++-specific overrides appended.
+    /// C++ inherits C queries; C++-specific overrides appended.
     static let cpp = cLang + "\n" + #"""
     (call_expression
       function: (qualified_identifier

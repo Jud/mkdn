@@ -74,7 +74,9 @@ struct FrameAnalyzer: Sendable {
     let scaleFactor: CGFloat
 
     /// Time in seconds between consecutive frames.
-    var frameDuration: TimeInterval { 1.0 / Double(fps) }
+    var frameDuration: TimeInterval {
+        1.0 / Double(fps)
+    }
 
     // MARK: - Orb Pulse Detection
 

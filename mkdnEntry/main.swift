@@ -35,8 +35,8 @@ struct MkdnApp: App {
 // The re-launched process reads the env var and proceeds with a clean argv.
 // See: .rp1/work/issues/file-arg-no-window/investigation_report.md
 
-// Check for --test-harness before CLI parsing to avoid argument parser conflicts.
-// The flag activates the in-process test harness server for automated UI testing.
+/// Check for --test-harness before CLI parsing to avoid argument parser conflicts.
+/// The flag activates the in-process test harness server for automated UI testing.
 let rawArguments = CommandLine.arguments
 
 if rawArguments.contains("--test-harness") {
