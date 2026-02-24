@@ -54,7 +54,9 @@ struct MarkdownBlockView: View {
             TableBlockView(columns: columns, rows: rows)
 
         case let .image(source, alt):
-            ImageBlockView(source: source, alt: alt)
+            GeometryReader { geometry in
+                ImageBlockView(source: source, alt: alt, containerWidth: geometry.size.width)
+            }
 
         case let .htmlBlock(content):
             Text(content)
