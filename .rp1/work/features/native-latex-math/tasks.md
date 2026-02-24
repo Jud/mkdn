@@ -1,8 +1,8 @@
 # Development Tasks: Native LaTeX Math Rendering
 
 **Feature ID**: native-latex-math
-**Status**: Not Started
-**Progress**: 25% (3 of 12 tasks)
+**Status**: In Progress
+**Progress**: 33% (4 of 12 tasks)
 **Estimated Effort**: 4 days
 **Started**: 2026-02-24
 
@@ -135,9 +135,21 @@ Add native LaTeX math rendering to mkdn's Markdown viewer with three detection p
     - **Deviations**: None
     - **Tests**: 509/512 passing (3 pre-existing failures in AppSettings.cycleTheme unrelated to this change)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
 ### TextStorageBuilder Integration
 
-- [ ] **T4**: Wire math blocks and inline math through MarkdownTextStorageBuilder with attachment placeholders and NSTextAttachment rendering `[complexity:medium]`
+- [x] **T4**: Wire math blocks and inline math through MarkdownTextStorageBuilder with attachment placeholders and NSTextAttachment rendering `[complexity:medium]`
 
     **Reference**: [design.md#35-inline-math-rendering](design.md#35-inline-math-rendering)
 
@@ -145,13 +157,20 @@ Add native LaTeX math rendering to mkdn's Markdown viewer with three detection p
 
     **Acceptance Criteria**:
 
-    - [ ] `.mathBlock` dispatches to `appendAttachmentPlaceholder` in screen mode (same as `.mermaidBlock`)
-    - [ ] `.mathBlock` dispatches to `appendMathBlockInline` in print mode (`isPrint: true`)
-    - [ ] `MarkdownTextStorageBuilder+MathInline.swift` exists with `renderInlineMath` static method
-    - [ ] `convertInlineContent` checks for `mathExpression` attribute before existing run processing
-    - [ ] Inline math renders to `NSTextAttachment` with correct baseline alignment via negative `bounds.origin.y`
-    - [ ] Failed inline math renders as monospace text with secondary (0.6 alpha) foreground color
-    - [ ] `AttachmentInfo` is produced for `.mathBlock` blocks (consumed by OverlayCoordinator)
+    - [x] `.mathBlock` dispatches to `appendAttachmentPlaceholder` in screen mode (same as `.mermaidBlock`)
+    - [x] `.mathBlock` dispatches to `appendMathBlockInline` in print mode (`isPrint: true`)
+    - [x] `MarkdownTextStorageBuilder+MathInline.swift` exists with `renderInlineMath` static method
+    - [x] `convertInlineContent` checks for `mathExpression` attribute before existing run processing
+    - [x] Inline math renders to `NSTextAttachment` with correct baseline alignment via negative `bounds.origin.y`
+    - [x] Failed inline math renders as monospace text with secondary (0.6 alpha) foreground color
+    - [x] `AttachmentInfo` is produced for `.mathBlock` blocks (consumed by OverlayCoordinator)
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Core/Markdown/MarkdownTextStorageBuilder.swift`, `mkdn/Core/Markdown/MarkdownTextStorageBuilder+Blocks.swift`, `mkdn/Core/Markdown/MarkdownTextStorageBuilder+MathInline.swift` (new), `mkdn/Core/Math/MathRenderer.swift`
+    - **Approach**: Split `.mathBlock` dispatch in `appendBlock` between screen (attachment placeholder) and print (`appendMathBlockInline`). Added `renderInlineMath` static method that detects `mathExpression` attribute on runs, renders via `MathRenderer.renderToImage` with `displayMode: false`, creates `NSTextAttachment` with baseline alignment via negative `bounds.origin.y` offset, or falls back to monospace text with 0.6 alpha. `convertInlineContent` checks for inline math before existing run processing. Print path renders display-mode math as centered `NSTextAttachment` with appropriate paragraph style.
+    - **Deviations**: Removed `@MainActor` from `MathRenderer` because T2's implementation uses `MathImage` (struct/CoreGraphics), not `MTMathUILabel` (NSView). Without this, Swift 6 strict concurrency prevented calling `MathRenderer` from the nonisolated builder. See `field-notes.md` for details.
+    - **Tests**: 509/512 passing (3 pre-existing failures in AppSettings.cycleTheme unrelated to this change)
 
 ### Block Math Overlay
 

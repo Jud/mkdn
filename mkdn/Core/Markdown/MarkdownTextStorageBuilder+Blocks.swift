@@ -196,6 +196,59 @@ extension MarkdownTextStorageBuilder {
         result.append(htmlContent)
     }
 
+    // MARK: - Math Block (Print)
+
+    static func appendMathBlockInline(
+        to result: NSMutableAttributedString,
+        code: String,
+        colors: ThemeColors,
+        scaleFactor: CGFloat = 1.0
+    ) {
+        let foreground = PlatformTypeConverter.nsColor(from: colors.foreground)
+        let baseFontSize = PlatformTypeConverter.bodyFont(scaleFactor: scaleFactor).pointSize
+        let displayFontSize = baseFontSize * 1.2
+
+        let centeredStyle = makeParagraphStyle(
+            paragraphSpacing: blockSpacing,
+            alignment: .center
+        )
+
+        if let rendered = MathRenderer.renderToImage(
+            latex: code,
+            fontSize: displayFontSize,
+            textColor: foreground,
+            displayMode: true
+        ) {
+            let attachment = NSTextAttachment()
+            attachment.image = rendered.image
+            attachment.bounds = CGRect(
+                x: 0,
+                y: 0,
+                width: rendered.image.size.width,
+                height: rendered.image.size.height
+            )
+
+            let attachmentStr = NSMutableAttributedString(attachment: attachment)
+            let range = NSRange(location: 0, length: attachmentStr.length)
+            attachmentStr.addAttribute(.paragraphStyle, value: centeredStyle, range: range)
+            attachmentStr.append(terminator(with: centeredStyle))
+            result.append(attachmentStr)
+        } else {
+            let monoFont = PlatformTypeConverter.monospacedFont(scaleFactor: scaleFactor)
+            let secondaryColor = PlatformTypeConverter.nsColor(from: colors.foregroundSecondary)
+            let fallback = NSMutableAttributedString(
+                string: code,
+                attributes: [
+                    .font: monoFont,
+                    .foregroundColor: secondaryColor,
+                    .paragraphStyle: centeredStyle,
+                ]
+            )
+            fallback.append(terminator(with: centeredStyle))
+            result.append(fallback)
+        }
+    }
+
     // MARK: - Code Block Helpers
 
     private static func makeCodeBlockParagraphStyle() -> NSParagraphStyle {

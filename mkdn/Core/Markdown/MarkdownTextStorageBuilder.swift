@@ -186,8 +186,16 @@ enum MarkdownTextStorageBuilder {
                 syntaxColors: syntaxColors,
                 scaleFactor: sf
             )
-        case .mermaidBlock, .image, .mathBlock:
+        case .mermaidBlock, .image:
             appendAttachmentPlaceholder(indexedBlock, to: result, attachments: &attachments)
+        case let .mathBlock(code):
+            if isPrint {
+                appendMathBlockInline(
+                    to: result, code: code, colors: colors, scaleFactor: sf
+                )
+            } else {
+                appendAttachmentPlaceholder(indexedBlock, to: result, attachments: &attachments)
+            }
         case let .blockquote(blocks):
             appendBlockquote(
                 to: result,
@@ -287,6 +295,17 @@ enum MarkdownTextStorageBuilder {
         let result = NSMutableAttributedString()
 
         for run in content.runs {
+            if let mathResult = renderInlineMath(
+                from: run,
+                content: content,
+                baseFont: baseFont,
+                baseForegroundColor: baseForegroundColor,
+                scaleFactor: scaleFactor
+            ) {
+                result.append(mathResult)
+                continue
+            }
+
             let text = String(content[run.range].characters)
             var attributes: [NSAttributedString.Key: Any] = [:]
 
