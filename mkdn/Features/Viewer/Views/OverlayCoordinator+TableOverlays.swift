@@ -55,7 +55,8 @@ extension OverlayCoordinator {
             )
             else {
                 highlightOverlay.selectedCells = []
-                highlightOverlay.setNeedsDisplay(highlightOverlay.bounds)
+                highlightOverlay.needsDisplay = true
+                highlightOverlay.displayIfNeeded()
                 continue
             }
 
@@ -69,7 +70,8 @@ extension OverlayCoordinator {
             } else {
                 highlightOverlay.selectedCells = []
             }
-            highlightOverlay.setNeedsDisplay(highlightOverlay.bounds)
+            highlightOverlay.needsDisplay = true
+            highlightOverlay.displayIfNeeded()
         }
     }
 
@@ -114,7 +116,8 @@ extension OverlayCoordinator {
         else {
             highlightOverlay.findHighlightCells = []
             highlightOverlay.currentFindCell = nil
-            highlightOverlay.setNeedsDisplay(highlightOverlay.bounds)
+            highlightOverlay.needsDisplay = true
+            highlightOverlay.displayIfNeeded()
             return
         }
 
@@ -139,7 +142,8 @@ extension OverlayCoordinator {
 
         highlightOverlay.findHighlightCells = findCells
         highlightOverlay.currentFindCell = currentCell
-        highlightOverlay.setNeedsDisplay(highlightOverlay.bounds)
+        highlightOverlay.needsDisplay = true
+        highlightOverlay.displayIfNeeded()
     }
 
     // MARK: - Table Overlay Lifecycle
@@ -189,8 +193,13 @@ extension OverlayCoordinator {
 
         let highlightOverlay = TableHighlightOverlay()
         highlightOverlay.cellMap = info.cellMap
+        highlightOverlay.wantsLayer = true
         highlightOverlay.isHidden = true
-        textView.addSubview(highlightOverlay)
+        textView.addSubview(
+            highlightOverlay,
+            positioned: .above,
+            relativeTo: visualOverlay
+        )
 
         entries[info.blockIndex] = OverlayEntry(
             view: visualOverlay,
