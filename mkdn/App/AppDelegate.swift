@@ -41,7 +41,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             else {
                 return event
             }
-            NSApp.keyWindow?.performClose(nil)
+            NSApp.keyWindow?.close()
             return nil
         }
     }

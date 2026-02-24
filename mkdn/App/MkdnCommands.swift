@@ -38,7 +38,7 @@ public struct MkdnCommands: Commands {
 
         CommandGroup(after: .newItem) {
             Button("Close") {
-                NSApp.keyWindow?.performClose(nil)
+                NSApp.keyWindow?.close()
             }
             .keyboardShortcut("w", modifiers: .command)
         }
