@@ -269,7 +269,11 @@ final class OverlayCoordinator {
             )
         case let .image(source, alt):
             overlayView = makeImageOverlay(
-                source: source, alt: alt, appSettings: appSettings, documentState: documentState
+                source: source,
+                alt: alt,
+                blockIndex: info.blockIndex,
+                appSettings: appSettings,
+                documentState: documentState
             )
         case .thematicBreak:
             overlayView = makeThematicBreakOverlay(appSettings: appSettings)
@@ -409,12 +413,26 @@ extension OverlayCoordinator {
     func makeImageOverlay(
         source: String,
         alt: String,
+        blockIndex: Int,
         appSettings: AppSettings,
         documentState: DocumentState
     ) -> NSView {
-        let rootView = ImageBlockView(source: source, alt: alt)
-            .environment(appSettings)
-            .environment(documentState)
+        let containerWidth = textView.map { textContainerWidth(in: $0) } ?? 600
+        let rootView = ImageBlockView(
+            source: source,
+            alt: alt,
+            containerWidth: containerWidth
+        ) { [weak self] renderedWidth, renderedHeight in
+            guard let self else { return }
+            let preferredWidth = renderedWidth < containerWidth ? renderedWidth : nil
+            updateAttachmentSize(
+                blockIndex: blockIndex,
+                newWidth: preferredWidth,
+                newHeight: renderedHeight
+            )
+        }
+        .environment(appSettings)
+        .environment(documentState)
         return NSHostingView(rootView: rootView)
     }
 

@@ -1,9 +1,16 @@
 import SwiftUI
 
 /// Renders a Markdown image with async loading, error placeholders, and path security.
+///
+/// Images render at their natural size when smaller than the container, and scale
+/// down to fit when larger. Aspect ratio is always preserved. Reports rendered
+/// dimensions via `onSizeChange` so the overlay coordinator can update the
+/// attachment placeholder height.
 struct ImageBlockView: View {
     let source: String
     let alt: String
+    let containerWidth: CGFloat
+    var onSizeChange: ((CGFloat, CGFloat) -> Void)?
 
     @Environment(DocumentState.self) private var documentState
     @Environment(AppSettings.self) private var appSettings
@@ -44,19 +51,39 @@ struct ImageBlockView: View {
     }
 
     private func imageContent(_ image: NSImage) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        let naturalWidth = image.size.width
+        let naturalHeight = image.size.height
+        let renderedWidth = min(naturalWidth, containerWidth)
+        let scale = naturalHeight > 0 ? renderedWidth / naturalWidth : 1
+        let renderedHeight = naturalHeight * scale
+
+        return VStack(alignment: .leading, spacing: 4) {
             Image(nsImage: image)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(width: renderedWidth, height: renderedHeight)
                 .clipShape(RoundedRectangle(cornerRadius: 4))
 
             if !alt.isEmpty {
                 Text(alt)
                     .font(.caption)
                     .foregroundColor(colors.foregroundSecondary)
+                    .frame(maxWidth: renderedWidth, alignment: .leading)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .onAppear { reportSize(width: renderedWidth, height: renderedHeight) }
+        .onChange(of: containerWidth) {
+            let newWidth = min(naturalWidth, containerWidth)
+            let newScale = naturalHeight > 0 ? newWidth / naturalWidth : 1
+            let newHeight = naturalHeight * newScale
+            reportSize(width: newWidth, height: newHeight)
+        }
+    }
+
+    private func reportSize(width: CGFloat, height: CGFloat) {
+        let captionHeight: CGFloat = alt.isEmpty ? 0 : 20
+        onSizeChange?(width, height + captionHeight + 4)
     }
 
     private var errorPlaceholder: some View {
