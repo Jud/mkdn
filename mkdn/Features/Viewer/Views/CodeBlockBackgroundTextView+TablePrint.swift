@@ -183,11 +183,9 @@ extension CodeBlockBackgroundTextView {
         NSGraphicsContext.saveGraphicsState()
         path.addClip()
 
-        // Base background fill
         colorInfo.background.setFill()
         rect.fill()
 
-        // Header row fill
         if !cellMap.rowHeights.isEmpty {
             let headerHeight = cellMap.rowHeights[0]
             let headerRect = CGRect(
@@ -222,7 +220,6 @@ extension CodeBlockBackgroundTextView {
             currentY += rowHeight
         }
 
-        // Header-body divider
         if !cellMap.rowHeights.isEmpty {
             let dividerY = rect.minY + cellMap.rowHeights[0]
             let dividerPath = NSBezierPath()
