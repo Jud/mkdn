@@ -2,7 +2,7 @@
 
 **Feature ID**: native-latex-math
 **Status**: In Progress
-**Progress**: 42% (5 of 12 tasks)
+**Progress**: 50% (6 of 12 tasks)
 **Estimated Effort**: 4 days
 **Started**: 2026-02-24
 
@@ -212,9 +212,21 @@ Add native LaTeX math rendering to mkdn's Markdown viewer with three detection p
     - **Deviations**: None
     - **Tests**: 509/512 passing (3 pre-existing failures in AppSettings.cycleTheme unrelated to this change)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
 ### Print Support
 
-- [ ] **T6**: Implement block math print rendering as centered NSTextAttachment in the isPrint path `[complexity:simple]`
+- [x] **T6**: Implement block math print rendering as centered NSTextAttachment in the isPrint path `[complexity:simple]`
 
     **Reference**: [design.md#36-print-support](design.md#36-print-support)
 
@@ -222,11 +234,18 @@ Add native LaTeX math rendering to mkdn's Markdown viewer with three detection p
 
     **Acceptance Criteria**:
 
-    - [ ] `appendMathBlockInline` renders math via `MathRenderer.renderToImage` with `PrintPalette.colors.foreground` (black)
-    - [ ] Rendered image is inserted as a centered `NSTextAttachment` with appropriate paragraph style
-    - [ ] Failed expressions fall back to centered monospace text in print palette colors
-    - [ ] Inline math prints correctly (inherits print palette colors from `convertInlineContent` call chain)
-    - [ ] `swift build` succeeds; no print-path compilation errors
+    - [x] `appendMathBlockInline` renders math via `MathRenderer.renderToImage` with `PrintPalette.colors.foreground` (black)
+    - [x] Rendered image is inserted as a centered `NSTextAttachment` with appropriate paragraph style
+    - [x] Failed expressions fall back to centered monospace text in print palette colors
+    - [x] Inline math prints correctly (inherits print palette colors from `convertInlineContent` call chain)
+    - [x] `swift build` succeeds; no print-path compilation errors
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Core/Markdown/MarkdownTextStorageBuilder+Blocks.swift` (appendMathBlockInline), `mkdn/Core/Markdown/MarkdownTextStorageBuilder.swift` (isPrint dispatch)
+    - **Approach**: Block math print rendering was implemented as part of T4's TextStorageBuilder integration. `appendMathBlockInline` renders display-mode math (1.2x body font) via `MathRenderer.renderToImage` with the provided theme colors (PrintPalette during Cmd+P), inserts the result as a centered `NSTextAttachment` with centered paragraph style. Failed expressions fall back to centered monospace text with secondary foreground color. Inline math prints correctly by inheriting print palette colors through the `convertInlineContent` -> `renderInlineMath` call chain.
+    - **Deviations**: None. Implementation was completed ahead of schedule during T4 to ensure the isPrint dispatch branch compiled cleanly.
+    - **Tests**: 509/512 passing (3 pre-existing failures in AppSettings.cycleTheme unrelated to this change)
 
 ### Tests and Fixture
 
