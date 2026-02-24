@@ -28,6 +28,9 @@ struct MarkdownVisitor {
             if language == "mermaid" {
                 return .mermaidBlock(code: code)
             }
+            if language == "math" || language == "latex" || language == "tex" {
+                return .mathBlock(code: code.trimmingCharacters(in: .whitespacesAndNewlines))
+            }
             return .codeBlock(language: language, code: code)
 
         case let blockquote as BlockQuote:
@@ -68,7 +71,8 @@ struct MarkdownVisitor {
 
     // MARK: - Paragraph Conversion
 
-    /// Converts a paragraph, promoting a standalone image child to a block-level image.
+    /// Converts a paragraph, promoting a standalone image child to a block-level image,
+    /// or a standalone `$$...$$` paragraph to a block-level math expression.
     private func convertParagraph(_ paragraph: Paragraph) -> MarkdownBlock {
         let children = Array(paragraph.children)
         if children.count == 1, let image = children.first as? Markdown.Image {
@@ -76,6 +80,19 @@ struct MarkdownVisitor {
             let alt = plainText(from: image)
             return .image(source: source, alt: alt)
         }
+
+        let rawText = plainText(from: paragraph)
+        let trimmed = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.hasPrefix("$$"), trimmed.hasSuffix("$$"),
+           trimmed.count > 4
+        {
+            let latex = String(trimmed.dropFirst(2).dropLast(2))
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !latex.isEmpty {
+                return .mathBlock(code: latex)
+            }
+        }
+
         let text = inlineText(from: paragraph)
         return .paragraph(text: text)
     }
@@ -108,7 +125,7 @@ struct MarkdownVisitor {
         for child in markup.children {
             result.append(convertInline(child))
         }
-        return result
+        return postProcessMathDelimiters(result)
     }
 
     private func convertInline(_ markup: any Markup) -> AttributedString {
@@ -186,5 +203,159 @@ struct MarkdownVisitor {
             }
         }
         return result
+    }
+
+    // MARK: - Inline Math Detection
+
+    /// Scans the `AttributedString` for `$...$` patterns and marks them
+    /// with the `mathExpression` attribute containing the LaTeX source.
+    private func postProcessMathDelimiters(
+        _ input: AttributedString
+    ) -> AttributedString {
+        let fullString = String(input.characters)
+        guard fullString.contains("$") else { return input }
+
+        let mathRanges = findInlineMathRanges(in: fullString)
+        guard !mathRanges.isEmpty else { return input }
+
+        var result = input
+
+        for (range, latex) in mathRanges.reversed() {
+            guard let attrRange = attributedStringRange(
+                for: range, in: result, fullString: fullString
+            )
+            else { continue }
+            var mathSegment = AttributedString(latex)
+            mathSegment.mathExpression = latex
+            result.replaceSubrange(attrRange, with: mathSegment)
+        }
+
+        return result
+    }
+
+    /// Finds valid `$...$` math delimiters following business rules:
+    /// - BR-2: `$` followed by whitespace is not a delimiter
+    /// - REQ-IDET-2: `\$` is a literal dollar sign
+    /// - REQ-IDET-3: `$$` is not an inline delimiter
+    /// - REQ-IDET-4: Empty delimiters produce no math
+    /// - REQ-IDET-5: Unclosed `$` is literal text
+    private func findInlineMathRanges(
+        in text: String
+    ) -> [(Range<String.Index>, String)] {
+        var results: [(Range<String.Index>, String)] = []
+        var index = text.startIndex
+
+        while index < text.endIndex {
+            let char = text[index]
+
+            if char == "\\" {
+                let next = text.index(after: index)
+                if next < text.endIndex, text[next] == "$" {
+                    index = text.index(after: next)
+                    continue
+                }
+            }
+
+            if char == "$" {
+                let next = text.index(after: index)
+
+                if next < text.endIndex, text[next] == "$" {
+                    index = text.index(after: next)
+                    continue
+                }
+
+                if next >= text.endIndex {
+                    break
+                }
+
+                if text[next].isWhitespace {
+                    index = next
+                    continue
+                }
+
+                if let (closingIndex, latex) = findClosingDollar(in: text, from: next) {
+                    let fullRange = index ..< text.index(after: closingIndex)
+                    results.append((fullRange, latex))
+                    index = text.index(after: closingIndex)
+                } else {
+                    index = next
+                }
+            } else {
+                index = text.index(after: index)
+            }
+        }
+
+        return results
+    }
+
+    /// Scans forward from `start` looking for a valid closing `$` delimiter.
+    /// Returns the index of the closing `$` and the LaTeX content between delimiters,
+    /// or nil if no valid closing delimiter is found.
+    private func findClosingDollar(
+        in text: String,
+        from start: String.Index
+    ) -> (String.Index, String)? {
+        var index = start
+
+        while index < text.endIndex {
+            let char = text[index]
+
+            if char == "\\" {
+                let next = text.index(after: index)
+                if next < text.endIndex, text[next] == "$" {
+                    index = text.index(after: next)
+                    continue
+                }
+            }
+
+            if char == "$" {
+                let next = text.index(after: index)
+                if next < text.endIndex, text[next] == "$" {
+                    index = text.index(after: next)
+                    continue
+                }
+
+                let prev = text.index(before: index)
+                if text[prev].isWhitespace {
+                    index = text.index(after: index)
+                    continue
+                }
+
+                let latex = String(text[start ..< index])
+                if latex.isEmpty { return nil }
+                return (index, latex)
+            }
+
+            index = text.index(after: index)
+        }
+
+        return nil
+    }
+
+    /// Converts a `Range<String.Index>` from the full character string
+    /// into the corresponding `Range<AttributedString.Index>`.
+    private func attributedStringRange(
+        for range: Range<String.Index>,
+        in attrStr: AttributedString,
+        fullString: String
+    ) -> Range<AttributedString.Index>? {
+        let startOffset = fullString.distance(
+            from: fullString.startIndex, to: range.lowerBound
+        )
+        let endOffset = fullString.distance(
+            from: fullString.startIndex, to: range.upperBound
+        )
+
+        let charView = attrStr.characters
+        guard startOffset >= 0,
+              endOffset <= charView.count,
+              startOffset < endOffset
+        else {
+            return nil
+        }
+
+        let attrStart = charView.index(attrStr.startIndex, offsetBy: startOffset)
+        let attrEnd = charView.index(attrStr.startIndex, offsetBy: endOffset)
+        return attrStart ..< attrEnd
     }
 }
