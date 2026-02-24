@@ -186,7 +186,7 @@ enum MarkdownTextStorageBuilder {
                 syntaxColors: syntaxColors,
                 scaleFactor: sf
             )
-        case .mermaidBlock, .image:
+        case .mermaidBlock, .image, .mathBlock:
             appendAttachmentPlaceholder(indexedBlock, to: result, attachments: &attachments)
         case let .blockquote(blocks):
             appendBlockquote(
@@ -408,6 +408,8 @@ enum MarkdownTextStorageBuilder {
         case let .codeBlock(_, code):
             return code.trimmingCharacters(in: .whitespacesAndNewlines)
         case let .mermaidBlock(code):
+            return code.trimmingCharacters(in: .whitespacesAndNewlines)
+        case let .mathBlock(code):
             return code.trimmingCharacters(in: .whitespacesAndNewlines)
         case let .htmlBlock(content):
             return content.trimmingCharacters(in: .whitespacesAndNewlines)

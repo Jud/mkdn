@@ -66,6 +66,13 @@ struct MarkdownBlockView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(colors.codeBackground)
                 .clipShape(RoundedRectangle(cornerRadius: 6))
+
+        case let .mathBlock(code):
+            Text(code)
+                .font(.system(.body, design: .monospaced))
+                .foregroundColor(colors.foreground)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.vertical, 8)
         }
     }
 

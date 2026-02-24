@@ -44,6 +44,9 @@ let package = Package(
         .package(url: "https://github.com/tree-sitter/tree-sitter-java.git", "0.23.0" ..< "0.24.0"),
         .package(url: "https://github.com/tree-sitter-grammars/tree-sitter-yaml.git", exact: "0.7.0"),
         .package(url: "https://github.com/fwcd/tree-sitter-kotlin.git", from: "0.3.0"),
+
+        // LaTeX math rendering
+        .package(url: "https://github.com/mgriebling/SwiftMath.git", from: "1.7.0"),
     ],
     targets: [
         .target(
@@ -68,6 +71,7 @@ let package = Package(
                 .product(name: "TreeSitterJava", package: "tree-sitter-java"),
                 .product(name: "TreeSitterYAML", package: "tree-sitter-yaml"),
                 .product(name: "TreeSitterKotlin", package: "tree-sitter-kotlin"),
+                .product(name: "SwiftMath", package: "SwiftMath"),
             ],
             path: "mkdn",
             resources: [
