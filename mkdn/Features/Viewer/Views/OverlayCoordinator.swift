@@ -192,7 +192,7 @@ final class OverlayCoordinator {
 
     private func needsOverlay(_ block: MarkdownBlock) -> Bool {
         switch block {
-        case .mermaidBlock, .image, .thematicBreak:
+        case .mermaidBlock, .image, .thematicBreak, .mathBlock:
             true
         default:
             false
@@ -239,6 +239,8 @@ final class OverlayCoordinator {
         case let (.table(cols1, rows1), .table(cols2, rows2)):
             cols1.map { String($0.header.characters) } == cols2.map { String($0.header.characters) }
                 && rows1.count == rows2.count
+        case let (.mathBlock(code1), .mathBlock(code2)):
+            code1 == code2
         default:
             false
         }
@@ -277,6 +279,10 @@ final class OverlayCoordinator {
             )
         case .thematicBreak:
             overlayView = makeThematicBreakOverlay(appSettings: appSettings)
+        case let .mathBlock(code):
+            overlayView = makeMathBlockOverlay(
+                code: code, blockIndex: info.blockIndex, appSettings: appSettings
+            )
         default:
             return
         }
@@ -443,6 +449,21 @@ extension OverlayCoordinator {
         let rootView = borderColor
             .frame(height: 1)
             .padding(.vertical, 8)
+        return NSHostingView(rootView: rootView)
+    }
+
+    func makeMathBlockOverlay(
+        code: String,
+        blockIndex: Int,
+        appSettings: AppSettings
+    ) -> NSView {
+        let rootView = MathBlockView(code: code) { [weak self] newHeight in
+            self?.updateAttachmentHeight(
+                blockIndex: blockIndex,
+                newHeight: newHeight
+            )
+        }
+        .environment(appSettings)
         return NSHostingView(rootView: rootView)
     }
 }
