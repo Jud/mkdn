@@ -2,7 +2,7 @@
 
 **Feature ID**: native-latex-math
 **Status**: Not Started
-**Progress**: 17% (2 of 12 tasks)
+**Progress**: 25% (3 of 12 tasks)
 **Estimated Effort**: 4 days
 **Started**: 2026-02-24
 
@@ -95,7 +95,19 @@ Add native LaTeX math rendering to mkdn's Markdown viewer with three detection p
     - **Deviations**: Uses `MathImage.LayoutInfo.descent` instead of `MTMathUILabel.descent` as specified in design. Both read from the same underlying `MTMathListDisplay.descent` value. `MathImage` is a value type (struct) avoiding NSView lifecycle overhead.
     - **Tests**: 509/512 passing (3 pre-existing failures in AppSettings.cycleTheme unrelated to this change)
 
-- [ ] **T3**: Add three math detection paths to MarkdownVisitor: code fences, standalone `$$`, and inline `$` `[complexity:medium]`
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
+- [x] **T3**: Add three math detection paths to MarkdownVisitor: code fences, standalone `$$`, and inline `$` `[complexity:medium]`
 
     **Reference**: [design.md#32-detection-logic-markdownvisitor](design.md#32-detection-logic-markdownvisitor)
 
@@ -103,18 +115,25 @@ Add native LaTeX math rendering to mkdn's Markdown viewer with three detection p
 
     **Acceptance Criteria**:
 
-    - [ ] Code fences with language `math`, `latex`, or `tex` produce `.mathBlock(code:)` instead of `.codeBlock`
-    - [ ] Standalone paragraphs consisting entirely of `$$...$$` produce `.mathBlock(code:)` with delimiters stripped
-    - [ ] `$$` mixed with other text in a paragraph does NOT trigger block math detection (stays `.paragraph`)
-    - [ ] Inline `$...$` patterns within paragraph text produce `mathExpression` attribute on the AttributedString
-    - [ ] Escaped `\$` is treated as literal text, not a math delimiter
-    - [ ] Adjacent `$$` is not treated as an inline math delimiter
-    - [ ] `$` followed by whitespace is not treated as an opening delimiter
-    - [ ] Whitespace followed by closing `$` is not treated as a closing delimiter
-    - [ ] Unclosed `$` is treated as literal text
-    - [ ] Empty delimiters (`$$` with nothing between) produce no math
-    - [ ] Multiple inline math expressions in one paragraph all have correct `mathExpression` attributes
-    - [ ] `postProcessMathDelimiters()` and `findInlineMathRanges(in:)` are implemented as described
+    - [x] Code fences with language `math`, `latex`, or `tex` produce `.mathBlock(code:)` instead of `.codeBlock`
+    - [x] Standalone paragraphs consisting entirely of `$$...$$` produce `.mathBlock(code:)` with delimiters stripped
+    - [x] `$$` mixed with other text in a paragraph does NOT trigger block math detection (stays `.paragraph`)
+    - [x] Inline `$...$` patterns within paragraph text produce `mathExpression` attribute on the AttributedString
+    - [x] Escaped `\$` is treated as literal text, not a math delimiter
+    - [x] Adjacent `$$` is not treated as an inline math delimiter
+    - [x] `$` followed by whitespace is not treated as an opening delimiter
+    - [x] Whitespace followed by closing `$` is not treated as a closing delimiter
+    - [x] Unclosed `$` is treated as literal text
+    - [x] Empty delimiters (`$$` with nothing between) produce no math
+    - [x] Multiple inline math expressions in one paragraph all have correct `mathExpression` attributes
+    - [x] `postProcessMathDelimiters()` and `findInlineMathRanges(in:)` are implemented as described
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Core/Markdown/MarkdownVisitor.swift`
+    - **Approach**: Three detection paths added: (1) code fence detection extends CodeBlock handler for `math`/`latex`/`tex` languages; (2) standalone `$$` detection in `convertParagraph` checks if trimmed paragraph text starts and ends with `$$` with content between; (3) inline `$...$` detection via `postProcessMathDelimiters()` called from `inlineText(from:)` with a character-by-character state machine scanner (`findInlineMathRanges`/`findClosingDollar`) that respects all business rules (escaped `\$`, `$$` skip, whitespace adjacency, unclosed literal, empty rejection). Matched ranges are replaced in reverse order with `mathExpression`-attributed segments.
+    - **Deviations**: None
+    - **Tests**: 509/512 passing (3 pre-existing failures in AppSettings.cycleTheme unrelated to this change)
 
 ### TextStorageBuilder Integration
 
