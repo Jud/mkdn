@@ -2,7 +2,7 @@
 
 **Feature ID**: native-latex-math
 **Status**: Not Started
-**Progress**: 8% (1 of 12 tasks)
+**Progress**: 17% (2 of 12 tasks)
 **Estimated Effort**: 4 days
 **Started**: 2026-02-24
 
@@ -58,9 +58,21 @@ Add native LaTeX math rendering to mkdn's Markdown viewer with three detection p
     - **Deviations**: SwiftMath version is 1.7.0+ (not 3.3.0+ as in design) because version 3.3.0 does not exist; latest available is 1.7.3
     - **Tests**: 509/512 passing (3 pre-existing failures in AppSettings.cycleTheme unrelated to this change)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
 ### MathRenderer and Detection (Parallel)
 
-- [ ] **T2**: Implement MathRenderer as a stateless SwiftMath wrapper that renders LaTeX to NSImage with baseline reporting `[complexity:medium]`
+- [x] **T2**: Implement MathRenderer as a stateless SwiftMath wrapper that renders LaTeX to NSImage with baseline reporting `[complexity:medium]`
 
     **Reference**: [design.md#33-mathrenderer-coremath](design.md#33-mathrenderer-coremath)
 
@@ -68,13 +80,20 @@ Add native LaTeX math rendering to mkdn's Markdown viewer with three detection p
 
     **Acceptance Criteria**:
 
-    - [ ] `MathRenderer.swift` exists in `mkdn/Core/Math/` as `@MainActor enum MathRenderer`
-    - [ ] `renderToImage(latex:fontSize:textColor:displayMode:)` returns `(image: NSImage, baseline: CGFloat)?`
-    - [ ] Valid LaTeX expressions (e.g., `x^2`, `\frac{a}{b}`) return non-nil with positive image dimensions
-    - [ ] Invalid/unparseable LaTeX returns nil (no crash, no hang)
-    - [ ] Display mode (`displayMode: true`) produces different sizing than text mode
-    - [ ] Images render at screen backing scale factor for crisp output
-    - [ ] Baseline offset is reported from `MTMathUILabel.descent`
+    - [x] `MathRenderer.swift` exists in `mkdn/Core/Math/` as `@MainActor enum MathRenderer`
+    - [x] `renderToImage(latex:fontSize:textColor:displayMode:)` returns `(image: NSImage, baseline: CGFloat)?`
+    - [x] Valid LaTeX expressions (e.g., `x^2`, `\frac{a}{b}`) return non-nil with positive image dimensions
+    - [x] Invalid/unparseable LaTeX returns nil (no crash, no hang)
+    - [x] Display mode (`displayMode: true`) produces different sizing than text mode
+    - [x] Images render at screen backing scale factor for crisp output
+    - [x] Baseline offset is reported from `MTMathUILabel.descent`
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Core/Math/MathRenderer.swift` (new)
+    - **Approach**: Uses SwiftMath's `MathImage` struct (lightweight, non-view API) instead of the heavier `MTMathUILabel` NSView. `MathImage.asImage()` returns both the rendered NSImage and a `LayoutInfo` containing ascent/descent. The NSImage uses `NSImage(size:flipped:)` draw handler for resolution-independent rendering (crisp on Retina without manual scale factor management).
+    - **Deviations**: Uses `MathImage.LayoutInfo.descent` instead of `MTMathUILabel.descent` as specified in design. Both read from the same underlying `MTMathListDisplay.descent` value. `MathImage` is a value type (struct) avoiding NSView lifecycle overhead.
+    - **Tests**: 509/512 passing (3 pre-existing failures in AppSettings.cycleTheme unrelated to this change)
 
 - [ ] **T3**: Add three math detection paths to MarkdownVisitor: code fences, standalone `$$`, and inline `$` `[complexity:medium]`
 
