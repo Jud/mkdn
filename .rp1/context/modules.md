@@ -41,6 +41,12 @@
 | TokenType.swift | 13-case enum (keyword, string, comment, type, number, function, property, preprocessor, operator, variable, constant, attribute, punctuation). `from(captureName:)` maps tree-sitter capture names (with subcategory prefix splitting). `color(from:)` resolves to SyntaxColors property |
 | HighlightQueries.swift | Embedded tree-sitter highlight query strings (.scm) for all 16 languages. Sourced verbatim from grammar repositories. TypeScript/C++ queries concatenate base + override queries |
 
+### Math (`Core/Math/`)
+| File | Purpose |
+|------|---------|
+| MathRenderer.swift | Stateless LaTeX-to-NSImage renderer via SwiftMath. Renders LaTeX strings to NSImage using CoreGraphics/CoreText for both inline and display math |
+| MathAttributes.swift | Custom NSAttributedString.Key for inline math (mathExpression). Stores original LaTeX string as attribute value for rendering in TextStorageBuilder |
+
 ### Mermaid (`Core/Mermaid/`)
 | File | Purpose |
 |------|---------|
@@ -138,6 +144,7 @@
 | swhitty/SwiftDraw | SVG -> NSImage | Core/Mermaid |
 | jectivex/JXKit | Swift JSC wrapper | Core/Mermaid |
 | apple/swift-argument-parser | CLI args | Core/CLI |
+| mgriebling/SwiftMath (>=1.7.0) | Native LaTeX math rendering via CoreGraphics/CoreText | Core/Math |
 | ChimeHQ/SwiftTreeSitter | Tree-sitter parsing | Core/Highlighting |
 | tree-sitter-{lang} (16 grammars) | Language grammars (swift, python, javascript, typescript, rust, go, bash, json, yaml, html, css, c, cpp, ruby, java, kotlin) | Core/Highlighting |
 

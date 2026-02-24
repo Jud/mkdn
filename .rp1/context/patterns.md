@@ -203,6 +203,36 @@ A lightweight `NSView` sibling positioned identically to the visual overlay, on 
 
 During `Cmd+P`, the builder's `isPrint: true` flag makes table text visible (non-clear foreground). `CodeBlockBackgroundTextView+TablePrint.swift` draws table containers (border, header fill, alternating rows) via `NSBezierPath` in `drawBackground`, matching the `CodeBlockBackgroundTextView` code block container pattern.
 
+## Inline Math Rendering Pattern
+
+Inline math (`$...$`) uses a three-stage pipeline: detection, attribution, and rendering.
+
+### Detection (MarkdownVisitor)
+
+A character state machine in `MarkdownVisitor` detects `$...$` delimiters during inline text conversion. The state machine handles edge cases: escaped dollars (`\$`), double-dollar (`$$`) for display math, and rejection of empty or whitespace-only expressions. When a valid inline math span is found, it is marked with the `mathExpression` attribute rather than emitted as plain text.
+
+### Attribution (MathAttributes)
+
+`MathAttributes.swift` defines a custom `NSAttributedString.Key` (`mathExpression`) that stores the original LaTeX string. This follows the same pattern as `CodeBlockAttributes` and `TableAttributes` -- a custom key carrying domain-specific data through the attributed string pipeline.
+
+```swift
+// MathAttributes -- custom key for inline math
+extension NSAttributedString.Key {
+    static let mathExpression: NSAttributedString.Key  // stores LaTeX string
+}
+```
+
+### Rendering (TextStorageBuilder)
+
+`MarkdownTextStorageBuilder` detects `mathExpression` attributes in inline content and renders them:
+
+1. Calls `MathRenderer` to convert the LaTeX string to an `NSImage` (via SwiftMath's CoreGraphics/CoreText backend)
+2. Creates an `NSTextAttachment` with the rendered image
+3. Applies baseline alignment via a descent offset so the math expression aligns vertically with surrounding text
+4. Inserts the attachment character into the attributed string in place of the LaTeX source
+
+This mirrors the image attachment pattern but with baseline-aware vertical positioning to ensure math expressions sit correctly on the text baseline.
+
 ## Anti-Patterns
 
 - **NO WKWebView** -- ever, for any reason

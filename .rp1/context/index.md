@@ -19,6 +19,7 @@
 - Central state: `mkdn/App/AppState.swift`
 - Markdown pipeline: `mkdn/Core/Markdown/`
 - Mermaid pipeline: `mkdn/Core/Mermaid/`
+- Math rendering: `mkdn/Core/Math/`
 - Syntax highlighting: `mkdn/Core/Highlighting/`
 - Theme definitions: `mkdn/UI/Theme/`
 - Animation constants: `mkdn/UI/Theme/AnimationConstants.swift`
