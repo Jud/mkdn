@@ -96,6 +96,27 @@ Dual-layer rendering: invisible text + visual overlay + highlight overlay
    -> Cmd+A: selects all including table text (cross-block continuity)
 ```
 
+### Math (LaTeX)
+```
+Three detection paths:
+1. ```math code fences -> MarkdownBlock.mathBlock(code:)
+2. $$...$$ paragraphs  -> MarkdownBlock.mathBlock(code:)
+3. Inline $...$        -> mathExpression attribute in inline text
+
+Display math (block):
+  MarkdownBlock.mathBlock(code:)
+  -> MathRenderer renders LaTeX to NSImage (SwiftMath, CoreGraphics/CoreText)
+  -> MathBlockView (overlay pattern, same as Mermaid)
+  -> NSHostingView positioned by OverlayCoordinator over NSTextAttachment placeholder
+
+Inline math:
+  MarkdownVisitor detects $...$ via character state machine
+  -> Marks span with MathAttributes.mathExpression (stores LaTeX string)
+  -> MarkdownTextStorageBuilder renders LaTeX to NSImage via MathRenderer
+  -> Embedded as NSTextAttachment in NSAttributedString
+  -> Baseline alignment via descent offset for vertical centering with text
+```
+
 ### Code Blocks
 ```
 Code block with language tag
