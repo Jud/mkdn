@@ -2,7 +2,7 @@
 
 **Feature ID**: table-cross-cell-selection
 **Status**: In Progress
-**Progress**: 69% (9 of 13 tasks)
+**Progress**: 71% (10 of 14 tasks)
 **Estimated Effort**: 7 days
 **Started**: 2026-02-23
 
@@ -353,6 +353,27 @@ Make table cell content part of the document's NSTextStorage as invisible text s
     - **Approach**: Two-part fix. (1) Added `lineBreakMode = .byClipping` to the invisible text paragraph style in `appendTableInlineRow` -- this prevents tab-separated row text from wrapping to multiple visual lines, which was the primary cause of the height mismatch. Without clipping, long rows wrapped to N lines each at `minimumLineHeight`, making the total paragraph height N times the intended row height. (2) In `OverlayCoordinator+TableHeights.swift`, added `layoutSubtreeIfNeeded()` before querying `fittingSize.height` on the NSHostingView to ensure a valid intrinsic content size for proportional height scaling. Also set `.byClipping` in `applyRowHeights` for consistency when correcting existing paragraph styles.
     - **Deviations**: None
     - **Tests**: 512/512 passing (1 pre-existing failure in AppSettings unrelated)
+
+- [x] **TX-selection-fix**: Fix table selection visual bugs (invisible text leaking, native selection bleeding, cell alignment) `[complexity:medium]`
+
+    **Reference**: [investigation_report.md](../../issues/table-selection-visual-bugs/investigation_report.md)
+
+    **Effort**: 2 hours
+
+    **Acceptance Criteria**:
+
+    - [x] Invisible table text does not become visible during selection
+    - [x] Native selection highlight does not bleed past table boundaries
+    - [x] Selection aligns with cell boundaries via TableHighlightOverlay
+    - [x] Non-table text selection appearance unchanged
+    - [x] Print, find, and clipboard operations continue to work correctly
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Features/Viewer/Views/SelectableTextView.swift`, `mkdn/Features/Viewer/Views/CodeBlockBackgroundTextView.swift`, `mkdn/Features/Viewer/Views/CodeBlockBackgroundTextView+TableSelection.swift`
+    - **Approach**: Two-part fix. (1) Removed `.foregroundColor` from `selectedTextAttributes` in SelectableTextView -- this prevents NSTextView from overriding the `.clear` foreground on invisible table text during selection. Non-table text is unaffected because its foreground is already set in the attributed string. (2) Created new +TableSelection extension on CodeBlockBackgroundTextView with `eraseTableSelectionHighlights(in:)` method called after `super.draw(dirtyRect)`. This enumerates `TableAttributes.range` regions intersecting the current selection, computes their bounding rects from layout fragments, and fills with `backgroundColor` to erase the native selection highlight. The cell-level TableHighlightOverlay then draws cleanly on top.
+    - **Deviations**: None
+    - **Tests**: 512/512 passing (3 pre-existing failures in AppSettings unrelated)
 
 ### User Docs
 

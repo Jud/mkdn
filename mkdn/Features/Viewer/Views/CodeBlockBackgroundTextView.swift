@@ -314,11 +314,10 @@ final class CodeBlockBackgroundTextView: NSTextView {
 
     // MARK: - Drawing
 
-    // Required for offscreen (print) rendering: TextKit 2 only dispatches to
-    // drawBackground(in:) from draw(_:), not from display(), for non-windowed views.
-    // swiftlint:disable:next unneeded_override
+    // Required for print rendering and table selection highlight suppression.
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
+        eraseTableSelectionHighlights(in: dirtyRect)
     }
 
     override func drawBackground(in rect: NSRect) {

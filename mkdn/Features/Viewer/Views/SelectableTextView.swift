@@ -204,7 +204,6 @@ extension SelectableTextView {
         let colors = theme.colors
         let bgColor = PlatformTypeConverter.nsColor(from: colors.background)
         let accentColor = PlatformTypeConverter.nsColor(from: colors.accent)
-        let fgColor = PlatformTypeConverter.nsColor(from: colors.foreground)
 
         textView.backgroundColor = bgColor
         scrollView.backgroundColor = bgColor
@@ -212,7 +211,6 @@ extension SelectableTextView {
 
         textView.selectedTextAttributes = [
             .backgroundColor: accentColor.withAlphaComponent(0.3),
-            .foregroundColor: fgColor,
         ]
 
         textView.insertionPointColor = accentColor

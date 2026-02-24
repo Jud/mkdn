@@ -117,3 +117,27 @@ Verified with `fixtures/table-test.md` across all 7 table types in both Solarize
 | 5-Column Dense | ~200-250pt | ~0 |
 | Wrapping Text | ~500-600pt | ~0 |
 | Long Table | ~250-300pt | ~0 |
+
+## TX-selection-fix: Table Selection Visual Bugs Fix (2026-02-24)
+
+### Root Cause
+
+Three related visual bugs during text selection across tables:
+
+1. **Invisible text leaking**: `selectedTextAttributes` included `.foregroundColor: fgColor`, which overrode the `.clear` foreground on table invisible text, making raw tab-separated cell content visible during selection.
+
+2. **Native selection bleeding**: NSTextView draws its default selection background for ALL selected text including table regions. The visual TableBlockView overlay only covers the table's visual bounds, so native selection extends into subsequent content.
+
+3. **Cell alignment mismatch**: Native NSTextView selection follows text layout fragment geometry (line-level), not cell boundaries. The TableHighlightOverlay was correctly wired but visually dominated by the native selection underneath.
+
+### Fix
+
+Two complementary changes:
+
+1. **Removed `.foregroundColor` from `selectedTextAttributes`** (SelectableTextView.swift). Normal text already has its foreground set in the attributed string, so selection appearance is unchanged. Only the `.clear` foreground table text was affected -- it now stays invisible during selection.
+
+2. **Added `eraseTableSelectionHighlights(in:)` in `draw(_:)`** (CodeBlockBackgroundTextView+TableSelection.swift). After `super.draw(dirtyRect)` completes the full rendering pass (including native selection), this method fills table bounding rects with `backgroundColor` to erase the native selection highlight. Only acts when the current selection intersects a table region. The cell-level TableHighlightOverlay then draws cleanly on top.
+
+### Key Insight
+
+The `draw(_:)` override (not `drawBackground`) is the correct interception point because `drawBackground` runs before text and selection rendering. By painting after `super.draw`, we erase the native selection that was drawn during the text rendering pass, leaving a clean surface for the overlay stack.
