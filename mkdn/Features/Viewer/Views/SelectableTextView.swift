@@ -44,6 +44,11 @@ struct SelectableTextView: NSViewRepresentable {
         coordinator.documentState = documentState
         coordinator.animator.textView = textView
         textView.delegate = coordinator
+        textView.selectionDragHandler = { [weak coordinator] range in
+            coordinator?.overlayCoordinator.updateTableSelections(
+                selectedRange: range
+            )
+        }
 
         applyTheme(to: textView, scrollView: scrollView)
         textView.findState = findState

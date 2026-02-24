@@ -56,6 +56,12 @@ final class CodeBlockBackgroundTextView: NSTextView {
 
     weak var findState: FindState?
 
+    // MARK: - Selection Drag Callback
+
+    /// Called on every mouseDragged event during a text selection drag,
+    /// allowing real-time table cell highlight updates.
+    var selectionDragHandler: ((NSRange) -> Void)?
+
     // MARK: - Print Support
 
     /// Current indexed blocks retained for print-time attributed string rebuild.
@@ -147,6 +153,19 @@ final class CodeBlockBackgroundTextView: NSTextView {
             return
         }
         super.mouseDown(with: event)
+    }
+
+    // MARK: - Real-Time Selection Updates
+
+    override func setSelectedRanges(
+        _ ranges: [NSValue],
+        affinity: NSSelectionAffinity,
+        stillSelecting: Bool
+    ) {
+        super.setSelectedRanges(ranges, affinity: affinity, stillSelecting: stillSelecting)
+        if let range = ranges.first {
+            selectionDragHandler?(range.rangeValue)
+        }
     }
 
     /// Returns `true` when the point is not over any text layout fragment,

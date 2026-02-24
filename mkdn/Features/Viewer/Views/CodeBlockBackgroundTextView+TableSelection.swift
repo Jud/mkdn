@@ -62,10 +62,12 @@ extension CodeBlockBackgroundTextView {
             guard !frames.isEmpty else { continue }
 
             let bounding = frames.reduce(frames[0]) { $0.union($1) }
+            // Use full view width — native selection extends across the
+            // entire text container, not just the layout fragment bounds.
             let eraseRect = CGRect(
-                x: bounding.minX + origin.x,
+                x: 0,
                 y: bounding.minY + origin.y,
-                width: bounding.width,
+                width: bounds.width,
                 height: bounding.height
             )
             guard eraseRect.intersects(dirtyRect) else { continue }

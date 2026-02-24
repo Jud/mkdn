@@ -48,8 +48,15 @@ final class TableHighlightOverlay: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         guard let cellMap else { return }
+
+        NSGraphicsContext.saveGraphicsState()
+        let clipPath = NSBezierPath(roundedRect: bounds, xRadius: 6, yRadius: 6)
+        clipPath.addClip()
+
         drawSelectionHighlights(cellMap: cellMap, in: dirtyRect)
         drawFindHighlights(cellMap: cellMap, in: dirtyRect)
+
+        NSGraphicsContext.restoreGraphicsState()
     }
 
     // MARK: - Selection Highlights
@@ -60,15 +67,13 @@ final class TableHighlightOverlay: NSView {
     ) {
         guard !selectedCells.isEmpty else { return }
 
-        let dataColor = accentColor.withAlphaComponent(0.3)
-        let headerColor = accentColor.withAlphaComponent(0.4)
+        let selectionColor = accentColor.withAlphaComponent(0.3)
 
         for cell in selectedCells {
             let rect = cellRect(for: cell, cellMap: cellMap)
             guard rect.intersects(dirtyRect) else { continue }
 
-            let color = cell.row == -1 ? headerColor : dataColor
-            color.setFill()
+            selectionColor.setFill()
             rect.fill()
         }
     }
@@ -108,6 +113,15 @@ final class TableHighlightOverlay: NSView {
               rowHeightIndex >= 0, rowHeightIndex < cellMap.rowHeights.count
         else { return .zero }
 
+        let totalEstWidth = cellMap.columnWidths.reduce(0, +)
+        let totalEstHeight = cellMap.rowHeights.reduce(0, +)
+        guard totalEstWidth > 0, totalEstHeight > 0 else { return .zero }
+
+        // Scale estimated widths/heights to match the actual overlay frame,
+        // which is sized to the visual TableBlockView.
+        let xScale = bounds.width / totalEstWidth
+        let yScale = bounds.height / totalEstHeight
+
         var xOrigin: CGFloat = 0
         for colIdx in 0 ..< col {
             xOrigin += cellMap.columnWidths[colIdx]
@@ -119,10 +133,10 @@ final class TableHighlightOverlay: NSView {
         }
 
         return NSRect(
-            x: xOrigin,
-            y: yOrigin,
-            width: cellMap.columnWidths[col],
-            height: cellMap.rowHeights[rowHeightIndex]
+            x: xOrigin * xScale,
+            y: yOrigin * yScale,
+            width: cellMap.columnWidths[col] * xScale,
+            height: cellMap.rowHeights[rowHeightIndex] * yScale
         )
     }
 }
