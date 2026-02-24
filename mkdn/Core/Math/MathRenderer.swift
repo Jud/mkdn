@@ -3,10 +3,10 @@ import SwiftMath
 
 /// Renders LaTeX math expressions to NSImage using SwiftMath.
 ///
-/// All rendering happens synchronously on @MainActor. SwiftMath renders via
-/// CoreGraphics drawing commands into an NSImage with a draw handler, producing
-/// resolution-independent output that renders crisply on Retina displays.
-@MainActor
+/// SwiftMath renders via CoreGraphics drawing commands into an NSImage with
+/// a draw handler, producing resolution-independent output that renders
+/// crisply on Retina displays. Uses the `MathImage` struct (not NSView),
+/// so rendering is safe from any thread.
 enum MathRenderer {
     /// Renders a LaTeX expression to an NSImage.
     ///
