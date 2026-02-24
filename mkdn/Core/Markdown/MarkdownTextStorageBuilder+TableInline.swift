@@ -187,6 +187,7 @@ extension MarkdownTextStorageBuilder {
         rowStyle.paragraphSpacing = ctx.isLastRow ? blockSpacing : 0
         rowStyle.minimumLineHeight = ctx.rowHeight
         rowStyle.maximumLineHeight = ctx.rowHeight
+        rowStyle.lineBreakMode = .byClipping
         rowStyle.tabStops = ctx.tabStops
 
         let rowContent = NSMutableAttributedString()
@@ -245,24 +246,25 @@ extension MarkdownTextStorageBuilder {
         lineHeight: CGFloat
     ) -> CGFloat {
         let columnCount = columnWidths.count
-        var maxLines = 1
+        var maxCellHeight = lineHeight
 
         for colIndex in 0 ..< min(cells.count, columnCount) {
             let plainText = String(cells[colIndex].characters)
             guard !plainText.isEmpty else { continue }
+            let availableWidth = columnWidths[colIndex] - TableColumnSizer.totalHorizontalPadding
+            guard availableWidth > 0 else { continue }
+
             let measured = NSAttributedString(
                 string: plainText,
                 attributes: [.font: font]
             )
-            let contentWidth = ceil(measured.size().width)
-            let availableWidth = columnWidths[colIndex] - TableColumnSizer.totalHorizontalPadding
-            if availableWidth > 0, contentWidth > availableWidth {
-                let rawLines = contentWidth / availableWidth
-                let adjustedLines = rawLines * TableColumnSizer.wrappingOverhead
-                maxLines = max(maxLines, Int(ceil(adjustedLines)))
-            }
+            let rect = measured.boundingRect(
+                with: NSSize(width: availableWidth, height: .greatestFiniteMagnitude),
+                options: [.usesLineFragmentOrigin, .usesFontLeading]
+            )
+            maxCellHeight = max(maxCellHeight, ceil(rect.height))
         }
 
-        return CGFloat(maxLines) * lineHeight + TableColumnSizer.verticalCellPadding * 2
+        return maxCellHeight + TableColumnSizer.verticalCellPadding * 2
     }
 }
