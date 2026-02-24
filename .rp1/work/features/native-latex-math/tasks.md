@@ -2,7 +2,7 @@
 
 **Feature ID**: native-latex-math
 **Status**: In Progress
-**Progress**: 33% (4 of 12 tasks)
+**Progress**: 42% (5 of 12 tasks)
 **Estimated Effort**: 4 days
 **Started**: 2026-02-24
 
@@ -172,9 +172,21 @@ Add native LaTeX math rendering to mkdn's Markdown viewer with three detection p
     - **Deviations**: Removed `@MainActor` from `MathRenderer` because T2's implementation uses `MathImage` (struct/CoreGraphics), not `MTMathUILabel` (NSView). Without this, Swift 6 strict concurrency prevented calling `MathRenderer` from the nonisolated builder. See `field-notes.md` for details.
     - **Tests**: 509/512 passing (3 pre-existing failures in AppSettings.cycleTheme unrelated to this change)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
 ### Block Math Overlay
 
-- [ ] **T5**: Create MathBlockView and extend OverlayCoordinator to host math block overlays `[complexity:medium]`
+- [x] **T5**: Create MathBlockView and extend OverlayCoordinator to host math block overlays `[complexity:medium]`
 
     **Reference**: [design.md#34-block-math-rendering](design.md#34-block-math-rendering)
 
@@ -182,16 +194,23 @@ Add native LaTeX math rendering to mkdn's Markdown viewer with three detection p
 
     **Acceptance Criteria**:
 
-    - [ ] `MathBlockView.swift` exists in `mkdn/Features/Viewer/Views/` as a SwiftUI view
-    - [ ] `MathBlockView` renders display-mode math centered with vertical padding (8pt)
-    - [ ] `MathBlockView` reports size changes via `onSizeChange` callback for dynamic overlay height
-    - [ ] `MathBlockView` re-renders on theme change (`onChange(of: appSettings.theme)`)
-    - [ ] `MathBlockView` re-renders on zoom change (`onChange(of: appSettings.scaleFactor)`)
-    - [ ] Failed expressions display as centered monospace fallback with secondary foreground color
-    - [ ] `OverlayCoordinator.needsOverlay` returns true for `.mathBlock`
-    - [ ] `OverlayCoordinator.createAttachmentOverlay` creates `NSHostingView<MathBlockView>` for `.mathBlock`
-    - [ ] `OverlayCoordinator.blocksMatch` handles `.mathBlock` comparison
-    - [ ] `makeMathBlockOverlay` factory method wires `onSizeChange` to `updateAttachmentHeight`
+    - [x] `MathBlockView.swift` exists in `mkdn/Features/Viewer/Views/` as a SwiftUI view
+    - [x] `MathBlockView` renders display-mode math centered with vertical padding (8pt)
+    - [x] `MathBlockView` reports size changes via `onSizeChange` callback for dynamic overlay height
+    - [x] `MathBlockView` re-renders on theme change (`onChange(of: appSettings.theme)`)
+    - [x] `MathBlockView` re-renders on zoom change (`onChange(of: appSettings.scaleFactor)`)
+    - [x] Failed expressions display as centered monospace fallback with secondary foreground color
+    - [x] `OverlayCoordinator.needsOverlay` returns true for `.mathBlock`
+    - [x] `OverlayCoordinator.createAttachmentOverlay` creates `NSHostingView<MathBlockView>` for `.mathBlock`
+    - [x] `OverlayCoordinator.blocksMatch` handles `.mathBlock` comparison
+    - [x] `makeMathBlockOverlay` factory method wires `onSizeChange` to `updateAttachmentHeight`
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Features/Viewer/Views/MathBlockView.swift` (new), `mkdn/Features/Viewer/Views/OverlayCoordinator.swift`, `mkdn/Features/Viewer/Views/MarkdownBlockView.swift`
+    - **Approach**: Created MathBlockView as a SwiftUI view that renders display-mode math via MathRenderer.renderToImage with 1.2x body font size, centered layout, and 8pt vertical padding. Reports rendered height (image height + 16pt padding) via onSizeChange callback. Falls back to centered monospace text in secondary color on parse failure. Re-renders on theme and zoom changes via onChange. Extended OverlayCoordinator with .mathBlock in needsOverlay, blocksMatch, and createAttachmentOverlay. Added makeMathBlockOverlay factory that wires onSizeChange to updateAttachmentHeight. Updated MarkdownBlockView .mathBlock case to use MathBlockView.
+    - **Deviations**: None
+    - **Tests**: 509/512 passing (3 pre-existing failures in AppSettings.cycleTheme unrelated to this change)
 
 ### Print Support
 
