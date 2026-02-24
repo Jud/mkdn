@@ -26,6 +26,7 @@ enum MarkdownBlock: Identifiable {
     case table(columns: [TableColumn], rows: [[AttributedString]])
     case image(source: String, alt: String)
     case htmlBlock(content: String)
+    case mathBlock(code: String)
 
     var id: String {
         switch self {
@@ -51,6 +52,8 @@ enum MarkdownBlock: Identifiable {
             "image-\(stableHash(source))"
         case let .htmlBlock(content):
             "html-\(stableHash(content))"
+        case let .mathBlock(code):
+            "math-\(stableHash(code))"
         }
     }
 }
