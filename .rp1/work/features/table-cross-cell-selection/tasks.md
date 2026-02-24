@@ -2,7 +2,7 @@
 
 **Feature ID**: table-cross-cell-selection
 **Status**: In Progress
-**Progress**: 67% (8 of 12 tasks)
+**Progress**: 69% (9 of 13 tasks)
 **Estimated Effort**: 7 days
 **Started**: 2026-02-23
 
@@ -331,6 +331,28 @@ Make table cell content part of the document's NSTextStorage as invisible text s
     | Testing | ⏭️ N/A |
     | Commit | ✅ PASS |
     | Comments | ✅ PASS |
+
+### Bug Fixes
+
+- [x] **TX-gap-fix**: Fix vertical gap between section headings and table bodies for wrapping content `[complexity:medium]`
+
+    **Reference**: [field-notes.md#tx-snapshot-verify](field-notes.md)
+
+    **Effort**: 4 hours
+
+    **Acceptance Criteria**:
+
+    - [x] Tables with wrapping cell content show no vertical gap between preceding heading and table body
+    - [x] Tables with non-wrapping content remain visually unchanged
+    - [x] Fix works across both Solarized Dark and Solarized Light themes
+    - [x] Selection, find, and clipboard operations continue to work correctly
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Core/Markdown/MarkdownTextStorageBuilder+TableInline.swift`, `mkdn/Features/Viewer/Views/OverlayCoordinator+TableHeights.swift`
+    - **Approach**: Two-part fix. (1) Added `lineBreakMode = .byClipping` to the invisible text paragraph style in `appendTableInlineRow` -- this prevents tab-separated row text from wrapping to multiple visual lines, which was the primary cause of the height mismatch. Without clipping, long rows wrapped to N lines each at `minimumLineHeight`, making the total paragraph height N times the intended row height. (2) In `OverlayCoordinator+TableHeights.swift`, added `layoutSubtreeIfNeeded()` before querying `fittingSize.height` on the NSHostingView to ensure a valid intrinsic content size for proportional height scaling. Also set `.byClipping` in `applyRowHeights` for consistency when correcting existing paragraph styles.
+    - **Deviations**: None
+    - **Tests**: 512/512 passing (1 pre-existing failure in AppSettings unrelated)
 
 ### User Docs
 

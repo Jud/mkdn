@@ -31,6 +31,7 @@ extension OverlayCoordinator {
             )
         }
 
+        adjustTableRowHeights(in: textView)
         observeLayoutChanges(on: textView)
         observeScrollChanges(on: textView)
         repositionOverlays()

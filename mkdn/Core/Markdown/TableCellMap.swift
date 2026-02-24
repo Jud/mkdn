@@ -37,9 +37,9 @@ final class TableCellMap: NSObject {
     let columnCount: Int
     /// Number of data rows (header excluded).
     let rowCount: Int
-    let columnWidths: [CGFloat]
+    var columnWidths: [CGFloat]
     /// Row heights indexed as: 0 = header, 1+ = data rows.
-    let rowHeights: [CGFloat]
+    var rowHeights: [CGFloat]
     let columns: [TableColumn]
 
     init(
