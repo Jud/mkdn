@@ -57,7 +57,9 @@ struct MotionPreference {
     }
 
     /// Whether continuous animations (orb breathing, halo bloom) should run.
-    var allowsContinuousAnimation: Bool { !reduceMotion }
+    var allowsContinuousAnimation: Bool {
+        !reduceMotion
+    }
 
     /// Stagger delay per block (0 when Reduce Motion is on).
     var staggerDelay: Double {

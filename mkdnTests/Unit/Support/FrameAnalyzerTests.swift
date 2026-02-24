@@ -1,6 +1,5 @@
 import CoreGraphics
 import Testing
-
 @testable import mkdnLib
 
 // MARK: - Synthetic Frame Sequences

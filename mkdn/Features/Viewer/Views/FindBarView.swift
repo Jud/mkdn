@@ -27,7 +27,9 @@ struct FindBarView: View {
 
     @FocusState private var isInputFocused: Bool
 
-    private var motion: MotionPreference { MotionPreference(reduceMotion: reduceMotion) }
+    private var motion: MotionPreference {
+        MotionPreference(reduceMotion: reduceMotion)
+    }
 
     var body: some View {
         @Bindable var bindableFindState = findState
@@ -93,7 +95,6 @@ struct FindBarView: View {
 
     // MARK: - Match Count
 
-    @ViewBuilder
     private var matchCountLabel: some View {
         Group {
             if findState.matchCount > 0 {

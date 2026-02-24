@@ -36,7 +36,8 @@ struct TheOrbView: View {
             states.append(.fileChanged)
         }
         if !appSettings.hasShownDefaultHandlerHint,
-           DefaultHandlerService.canRegisterAsDefault
+           DefaultHandlerService.canRegisterAsDefault,
+           !DefaultHandlerService.isDefault()
         {
             states.append(.defaultHandler)
         }
@@ -106,6 +107,9 @@ struct TheOrbView: View {
         .onChange(of: showPopover) { _, isShowing in
             if !isShowing {
                 popoverAppeared = false
+                if popoverActiveState == .defaultHandler {
+                    appSettings.hasShownDefaultHandlerHint = true
+                }
             }
         }
     }

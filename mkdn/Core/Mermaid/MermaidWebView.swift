@@ -20,7 +20,9 @@ final class NoFocusRingWKWebView: WKWebView {
 
     override func drawFocusRingMask() {}
 
-    override var focusRingMaskBounds: NSRect { .zero }
+    override var focusRingMaskBounds: NSRect {
+        .zero
+    }
 
     override func didAddSubview(_ subview: NSView) {
         super.didAddSubview(subview)

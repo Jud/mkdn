@@ -1,5 +1,4 @@
 import CoreGraphics
-
 @testable import mkdnLib
 
 // MARK: - PixelColor

@@ -90,7 +90,6 @@ struct MarkdownBlockView: View {
 
     // MARK: - Blockquote
 
-    @ViewBuilder
     private func blockquoteView(blocks: [MarkdownBlock]) -> some View {
         HStack(spacing: 0) {
             Rectangle()
@@ -110,7 +109,6 @@ struct MarkdownBlockView: View {
 
     // MARK: - Lists
 
-    @ViewBuilder
     private func orderedListView(items: [ListItem]) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             ForEach(Array(items.enumerated()), id: \.element.id) { index, item in

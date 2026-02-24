@@ -1,6 +1,5 @@
 import Foundation
 import Testing
-
 @testable import mkdnLib
 
 // MARK: - TestResult Codable
@@ -8,7 +7,7 @@ import Testing
 @Suite("JSONResultReporter", .serialized)
 struct JSONResultReporterTests {
     @Test("TestResult encodes and decodes with all fields")
-    func testResultRoundTrip() throws {
+    func resultRoundTrip() throws {
         let result = TestResult(
             name: "spatial-design-language FR-2: documentMargin left",
             status: .pass,
@@ -42,7 +41,7 @@ struct JSONResultReporterTests {
     }
 
     @Test("TestResult encodes failure with message")
-    func testResultFailureRoundTrip() throws {
+    func resultFailureRoundTrip() throws {
         let msg = "spatial-design-language FR-3: headingSpaceAbove(H1) expected 48.0pt, measured 24.0pt"
 
         let result = TestResult(
@@ -67,7 +66,7 @@ struct JSONResultReporterTests {
     }
 
     @Test("TestReport encodes with coverage")
-    func testReportRoundTrip() throws {
+    func reportRoundTrip() throws {
         let results = makeTestResults()
         let coverage = PRDCoverageTracker.generateReport(
             from: results

@@ -26,7 +26,9 @@ public final class FindState {
     public private(set) var matchRanges: [NSRange] = []
 
     /// Total number of matches for the current query.
-    public var matchCount: Int { matchRanges.count }
+    public var matchCount: Int {
+        matchRanges.count
+    }
 
     // MARK: - Init
 

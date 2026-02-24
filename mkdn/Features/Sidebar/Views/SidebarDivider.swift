@@ -3,9 +3,13 @@ import SwiftUI
 
 /// NSView that prevents `isMovableByWindowBackground` from stealing drags.
 private final class DragBlockingView: NSView {
-    override var mouseDownCanMoveWindow: Bool { false }
+    override var mouseDownCanMoveWindow: Bool {
+        false
+    }
 
-    override var isOpaque: Bool { false }
+    override var isOpaque: Bool {
+        false
+    }
 
     override func draw(_: NSRect) {}
 }
