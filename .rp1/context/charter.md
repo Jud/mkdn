@@ -19,7 +19,7 @@ Every visual and interactive element must be crafted with obsessive attention to
 ## Scope Guardrails
 ### Will Do
 - Split-screen toggle: preview-only reading mode vs. side-by-side edit + preview
-- First-class Mermaid chart rendering via JavaScriptCore + beautiful-mermaid (SVG output rendered natively). Supports flowchart, sequence, state, class, ER diagrams. Native gesture support (pinch-to-zoom, two-finger scroll) on rendered SVG
+- First-class Mermaid chart rendering via WKWebView + bundled mermaid.js (one web view per diagram). Supports flowchart, sequence, state, class, ER diagrams. Click-to-focus interaction with pinch-to-zoom and pan
 - Terminal-consistent theming (e.g., Solarized)
 - Syntax highlighting for code blocks (paramount)
 - CLI-launchable (`mkdn file.md`)

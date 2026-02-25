@@ -8,10 +8,7 @@ import os
 
 def find_socket():
     socks = glob.glob("/tmp/mkdn-test-harness-*.sock")
-    for s in sorted(socks, key=os.path.getmtime, reverse=True):
-        if os.path.exists(f"/proc/{s.split('-')[-1].replace('.sock','')}/status") or True:
-            return s
-    return socks[0] if socks else None
+    return sorted(socks, key=os.path.getmtime, reverse=True)[0] if socks else None
 
 def send(sock_path, cmd):
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)

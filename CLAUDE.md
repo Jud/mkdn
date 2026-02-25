@@ -40,7 +40,7 @@ Mac-native Markdown viewer/editor. Swift 6 + SwiftUI. macOS 14.0+.
 swift build          # Build
 swift test           # Run tests
 swift run mkdn       # Run app
-DEVELOPER_DIR=/Applications/Xcode-16.3.0.app/Contents/Developer swiftlint lint  # Lint
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swiftlint lint  # Lint
 swiftformat .        # Format
 ```
 
@@ -49,12 +49,7 @@ swiftformat .        # Format
 Feature-Based MVVM. Two-target layout:
 - `mkdnLib` (library target): All source in `mkdn/`, tests in `mkdnTests/`.
 - `mkdn` (executable target): Entry point in `mkdnEntry/main.swift`.
-- Tests use `@testable import mkdnLib`. Central state: `AppState`.
-
-### rp1 Workflow
-
-- All `.rp1/` artifacts (work/, context/, settings.toml) are tracked in git. Always commit them.
-- `GIT_COMMIT=true` is the default (see `.rp1/settings.toml`).
+- Tests use `@testable import mkdnLib`. Central state: `DocumentState` (per-window) + `AppSettings` (app-wide).
 
 ### Visual Testing with mkdn-ctl
 

@@ -56,7 +56,7 @@
 |---|------|--------|-------------|--------|----------|
 | 1 | AppSettings.swift | App | Global settings, theme management, scale factor persistence | Active | High |
 | 2 | ContentView.swift | App | Main document view with find bar overlay and sidebar integration | Active | High |
-| 3 | AppState.swift | App | Central observable state coordinating all features | Active | High |
+| 3 | DocumentState.swift | App | Per-document state including file path and reload tracking | Active | High |
 | 4 | DocumentState.swift | App | Per-document state including file path and reload tracking | Active | Medium |
 | 5 | FindState.swift | Viewer | Find bar state machine with search, navigation, and match tracking | Active | Medium |
 | 6 | MarkdownParser.swift | Core | Swift-markdown based parser producing MarkdownBlock tree | Active | High |
