@@ -1,26 +1,3 @@
-<!-- rp1:start -->
-## rp1 Knowledge Base
-
-**Use Progressive Disclosure Pattern**
-
-Location: `.rp1/context/`
-
-Files:
-- index.md (always load first)
-- architecture.md
-- modules.md
-- patterns.md
-- concept_map.md
-
-Loading rules:
-1. Always read index.md first.
-2. Then load based on task type:
-   - Code review: patterns.md
-   - Bug investigation: architecture.md, modules.md
-   - Feature work: modules.md, patterns.md
-   - Strategic or system-wide analysis: all files
-<!-- rp1:end -->
-
 ## Project: mkdn
 
 Mac-native Markdown viewer/editor. Swift 6 + SwiftUI. macOS 14.0+.
@@ -51,6 +28,8 @@ Feature-Based MVVM. Two-target layout:
 - `mkdn` (executable target): Entry point in `mkdnEntry/main.swift`.
 - Tests use `@testable import mkdnLib`. Central state: `DocumentState` (per-window) + `AppSettings` (app-wide).
 
+Feature blueprints live in `docs/features/` — one per major feature, documenting architecture and key implementation decisions.
+
 ### Visual Testing with mkdn-ctl
 
 The app includes a test harness for visual verification. Launch with `--test-harness`, then drive it with `scripts/mkdn-ctl`. See `docs/visual-testing-with-mkdn-ctl.md` for the full workflow.
@@ -63,8 +42,6 @@ scripts/mkdn-ctl scroll 500                       # scroll to y=500pt
 scripts/mkdn-ctl theme solarizedDark              # set theme
 scripts/mkdn-ctl info                             # window state
 ```
-
-When verifying UI changes: create a fixture, load it, capture screenshots at various scroll positions and themes, then `Read` the PNGs to evaluate rendering.
 
 ### Visual Verification After UI Changes
 
