@@ -129,7 +129,6 @@ Feature-specific views and view models organized by domain.
 - **Viewer**: `MarkdownPreviewView`, `SelectableTextView`, `OverlayCoordinator`, `FindBarView`, `CodeBlockView`, `MermaidBlockView`, `MathBlockView`, `TableBlockView`, `EntranceAnimator`
 - **Editor**: `SplitEditorView`, `MarkdownEditorView`, `ResizableSplitView`
 - **Sidebar**: `DirectoryContentView`, `SidebarView`, `SidebarRowView`, `DirectoryState`
-- **Theming**: `ThemePickerView`
 
 ### Core Layer
 Domain logic: parsing, rendering, highlighting, file watching, directory scanning.

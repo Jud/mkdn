@@ -27,13 +27,15 @@ Fenced code blocks display with full token-level syntax highlighting powered by 
 Swift, Python, JavaScript, TypeScript, Rust, Go, Bash, JSON, HTML, CSS, C, C++, Ruby, Java, YAML, Kotlin
 
 ```swift
-@Observable
-final class AppState {
-    var currentFileURL: URL?
-    var markdownContent = ""
-    var viewMode: ViewMode = .previewOnly
+@MainActor @Observable
+public final class DocumentState {
+    public var currentFileURL: URL?
+    public var markdownContent = ""
+    public var viewMode: ViewMode = .previewOnly
 
-    func loadFile(at url: URL) throws {
+    let fileWatcher = FileWatcher()
+
+    public func loadFile(at url: URL) throws {
         let content = try String(contentsOf: url, encoding: .utf8)
         currentFileURL = url
         markdownContent = content

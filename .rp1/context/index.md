@@ -80,8 +80,7 @@ mkdn/
 ├── Features/
 │   ├── Viewer/         # Preview, text view, overlays, find bar, block views
 │   ├── Editor/         # Split editor, resizable pane
-│   ├── Sidebar/        # Directory browser sidebar
-│   └── Theming/        # Theme picker
+│   └── Sidebar/        # Directory browser sidebar
 ├── UI/
 │   ├── Theme/          # AppTheme, colors, animations, print palette
 │   └── Components/     # Orb, welcome view, window accessor, overlays

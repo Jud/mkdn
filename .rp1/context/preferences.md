@@ -19,17 +19,17 @@
 | Package | Purpose | Rationale |
 |---------|---------|-----------|
 | apple/swift-markdown | Markdown parsing | Official Apple parser, well-maintained |
-| swhitty/SwiftDraw | SVG to NSImage | Lightweight SVG rasterizer, no web view |
-| jectivex/JXKit | JavaScriptCore wrapper | Swift-friendly JSC interface for Mermaid |
+| ChimeHQ/SwiftTreeSitter | Syntax highlighting | Tree-sitter based, 16 languages |
+| mgriebling/SwiftMath | LaTeX math rendering | Native math typesetting, no web views |
 | apple/swift-argument-parser | CLI arguments | Official Apple CLI parsing |
-| JohnSundell/Splash | Syntax highlighting | Swift-native code highlighting |
 
 ## Architecture Decisions
 
 | Decision | Choice | Alternatives Considered |
 |----------|--------|------------------------|
-| No WKWebView | Fully native SwiftUI | WKWebView for Markdown/Mermaid (rejected: heavyweight, non-native) |
-| Mermaid rendering | JSC + beautiful-mermaid | WKWebView + mermaid.js (rejected: requires DOM) |
+| WKWebView for Mermaid only | Native SwiftUI for all else | Full WKWebView (rejected: heavyweight, non-native) |
+| Mermaid rendering | WKWebView + bundled mermaid.js | JSC + beautiful-mermaid (rejected: requires DOM) |
+| Syntax highlighting | SwiftTreeSitter (tree-sitter) | Splash (rejected: Swift-only, limited languages) |
 | State management | @Observable | ObservableObject (rejected: legacy Combine pattern) |
 | Project structure | Feature-Based MVVM | Flat structure (rejected: poor scalability) |
 | Theme system | Solarized (Dark/Light) | System colors (rejected: terminal-consistency requirement) |
