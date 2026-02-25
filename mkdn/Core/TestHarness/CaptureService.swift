@@ -147,7 +147,7 @@ enum CaptureService {
             .null,
             .optionIncludingWindow,
             windowID,
-            [.boundsIgnoreFraming, .bestResolution]
+            [.bestResolution]
         )
     }
 

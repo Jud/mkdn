@@ -502,7 +502,7 @@ enum TestHarnessHandler {
                 .null,
                 .optionIncludingWindow,
                 windowID,
-                [.boundsIgnoreFraming, .bestResolution]
+                [.bestResolution]
             )
             else { return }
 
