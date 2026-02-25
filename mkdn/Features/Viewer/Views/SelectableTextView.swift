@@ -76,15 +76,6 @@ struct SelectableTextView: NSViewRepresentable {
 
         let coordinator = context.coordinator
 
-        if let lastTheme = coordinator.lastAppliedTheme, lastTheme != theme {
-            let transition = CATransition()
-            transition.type = .fade
-            transition.duration = reduceMotion ? 0.15 : 0.35
-            transition.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            scrollView.layer?.add(transition, forKey: "themeTransition")
-        }
-        coordinator.lastAppliedTheme = theme
-
         applyTheme(to: textView, scrollView: scrollView)
         textView.findState = findState
         textView.printBlocks = blocks
@@ -239,7 +230,6 @@ extension SelectableTextView {
         let animator = EntranceAnimator()
         let overlayCoordinator = OverlayCoordinator()
         var lastAppliedText: NSAttributedString?
-        var lastAppliedTheme: AppTheme?
 
         // MARK: - Link Navigation
 
