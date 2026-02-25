@@ -103,21 +103,43 @@ struct AppSettingsTests {
 
     // MARK: - cycleTheme
 
-    @Test("cycleTheme cycles through auto, dark, light")
-    @MainActor func cycleThemeModes() {
+    @Test("cycleTheme skips visually-identical modes on dark system")
+    @MainActor func cycleThemeOnDarkSystem() {
         defer { UserDefaults.standard.removeObject(forKey: "themeMode") }
 
         let settings = AppSettings()
-        #expect(settings.themeMode == .auto)
+        settings.systemColorScheme = .dark
+        settings.themeMode = .auto
+        #expect(settings.theme == .solarizedDark)
 
-        settings.cycleTheme()
-        #expect(settings.themeMode == .solarizedDark)
-
+        // auto resolves to solarizedDark, so cycling skips solarizedDark
         settings.cycleTheme()
         #expect(settings.themeMode == .solarizedLight)
 
         settings.cycleTheme()
         #expect(settings.themeMode == .auto)
+    }
+
+    @Test("cycleTheme skips visually-identical modes on light system")
+    @MainActor func cycleThemeOnLightSystem() {
+        defer { UserDefaults.standard.removeObject(forKey: "themeMode") }
+
+        let settings = AppSettings()
+        settings.systemColorScheme = .light
+        settings.themeMode = .auto
+        #expect(settings.theme == .solarizedLight)
+
+        // auto resolves to solarizedLight, so cycling skips solarizedLight
+        settings.cycleTheme()
+        #expect(settings.themeMode == .solarizedDark)
+
+        // solarizedDark → solarizedLight (visually different)
+        settings.cycleTheme()
+        #expect(settings.themeMode == .solarizedLight)
+
+        // solarizedLight skips auto (same visual) → solarizedDark
+        settings.cycleTheme()
+        #expect(settings.themeMode == .solarizedDark)
     }
 
     // MARK: - UserDefaults Persistence
