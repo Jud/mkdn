@@ -155,9 +155,7 @@ Markdown preview rendering and interaction.
 | `Views/TableHeaderView.swift` | Table header row styling |
 | `Views/TableHighlightOverlay.swift` | Selection highlight overlay for table cells |
 | `Views/FindBarView.swift` | In-document search UI: query input, match navigation, count display |
-| `Views/MarkdownBlockView.swift` | Block type router: dispatches to specific block views |
 | `ViewModels/FindState.swift` | `@Observable`: query, match ranges, current index, wrap-around navigation |
-| `ViewModels/PreviewViewModel.swift` | Re-renders IndexedBlocks when text or theme changes |
 
 ## Features/Editor (`mkdn/Features/Editor/`)
 

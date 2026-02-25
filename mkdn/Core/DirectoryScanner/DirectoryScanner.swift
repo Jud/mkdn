@@ -3,8 +3,6 @@ import Foundation
 /// Recursively scans a directory and builds a ``FileTreeNode`` tree
 /// containing only Markdown files and directories that contain them.
 public enum DirectoryScanner {
-    private static let markdownExtensions: Set<String> = ["md", "markdown"]
-
     /// Scan a directory and return a ``FileTreeNode`` tree containing
     /// only Markdown files and directories that contain them.
     ///
@@ -121,7 +119,7 @@ public enum DirectoryScanner {
     }
 
     private static func isMarkdownFile(_ url: URL) -> Bool {
-        markdownExtensions.contains(url.pathExtension.lowercased())
+        FileOpenCoordinator.isMarkdownURL(url)
     }
 
     private static func directoryHasMarkdownFiles(

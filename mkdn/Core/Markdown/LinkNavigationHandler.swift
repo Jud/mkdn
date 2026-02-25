@@ -16,9 +16,6 @@ enum LinkNavigationHandler {
         case otherLocalFile(URL)
     }
 
-    /// Markdown file extensions recognized for in-app navigation.
-    static let markdownExtensions: Set<String> = ["md", "markdown"]
-
     /// Classifies a link URL into its navigation destination.
     ///
     /// - Parameters:
@@ -62,8 +59,7 @@ enum LinkNavigationHandler {
     // MARK: - Private
 
     private static func classifyLocalFile(_ url: URL) -> LinkDestination {
-        let ext = url.pathExtension.lowercased()
-        if markdownExtensions.contains(ext) {
+        if FileOpenCoordinator.isMarkdownURL(url) {
             return .localMarkdown(url)
         }
         return .otherLocalFile(url)

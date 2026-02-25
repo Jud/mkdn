@@ -63,42 +63,30 @@ struct MarkdownPreviewView: View {
             let anyKnown = newBlocks.contains { knownBlockIDs.contains($0.id) }
             let shouldAnimate = !anyKnown && !reduceMotion && !newBlocks.isEmpty
 
-            renderedBlocks = newBlocks
-            knownBlockIDs = Set(newBlocks.map(\.id))
-            isFullReload = shouldAnimate
-            textStorageResult = MarkdownTextStorageBuilder.build(
-                blocks: newBlocks,
-                theme: appSettings.theme,
-                scaleFactor: appSettings.scaleFactor
-            )
+            renderAndBuild(newBlocks, isFullReload: shouldAnimate)
         }
         .onChange(of: appSettings.theme) {
-            let newBlocks = MarkdownRenderer.render(
-                text: documentState.markdownContent,
-                theme: appSettings.theme
-            )
-            renderedBlocks = newBlocks
-            knownBlockIDs = Set(newBlocks.map(\.id))
-            isFullReload = false
-            textStorageResult = MarkdownTextStorageBuilder.build(
-                blocks: newBlocks,
-                theme: appSettings.theme,
-                scaleFactor: appSettings.scaleFactor
+            renderAndBuild(
+                MarkdownRenderer.render(text: documentState.markdownContent, theme: appSettings.theme),
+                isFullReload: false
             )
         }
         .onChange(of: appSettings.scaleFactor) {
-            let newBlocks = MarkdownRenderer.render(
-                text: documentState.markdownContent,
-                theme: appSettings.theme
-            )
-            renderedBlocks = newBlocks
-            knownBlockIDs = Set(newBlocks.map(\.id))
-            isFullReload = false
-            textStorageResult = MarkdownTextStorageBuilder.build(
-                blocks: newBlocks,
-                theme: appSettings.theme,
-                scaleFactor: appSettings.scaleFactor
+            renderAndBuild(
+                MarkdownRenderer.render(text: documentState.markdownContent, theme: appSettings.theme),
+                isFullReload: false
             )
         }
+    }
+
+    private func renderAndBuild(_ newBlocks: [IndexedBlock], isFullReload animate: Bool) {
+        renderedBlocks = newBlocks
+        knownBlockIDs = Set(newBlocks.map(\.id))
+        isFullReload = animate
+        textStorageResult = MarkdownTextStorageBuilder.build(
+            blocks: newBlocks,
+            theme: appSettings.theme,
+            scaleFactor: appSettings.scaleFactor
+        )
     }
 }

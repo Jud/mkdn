@@ -79,7 +79,6 @@ enum MarkdownTextStorageBuilder {
     static let blockquoteIndent: CGFloat = 19
     static let attachmentPlaceholderHeight: CGFloat = 100
     static let thematicBreakHeight: CGFloat = 17
-    static let tableColumnWidth: CGFloat = 120
 
     static let bulletStyles: [String] = [
         "\u{2022}",
@@ -262,26 +261,6 @@ enum MarkdownTextStorageBuilder {
     // MARK: - Table Height Estimation
 
     static let defaultEstimationContainerWidth: CGFloat = 600
-
-    private static func estimatedTableAttachmentHeight(
-        columns: [TableColumn],
-        rows: [[AttributedString]],
-        scaleFactor: CGFloat = 1.0
-    ) -> CGFloat {
-        let font = PlatformTypeConverter.bodyFont(scaleFactor: scaleFactor)
-        let sizer = TableColumnSizer.computeWidths(
-            columns: columns,
-            rows: rows,
-            containerWidth: defaultEstimationContainerWidth,
-            font: font
-        )
-        return TableColumnSizer.estimateTableHeight(
-            columns: columns,
-            rows: rows,
-            columnWidths: sizer.columnWidths,
-            font: font
-        )
-    }
 
     // MARK: - Inline Content Conversion
 
