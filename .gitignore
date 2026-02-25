@@ -57,10 +57,8 @@ Pods/
 *.pkg
 *.app
 
-# rp1 internal work artifacts (keep context/ for documentation)
-.rp1/work/
-.rp1/settings.toml
-.rp1/context/meta.json
+# rp1 (internal development tooling)
+.rp1/
 
 # Claude Code configuration
 .claude/
