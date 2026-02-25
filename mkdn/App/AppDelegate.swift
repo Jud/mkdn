@@ -24,9 +24,23 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
 
     public func application(_: NSApplication, open urls: [URL]) {
         let markdownURLs = urls.filter { FileOpenCoordinator.isMarkdownURL($0) }
+        guard !markdownURLs.isEmpty else { return }
         for url in markdownURLs {
             NSDocumentController.shared.noteNewRecentDocumentURL(url)
             FileOpenCoordinator.shared.pendingURLs.append(url)
+        }
+        // kAEOpenDocuments during cold launch suppresses the default WindowGroup
+        // window, and warm launch with all windows closed has no observer.
+        // Force-create a window so DocumentWindow.consumeLaunchContext() picks
+        // up the pending URLs.
+        if !NSApp.windows.contains(where: { $0.isVisible }) {
+            DispatchQueue.main.async {
+                NSApp.activate(ignoringOtherApps: true)
+                NSApp.sendAction(
+                    #selector(NSDocumentController.newDocument(_:)),
+                    to: nil, from: nil
+                )
+            }
         }
     }
 
