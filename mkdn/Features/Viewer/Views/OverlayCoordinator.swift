@@ -102,6 +102,11 @@ final class OverlayCoordinator {
 
     /// Recalculates all overlay positions from the current layout geometry.
     func repositionOverlays() {
+        if let layoutManager = textView?.textLayoutManager,
+           let documentRange = layoutManager.textContentManager?.documentRange
+        {
+            layoutManager.ensureLayout(for: documentRange)
+        }
         guard let context = makeLayoutContext() else { return }
         for (_, entry) in entries {
             positionEntry(entry, context: context)
