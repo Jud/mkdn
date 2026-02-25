@@ -33,7 +33,6 @@ struct MkdnApp: App {
 // Solution: when a file argument is detected, save the validated path to the
 // MKDN_LAUNCH_FILE env var and execv() the binary without the file argument.
 // The re-launched process reads the env var and proceeds with a clean argv.
-// The re-launched process reads the env var and proceeds with a clean argv.
 
 /// Check for --test-harness before CLI parsing to avoid argument parser conflicts.
 /// The flag activates the in-process test harness server for automated UI testing.

@@ -6,6 +6,8 @@ No Electron. No compromise. Native SwiftUI rendering for all Markdown -- heading
 
 Open this file in mkdn to see every feature in action.
 
+![mkdn rendering a technical document with Swift code blocks, a Mermaid sequence diagram, and a file tree sidebar in Solarized Dark](docs/images/hero-dark.png)
+
 ---
 
 ## Why mkdn?
@@ -48,6 +50,8 @@ public final class DocumentState {
 
 Inline (`$...$`) and display (`$$...$$`) LaTeX math expressions render natively using [SwiftMath](https://github.com/mgriebling/SwiftMath). No web views, no MathJax -- pure native rendering that matches the surrounding text style.
 
+![LaTeX math equations rendered in Solarized Dark -- integrals, summations, limits, and E=mc2](docs/images/math-dark.png)
+
 ### Mermaid Diagrams
 
 Flowcharts, sequence diagrams, state machines, class diagrams, and ER diagrams render in lightweight embedded web views:
@@ -78,6 +82,8 @@ Two carefully tuned themes -- Solarized Dark and Solarized Light -- with an Auto
 | Auto | Follows macOS light/dark appearance in real time |
 | Dark | Solarized Dark, always |
 | Light | Solarized Light, always |
+
+![Solarized Light theme showing a configuration table, blockquote, and operator list with sidebar](docs/images/hero-light.png)
 
 ### Zoom
 
@@ -183,7 +189,7 @@ brew install --cask mkdn
 
 ### Build from Source
 
-Requires macOS 14.0+ (Sonoma) and Xcode 16+ / Swift 6.
+Requires macOS 14.0+ (Sonoma) and Xcode 16+ / Swift 6. Requires Apple Silicon (M1 or later).
 
 ```bash
 git clone https://github.com/jud/mkdn.git

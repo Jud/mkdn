@@ -102,7 +102,7 @@ public final class DocumentState {
             fileWatcher.watch(url: url)
             NSDocumentController.shared.noteNewRecentDocumentURL(url)
         } catch {
-            // Write failure; leave state unchanged
+            modeOverlayLabel = "Save failed"
         }
     }
 

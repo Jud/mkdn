@@ -17,5 +17,7 @@ cask "mkdn" do
                    args: ["-rd", "com.apple.quarantine", "#{appdir}/mkdn.app"]
   end
 
-  zap trash: []
+  zap trash: [
+    "~/Library/Preferences/com.mkdn.app.plist",
+  ]
 end
