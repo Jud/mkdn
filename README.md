@@ -18,20 +18,13 @@ Most Markdown previewers are web browsers in disguise. mkdn takes a different pa
 
 ### Native Rendering
 
-Every Markdown element -- headings, paragraphs, lists, blockquotes, tables, thematic breaks, images, and inline formatting -- is parsed by Apple's [swift-markdown](https://github.com/apple/swift-markdown) library and rendered as native SwiftUI views. No HTML. No CSS. No DOM.
-
-### Mermaid Diagrams
-
-Flowcharts, sequence diagrams, state machines, class diagrams, and ER diagrams render in lightweight embedded web views:
-
-1. Each diagram gets its own `WKWebView` with bundled `mermaid.js` -- no network requests
-2. All diagram web views share a single `WKProcessPool` for efficiency
-3. Click a diagram to activate pinch-to-zoom and pan
-4. Press Escape to deactivate
+Every Markdown element -- headings, paragraphs, lists, blockquotes, tables, thematic breaks, images, and inline formatting -- is parsed by Apple's [swift-markdown](https://github.com/apple/swift-markdown) library and rendered into a single `NSAttributedString` via TextKit 2, enabling native cross-block text selection. No HTML. No CSS. No DOM.
 
 ### Syntax Highlighting
 
-Fenced code blocks display with language-aware highlighting powered by [Splash](https://github.com/JohnSundell/Splash). Swift code gets full token-level coloring (keywords, types, strings, numbers, comments, properties). Other languages render as clean monospace text with theme-appropriate colors.
+Fenced code blocks display with full token-level syntax highlighting powered by [tree-sitter](https://tree-sitter.github.io/tree-sitter/) via [SwiftTreeSitter](https://github.com/ChimeHQ/SwiftTreeSitter). 16 languages with semantic coloring:
+
+Swift, Python, JavaScript, TypeScript, Rust, Go, Bash, JSON, HTML, CSS, C, C++, Ruby, Java, YAML, Kotlin
 
 ```swift
 @Observable
@@ -49,6 +42,31 @@ final class AppState {
 }
 ```
 
+### LaTeX Math
+
+Inline (`$...$`) and display (`$$...$$`) LaTeX math expressions render natively using [SwiftMath](https://github.com/mgriebling/SwiftMath). No web views, no MathJax -- pure native rendering that matches the surrounding text style.
+
+### Mermaid Diagrams
+
+Flowcharts, sequence diagrams, state machines, class diagrams, and ER diagrams render in lightweight embedded web views:
+
+1. Each diagram gets its own `WKWebView` with bundled `mermaid.js` -- no network requests
+2. All diagram web views share a single `WKProcessPool` for efficiency
+3. Click a diagram to activate pinch-to-zoom and pan
+4. Press Escape to deactivate
+
+### Directory Browsing
+
+Open a directory to browse all Markdown files in a sidebar. Click files to preview them. The sidebar shows a recursive tree of directories and `.md`/`.markdown` files, sorted alphabetically with directories first.
+
+### Find in Page
+
+Press Cmd+F to search within the rendered preview. Matches are highlighted with the current match emphasized. Navigate between matches with Cmd+G / Cmd+Shift+G. Use Cmd+E to search for the current text selection.
+
+### Tables
+
+Tables render with full column alignment support, alternating row stripes, and native text selection across cells. Horizontal scrolling for wide tables.
+
 ### Solarized Theming
 
 Two carefully tuned themes -- Solarized Dark and Solarized Light -- with an Auto mode that follows macOS system appearance. Theme changes crossfade smoothly. Every color in the app, from heading tints to code block backgrounds to table row stripes, is defined in a single `ThemeColors` struct.
@@ -59,6 +77,10 @@ Two carefully tuned themes -- Solarized Dark and Solarized Light -- with an Auto
 | Dark | Solarized Dark, always |
 | Light | Solarized Light, always |
 
+### Zoom
+
+Cmd+Plus to zoom in, Cmd+Minus to zoom out, Cmd+0 to reset. Zoom level persists across sessions.
+
 ### Chrome-less Window
 
 mkdn hides the traffic lights, title bar, and all standard window chrome. The window is draggable by its background and fully resizable. What remains is just your content -- clean, focused, distraction-free.
@@ -66,10 +88,6 @@ mkdn hides the traffic lights, title bar, and all standard window chrome. The wi
 ### Breathing Orb
 
 When the file changes on disk (edited in Vim, saved by a script, updated by git), a small orb pulses gently in the bottom-right corner. No modal dialogs. No alerts. Just a calm, breathing indicator that something changed. Press Cmd+R to reload.
-
-### Mode Overlay
-
-Switching between Preview and Edit modes triggers an ephemeral overlay that springs in, displays the mode name briefly, then fades away. Subtle feedback without interruption.
 
 ### Side-by-Side Editing
 
@@ -85,6 +103,7 @@ Launch from any terminal:
 
 ```bash
 mkdn path/to/file.md
+mkdn path/to/directory/
 ```
 
 Built with Swift Argument Parser. Invalid paths produce clear error messages to stderr with appropriate exit codes.
@@ -95,74 +114,27 @@ Drop any `.md` or `.markdown` file onto the window to open it. No file picker re
 
 ---
 
-## Architecture
-
-mkdn follows **Feature-Based MVVM** with a two-target SPM layout:
-
-- **mkdnLib** -- library target containing all source code
-- **mkdn** -- thin executable target with the entry point
-
-This split avoids the `@main` crash that occurs when running Swift Testing against executable targets.
-
-```mermaid
-flowchart TD
-    CLI["CLI Entry Point"] --> App["MkdnApp"]
-    App --> State["AppState (@Observable)"]
-    State --> CV["ContentView"]
-    CV --> WV["WelcomeView"]
-    CV --> PV["MarkdownPreviewView"]
-    CV --> SV["SplitEditorView"]
-    State --> FW["FileWatcher"]
-    State --> TH["Theme System"]
-    PV --> MR["MarkdownRenderer"]
-    PV --> MB["MermaidBlockView"]
-    PV --> CB["CodeBlockView"]
-    PV --> TB["TableBlockView"]
-    MB --> MW["MermaidWebView (WKWebView)"]
-    MW --> MJS["mermaid.js"]
-    CB --> SP["Splash"]
-    MR --> SM["swift-markdown"]
-```
-
-### Rendering Pipeline
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant App as AppState
-    participant Parser as MarkdownRenderer
-    participant Visitor as MarkdownVisitor
-    participant View as BlockView
-    participant MWV as MermaidWebView
-    participant MJS as mermaid.js
-
-    User->>App: Open file.md
-    App->>App: loadFile(at: url)
-    App->>Parser: render(text, theme)
-    Parser->>Visitor: walk(Document)
-    Visitor-->>Parser: [MarkdownBlock]
-    Parser-->>View: Display blocks
-
-    Note over View: Code blocks use Splash
-    Note over View: Tables use native Grid
-
-    View->>MWV: Display mermaid source
-    MWV->>MJS: Render diagram
-    MJS-->>MWV: Rendered diagram in WKWebView
-```
-
----
-
 ## Keyboard Shortcuts
 
 | Shortcut | Action |
 |:---------|:-------|
 | Cmd+O | Open a Markdown file |
 | Cmd+S | Save current edits |
+| Cmd+Shift+S | Save As |
+| Cmd+W | Close window |
 | Cmd+R | Reload file from disk |
 | Cmd+1 | Switch to Preview mode |
 | Cmd+2 | Switch to Edit mode |
 | Cmd+T | Cycle theme (Auto / Dark / Light) |
+| Cmd+F | Find in page |
+| Cmd+G | Find next match |
+| Cmd+Shift+G | Find previous match |
+| Cmd+E | Use selection for find |
+| Cmd+Plus | Zoom in |
+| Cmd+Minus | Zoom out |
+| Cmd+0 | Actual size |
+| Cmd+Shift+L | Toggle sidebar |
+| Cmd+P | Print |
 | Escape | Deactivate Mermaid diagram zoom |
 
 ---
@@ -173,11 +145,12 @@ mkdn renders the full CommonMark spec natively:
 
 - **Headings** (levels 1-6)
 - **Paragraphs** with inline formatting (**bold**, *italic*, `code`, ~~strikethrough~~, [links](https://example.com))
-- **Fenced code blocks** with language tags and syntax highlighting
+- **Fenced code blocks** with language tags and 16-language syntax highlighting
+- **LaTeX math** -- inline `$...$` and display `$$...$$`
 - **Mermaid diagrams** (flowchart, sequence, state, class, ER)
 - **Blockquotes**
 - **Ordered and unordered lists**
-- **Tables** with column alignment
+- **Tables** with column alignment and text selection
 - **Thematic breaks**
 - **Images**
 
@@ -202,6 +175,7 @@ mkdn renders the full CommonMark spec natively:
 ### Homebrew
 
 ```bash
+brew tap jud/mkdn
 brew install --cask mkdn
 ```
 
@@ -221,19 +195,10 @@ swift build
 swift run mkdn path/to/file.md
 ```
 
-Or open the Xcode project and run the mkdn scheme.
-
 ### Test
 
 ```bash
 swift test
-```
-
-### Lint and Format
-
-```bash
-swiftlint lint
-swiftformat .
 ```
 
 ---
@@ -244,24 +209,26 @@ swiftformat .
 mkdn/
   App/                  Entry point, AppState, commands
   Features/
-    Viewer/             Markdown preview (Views/, ViewModels/)
-    Editor/             Side-by-side editing (Views/, ViewModels/)
-    Theming/            Theme picker
+    Viewer/             Markdown preview (TextKit 2 rendering)
+    Editor/             Side-by-side editing
+    Sidebar/            Directory browsing
   Core/
-    Markdown/           swift-markdown parsing + SwiftUI rendering
+    Markdown/           swift-markdown parsing + NSAttributedString rendering
     Mermaid/            WKWebView + mermaid.js diagram rendering
+    Highlighting/       Tree-sitter syntax highlighting engine
     FileWatcher/        Kernel-level file change detection
+    DirectoryScanner/   Recursive Markdown file discovery
     CLI/                Argument parsing and validation
   UI/
     Components/         WelcomeView, BreathingOrb, ModeOverlay, WindowAccessor
-    Theme/              Solarized color palettes, ThemeMode, AnimationConstants
+    Theme/              Solarized color palettes, ThemeMode
   Resources/            mermaid.min.js bundle
 
 mkdnEntry/
   main.swift            Thin executable entry point
 
 mkdnTests/
-  Unit/                 Swift Testing suites
+  Unit/                 Swift Testing suites (548 tests)
 ```
 
 ---
@@ -271,7 +238,8 @@ mkdnTests/
 | Package | Purpose |
 |:--------|:--------|
 | [swift-markdown](https://github.com/apple/swift-markdown) | Markdown AST parsing |
-| [Splash](https://github.com/JohnSundell/Splash) | Swift syntax highlighting |
+| [SwiftTreeSitter](https://github.com/ChimeHQ/SwiftTreeSitter) | Syntax highlighting (16 languages) |
+| [SwiftMath](https://github.com/mgriebling/SwiftMath) | LaTeX math rendering |
 | [swift-argument-parser](https://github.com/apple/swift-argument-parser) | CLI argument handling |
 
 ---
@@ -288,4 +256,4 @@ mkdnTests/
 
 ## License
 
-Private project.
+MIT License. See [LICENSE](LICENSE) for details.
