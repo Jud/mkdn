@@ -70,3 +70,14 @@ scripts/mkdn-ctl info                             # window state
 ```
 
 When verifying UI changes: create a fixture, load it, capture screenshots at various scroll positions and themes, then `Read` the PNGs to evaluate rendering.
+
+### Visual Verification After UI Changes
+
+**Always visually verify** after implementing UI features or modifying rendering. Do not rely solely on unit tests for visual correctness. The workflow:
+
+1. Build the project (`swift build`)
+2. Launch the test harness (`swift run mkdn --test-harness &`)
+3. Load the relevant fixture (`scripts/mkdn-ctl load fixtures/<fixture>.md`)
+4. Capture screenshots at multiple scroll positions in **both themes** (solarizedLight + solarizedDark)
+5. `Read` each PNG to visually inspect rendering quality, alignment, spacing, and theme harmony
+6. Report findings before considering the task complete
