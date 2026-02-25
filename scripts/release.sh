@@ -8,6 +8,8 @@ BUILD_DIR="${PROJECT_ROOT}/build"
 APP_BUNDLE="${BUILD_DIR}/mkdn.app"
 CLI_SWIFT="${PROJECT_ROOT}/mkdn/Core/CLI/MkdnCLI.swift"
 SPM_BUILD_DIR="${PROJECT_ROOT}/.build/arm64-apple-macosx/release"
+SIGNING_IDENTITY="Developer ID Application: Jud Stephenson (SYX3424FVV)"
+NOTARIZE_PROFILE="mkdn-notarize"
 
 VERSION_INJECTED=false
 
@@ -109,7 +111,7 @@ INFO_PLIST_SRC="${PROJECT_ROOT}/Resources/Info.plist"
 [ -f "${INFO_PLIST_SRC}" ] || error "Resources/Info.plist not found at ${INFO_PLIST_SRC}"
 
 cp "${INFO_PLIST_SRC}" "${APP_BUNDLE}/Contents/Info.plist"
-sed -i '' "s|<string>0\.0\.0</string>|<string>${VERSION}</string>|g" "${APP_BUNDLE}/Contents/Info.plist"
+sed -i '' "s|<string>[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*</string>|<string>${VERSION}</string>|g" "${APP_BUNDLE}/Contents/Info.plist"
 echo "  Installed Info.plist (version ${VERSION})"
 
 ICON_SRC="${PROJECT_ROOT}/Resources/AppIcon.icns"
@@ -120,11 +122,11 @@ echo "  Installed AppIcon.icns"
 # ---------------------------------------------------------------------------
 # Phase 6: Code signing
 # ---------------------------------------------------------------------------
-info "Signing .app bundle (ad-hoc)"
+info "Signing .app bundle with Developer ID"
 
-codesign --force --sign - --deep "${APP_BUNDLE}"
+codesign --force --options runtime --sign "${SIGNING_IDENTITY}" --deep "${APP_BUNDLE}"
 codesign --verify --deep --strict "${APP_BUNDLE}" || error "Code signature verification failed"
-echo "  Signature verified"
+echo "  Signed with: ${SIGNING_IDENTITY}"
 
 # ---------------------------------------------------------------------------
 # Phase 7: Archive
@@ -140,6 +142,34 @@ ditto -c -k --keepParent "mkdn.app" "${ARCHIVE_NAME}"
 cd "${PROJECT_ROOT}"
 
 [ -f "${ARCHIVE_PATH}" ] || error "Archive creation failed -- ${ARCHIVE_PATH} not found"
+
+echo "  Archive: ${ARCHIVE_PATH}"
+
+# ---------------------------------------------------------------------------
+# Phase 7.5: Notarization
+# ---------------------------------------------------------------------------
+info "Submitting for notarization (this may take a few minutes)"
+
+xcrun notarytool submit "${ARCHIVE_PATH}" \
+    --keychain-profile "${NOTARIZE_PROFILE}" \
+    --wait || error "Notarization failed. Run 'xcrun notarytool log <submission-id> --keychain-profile ${NOTARIZE_PROFILE}' for details."
+
+echo "  Notarization accepted"
+
+info "Stapling notarization ticket"
+
+xcrun stapler staple "${APP_BUNDLE}" || error "Staple failed"
+echo "  Ticket stapled to mkdn.app"
+
+# Re-create the archive with the stapled app
+info "Re-archiving with stapled ticket"
+
+rm -f "${ARCHIVE_PATH}"
+cd "${BUILD_DIR}"
+ditto -c -k --keepParent "mkdn.app" "${ARCHIVE_NAME}"
+cd "${PROJECT_ROOT}"
+
+[ -f "${ARCHIVE_PATH}" ] || error "Re-archive creation failed -- ${ARCHIVE_PATH} not found"
 
 SHA256=$(shasum -a 256 "${ARCHIVE_PATH}" | awk '{print $1}')
 echo "  Archive: ${ARCHIVE_PATH}"
