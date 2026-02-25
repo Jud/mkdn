@@ -165,11 +165,7 @@ public struct MkdnCommands: Commands {
 
             Section {
                 Button("Cycle Theme") {
-                    let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-                    let themeAnimation = reduceMotion
-                        ? AnimationConstants.reducedCrossfade
-                        : AnimationConstants.crossfade
-                    withAnimation(themeAnimation) {
+                    withAnimation(motionAnimation(.crossfade)) {
                         appSettings.cycleTheme()
                     }
                     documentState?.modeOverlayLabel = appSettings.themeMode.displayName
