@@ -11,7 +11,7 @@ struct PulsingSpinner: View {
 
     var body: some View {
         Circle()
-            .fill(AnimationConstants.orbGlowColor.opacity(0.6))
+            .fill(AnimationConstants.orbDefaultHandlerColor.opacity(0.6))
             .frame(width: 12, height: 12)
             .scaleEffect(isPulsing ? 1.0 : 0.6)
             .opacity(isPulsing ? 1.0 : 0.4)

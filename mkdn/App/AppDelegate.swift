@@ -33,9 +33,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         // window, and warm launch with all windows closed has no observer.
         // Force-create a window so DocumentWindow.consumeLaunchContext() picks
         // up the pending URLs.
-        if !NSApp.windows.contains(where: { $0.isVisible }) {
+        if !NSApp.windows.contains(where: \.isVisible) {
             DispatchQueue.main.async {
-                NSApp.activate(ignoringOtherApps: true)
+                NSApp.activate()
                 NSApp.sendAction(
                     #selector(NSDocumentController.newDocument(_:)),
                     to: nil, from: nil
@@ -122,7 +122,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     ) -> Bool {
         guard !TestHarnessMode.isEnabled else { return false }
         if hasVisibleWindows {
-            sender.activate(ignoringOtherApps: true)
+            sender.activate()
             sender.keyWindow?.makeKeyAndOrderFront(nil)
             return true
         }

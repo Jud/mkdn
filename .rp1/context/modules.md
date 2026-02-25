@@ -1,163 +1,225 @@
-# mkdn Module Inventory
+# Module & Component Breakdown
+
+**Project**: mkdn
+**Analysis Date**: 2026-02-25
+**Modules Analyzed**: 15
 
 ## App Layer (`mkdn/App/`)
 
+Application shell: SwiftUI lifecycle, per-window document management, menu commands, file-open coordination.
+
 | File | Purpose |
 |------|---------|
-| AppSettings.swift | @Observable app-wide settings: zoom scaleFactor (0.5--3.0), themeMode (auto/dark/light), autoReloadEnabled, hasShownDefaultHandlerHint. Persisted to UserDefaults. Methods: zoomIn/zoomOut/zoomReset, cycleTheme |
-| DocumentState.swift | @Observable per-window document lifecycle: file I/O (loadFile, saveFile, saveAs, reloadFile), viewMode, unsaved-changes detection, FileWatcher ownership, mode overlay label |
-| DocumentWindow.swift | SwiftUI View wrapper creating per-window DocumentState. Loads file on appear, consumes LaunchContext URLs for multi-file CLI launch, observes FileOpenCoordinator for runtime file opens, wires test harness in test mode |
-| AppDelegate.swift | NSApplicationDelegate for system file-open events (Finder, dock drag-drop). Routes URLs through FileOpenCoordinator. Applies squircle icon mask with drop shadow on launch |
-| FileOpenCoordinator.swift | @Observable singleton bridging AppKit file-open events to SwiftUI window creation. pendingURLs queue, consumeAll() drain, isMarkdownURL() validation |
-| FocusedDocumentStateKey.swift | FocusedValueKey for accessing active window's DocumentState from menu commands |
-| OpenRecentCommands.swift | File > Open Recent submenu. Reads NSDocumentController.recentDocumentURLs, routes selection through FileOpenCoordinator |
-| ViewMode.swift | Preview-only vs side-by-side enum |
-| ContentView.swift | Root view, mode switching, toolbar |
-| MkdnCommands.swift | Menu bar commands: About, Set Default Handler, Close Window, Save/Save As, Find (panel + next/prev/selection), Print/Page Setup, Open/Reload, Zoom In/Out/Reset, Preview/Edit mode, Cycle Theme |
+| `DocumentState.swift` | Per-window `@Observable`: file I/O, unsaved detection, view mode, FileWatcher ownership |
+| `DocumentWindow.swift` | WindowGroup scene definition, environment injection, launch context consumption |
+| `AppSettings.swift` | App-wide `@Observable`: theme mode, scale factor, auto-reload, UserDefaults persistence |
+| `ContentView.swift` | Root view: switches between WelcomeView, MarkdownPreviewView, SplitEditorView |
+| `AppDelegate.swift` | NSApplicationDelegate: Finder file-open events, icon masking, Cmd-W monitor |
+| `MkdnCommands.swift` | Menu commands: Save, Save As, Find, Zoom, View Mode, Theme, Reload, Open |
+| `OpenRecentCommands.swift` | Open Recent submenu via NSDocumentController |
+| `FileOpenCoordinator.swift` | Routes Finder-opened URLs to DocumentWindow via pendingURLs array |
+| `LaunchItem.swift` | Discriminated union (.file/.directory) for WindowGroup routing |
+| `ViewMode.swift` | Display mode enum: previewOnly, sideBySide |
+| `FocusedDocumentStateKey.swift` | FocusedValueKey for cross-window DocumentState access |
+| `FocusedDirectoryStateKey.swift` | FocusedValueKey for DirectoryState access |
+| `FocusedFindStateKey.swift` | FocusedValueKey for FindState access |
+| `DirectoryModeKey.swift` | EnvironmentKey for directory mode flag |
 
-## Core Layer (`mkdn/Core/`)
+## Core/Markdown (`mkdn/Core/Markdown/`)
 
-### Markdown (`Core/Markdown/`)
+Markdown parsing pipeline: AST visitor, block model, NSAttributedString builder.
+
 | File | Purpose |
 |------|---------|
-| MarkdownRenderer.swift | Parse + render coordinator |
-| MarkdownBlock.swift | Block element enum (11 cases incl. htmlBlock, image). CheckboxState enum (checked/unchecked). ListItem with optional checkbox. IndexedBlock for positional identity. DJB2 stableHash for deterministic IDs |
-| MarkdownVisitor.swift | swift-markdown Document walker -> [MarkdownBlock]. Inline text conversion with emphasis/strong/strikethrough/code/link support. Checkbox extraction from ListItem.checkbox. Standalone image promotion to block-level. Table column alignment mapping |
-| MarkdownTextStorageBuilder.swift | Converts [IndexedBlock] -> NSAttributedString + [AttachmentInfo]. Inline content conversion (bold/italic/code/link/strikethrough). Delegates to SyntaxHighlightEngine for multi-language syntax highlighting. Paragraph style helpers. Plain text extraction |
-| MarkdownTextStorageBuilder+Blocks.swift | Block-type rendering: heading, paragraph, code block (with language label, CodeBlockAttributes marking, rawCode storage), attachment placeholder, HTML block. Code block padding/indent constants |
-| MarkdownTextStorageBuilder+Complex.swift | Blockquote (recursive depth), ordered/unordered lists (nested, with checkbox rendering via SF Symbols) |
-| MarkdownTextStorageBuilder+TableInline.swift | Table invisible-text generation: `appendTableInlineText` builds tab-separated cell content per row with clear foreground, TableAttributes marking, TableCellMap construction, and row height estimation. TableRowContext carries per-row build state. Replaces attachment-based table rendering |
-| PlatformTypeConverter.swift | SwiftUI-to-AppKit type bridge: Color->NSColor, scaled font factory (heading/body/monospaced/captionMonospaced), paragraph style builder |
-| CodeBlockAttributes.swift | Custom NSAttributedString.Key constants: range (block ID), colors (CodeBlockColorInfo), rawCode (clipboard source). CodeBlockColorInfo class (NSObject subclass for attribute storage) |
-| TableAttributes.swift | Custom NSAttributedString.Key constants for table cross-cell selection: range (table ID), cellMap (TableCellMap), colors (TableColorInfo), isHeader (bool). TableColorInfo class (NSObject subclass) stores resolved NSColor values for table container drawing |
-| TableCellMap.swift | NSObject subclass mapping character offsets to cell positions. CellPosition (row/column, header row = -1), CellEntry (position + NSRange + content). O(log n) binary search cell lookup, range intersection for selection mapping, tab-delimited and RTF content extraction for clipboard |
-| TableColumnSizer.swift | Pure column width computation from cell content |
+| `MarkdownBlock.swift` | Block element enum (12 cases) + IndexedBlock + ListItem + CheckboxState + stable DJB2 hashing |
+| `MarkdownVisitor.swift` | Walks swift-markdown Document AST → [MarkdownBlock]. Inline styling, table conversion, math detection |
+| `MarkdownRenderer.swift` | Stateless facade: parse text → Document → MarkdownVisitor → [IndexedBlock] |
+| `MarkdownTextStorageBuilder.swift` | Main builder: [IndexedBlock] → NSAttributedString + AttachmentInfo + TableOverlayInfo |
+| `MarkdownTextStorageBuilder+Blocks.swift` | Block-level rendering: headings, paragraphs, lists, blockquotes, thematic breaks |
+| `MarkdownTextStorageBuilder+Complex.swift` | Complex block rendering: code blocks with syntax highlighting, images |
+| `MarkdownTextStorageBuilder+MathInline.swift` | Inline math ($...$) → NSTextAttachment with baseline alignment |
+| `MarkdownTextStorageBuilder+TableInline.swift` | Table → invisible inline text with TableCellMap for selection/copy |
+| `TableCellMap.swift` | Character offset → cell position mapping. Binary search, range intersection, RTF/TSV export |
+| `TableColumnSizer.swift` | Content-aware column width computation with proportional compression |
+| `TableAttributes.swift` | Custom NSAttributedString keys for table rendering metadata |
+| `CodeBlockAttributes.swift` | Custom NSAttributedString keys for code block rendering and copy |
+| `LinkNavigationHandler.swift` | URL classification: local Markdown (in-app), external (system), other local file |
+| `PlatformTypeConverter.swift` | SwiftUI → AppKit bridge: NSColor, fonts, paragraph styles with scale factor |
 
-### Highlighting (`Core/Highlighting/`)
+## Core/Highlighting (`mkdn/Core/Highlighting/`)
+
+Tree-sitter based syntax highlighting for code blocks.
+
 | File | Purpose |
 |------|---------|
-| SyntaxHighlightEngine.swift | Stateless enum. `highlight(code:language:syntaxColors:)` creates tree-sitter Parser per call, parses code, executes highlight query, maps captures to TokenType, applies NSColor foreground attributes. Returns nil for unsupported languages. Falls back to plain text if query compilation fails |
-| TreeSitterLanguageMap.swift | LanguageConfig struct + TreeSitterLanguageMap enum. Case-insensitive alias resolution (js, ts, py, rb, sh, yml, cpp) for 16 languages. `configuration(for:)` returns parser Language + highlight query. `supportedLanguages` lists canonical names |
-| TokenType.swift | 13-case enum (keyword, string, comment, type, number, function, property, preprocessor, operator, variable, constant, attribute, punctuation). `from(captureName:)` maps tree-sitter capture names (with subcategory prefix splitting). `color(from:)` resolves to SyntaxColors property |
-| HighlightQueries.swift | Embedded tree-sitter highlight query strings (.scm) for all 16 languages. Sourced verbatim from grammar repositories. TypeScript/C++ queries concatenate base + override queries |
+| `SyntaxHighlightEngine.swift` | Stateless engine: language tag → colored NSMutableAttributedString. 16 languages |
+| `TreeSitterLanguageMap.swift` | Maps fence tags (with aliases) to tree-sitter LanguageConfig |
+| `TokenType.swift` | Universal token enum (13 types). Capture name → color resolution |
+| `HighlightQueries.swift` | Embedded highlight.scm query strings for each language |
 
-### Math (`Core/Math/`)
+## Core/Math (`mkdn/Core/Math/`)
+
+LaTeX math rendering via SwiftMath.
+
 | File | Purpose |
 |------|---------|
-| MathRenderer.swift | Stateless LaTeX-to-NSImage renderer via SwiftMath. Renders LaTeX strings to NSImage using CoreGraphics/CoreText for both inline and display math |
-| MathAttributes.swift | Custom NSAttributedString.Key for inline math (mathExpression). Stores original LaTeX string as attribute value for rendering in TextStorageBuilder |
+| `MathRenderer.swift` | LaTeX → NSImage via SwiftMath MathImage. Display + inline modes, baseline offset |
+| `MathAttributes.swift` | Custom NSAttributedString key marking inline math ranges with LaTeX source |
 
-### Mermaid (`Core/Mermaid/`)
+## Core/Mermaid (`mkdn/Core/Mermaid/`)
+
+Mermaid diagram rendering via WKWebView.
+
 | File | Purpose |
 |------|---------|
-| MermaidRenderer.swift | Actor: JSC + beautiful-mermaid -> SVG -> NSImage |
+| `MermaidWebView.swift` | NSViewRepresentable wrapping WKWebView. Template loading, JS bridge, size reporting |
+| `MermaidThemeMapper.swift` | Maps AppTheme → Mermaid.js themeVariables JSON |
+| `MermaidRenderState.swift` | Lifecycle enum: loading, rendered, error(String) |
+| `MermaidError.swift` | LocalizedError types for rendering failures |
 
-### FileWatcher (`Core/FileWatcher/`)
+## Core/FileWatcher (`mkdn/Core/FileWatcher/`)
+
 | File | Purpose |
 |------|---------|
-| FileWatcher.swift | DispatchSource file monitoring |
+| `FileWatcher.swift` | `@Observable` per-document monitor: DispatchSource → AsyncStream → isOutdated flag. Pause/resume around saves |
 
-### CLI (`Core/CLI/`)
+## Core/DirectoryScanner (`mkdn/Core/DirectoryScanner/`)
+
 | File | Purpose |
 |------|---------|
-| MkdnCLI.swift | ParsableCommand struct for `mkdn [files...]`. Variadic `[String]` argument accepting multiple .md/.markdown paths |
-| LaunchContext.swift | Static `fileURLs` storage for validated CLI URLs. `consumeURLs()` drains once. `nonisolated(unsafe)` for sequential access pattern (set in main.swift, consumed in DocumentWindow.onAppear) |
-| CLIError.swift | Typed errors: unsupportedExtension, fileNotFound, fileNotReadable. LocalizedError conformance with per-case exit codes |
-| FileValidator.swift | Path validation pipeline: tilde expansion, relative path resolution, symlink resolution, extension check (.md/.markdown), existence check, UTF-8 readability check |
+| `DirectoryScanner.swift` | Recursive directory scanner: builds FileTreeNode tree (Markdown only, max depth 10) |
+| `FileTreeNode.swift` | Value-type tree node: directory (with children) or file (leaf). Depth tracking |
 
-### TestHarness (`Core/TestHarness/`)
+## Core/DirectoryWatcher (`mkdn/Core/DirectoryWatcher/`)
+
 | File | Purpose |
 |------|---------|
-| HarnessCommand.swift | Command enum (14 cases: loadFile, captureWindow, captureRegion, switchMode, cycleTheme, setTheme, reloadFile, getWindowInfo, getThemeColors, setReduceMotion, ping, quit, startFrameCapture, stopFrameCapture), CaptureRegion struct, HarnessSocket path convention |
-| HarnessResponse.swift | Response struct with ResponseData enum (capture, frameCapture, windowInfo, themeColors, pong). Result types: CaptureResult, FrameCaptureResult, WindowInfoResult, ThemeColorsResult, RGBColor |
-| HarnessError.swift | Error enum: renderTimeout, connectionFailed, unexpectedResponse, unknownCommand, captureFailed, fileLoadFailed |
-| RenderCompletionSignal.swift | @MainActor singleton. CheckedContinuation-based render-done signaling. `awaitRenderComplete(timeout:)` suspends until `signalRenderComplete()` fires from SelectableTextView.Coordinator |
-| TestHarnessServer.swift | Unix domain socket listener on DispatchQueue. POSIX socket APIs (bind/listen/accept). Semaphore-based AsyncBridge for @MainActor dispatch. Line-delimited JSON protocol with iso8601 dates. Socket at `/tmp/mkdn-test-harness-{pid}.sock` |
-| TestHarnessHandler.swift | @MainActor command dispatch for all 14 cases. Weak refs to AppSettings + DocumentState. Delegates captures to CaptureService, uses RenderCompletionSignal for render-wait commands |
-| CaptureService.swift | @MainActor enum. CGWindowListCreateImage for static window/region captures. FrameCaptureSession lifecycle for animation frame sequences. PNG writing via NSBitmapImageRep |
-| FrameCaptureSession.swift | SCStream-based frame capture via ScreenCaptureKit. SCStreamOutput delegate for frame delivery on serial captureQueue. CIContext pixel buffer conversion. Serial ioQueue + DispatchGroup for non-blocking PNG writes |
+| `DirectoryWatcher.swift` | `@Observable` filesystem monitor for sidebar. Watches root + first-level subdirectories |
 
-## Features Layer (`mkdn/Features/`)
+## Core/CLI (`mkdn/Core/CLI/`)
 
-### Viewer (`Features/Viewer/`)
+CLI argument parsing and launch context.
+
 | File | Purpose |
 |------|---------|
-| Views/MarkdownPreviewView.swift | Full-width preview |
-| Views/MarkdownBlockView.swift | Block element renderer |
-| Views/CodeBlockView.swift | Syntax-highlighted code |
-| Views/CodeBlockCopyButton.swift | Hover-revealed copy button for code blocks. doc.on.doc icon with checkmark confirmation via symbolEffect(.replace). Uses quickShift animation, ultraThinMaterial background |
-| Views/CodeBlockBackgroundTextView.swift | NSTextView subclass drawing rounded-rect containers behind code blocks via CodeBlockAttributes. TextKit 2 layout fragment enumeration. Mouse tracking for hover-revealed copy button overlay (NSHostingView of CodeBlockCopyButton). Copies raw code via rawCode attribute. Table-aware `copy(_:)` override detects TableAttributes in selection, generates RTF table + tab-delimited plain text via TableCellMap |
-| Views/CodeBlockBackgroundTextView+TablePrint.swift | Print-time table container rendering. Draws rounded-rect border, header background, alternating row fills, and header-body divider behind visible table text during Cmd+P. Guarded by `NSPrintOperation.current`. Enumerates `TableAttributes.range` regions, computes bounding rects from layout fragments, draws via NSBezierPath using TableColorInfo |
-| Views/SelectableTextView.swift | NSViewRepresentable wrapping read-only NSTextView (TextKit 2). Cross-block text selection, find bar (Cmd+F). Hosts CodeBlockBackgroundTextView. Coordinator owns EntranceAnimator and OverlayCoordinator. `textViewDidChangeSelection` delegates to `overlayCoordinator.updateTableSelections` for cell-level highlight updates. Find handler calls `overlayCoordinator.updateTableFindHighlights` for table find feedback |
-| Views/OverlayCoordinator.swift | Manages NSHostingView overlays for Mermaid, images, thematic breaks at NSTextAttachment locations. Variable-width positioning (preferredWidth). Layout and scroll observation via NotificationCenter. Table overlays delegated to OverlayCoordinator+TableOverlays extension |
-| Views/OverlayCoordinator+TableOverlays.swift | Table overlay management extension for OverlayCoordinator. Text-range-based positioning (via TableAttributes.range, not attachments). Creates TableBlockView visual overlays + TableHighlightOverlay siblings. `positionTextRangeEntry` computes bounding rect from layout fragments. `updateTableSelections` maps selection to cells. `updateTableFindHighlights` maps find matches to cell highlights. Scroll-driven sticky headers |
-| Views/TableHighlightOverlay.swift | Lightweight NSView subclass drawing cell-level selection and find highlights on top of TableBlockView. hitTest returns nil (mouse events pass through). Cell rectangles computed from TableCellMap columnWidths/rowHeights. Selection: system accent color (0.3 data, 0.4 header). Find: theme findHighlight color (0.15 passive, 0.4 current) |
-| Views/EntranceAnimator.swift | Per-layout-fragment staggered fade-in using CALayer covers. Code block and table fragments grouped by block ID (via `blockGroupID` checking both CodeBlockAttributes.range and TableAttributes.range) for unified entrance. 8pt upward drift via CATransform3D. Respects Reduce Motion (immediate appearance). Cleanup via scheduled Task |
-| Views/ImageBlockView.swift | Async image loading with local path resolution (relative to document), remote URL support, loading/error placeholders. Security: validates local paths stay within document directory |
-| Views/MermaidBlockView.swift | Mermaid diagram with zoom |
-| Views/TableBlockView.swift | Native table rendering |
-| Views/TableHeaderView.swift | Sticky header overlay for long tables |
-| ViewModels/PreviewViewModel.swift | Preview state management |
+| `MkdnCLI.swift` | ArgumentParser command: variadic file argument, --test-harness flag |
+| `LaunchContext.swift` | Static URL container: set in main.swift, consumed once by DocumentWindow |
+| `FileValidator.swift` | Validates file paths: existence, readability, .md/.markdown extension |
+| `DirectoryValidator.swift` | Validates directory paths: existence, readability |
+| `CLIError.swift` | Typed errors with exit codes for terminal feedback |
 
-### Editor (`Features/Editor/`)
+## Core/Services (`mkdn/Core/Services/`)
+
 | File | Purpose |
 |------|---------|
-| Views/SplitEditorView.swift | HSplitView editor + preview |
-| Views/MarkdownEditorView.swift | TextEditor wrapper |
-| ViewModels/EditorViewModel.swift | Editor state management |
+| `DefaultHandlerService.swift` | Launch Services integration: register/check as default Markdown handler |
 
-### Theming (`Features/Theming/`)
+## Core/TestHarness (`mkdn/Core/TestHarness/`)
+
+In-process test automation via Unix domain socket.
+
 | File | Purpose |
 |------|---------|
-| ThemePickerView.swift | Theme selection UI |
+| `TestHarnessServer.swift` | AF_UNIX socket server, JSON protocol, socketQueue dispatch |
+| `TestHarnessHandler.swift` | Command dispatch: load, capture, scroll, theme, quit on @MainActor |
+| `CaptureService.swift` | Window screenshot capture to PNG |
+| `FrameCaptureSession.swift` | SCStream-based animation frame capture at configurable FPS |
+| `RenderCompletionSignal.swift` | Async signal for awaiting render completion before capture |
+| `HarnessCommand.swift` | Command enum: JSON-decodable test harness protocol |
+| `HarnessResponse.swift` | Response struct: JSON-encodable results |
+| `HarnessError.swift` | Test harness error types |
 
-## UI Layer (`mkdn/UI/`)
+## Features/Viewer (`mkdn/Features/Viewer/`)
 
-### Components (`UI/Components/`)
+Markdown preview rendering and interaction.
+
 | File | Purpose |
 |------|---------|
-| OutdatedIndicator.swift | File-changed badge |
-| ViewModePicker.swift | Mode toggle toolbar item |
-| WelcomeView.swift | Empty state screen |
-| OrbVisual.swift | Reusable 3-layer orb (outerHalo, midGlow, innerCore) with RadialGradient. Params: color, isPulsing, isHaloExpanded. Visual-only -- no animation state. |
-| PulsingSpinner.swift | Orb-rhythm loading spinner using `AnimationConstants.breathe`. Static full-opacity when Reduce Motion is on. |
-| HoverFeedbackModifier.swift | `HoverFeedbackModifier` (scale) and `BrightnessHoverModifier` (brightness overlay). View extensions `.hoverScale(_:)` and `.hoverBrightness()`. Uses quickSettle animation, nil for RM. |
-| FileChangeOrbView.swift | File-changed pulsing orb. Delegates to `OrbVisual`, owns animation state, hover feedback via `.hoverScale()`, tap-to-reload popover. |
-| ModeTransitionOverlay.swift | Ephemeral mode-name overlay. Spring-settle entrance, quick-fade exit, auto-dismiss after 1.5s. RM uses reducedCrossfade for both. |
+| `Views/MarkdownPreviewView.swift` | Preview orchestrator: debounced rendering, block diffing, entrance animation |
+| `Views/SelectableTextView.swift` | NSViewRepresentable wrapping CodeBlockBackgroundTextView (NSTextView). TextKit 2, cross-block selection |
+| `Views/OverlayCoordinator.swift` | Positions NSHostingView overlays for Mermaid/math/image/table blocks |
+| `Views/OverlayCoordinator+Observation.swift` | KVO observation for text container geometry changes |
+| `Views/OverlayCoordinator+TableHeights.swift` | Table height measurement for overlay sizing |
+| `Views/OverlayCoordinator+TableOverlays.swift` | Table overlay lifecycle management |
+| `Views/CodeBlockBackgroundTextView.swift` | Custom NSTextView: code block backgrounds, table cell highlights, print interception |
+| `Views/CodeBlockBackgroundTextView+TableCopy.swift` | Table-aware copy: TSV + RTF pasteboard |
+| `Views/CodeBlockBackgroundTextView+TablePrint.swift` | Print-time table rendering with PrintPalette |
+| `Views/CodeBlockBackgroundTextView+TableSelection.swift` | Table cell selection suppression and highlight |
+| `Views/EntranceAnimator.swift` | Staggered block entrance animation with MotionPreference |
+| `Views/CodeBlockView.swift` | Code block container with language label |
+| `Views/CodeBlockCopyButton.swift` | Copy-to-clipboard button for code blocks |
+| `Views/MermaidBlockView.swift` | Mermaid diagram container: click-to-focus, cursor management |
+| `Views/MathBlockView.swift` | Display math block rendering via MathRenderer |
+| `Views/ImageBlockView.swift` | Async image loading from URL |
+| `Views/TableBlockView.swift` | Table overlay view with header/data rows |
+| `Views/TableHeaderView.swift` | Table header row styling |
+| `Views/TableHighlightOverlay.swift` | Selection highlight overlay for table cells |
+| `Views/FindBarView.swift` | In-document search UI: query input, match navigation, count display |
+| `Views/MarkdownBlockView.swift` | Block type router: dispatches to specific block views |
+| `ViewModels/FindState.swift` | `@Observable`: query, match ranges, current index, wrap-around navigation |
+| `ViewModels/PreviewViewModel.swift` | Re-renders IndexedBlocks when text or theme changes |
 
-### Theme (`UI/Theme/`)
+## Features/Editor (`mkdn/Features/Editor/`)
+
+Side-by-side Markdown editing.
+
 | File | Purpose |
 |------|---------|
-| AppTheme.swift | Theme enum |
-| ThemeColors.swift | Color palette struct |
-| SolarizedDark.swift | Dark theme values |
-| SolarizedLight.swift | Light theme values |
-| AnimationConstants.swift | Named animation primitives (breathe, haloBloom, springSettle, gentleSpring, quickSettle, fadeIn, fadeOut, crossfade, quickFade, quickShift), stagger/hover/focus constants, orb colors, overlay timing, reduce-motion alternatives. MARK-delimited groups. |
-| PrintPalette.swift | Print-friendly color palette enum. Static `colors: ThemeColors` (white bg, black text) and `syntaxColors: SyntaxColors` (ink-efficient, WCAG AA). Applied automatically during Cmd+P -- not user-selectable, not tied to AppTheme. |
-| MotionPreference.swift | Reduce Motion resolver. `MotionPreference(reduceMotion:)` struct with `Primitive` enum. `resolved(_:)` returns `Animation?` (nil for continuous when RM on). `allowsContinuousAnimation` bool, `staggerDelay` accessor. |
+| `Views/SplitEditorView.swift` | Split pane: editor left, preview right |
+| `Views/MarkdownEditorView.swift` | Raw TextEditor bound to DocumentState.markdownContent |
+| `Views/ResizableSplitView.swift` | Draggable split pane with snap-to-half logic |
 
-## Dependencies
+## Features/Sidebar (`mkdn/Features/Sidebar/`)
 
-| Package | Purpose | Used In |
-|---------|---------|---------|
-| apple/swift-markdown | Markdown AST parsing | Core/Markdown |
-| swhitty/SwiftDraw | SVG -> NSImage | Core/Mermaid |
-| jectivex/JXKit | Swift JSC wrapper | Core/Mermaid |
-| apple/swift-argument-parser | CLI args | Core/CLI |
-| mgriebling/SwiftMath (>=1.7.0) | Native LaTeX math rendering via CoreGraphics/CoreText | Core/Math |
-| ChimeHQ/SwiftTreeSitter | Tree-sitter parsing | Core/Highlighting |
-| tree-sitter-{lang} (16 grammars) | Language grammars (swift, python, javascript, typescript, rust, go, bash, json, yaml, html, css, c, cpp, ruby, java, kotlin) | Core/Highlighting |
+Directory browser sidebar.
+
+| File | Purpose |
+|------|---------|
+| `ViewModels/DirectoryState.swift` | `@Observable`: file tree, expansion state, selection, DirectoryWatcher |
+| `Views/DirectoryContentView.swift` | Layout: sidebar + content with toggle animation |
+| `Views/SidebarView.swift` | File tree list with recursive disclosure |
+| `Views/SidebarRowView.swift` | Individual file/folder row with icon and name |
+| `Views/SidebarHeaderView.swift` | Directory name header |
+| `Views/SidebarDivider.swift` | Styled divider between sidebar and content |
+| `Views/SidebarEmptyView.swift` | Empty state when no Markdown files found |
+
+## UI/Theme (`mkdn/UI/Theme/`)
+
+| File | Purpose |
+|------|---------|
+| `AppTheme.swift` | Theme enum: solarizedDark, solarizedLight. Provides ThemeColors + SyntaxColors |
+| `ThemeColors.swift` | 13 semantic color slots + SyntaxColors (13 highlight slots) |
+| `SolarizedDark.swift` | Solarized Dark palette values |
+| `SolarizedLight.swift` | Solarized Light palette values |
+| `ThemeMode.swift` | User preference: auto, solarizedDark, solarizedLight. Resolves via ColorScheme |
+| `PrintPalette.swift` | Ink-efficient print colors (white bg, black text). Auto-applied during Cmd+P |
+| `AnimationConstants.swift` | Named animation primitives: breathe, spring, fade, stagger, reduce-motion |
+| `MotionPreference.swift` | Accessibility-aware animation resolution |
+
+## UI/Components (`mkdn/UI/Components/`)
+
+| File | Purpose |
+|------|---------|
+| `TheOrbView.swift` | Unified orb indicator: file-changed + default-handler prompts |
+| `OrbState.swift` | Orb state enum with priority ordering |
+| `OrbVisual.swift` | Orb rendering: gradient layers, breathing animation |
+| `WelcomeView.swift` | Welcome screen with keyboard shortcut hints |
+| `WindowAccessor.swift` | NSViewRepresentable: removes title bar, configures window chrome |
+| `ModeTransitionOverlay.swift` | "Preview" / "Editor" label overlay on mode switch |
+| `PulsingSpinner.swift` | Mermaid loading indicator at orb breathing rhythm |
+| `UnsavedIndicator.swift` | Dot indicator for unsaved changes |
+| `HoverFeedbackModifier.swift` | Reusable hover scale + cursor modifier |
+
+## External Dependencies
+
+| Package | Purpose |
+|---------|---------|
+| apple/swift-markdown | Markdown AST parsing |
+| ChimeHQ/SwiftTreeSitter + 16 grammar packages | Syntax highlighting |
+| mgriebling/SwiftMath | LaTeX math rendering |
+| apple/swift-argument-parser | CLI argument parsing |
+| Mermaid.js (bundled) | Diagram rendering in WKWebView |
 
 ## Test Layer (`mkdnTests/`)
 
-### Support (`mkdnTests/Support/`)
-| File | Purpose |
-|------|---------|
-| TestHarnessClient.swift | POSIX socket client with typed async methods for every HarnessCommand. Retry-based connect (20 attempts, 250ms delay). Blocking I/O on serial ioQueue, poll()-based read with timeout |
-| AppLauncher.swift | `swift build --product mkdn` + Process launch with `--test-harness` flag. Connects TestHarnessClient, manages teardown (quit command + process termination + socket cleanup) |
-| ImageAnalyzer.swift | Pixel-level CGImage analysis. Handles 4 macOS byte orders (RGBA, ARGB, BGRA, ABGR). Point-to-pixel coordinate conversion via scaleFactor. Methods: sampleColor, averageColor, contentBounds, findColorBoundary, dominantColor, findRegion |
-| ColorExtractor.swift | PixelColor struct (UInt8 RGBA). Chebyshev distance matching (max per-channel delta) |
-| SpatialMeasurement.swift | Edge detection, distance measurement, gap measurement between rendered elements |
-| FrameAnalyzer.swift | Animation curve extraction from frame sequences. measureOrbPulse (peak counting, CPM), measureTransitionDuration (progress 10%--90%, curve inference), measureSpringCurve (overshoot peak, damping estimation, settle time), measureStaggerDelays (per-region appearance frame detection) |
-| JSONResultReporter.swift | Structured test result collection. Writes JSON report to `.build/test-results/mkdn-ui-test-report.json` |
-| PRDCoverageTracker.swift | Maps test results to PRD functional requirements. Reports covered/uncovered FRs per PRD |
+55 test files organized as `Unit/Core/`, `Unit/Features/`, `Unit/UI/`, `Unit/Support/`. Uses Swift Testing (`@Test`, `#expect`, `@Suite`). Support utilities: `ImageAnalyzer`, `SpatialMeasurement`, `FrameAnalyzer`, `TestHarnessClient`, `SyntheticImage`, `JSONResultReporter`, `PRDCoverageTracker`.

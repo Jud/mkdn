@@ -1,247 +1,190 @@
-# mkdn Architecture
+# System Architecture
 
-## System Overview
+**Project**: mkdn
+**Architecture Pattern**: Feature-Based MVVM
+**Last Updated**: 2026-02-25
 
-```
-CLI (mkdn file1.md file2.md)     CLI (mkdn --test-harness)
-  |                                 |
-  v                                 v
-MkdnCLI (ArgumentParser)          MkdnApp + TestHarnessServer
-  -> FileValidator                  |
-  -> execv with MKDN_LAUNCH_FILE   v
-  -> LaunchContext.fileURLs       AppSettings (@Observable, app-wide)
-  |                                 |
-  v                                 v
-MkdnApp (SwiftUI App)            DocumentWindow (per-window)
-  |                                 |
-  +---> AppSettings (zoom, theme, autoReload)
-  |       |
-  +---> DocumentWindow (per window)
-          |
-          +---> DocumentState (@Observable, per-window file lifecycle)
-          |       |
-          |       +---> ContentView
-          |       |       |
-          |       |       +---> WelcomeView (no file)
-          |       |       +---> MarkdownPreviewView (preview-only)
-          |       |       +---> SplitEditorView (side-by-side)
-          |       |
-          |       +---> FileWatcher (DispatchSource)
-          |
-          +---> Theme system (Solarized Dark/Light)
-          |
-          +---> Animation layer (AnimationConstants + MotionPreference)
-          |
-          +---> TestHarnessServer (Unix socket, test mode only)
-                  |
-                  +---> TestHarnessHandler (@MainActor command dispatch)
-                  +---> CaptureService (CGWindowListCreateImage + ScreenCaptureKit)
-                  +---> RenderCompletionSignal (CheckedContinuation-based)
+## High-Level Architecture
 
-AppDelegate (NSApplicationDelegate)
-  -> application(_:open:) for Finder/dock file opens
-  -> FileOpenCoordinator.shared.pendingURLs (observed by DocumentWindow)
-```
+```mermaid
+graph TB
+    subgraph Entry["Entry / CLI"]
+        Main["main.swift"]
+        CLI["MkdnCLI\n(ArgumentParser)"]
+        FV["FileValidator /\nDirectoryValidator"]
+        LC["LaunchContext"]
+    end
 
-## Rendering Pipeline
+    subgraph App["App Layer"]
+        MkdnApp["MkdnApp\n(SwiftUI App)"]
+        AD["AppDelegate\n(NSApplicationDelegate)"]
+        FOC["FileOpenCoordinator"]
+        DW["DocumentWindow\n(per window)"]
+        AS["AppSettings\n(@Observable, app-wide)"]
+        DS["DocumentState\n(@Observable, per-window)"]
+        CV["ContentView"]
+    end
 
-### Markdown
-```
-Raw text -> swift-markdown Document -> MarkdownVisitor -> [MarkdownBlock]
--> MarkdownBlockView (SwiftUI) -> native rendered output
-```
+    subgraph Features["Feature Layer"]
+        MPV["MarkdownPreviewView"]
+        SEV["SplitEditorView"]
+        SBV["SidebarView /\nDirectoryContentView"]
+        FBV["FindBarView"]
+    end
 
-### Mermaid Diagrams
-```
-Mermaid code block detected
--> MermaidRenderer (actor, singleton)
--> JXKit/JSContext + beautiful-mermaid.js
--> SVG string
--> SwiftDraw SVG rasterizer
--> NSImage
--> SwiftUI Image (with MagnifyGesture for pinch-to-zoom)
-```
+    subgraph Core["Core Layer"]
+        MR["MarkdownRenderer\n+ MarkdownVisitor"]
+        MTSB["MarkdownTextStorageBuilder\n(NSAttributedString)"]
+        SHE["SyntaxHighlightEngine\n(tree-sitter, 16 langs)"]
+        MWV["MermaidWebView\n(WKWebView per diagram)"]
+        MATH["MathRenderer\n(SwiftMath)"]
+        FW["FileWatcher\n(DispatchSource)"]
+        DirW["DirectoryWatcher"]
+        DirS["DirectoryScanner"]
+    end
 
-### Tables
-```
-Dual-layer rendering: invisible text + visual overlay + highlight overlay
+    subgraph TestH["Test Harness"]
+        THS["TestHarnessServer\n(Unix socket)"]
+        THH["TestHarnessHandler"]
+        CS["CaptureService"]
+    end
 
-1. Build Layer (MarkdownTextStorageBuilder+TableInline):
-   .table(columns, rows) in MarkdownBlock
-   -> appendTableInlineText: invisible text in NSTextStorage (clear foreground)
-   -> Tab-separated cell content per row, newline-delimited rows
-   -> TableAttributes.range (unique ID), .cellMap (TableCellMap), .colors (TableColorInfo)
-   -> TableColumnSizer.computeWidths for column geometry
-   -> Paragraph style: tab stops at cumulative column widths, fixed row height
-   -> Output: TableOverlayInfo (blockIndex, tableRangeID, cellMap)
+    subgraph UI["UI / Theme"]
+        Theme["AppTheme\n(Solarized Dark/Light)"]
+        Anim["AnimationConstants\n+ MotionPreference"]
+        Orb["TheOrbView"]
+    end
 
-2. Visual Layer (OverlayCoordinator+TableOverlays -> TableBlockView):
-   -> OverlayCoordinator.updateTableOverlays creates NSHostingView<TableBlockView>
-   -> positionTextRangeEntry: bounding rect from layout fragments in text range
-   -> TableBlockView provides pixel-identical visual rendering (unchanged)
-   -> OverlayCoordinator observes scroll for sticky headers (TableHeaderView)
-
-3. Highlight Layer (TableHighlightOverlay):
-   -> NSView sibling on top of visual overlay, hitTest returns nil
-   -> updateTableSelections: selection range -> cellMap.cellsInRange -> cell highlights
-   -> updateTableFindHighlights: find match ranges -> cell highlights + current match
-   -> System accent color (0.3 data, 0.4 header) for selection
-   -> Theme findHighlight color (0.15 passive, 0.4 current) for find
-
-4. Interaction:
-   -> Selection: NSTextView native (invisible text participates in TextKit 2 selection)
-   -> Find (Cmd+F): text storage search works natively on invisible text
-   -> Copy (Cmd+C): CodeBlockBackgroundTextView.copy override detects TableAttributes,
-      generates RTF table + tab-delimited plain text via TableCellMap
-   -> Cmd+A: selects all including table text (cross-block continuity)
+    Main -->|parses args| CLI
+    CLI -->|validates| FV
+    FV -->|stores URLs| LC
+    Main -->|"execv + MkdnApp.main"| MkdnApp
+    MkdnApp --> AS
+    MkdnApp --> DW
+    AD -->|file open events| FOC
+    FOC -->|pending URLs| DW
+    DW --> DS
+    DW --> CV
+    DS --> FW
+    CV -->|no file| Orb
+    CV -->|preview mode| MPV
+    CV -->|edit mode| SEV
+    DW -->|directory mode| SBV
+    SBV --> DirS
+    SBV --> DirW
+    MPV --> MR
+    MR --> MTSB
+    MTSB --> SHE
+    MTSB --> MATH
+    MPV -->|mermaid blocks| MWV
+    AS --> Theme
+    Theme --> Anim
+    THS -->|"@MainActor bridge"| THH
+    THH -->|reads/writes| DS
+    THH -->|reads/writes| AS
+    THH --> CS
 ```
 
-### Math (LaTeX)
-```
-Three detection paths:
-1. ```math code fences -> MarkdownBlock.mathBlock(code:)
-2. $$...$$ paragraphs  -> MarkdownBlock.mathBlock(code:)
-3. Inline $...$        -> mathExpression attribute in inline text
+## Architectural Patterns
 
-Display math (block):
-  MarkdownBlock.mathBlock(code:)
-  -> MathRenderer renders LaTeX to NSImage (SwiftMath, CoreGraphics/CoreText)
-  -> MathBlockView (overlay pattern, same as Mermaid)
-  -> NSHostingView positioned by OverlayCoordinator over NSTextAttachment placeholder
+### Two-Target Split (Library + Executable)
+All source lives in `mkdnLib` (library target). A thin executable target (`mkdnEntry/main.swift`) provides the `@main`-free entry point, avoiding Swift test-runner crashes from `@main` in executable targets. Tests import `@testable import mkdnLib`.
 
-Inline math:
-  MarkdownVisitor detects $...$ via character state machine
-  -> Marks span with MathAttributes.mathExpression (stores LaTeX string)
-  -> MarkdownTextStorageBuilder renders LaTeX to NSImage via MathRenderer
-  -> Embedded as NSTextAttachment in NSAttributedString
-  -> Baseline alignment via descent offset for vertical centering with text
-```
+### Environment-Based Dependency Injection
+SwiftUI environment is the sole DI mechanism. `AppSettings` is app-wide; `DocumentState` and `FindState` are per-window. No service locator or external DI framework.
 
-### Code Blocks
-```
-Code block with language tag
--> SyntaxHighlightEngine (tree-sitter, 16 languages)
--> NSMutableAttributedString with token-level foreground colors
--> NSTextView (via CodeBlockBackgroundTextView)
-Unsupported/untagged -> plain monospace text (no coloring)
-```
+### Rendering Pipeline (Visitor + Builder)
+Two-phase rendering: `MarkdownVisitor` converts parsed AST into domain-level `MarkdownBlock` enum cases, then `MarkdownTextStorageBuilder` produces a single NSAttributedString with TextKit 2 for display in a unified NSTextView.
 
-### Print
-```
-Cmd+P
--> CodeBlockBackgroundTextView.printView(_:)
--> PrintPalette.colors + PrintPalette.syntaxColors
--> MarkdownTextStorageBuilder.build(blocks:colors:syntaxColors:isPrint:true)
--> Table text gets visible foreground (not clear) via isPrint flag
--> Temporary CodeBlockBackgroundTextView (off-screen, white bg, 32pt inset)
--> drawBackground calls drawTableContainers(in:) for table visual structure
-   (CodeBlockBackgroundTextView+TablePrint.swift):
-   -> Enumerates TableAttributes.range regions in textStorage
-   -> Computes bounding rects from layout fragments
-   -> Draws rounded-rect border, header fill, alternating row fills, header-body divider
-   -> Uses TableColorInfo from attributes (adapted to PrintPalette)
--> NSPrintOperation(view:printInfo:).run()
-```
+### Overlay Composition for Complex Blocks
+Complex rendered content (tables, Mermaid WKWebView, math images) is composited as overlay views positioned over placeholder regions in the base text storage, enabling native text selection to coexist with rich visual rendering.
 
-The on-screen view is never modified. The print override rebuilds the full
-attributed string from the current `printBlocks` using the fixed print palette,
-constructs a disposable TextKit 2 text view, and hands it to `NSPrintOperation`.
-After the print dialog closes, the temporary view is discarded. No flicker,
-no theme flash, no state mutation.
+### execv Re-launch for Clean Argv
+CLI file arguments are validated, stored in environment variables, and the process re-execs itself with a clean argv to prevent NSApplication from interpreting positional args as kAEOpenDocuments AppleEvents.
 
-## Data Flow
+### Unix Socket Test Harness
+In-process test harness activated by `--test-harness` flag. A Unix domain socket accepts line-delimited JSON commands (load, capture, scroll, theme, quit), bridged to `@MainActor` for deterministic UI testing.
 
-1. File opened (CLI arg, drag-drop, or open dialog)
-2. DocumentState.loadFile() reads content, starts FileWatcher
-3. FileWatcher monitors for on-disk changes
-4. Content flows to views via @Environment(DocumentState.self) and @Environment(AppSettings.self)
-5. MarkdownRenderer parses on-demand in view body
-6. Mermaid blocks trigger async rendering via MermaidRenderer actor
+## Layer Structure
 
-### Zoom Scale Factor Flow
-```
-AppSettings.scaleFactor (UserDefaults-persisted, 0.5--3.0)
-  -> MkdnCommands: Zoom In/Out/Reset (Cmd+/Cmd-/Cmd0)
-  -> MarkdownTextStorageBuilder.build(scaleFactor:) scales all fonts
-  -> PlatformTypeConverter.headingFont/bodyFont/monospacedFont(scaleFactor:)
-  -> TableColumnSizer.computeWidths(font:) uses scaled font metrics
-  -> DocumentState.modeOverlayLabel shows "125%" feedback
-```
+### Entry / CLI Layer
+Process entry point, argument parsing, and launch context resolution.
+- `mkdnEntry/main.swift` — Process entry, argument parsing, execv re-launch
+- `Core/CLI/MkdnCLI.swift` — ArgumentParser command definition
+- `Core/CLI/FileValidator.swift`, `DirectoryValidator.swift` — Path validation
+- `Core/CLI/LaunchContext.swift` — Static URL container consumed at startup
 
-### Multi-File CLI Launch Flow
-```
-main.swift: MkdnCLI.parse() -> cli.files (variadic)
-  -> FileValidator.validate(path:) for each file
-  -> Validated URLs joined as newline-separated MKDN_LAUNCH_FILE env var
-  -> execv() re-launches binary with clean argv (no file args in argv)
-  -> Re-launched process reads MKDN_LAUNCH_FILE
-  -> LaunchContext.fileURLs = parsed URLs
-  -> DocumentWindow.onAppear: first URL loads in current window
-  -> Remaining URLs open via openWindow(value: url) -> new WindowGroup instances
-```
+### App Layer
+SwiftUI lifecycle, window management, app-wide settings, system event routing.
+- `App/AppDelegate.swift` — NSApplicationDelegate for Finder file-open events
+- `App/AppSettings.swift` — App-wide `@Observable` (theme, zoom, auto-reload)
+- `App/DocumentState.swift` — Per-window `@Observable` (file I/O, view mode)
+- `App/DocumentWindow.swift` — WindowGroup scene with environment injection
+- `App/ContentView.swift` — Root view switching between welcome/preview/editor
+- `App/MkdnCommands.swift` — Menu bar commands (Save, Find, Zoom, etc.)
+- `App/FileOpenCoordinator.swift` — Routes Finder-opened files to windows
 
-## Concurrency Model
+### Feature Layer
+Feature-specific views and view models organized by domain.
+- **Viewer**: `MarkdownPreviewView`, `SelectableTextView`, `OverlayCoordinator`, `FindBarView`, `CodeBlockView`, `MermaidBlockView`, `MathBlockView`, `TableBlockView`, `EntranceAnimator`
+- **Editor**: `SplitEditorView`, `MarkdownEditorView`, `ResizableSplitView`
+- **Sidebar**: `DirectoryContentView`, `SidebarView`, `SidebarRowView`, `DirectoryState`
+- **Theming**: `ThemePickerView`
 
-- AppSettings + DocumentState: @MainActor (UI state, per-app and per-window respectively)
-- MermaidRenderer: actor (thread-safe JSC access + cache)
-- FileWatcher: DispatchQueue + @MainActor for UI updates
-- MotionPreference: value type, instantiated per-view from `@Environment(\.accessibilityReduceMotion)`. No shared state; resolves animation primitives locally.
-- TestHarnessServer: DispatchQueue for socket I/O + semaphore-based AsyncBridge to dispatch commands to @MainActor. The socket loop runs on `socketQueue`; each command is bridged to MainActor via `Task { @MainActor in ... }` + `DispatchSemaphore.wait()`.
-- TestHarnessHandler: @MainActor enum. All command handlers execute on MainActor. Render-wait commands suspend via `RenderCompletionSignal.awaitRenderComplete()`.
-- CaptureService: @MainActor enum. Static captures via CGWindowListCreateImage (synchronous). Frame captures delegate to FrameCaptureSession.
-- FrameCaptureSession: `@unchecked Sendable`. SCStream output arrives on serial `captureQueue`. CIContext pixel buffer conversion. Serial ioQueue + DispatchGroup for non-blocking PNG writes.
-- RenderCompletionSignal: @MainActor singleton. CheckedContinuation stored/resumed on MainActor -- no concurrent access possible.
+### Core Layer
+Domain logic: parsing, rendering, highlighting, file watching, directory scanning.
+- **Markdown**: Visitor, Renderer, TextStorageBuilder (+ extensions for blocks, math, tables), TableCellMap, TableColumnSizer
+- **Highlighting**: SyntaxHighlightEngine, TreeSitterLanguageMap, TokenType, HighlightQueries
+- **Mermaid**: MermaidWebView, MermaidThemeMapper, MermaidRenderState
+- **Math**: MathRenderer, MathAttributes
+- **FileWatcher**: DispatchSource-based per-document change detection
+- **DirectoryWatcher**: Filesystem monitoring for sidebar directory mode
+- **DirectoryScanner**: Recursive file tree builder
 
-## Test Harness Mode
+### UI Layer (Cross-Cutting)
+Shared components, theme definitions, animation constants.
+- **Theme**: AppTheme, ThemeColors, SolarizedDark/Light, PrintPalette, AnimationConstants, MotionPreference
+- **Components**: TheOrbView, OrbState, WelcomeView, WindowAccessor, ModeTransitionOverlay, PulsingSpinner
 
-When launched with `--test-harness`, the app enters test harness mode:
+### Test Harness Layer
+In-process test automation via Unix domain socket (active only with `--test-harness` flag).
+- `TestHarnessServer.swift` — Socket server with JSON protocol
+- `TestHarnessHandler.swift` — Command dispatch on `@MainActor`
+- `CaptureService.swift` — Window screenshot capture
+- `FrameCaptureSession.swift` — SCStream-based animation frame capture
 
-1. `TestHarnessMode.isEnabled` is set to `true`
-2. `TestHarnessServer.shared.start()` binds a Unix domain socket at `/tmp/mkdn-test-harness-{pid}.sock`
-3. The server accepts one client connection at a time on its socket queue
-4. Commands arrive as line-delimited JSON, are decoded to `HarnessCommand`, and dispatched to `TestHarnessHandler` on MainActor
-5. `RenderCompletionSignal` bridges the gap between command execution and render completion -- the `SelectableTextView.Coordinator` calls `signalRenderComplete()` after `makeNSView`/`updateNSView`, and render-wait commands (loadFile, switchMode, cycleTheme, setTheme, reloadFile) suspend until this signal fires or timeout expires
-6. `CaptureService` provides two capture paths:
-   - **Static**: `CGWindowListCreateImage` captures the window as a CGImage, cropped for region captures, written as PNG
-   - **Animation**: `FrameCaptureSession` uses ScreenCaptureKit `SCStream` filtered to the app window, delivering frames at configurable FPS (30--60) for a specified duration
+## Key Data Flows
 
-### Two-Process Test Architecture
+### File Open → Render
+1. File path received (CLI, Finder, drag-drop, or open dialog)
+2. `FileValidator` validates path → `DocumentState.loadFile()` reads content
+3. `MarkdownRenderer.render()` parses → `MarkdownVisitor` walks AST → `[MarkdownBlock]`
+4. `MarkdownTextStorageBuilder.build()` → NSAttributedString + attachment/overlay info
+5. `SelectableTextView` displays text; `OverlayCoordinator` positions overlay views
 
-```
-swift test (test runner)          mkdn --test-harness (app under test)
-  |                                 |
-  AppLauncher                       TestHarnessServer
-    - swift build --product mkdn      - bind /tmp/mkdn-test-harness-{pid}.sock
-    - Process.run(--test-harness)     - accept() on socketQueue
-    |                                 |
-  TestHarnessClient                 TestHarnessHandler (@MainActor)
-    - connect() with retry            - dispatch HarnessCommand
-    - send JSON command               - execute on MainActor
-    - read JSON response              - await RenderCompletionSignal
-    |                                 |
-  ImageAnalyzer / FrameAnalyzer     CaptureService / FrameCaptureSession
-    - pixel-level analysis            - CGWindowListCreateImage
-    - color matching                  - SCStream frame capture
-    - animation curve fitting         - PNG output
-```
+### Finder File Open
+1. macOS sends kAEOpenDocuments → `AppDelegate.application(_:open:)` filters Markdown URLs
+2. URLs pushed to `FileOpenCoordinator.shared.pendingURLs`
+3. If no visible windows, forces new window creation
+4. `DocumentWindow.onChange(of: pendingURLs)` consumes and opens each URL
 
-No XCUITest dependency -- the app controls itself. No `.xcodeproj` required -- pure SPM project. The test harness client connects via POSIX sockets with retry logic (20 attempts, 250ms delay) to handle the race between process launch and socket readiness.
+### File Change Detection
+1. `DocumentState.loadFile()` starts `FileWatcher` (DispatchSource on file descriptor)
+2. Kernel fires write/rename/delete events → bridged via AsyncStream to MainActor
+3. `FileWatcher.isOutdated` set → UI shows reload prompt or auto-reloads
 
-### Vision Verification (LLM-Based Design Compliance)
+### Theme Change
+1. User cycles theme (Cmd+T) → `AppSettings.themeMode` updated
+2. `.onChange(of: theme)` triggers full re-render of NSAttributedString
+3. Mermaid diagrams re-rendered via JS with new theme variables
 
-In addition to the deterministic pixel-level compliance suites (Spatial, Visual, Animation), the test harness infrastructure is also consumed by the **LLM visual verification workflow**. This workflow uses the same capture mechanism to produce deterministic screenshots, which are then evaluated by Claude Code's vision capabilities against design PRDs and the charter's design philosophy.
+## External Dependencies
 
-The capture orchestrator (`VisionCaptureTests.swift`) follows the same harness singleton pattern as the other compliance suites. It captures all fixtures across both Solarized themes in preview-only mode (8 screenshots total), writing them to `.rp1/work/verification/captures/` with a `manifest.json` recording metadata (dimensions, scale factor, SHA-256 content hash) for each capture.
-
-Shell scripts in `scripts/visual-verification/` orchestrate the workflow:
-
-```
-scripts/visual-verification/
-  verify-visual.sh  -> top-level: capture + evaluate + human-readable summary
-  capture.sh        -> swift test --filter VisionCapture -> screenshots + manifest
-  evaluate.sh       -> LLM vision evaluation -> evaluation report
-```
-
-The workflow is on-demand and developer-initiated. `verify-visual.sh` chains capture and evaluation, then formats the results as a terminal-friendly summary showing issue counts by severity and per-issue details with PRD references. The developer reviews findings and decides what to fix. To re-verify after changes, run `verify-visual.sh` again.
-
-Evaluation results are cached based on SHA-256 hashes of image content, prompt templates, and PRD files. Unchanged inputs skip API calls entirely. Reports are written to `.rp1/work/verification/reports/` as structured JSON.
+| Dependency | Purpose | Integration |
+|-----------|---------|-------------|
+| apple/swift-markdown | Markdown AST parsing | Library — MarkdownVisitor walks Document AST |
+| SwiftTreeSitter + 16 grammars | Syntax highlighting | Library — SyntaxHighlightEngine creates parser/query per call |
+| Mermaid.js (bundled) | Diagram rendering | Bundled JS — loaded into per-diagram WKWebView |
+| SwiftMath (mgriebling) | LaTeX math rendering | Library — MathRenderer converts to NSImage |
+| swift-argument-parser | CLI argument parsing | Library — MkdnCLI struct |
+| ScreenCaptureKit | Animation frame capture | System framework — test harness only |
