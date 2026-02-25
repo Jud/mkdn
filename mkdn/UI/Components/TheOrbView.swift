@@ -184,8 +184,6 @@ struct TheOrbView: View {
             defaultHandlerPopover
         case .fileChanged:
             fileChangedPopover
-        case .updateAvailable:
-            updateAvailablePopover
         case .idle:
             EmptyView()
         }
@@ -258,27 +256,6 @@ struct TheOrbView: View {
             }
             .toggleStyle(.switch)
             .controlSize(.mini)
-        }
-        .padding(16)
-        .fixedSize()
-        .scaleEffect(popoverAppeared ? 1.0 : 0.95)
-        .opacity(popoverAppeared ? 1.0 : 0)
-        .onAppear {
-            let animation = reduceMotion
-                ? AnimationConstants.reducedCrossfade
-                : AnimationConstants.springSettle
-            withAnimation(animation) {
-                popoverAppeared = true
-            }
-        }
-    }
-
-    private var updateAvailablePopover: some View {
-        VStack(spacing: 12) {
-            Text("An update is available.")
-                .font(.callout)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(16)
         .fixedSize()

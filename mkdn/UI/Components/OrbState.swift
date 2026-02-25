@@ -6,10 +6,9 @@ import SwiftUI
 /// ``Comparable`` synthesis via raw case ordering means `.max()` on a
 /// collection of active states returns the highest-priority state.
 ///
-/// Priority: ``fileChanged`` > ``defaultHandler`` > ``updateAvailable`` > ``idle``.
+/// Priority: ``fileChanged`` > ``defaultHandler`` > ``idle``.
 enum OrbState: Comparable {
     case idle
-    case updateAvailable
     case defaultHandler
     case fileChanged
 
@@ -22,7 +21,6 @@ enum OrbState: Comparable {
     var color: Color {
         switch self {
         case .idle: AnimationConstants.orbDefaultHandlerColor
-        case .updateAvailable: AnimationConstants.orbUpdateAvailableColor
         case .defaultHandler: AnimationConstants.orbDefaultHandlerColor
         case .fileChanged: AnimationConstants.orbFileChangedColor
         }

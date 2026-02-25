@@ -211,10 +211,6 @@ enum AnimationConstants {
     /// A warm alert color signaling that attention is needed.
     static let orbFileChangedColor = Color(red: 0.796, green: 0.294, blue: 0.086)
 
-    /// Solarized green (#859900) -- update available (placeholder).
-    /// Conveys positive/available status for future update notification.
-    static let orbUpdateAvailableColor = Color(red: 0.522, green: 0.600, blue: 0.000)
-
     // MARK: - Overlay Timing
 
     /// How long the mode transition overlay remains visible before auto-dismiss.
@@ -296,81 +292,4 @@ enum AnimationConstants {
     /// - Design rationale: 0.01s is imperceptible. Using an explicit animation rather
     ///   than nil prevents potential layout jumpiness in some SwiftUI configurations.
     static let reducedInstant: Animation = .linear(duration: 0.01)
-
-    // MARK: - Legacy Aliases (Deprecated)
-
-    // Preserved for backward compatibility during migration. Each alias points to
-    // the named primitive it derives from. Update call sites to use the new names.
-
-    /// Use ``breathe`` instead.
-    @available(*, deprecated, renamed: "breathe")
-    static var orbPulse: Animation {
-        breathe
-    }
-
-    /// Use ``haloBloom`` instead.
-    @available(*, deprecated, renamed: "haloBloom")
-    static var orbHaloBloom: Animation {
-        haloBloom
-    }
-
-    /// Use ``breathe`` instead. All orbs share the same breathing rhythm.
-    @available(*, deprecated, renamed: "breathe")
-    static var fileChangeOrbPulse: Animation {
-        breathe
-    }
-
-    /// Use ``breathe`` instead. All orbs share the same breathing rhythm.
-    @available(*, deprecated, renamed: "breathe")
-    static var defaultHandlerOrbPulse: Animation {
-        breathe
-    }
-
-    /// Use ``fadeIn`` instead.
-    @available(*, deprecated, renamed: "fadeIn")
-    static var orbAppear: Animation {
-        fadeIn
-    }
-
-    /// Use ``fadeOut`` instead.
-    @available(*, deprecated, renamed: "fadeOut")
-    static var orbDissolve: Animation {
-        fadeOut
-    }
-
-    /// Use ``springSettle`` instead.
-    @available(*, deprecated, renamed: "springSettle")
-    static var overlaySpringIn: Animation {
-        springSettle
-    }
-
-    /// Use ``quickFade`` instead.
-    @available(*, deprecated, renamed: "quickFade")
-    static var overlayFadeOut: Animation {
-        quickFade
-    }
-
-    /// Use ``gentleSpring`` instead.
-    @available(*, deprecated, renamed: "gentleSpring")
-    static var viewModeTransition: Animation {
-        gentleSpring
-    }
-
-    /// Use ``crossfade`` instead.
-    @available(*, deprecated, renamed: "crossfade")
-    static var themeCrossfade: Animation {
-        crossfade
-    }
-
-    /// Use ``orbDefaultHandlerColor`` instead.
-    @available(*, deprecated, renamed: "orbDefaultHandlerColor")
-    static var orbGlowColor: Color {
-        orbDefaultHandlerColor
-    }
-
-    /// Use ``orbFileChangedColor`` instead.
-    @available(*, deprecated, renamed: "orbFileChangedColor")
-    static var fileChangeOrbColor: Color {
-        orbFileChangedColor
-    }
 }

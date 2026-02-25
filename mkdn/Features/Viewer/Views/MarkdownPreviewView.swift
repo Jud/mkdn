@@ -48,29 +48,17 @@ struct MarkdownPreviewView: View {
         )
         .background(appSettings.theme.colors.background)
         .task(id: documentState.markdownContent) {
-            debugLog(
-                "[PREVIEW] .task fired, content length=\(documentState.markdownContent.count), isInitial=\(isInitialRender)"
-            )
             if isInitialRender {
                 isInitialRender = false
             } else {
                 try? await Task.sleep(for: .milliseconds(150))
-                guard !Task.isCancelled else {
-                    debugLog("[PREVIEW] task cancelled during debounce")
-                    return
-                }
+                guard !Task.isCancelled else { return }
             }
 
             let newBlocks = MarkdownRenderer.render(
                 text: documentState.markdownContent,
                 theme: appSettings.theme
             )
-            debugLog("[PREVIEW] rendered \(newBlocks.count) blocks: \(newBlocks.map { type(of: $0) })")
-            let mermaidCount = newBlocks.count(where: { indexedBlock in
-                if case .mermaidBlock = indexedBlock.block { return true }
-                return false
-            })
-            debugLog("[PREVIEW] mermaid blocks: \(mermaidCount)")
 
             let anyKnown = newBlocks.contains { knownBlockIDs.contains($0.id) }
             let shouldAnimate = !anyKnown && !reduceMotion && !newBlocks.isEmpty
@@ -83,7 +71,6 @@ struct MarkdownPreviewView: View {
                 theme: appSettings.theme,
                 scaleFactor: appSettings.scaleFactor
             )
-            debugLog("[PREVIEW] fullReload=\(shouldAnimate), blocks=\(newBlocks.count)")
         }
         .onChange(of: appSettings.theme) {
             let newBlocks = MarkdownRenderer.render(

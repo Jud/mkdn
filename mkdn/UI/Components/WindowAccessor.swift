@@ -54,10 +54,10 @@ public final class WindowAccessorView: NSView {
         window.orderFrontRegardless()
         if IsSecureEventInputEnabled() {
             EnableSecureEventInput()
-            NSApp.activate(ignoringOtherApps: true)
+            NSApp.activate()
             DisableSecureEventInput()
         } else {
-            NSApp.activate(ignoringOtherApps: true)
+            NSApp.activate()
         }
     }
 }

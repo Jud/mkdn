@@ -333,7 +333,7 @@ final class CodeBlockBackgroundTextView: NSTextView {
 
     // MARK: - Drawing
 
-    // Required for print rendering and table selection highlight suppression.
+    /// Required for print rendering and table selection highlight suppression.
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
         eraseTableSelectionHighlights(in: dirtyRect)
