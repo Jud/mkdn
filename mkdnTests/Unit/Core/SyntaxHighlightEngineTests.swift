@@ -29,7 +29,7 @@ struct SyntaxHighlightEngineTests {
             ("kotlin", "fun main() { val x = 42 }"),
         ]
     )
-    func allLanguagesProduceResult(language: String, code: String) {
+    @MainActor func allLanguagesProduceResult(language: String, code: String) {
         let result = SyntaxHighlightEngine.highlight(
             code: code,
             language: language,
@@ -41,7 +41,7 @@ struct SyntaxHighlightEngineTests {
     // MARK: - Unsupported Languages
 
     @Test("Unsupported language returns nil")
-    func unsupportedLanguageReturnsNil() {
+    @MainActor func unsupportedLanguageReturnsNil() {
         let result = SyntaxHighlightEngine.highlight(
             code: "some code",
             language: "elixir",
@@ -51,7 +51,7 @@ struct SyntaxHighlightEngineTests {
     }
 
     @Test("Empty language string returns nil")
-    func emptyLanguageReturnsNil() {
+    @MainActor func emptyLanguageReturnsNil() {
         let result = SyntaxHighlightEngine.highlight(
             code: "some code",
             language: "",
@@ -63,7 +63,7 @@ struct SyntaxHighlightEngineTests {
     // MARK: - Text Preservation
 
     @Test("Result string content matches input code")
-    func resultPreservesTextContent() {
+    @MainActor func resultPreservesTextContent() {
         let code = "func greet() -> String {\n    return \"hello\"\n}"
         let result = SyntaxHighlightEngine.highlight(
             code: code,
@@ -83,7 +83,7 @@ struct SyntaxHighlightEngineTests {
             ("json", "{\"a\": [1, 2, 3]}"),
         ]
     )
-    func textPreservationAcrossLanguages(language: String, code: String) {
+    @MainActor func textPreservationAcrossLanguages(language: String, code: String) {
         let result = SyntaxHighlightEngine.highlight(
             code: code,
             language: language,
@@ -95,7 +95,7 @@ struct SyntaxHighlightEngineTests {
     // MARK: - Multiple Foreground Colors
 
     @Test("Result contains multiple distinct foreground colors for code with mixed tokens")
-    func resultContainsMultipleForegroundColors() {
+    @MainActor func resultContainsMultipleForegroundColors() {
         let code = "func greet() -> String {\n    // comment\n    return \"hello\"\n}"
         let result = SyntaxHighlightEngine.highlight(
             code: code,
@@ -125,7 +125,7 @@ struct SyntaxHighlightEngineTests {
     }
 
     @Test("Python code with mixed tokens produces multiple colors")
-    func pythonMixedTokensMultipleColors() {
+    @MainActor func pythonMixedTokensMultipleColors() {
         let code = "# comment\ndef greet(name):\n    return 'hello ' + name"
         let result = SyntaxHighlightEngine.highlight(
             code: code,
@@ -157,7 +157,7 @@ struct SyntaxHighlightEngineTests {
     // MARK: - Keyword Color Verification
 
     @Test("Swift keyword 'func' receives keyword color")
-    func swiftKeywordGetsKeywordColor() {
+    @MainActor func swiftKeywordGetsKeywordColor() {
         let code = "func greet() { }"
         let result = SyntaxHighlightEngine.highlight(
             code: code,
@@ -180,8 +180,26 @@ struct SyntaxHighlightEngineTests {
         )
     }
 
+    @Test("Second highlight call for same language returns same content (query cache)")
+    @MainActor func queryCacheProducesSameResult() {
+        let code = "func greet() { let x = 1 }"
+        let result1 = SyntaxHighlightEngine.highlight(
+            code: code,
+            language: "swift",
+            syntaxColors: syntaxColors
+        )
+        let result2 = SyntaxHighlightEngine.highlight(
+            code: code,
+            language: "swift",
+            syntaxColors: syntaxColors
+        )
+        #expect(result1 != nil)
+        #expect(result2 != nil)
+        #expect(result1?.string == result2?.string)
+    }
+
     @Test("Swift string literal receives string color")
-    func swiftStringGetsStringColor() {
+    @MainActor func swiftStringGetsStringColor() {
         let code = "let x = \"hello\""
         let result = SyntaxHighlightEngine.highlight(
             code: code,

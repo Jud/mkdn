@@ -4,8 +4,8 @@ import AppKit
 /// replacing O(n) enumeration with O(1) dictionary lookups.
 extension OverlayCoordinator {
     /// Enumerates attachment and table-range attributes once and builds
-    /// dictionaries for O(1) lookup in `attachmentRange(for:in:)` and
-    /// `findTableTextRange(for:in:)`.
+    /// dictionaries for O(1) lookup in `attachmentRange(for:)` and
+    /// `findTableTextRange(for:)`.
     func buildPositionIndex(from textStorage: NSTextStorage) {
         attachmentIndex.removeAll()
         tableRangeIndex.removeAll()

@@ -66,6 +66,7 @@ struct BlockBuildContext {
 /// Converts an array of `IndexedBlock` into a single `NSAttributedString`
 /// suitable for display in an `NSTextView`, plus a mapping of attachment
 /// positions to their source block data.
+@MainActor
 enum MarkdownTextStorageBuilder {
     // MARK: - Constants
 

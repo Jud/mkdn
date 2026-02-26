@@ -6,7 +6,7 @@ import Testing
 struct CodeBlockStylingTests {
     // MARK: - Helpers
 
-    private func buildSingle(
+    @MainActor private func buildSingle(
         _ block: MarkdownBlock,
         theme: AppTheme = .solarizedDark
     ) -> TextStorageResult {
@@ -14,7 +14,7 @@ struct CodeBlockStylingTests {
         return MarkdownTextStorageBuilder.build(blocks: [indexed], theme: theme)
     }
 
-    private func collectRangeAttributes(
+    @MainActor private func collectRangeAttributes(
         from str: NSAttributedString
     ) -> [(value: String, range: NSRange)] {
         var results: [(value: String, range: NSRange)] = []
@@ -29,7 +29,7 @@ struct CodeBlockStylingTests {
         return results
     }
 
-    private func locationOf(_ substring: String, in text: String) -> Int? {
+    @MainActor private func locationOf(_ substring: String, in text: String) -> Int? {
         guard let range = text.range(of: substring) else { return nil }
         return text.distance(from: text.startIndex, to: range.lowerBound)
     }
@@ -37,7 +37,7 @@ struct CodeBlockStylingTests {
     // MARK: - Range Attribute
 
     @Test("Code block text carries codeBlockRange attribute with non-empty string")
-    func codeBlockRangeAttribute() {
+    @MainActor func codeBlockRangeAttribute() {
         let result = buildSingle(.codeBlock(language: nil, code: "let x = 1"))
         let rangeAttrs = collectRangeAttributes(from: result.attributedString)
 
@@ -53,7 +53,7 @@ struct CodeBlockStylingTests {
         "Code block carries codeBlockColors with correct theme colors",
         arguments: AppTheme.allCases
     )
-    func codeBlockColorsAttribute(theme: AppTheme) {
+    @MainActor func codeBlockColorsAttribute(theme: AppTheme) {
         let result = buildSingle(.codeBlock(language: nil, code: "print(1)"), theme: theme)
         let str = result.attributedString
 
@@ -76,7 +76,7 @@ struct CodeBlockStylingTests {
     // MARK: - Paragraph Indent
 
     @Test("Code block paragraph style has headIndent of 12pt and tailIndent of -12pt")
-    func codeBlockParagraphIndent() {
+    @MainActor func codeBlockParagraphIndent() {
         let result = buildSingle(.codeBlock(language: nil, code: "let x = 1"))
         let str = result.attributedString
 
@@ -97,7 +97,7 @@ struct CodeBlockStylingTests {
     // MARK: - No Per-Run Background Color
 
     @Test("Code block content does not have per-run backgroundColor attribute")
-    func noPerRunBackgroundColor() {
+    @MainActor func noPerRunBackgroundColor() {
         let result = buildSingle(.codeBlock(language: "swift", code: "let x = 1"))
         let str = result.attributedString
 
@@ -116,7 +116,7 @@ struct CodeBlockStylingTests {
     // MARK: - Swift Syntax Highlighting
 
     @Test("Swift code block has syntax highlighting with multiple foreground colors")
-    func swiftSyntaxHighlighting() {
+    @MainActor func swiftSyntaxHighlighting() {
         let swiftCode = "func greet() -> String { return \"hello\" }"
 
         let swiftResult = buildSingle(.codeBlock(language: "swift", code: swiftCode))
@@ -173,7 +173,7 @@ struct CodeBlockStylingTests {
     // MARK: - Non-Swift Code Foreground
 
     @Test("Unsupported language code block uses codeForeground color")
-    func unsupportedLanguageCodeForeground() {
+    @MainActor func unsupportedLanguageCodeForeground() {
         let result = buildSingle(.codeBlock(language: "elixir", code: "IO.puts(\"hello\")"))
         let str = result.attributedString
 
@@ -191,7 +191,7 @@ struct CodeBlockStylingTests {
     // MARK: - Raw Code Attribute
 
     @Test("Code block carries rawCode attribute with trimmed code content")
-    func codeBlockRawCodeAttribute() {
+    @MainActor func codeBlockRawCodeAttribute() {
         let code = "  let x = 1\n  let y = 2  "
         let result = buildSingle(.codeBlock(language: "swift", code: code))
         let str = result.attributedString
@@ -212,7 +212,7 @@ struct CodeBlockStylingTests {
     }
 
     @Test("Raw code attribute excludes language label text")
-    func rawCodeExcludesLanguageLabel() {
+    @MainActor func rawCodeExcludesLanguageLabel() {
         let result = buildSingle(.codeBlock(language: "python", code: "print('hello')"))
         let str = result.attributedString
 
@@ -233,7 +233,7 @@ struct CodeBlockStylingTests {
     // MARK: - Language Label Shares Block Range
 
     @Test("Language label carries same codeBlockRange as code body")
-    func languageLabelSharesBlockRange() {
+    @MainActor func languageLabelSharesBlockRange() {
         let result = buildSingle(.codeBlock(language: "swift", code: "let x = 1"))
         let str = result.attributedString
 

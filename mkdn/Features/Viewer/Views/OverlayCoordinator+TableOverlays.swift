@@ -45,7 +45,7 @@ extension OverlayCoordinator {
     /// and updates the corresponding ``TableHighlightOverlay``.
     func updateTableSelections(selectedRange: NSRange) {
         guard let textView,
-              let textStorage = textView.textStorage
+              textView.textStorage != nil
         else { return }
 
         for (_, entry) in entries {
@@ -55,7 +55,7 @@ extension OverlayCoordinator {
             else { continue }
 
             guard let tableRange = findTableTextRange(
-                for: tableRangeID, in: textStorage
+                for: tableRangeID
             )
             else {
                 highlightOverlay.selectedCells = []
@@ -86,7 +86,7 @@ extension OverlayCoordinator {
         currentIndex: Int
     ) {
         guard let textView,
-              let textStorage = textView.textStorage
+              textView.textStorage != nil
         else { return }
 
         for (_, entry) in entries {
@@ -99,7 +99,6 @@ extension OverlayCoordinator {
                 highlightOverlay: highlightOverlay,
                 cellMap: cellMap,
                 tableRangeID: tableRangeID,
-                textStorage: textStorage,
                 matchRanges: matchRanges,
                 currentIndex: currentIndex
             )
@@ -110,12 +109,11 @@ extension OverlayCoordinator {
         highlightOverlay: TableHighlightOverlay,
         cellMap: TableCellMap,
         tableRangeID: String,
-        textStorage: NSTextStorage,
         matchRanges: [NSRange],
         currentIndex: Int
     ) {
         guard let tableRange = findTableTextRange(
-            for: tableRangeID, in: textStorage
+            for: tableRangeID
         )
         else {
             highlightOverlay.findHighlightCells = []
@@ -288,7 +286,7 @@ extension OverlayCoordinator {
         context: LayoutContext
     ) -> CGRect? {
         guard let tableRange = findTableTextRange(
-            for: tableRangeID, in: context.textStorage
+            for: tableRangeID
         ), tableRange.length > 0
         else { return nil }
 
@@ -326,8 +324,7 @@ extension OverlayCoordinator {
     // MARK: - Text Range Lookup
 
     func findTableTextRange(
-        for tableRangeID: String,
-        in _: NSTextStorage
+        for tableRangeID: String
     ) -> NSRange? {
         tableRangeIndex[tableRangeID]
     }

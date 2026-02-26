@@ -6,7 +6,7 @@ extension MarkdownTextStorageBuilderTests {
     // MARK: - Print Palette Integration
 
     @Test("Build with explicit colors produces valid non-empty attributed string")
-    func buildWithExplicitColors() {
+    @MainActor func buildWithExplicitColors() {
         let blocks = [
             IndexedBlock(index: 0, block: .heading(level: 1, text: AttributedString("Title"))),
             IndexedBlock(index: 1, block: .paragraph(text: AttributedString("Body text."))),
@@ -25,7 +25,7 @@ extension MarkdownTextStorageBuilderTests {
     }
 
     @Test("Build with theme delegates to build with explicit colors producing same content")
-    func buildThemeDelegatesToExplicitColors() {
+    @MainActor func buildThemeDelegatesToExplicitColors() {
         let blocks = [
             IndexedBlock(index: 0, block: .heading(level: 2, text: AttributedString("Section"))),
             IndexedBlock(index: 1, block: .paragraph(text: AttributedString("Paragraph."))),
@@ -52,7 +52,7 @@ extension MarkdownTextStorageBuilderTests {
     }
 
     @Test("Code block ColorInfo uses provided palette colors for background and border")
-    func codeBlockColorInfoUsesPrintPalette() {
+    @MainActor func codeBlockColorInfoUsesPrintPalette() {
         let block = IndexedBlock(
             index: 0,
             block: .codeBlock(language: nil, code: "print(42)")

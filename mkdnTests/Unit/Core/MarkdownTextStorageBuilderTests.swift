@@ -8,7 +8,7 @@ struct MarkdownTextStorageBuilderTests {
 
     // MARK: - Helper
 
-    private func buildSingle(_ block: MarkdownBlock) -> TextStorageResult {
+    @MainActor private func buildSingle(_ block: MarkdownBlock) -> TextStorageResult {
         let indexed = IndexedBlock(index: 0, block: block)
         return MarkdownTextStorageBuilder.build(blocks: [indexed], theme: theme)
     }
@@ -26,7 +26,7 @@ struct MarkdownTextStorageBuilderTests {
     // MARK: - Heading Block
 
     @Test("Heading uses correct font size for each level")
-    func headingFontSize() {
+    @MainActor func headingFontSize() {
         let expectedSizes: [(Int, CGFloat)] = [
             (1, 28), (2, 24), (3, 20), (4, 18), (5, 16), (6, 14),
         ]
@@ -40,7 +40,7 @@ struct MarkdownTextStorageBuilderTests {
     }
 
     @Test("Heading uses heading color from theme")
-    func headingColor() {
+    @MainActor func headingColor() {
         let result = buildSingle(.heading(level: 1, text: AttributedString("Title")))
         let attrs = attributes(of: result)
         let color = attrs[.foregroundColor] as? NSColor
@@ -49,7 +49,7 @@ struct MarkdownTextStorageBuilderTests {
     }
 
     @Test("Heading has paragraph spacing")
-    func headingParagraphSpacing() {
+    @MainActor func headingParagraphSpacing() {
         let result = buildSingle(.heading(level: 1, text: AttributedString("Title")))
         let attrs = attributes(of: result)
         let style = attrs[.paragraphStyle] as? NSParagraphStyle
@@ -59,7 +59,7 @@ struct MarkdownTextStorageBuilderTests {
     // MARK: - Paragraph Block
 
     @Test("Paragraph uses body font")
-    func paragraphBodyFont() {
+    @MainActor func paragraphBodyFont() {
         let result = buildSingle(.paragraph(text: AttributedString("Hello world")))
         let attrs = attributes(of: result)
         let font = attrs[.font] as? NSFont
@@ -68,7 +68,7 @@ struct MarkdownTextStorageBuilderTests {
     }
 
     @Test("Paragraph uses foreground color from theme")
-    func paragraphForegroundColor() {
+    @MainActor func paragraphForegroundColor() {
         let result = buildSingle(.paragraph(text: AttributedString("Hello world")))
         let attrs = attributes(of: result)
         let color = attrs[.foregroundColor] as? NSColor
@@ -79,7 +79,7 @@ struct MarkdownTextStorageBuilderTests {
     // MARK: - Code Block
 
     @Test("Code block uses monospaced font")
-    func codeBlockMonospacedFont() {
+    @MainActor func codeBlockMonospacedFont() {
         let result = buildSingle(.codeBlock(language: nil, code: "let x = 1"))
         let str = result.attributedString
         var found = false
@@ -98,7 +98,7 @@ struct MarkdownTextStorageBuilderTests {
     }
 
     @Test("Code block carries code block color info attribute")
-    func codeBlockBackgroundColor() {
+    @MainActor func codeBlockBackgroundColor() {
         let result = buildSingle(.codeBlock(language: nil, code: "let x = 1"))
         let str = result.attributedString
         var hasColorInfo = false
@@ -114,7 +114,7 @@ struct MarkdownTextStorageBuilderTests {
     }
 
     @Test("Code block with language label includes label text")
-    func codeBlockLanguageLabel() {
+    @MainActor func codeBlockLanguageLabel() {
         let result = buildSingle(.codeBlock(language: "swift", code: "let x = 1"))
         let plainText = result.attributedString.string
         #expect(plainText.contains("swift"))
@@ -123,14 +123,14 @@ struct MarkdownTextStorageBuilderTests {
     // MARK: - Mermaid Block
 
     @Test("Mermaid block produces NSTextAttachment")
-    func mermaidBlockProducesAttachment() {
+    @MainActor func mermaidBlockProducesAttachment() {
         let result = buildSingle(.mermaidBlock(code: "graph TD\nA --> B"))
         #expect(!result.attachments.isEmpty)
         #expect(result.attachments[0].blockIndex == 0)
     }
 
     @Test("Mermaid attachment has placeholder height")
-    func mermaidAttachmentHeight() {
+    @MainActor func mermaidAttachmentHeight() {
         let result = buildSingle(.mermaidBlock(code: "graph TD\nA --> B"))
         let attachment = result.attachments.first?.attachment
         #expect(attachment?.bounds.height == MarkdownTextStorageBuilder.attachmentPlaceholderHeight)
@@ -139,7 +139,7 @@ struct MarkdownTextStorageBuilderTests {
     // MARK: - Image Block
 
     @Test("Image block produces NSTextAttachment")
-    func imageBlockProducesAttachment() {
+    @MainActor func imageBlockProducesAttachment() {
         let result = buildSingle(.image(source: "cat.png", alt: "A cat"))
         #expect(!result.attachments.isEmpty)
     }
@@ -147,13 +147,13 @@ struct MarkdownTextStorageBuilderTests {
     // MARK: - Thematic Break
 
     @Test("Thematic break produces NSTextAttachment")
-    func thematicBreakProducesAttachment() {
+    @MainActor func thematicBreakProducesAttachment() {
         let result = buildSingle(.thematicBreak)
         #expect(!result.attachments.isEmpty)
     }
 
     @Test("Thematic break attachment has correct height")
-    func thematicBreakHeight() {
+    @MainActor func thematicBreakHeight() {
         let result = buildSingle(.thematicBreak)
         let attachment = result.attachments.first?.attachment
         #expect(attachment?.bounds.height == MarkdownTextStorageBuilder.thematicBreakHeight)
@@ -162,7 +162,7 @@ struct MarkdownTextStorageBuilderTests {
     // MARK: - Unordered List
 
     @Test("Unordered list includes bullet prefix")
-    func unorderedListBulletPrefix() {
+    @MainActor func unorderedListBulletPrefix() {
         let item = ListItem(blocks: [.paragraph(text: AttributedString("Item one"))])
         let result = buildSingle(.unorderedList(items: [item]))
         let plainText = result.attributedString.string
@@ -171,7 +171,7 @@ struct MarkdownTextStorageBuilderTests {
     }
 
     @Test("Unordered list items have indentation")
-    func unorderedListIndentation() {
+    @MainActor func unorderedListIndentation() {
         let item = ListItem(blocks: [.paragraph(text: AttributedString("Item"))])
         let result = buildSingle(.unorderedList(items: [item]))
         let attrs = attributes(of: result)
@@ -182,7 +182,7 @@ struct MarkdownTextStorageBuilderTests {
     // MARK: - Task List Checkboxes
 
     @Test("Task list checkbox item includes NSTextAttachment for SF Symbol")
-    func taskListCheckboxAttachment() {
+    @MainActor func taskListCheckboxAttachment() {
         let item = ListItem(
             blocks: [.paragraph(text: AttributedString("Task item"))],
             checkbox: .unchecked
@@ -202,7 +202,7 @@ struct MarkdownTextStorageBuilderTests {
     }
 
     @Test("Task list checkbox item does not include bullet prefix")
-    func taskListCheckboxNoBullet() {
+    @MainActor func taskListCheckboxNoBullet() {
         let item = ListItem(
             blocks: [.paragraph(text: AttributedString("Task item"))],
             checkbox: .checked
@@ -214,7 +214,7 @@ struct MarkdownTextStorageBuilderTests {
     }
 
     @Test("Non-task list item does not include checkbox attachment")
-    func nonTaskListNoCheckboxAttachment() {
+    @MainActor func nonTaskListNoCheckboxAttachment() {
         let item = ListItem(blocks: [.paragraph(text: AttributedString("Normal item"))])
         let result = buildSingle(.unorderedList(items: [item]))
         let str = result.attributedString
@@ -226,7 +226,7 @@ struct MarkdownTextStorageBuilderTests {
     // MARK: - Ordered List
 
     @Test("Ordered list includes number prefix")
-    func orderedListNumberPrefix() {
+    @MainActor func orderedListNumberPrefix() {
         let item = ListItem(blocks: [.paragraph(text: AttributedString("First"))])
         let result = buildSingle(.orderedList(items: [item]))
         let plainText = result.attributedString.string
@@ -236,7 +236,7 @@ struct MarkdownTextStorageBuilderTests {
     // MARK: - Blockquote
 
     @Test("Blockquote content has head indent")
-    func blockquoteIndentation() {
+    @MainActor func blockquoteIndentation() {
         let result = buildSingle(.blockquote(blocks: [.paragraph(text: AttributedString("Quoted"))]))
         let attrs = attributes(of: result)
         let style = attrs[.paragraphStyle] as? NSParagraphStyle
@@ -244,7 +244,7 @@ struct MarkdownTextStorageBuilderTests {
     }
 
     @Test("Blockquote content has first line head indent")
-    func blockquoteFirstLineIndent() {
+    @MainActor func blockquoteFirstLineIndent() {
         let result = buildSingle(.blockquote(blocks: [.paragraph(text: AttributedString("Quoted"))]))
         let attrs = attributes(of: result)
         let style = attrs[.paragraphStyle] as? NSParagraphStyle
@@ -254,7 +254,7 @@ struct MarkdownTextStorageBuilderTests {
     // MARK: - HTML Block
 
     @Test("HTML block uses monospaced font")
-    func htmlBlockMonospacedFont() {
+    @MainActor func htmlBlockMonospacedFont() {
         let result = buildSingle(.htmlBlock(content: "<div>hello</div>"))
         let attrs = attributes(of: result)
         guard let font = attrs[.font] as? NSFont else {
@@ -266,7 +266,7 @@ struct MarkdownTextStorageBuilderTests {
     }
 
     @Test("HTML block has background color")
-    func htmlBlockBackground() {
+    @MainActor func htmlBlockBackground() {
         let result = buildSingle(.htmlBlock(content: "<div>hello</div>"))
         let attrs = attributes(of: result)
         #expect(attrs[.backgroundColor] is NSColor)
@@ -275,7 +275,7 @@ struct MarkdownTextStorageBuilderTests {
     // MARK: - Block Separation
 
     @Test("Blocks are separated by single newline, not double")
-    func blockSeparationSingleNewline() {
+    @MainActor func blockSeparationSingleNewline() {
         let blocks = [
             IndexedBlock(index: 0, block: .paragraph(text: AttributedString("First"))),
             IndexedBlock(index: 1, block: .paragraph(text: AttributedString("Second"))),
@@ -286,7 +286,7 @@ struct MarkdownTextStorageBuilderTests {
     }
 
     @Test("Each block ends with exactly one newline")
-    func blockEndsWithNewline() {
+    @MainActor func blockEndsWithNewline() {
         let result = buildSingle(.paragraph(text: AttributedString("Hello")))
         let plainText = result.attributedString.string
         #expect(plainText.hasSuffix("\n"))
@@ -296,7 +296,7 @@ struct MarkdownTextStorageBuilderTests {
     // MARK: - Inline Styles
 
     @Test("Bold text preserves bold trait in NSAttributedString")
-    func boldPreserved() {
+    @MainActor func boldPreserved() {
         var text = AttributedString("bold text")
         text.inlinePresentationIntent = .stronglyEmphasized
         let result = buildSingle(.paragraph(text: text))
@@ -310,7 +310,7 @@ struct MarkdownTextStorageBuilderTests {
     }
 
     @Test("Italic text preserves italic trait in NSAttributedString")
-    func italicPreserved() {
+    @MainActor func italicPreserved() {
         var text = AttributedString("italic text")
         text.inlinePresentationIntent = .emphasized
         let result = buildSingle(.paragraph(text: text))
@@ -324,7 +324,7 @@ struct MarkdownTextStorageBuilderTests {
     }
 
     @Test("Inline code text uses monospaced font")
-    func inlineCodePreserved() {
+    @MainActor func inlineCodePreserved() {
         var text = AttributedString("code")
         text.inlinePresentationIntent = .code
         let result = buildSingle(.paragraph(text: text))
@@ -338,7 +338,7 @@ struct MarkdownTextStorageBuilderTests {
     }
 
     @Test("Link has URL and underline in NSAttributedString")
-    func linkPreserved() {
+    @MainActor func linkPreserved() {
         var text = AttributedString("click")
         text.link = URL(string: "https://example.com")
         let result = buildSingle(.paragraph(text: text))
@@ -348,7 +348,7 @@ struct MarkdownTextStorageBuilderTests {
     }
 
     @Test("Strikethrough preserved in NSAttributedString")
-    func strikethroughPreserved() {
+    @MainActor func strikethroughPreserved() {
         var text = AttributedString("deleted")
         text.strikethroughStyle = .single
         let result = buildSingle(.paragraph(text: text))
@@ -359,7 +359,7 @@ struct MarkdownTextStorageBuilderTests {
     // MARK: - Integration: Plain Text Extraction
 
     @Test("Multi-block document plain text includes all block content")
-    func multiBlockPlainTextExtraction() {
+    @MainActor func multiBlockPlainTextExtraction() {
         let blocks = [
             IndexedBlock(index: 0, block: .heading(level: 1, text: AttributedString("Title"))),
             IndexedBlock(index: 1, block: .paragraph(text: AttributedString("Body text here."))),
@@ -374,7 +374,7 @@ struct MarkdownTextStorageBuilderTests {
     }
 
     @Test("Multi-block plain text has clean line breaks between blocks")
-    func multiBlockCleanLineBreaks() {
+    @MainActor func multiBlockCleanLineBreaks() {
         let blocks = [
             IndexedBlock(index: 0, block: .heading(level: 2, text: AttributedString("Section"))),
             IndexedBlock(index: 1, block: .paragraph(text: AttributedString("Paragraph one."))),
@@ -391,7 +391,7 @@ struct MarkdownTextStorageBuilderTests {
     }
 
     @Test("Mermaid block in multi-block produces attachment without text contribution")
-    func mermaidInMultiBlockDoesNotContributeText() {
+    @MainActor func mermaidInMultiBlockDoesNotContributeText() {
         let blocks = [
             IndexedBlock(index: 0, block: .paragraph(text: AttributedString("Above"))),
             IndexedBlock(index: 1, block: .mermaidBlock(code: "graph TD\nA-->B")),
@@ -409,7 +409,7 @@ struct MarkdownTextStorageBuilderTests {
     // MARK: - Both Themes
 
     @Test("Build produces valid result for both themes")
-    func buildBothThemes() {
+    @MainActor func buildBothThemes() {
         let block = IndexedBlock(index: 0, block: .paragraph(text: AttributedString("Hello")))
 
         for appTheme in AppTheme.allCases {

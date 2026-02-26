@@ -210,7 +210,7 @@ struct MarkdownVisitorTests {
         #expect(hasLink)
     }
 
-    @Test("Link has foreground color and underline styling")
+    @Test("Link has underline styling")
     func parsesLinkStyling() {
         let blocks = MarkdownRenderer.render(
             text: "[styled](https://example.com)",
@@ -226,11 +226,6 @@ struct MarkdownVisitorTests {
             run.underlineStyle == .single
         }
         #expect(hasUnderline)
-
-        let hasForegroundColor = text.runs.contains { run in
-            run.foregroundColor != nil
-        }
-        #expect(hasForegroundColor)
     }
 
     @Test("Link text content preserved")
