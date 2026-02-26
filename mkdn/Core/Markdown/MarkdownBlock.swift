@@ -63,9 +63,16 @@ enum MarkdownBlock: Identifiable {
 struct IndexedBlock: Identifiable {
     let index: Int
     let block: MarkdownBlock
+    let generation: UInt64
+
+    init(index: Int, block: MarkdownBlock, generation: UInt64 = 0) {
+        self.index = index
+        self.block = block
+        self.generation = generation
+    }
 
     var id: String {
-        "\(index)-\(block.id)"
+        "\(generation)-\(index)-\(block.id)"
     }
 }
 

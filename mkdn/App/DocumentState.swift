@@ -34,6 +34,12 @@ public final class DocumentState {
     /// Owned file watcher instance; started on load, paused around saves.
     let fileWatcher = FileWatcher()
 
+    // MARK: - Load Generation
+
+    /// Monotonic counter incremented on each `loadFile()` call.
+    /// Used to disambiguate block IDs across document loads.
+    public private(set) var loadGeneration: UInt64 = 0
+
     // MARK: - View Mode
 
     /// Current display mode: preview-only or side-by-side editing.
@@ -50,6 +56,7 @@ public final class DocumentState {
 
     /// Load a Markdown file from the given URL.
     public func loadFile(at url: URL) throws {
+        loadGeneration &+= 1
         let content = try String(contentsOf: url, encoding: .utf8)
         if currentFileURL == url, markdownContent == content {
             // Same file, unchanged content — skip to avoid overlay flash

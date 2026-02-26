@@ -14,19 +14,23 @@ enum MarkdownRenderer {
     /// Render a Markdown document into an array of indexed block-level elements.
     static func render(
         document: Document,
-        theme: AppTheme
+        theme: AppTheme,
+        generation: UInt64 = 0
     ) -> [IndexedBlock] {
         let visitor = MarkdownVisitor(theme: theme)
         let blocks = visitor.visitDocument(document)
-        return blocks.enumerated().map { IndexedBlock(index: $0.offset, block: $0.element) }
+        return blocks.enumerated().map { offset, element in
+            IndexedBlock(index: offset, block: element, generation: generation)
+        }
     }
 
     /// Convenience: parse and render in a single call.
     static func render(
         text: String,
-        theme: AppTheme
+        theme: AppTheme,
+        generation: UInt64 = 0
     ) -> [IndexedBlock] {
         let document = parse(text)
-        return render(document: document, theme: theme)
+        return render(document: document, theme: theme, generation: generation)
     }
 }
