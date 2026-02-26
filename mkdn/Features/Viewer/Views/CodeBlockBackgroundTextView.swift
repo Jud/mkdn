@@ -22,16 +22,16 @@ import SwiftUI
 final class CodeBlockBackgroundTextView: NSTextView {
     // MARK: - Constants
 
-    private static let cornerRadius: CGFloat = 6
-    private static let borderWidth: CGFloat = 1
-    private static let borderOpacity: CGFloat = 0.3
-    private static let bottomPadding: CGFloat = MarkdownTextStorageBuilder.codeBlockPadding
-    private static let copyButtonInset: CGFloat = 8
-    private static let copyButtonSize: CGFloat = 24
+    static let cornerRadius: CGFloat = 6
+    static let borderWidth: CGFloat = 1
+    static let borderOpacity: CGFloat = 0.3
+    static let bottomPadding: CGFloat = MarkdownTextStorageBuilder.codeBlockPadding
+    static let copyButtonInset: CGFloat = 8
+    static let copyButtonSize: CGFloat = 24
 
     // MARK: - Types
 
-    private struct CodeBlockInfo {
+    struct CodeBlockInfo {
         let blockID: String
         let range: NSRange
         let colorInfo: CodeBlockColorInfo
@@ -39,7 +39,7 @@ final class CodeBlockBackgroundTextView: NSTextView {
 
     // MARK: - Copy Button Types
 
-    private struct CodeBlockGeometry {
+    struct CodeBlockGeometry {
         let blockID: String
         let rect: CGRect
         let range: NSRange
@@ -48,14 +48,14 @@ final class CodeBlockBackgroundTextView: NSTextView {
 
     // MARK: - Code Block Cache
 
-    private var cachedCodeBlocks: [CodeBlockInfo] = []
-    private var isCodeBlockCacheValid = false
+    var cachedCodeBlocks: [CodeBlockInfo] = []
+    var isCodeBlockCacheValid = false
 
     // MARK: - Copy Button State
 
-    private var hoveredBlockID: String?
-    private var copyButtonOverlay: NSView?
-    private var cachedBlockRects: [CodeBlockGeometry] = []
+    var hoveredBlockID: String?
+    var copyButtonOverlay: NSView?
+    var cachedBlockRects: [CodeBlockGeometry] = []
 
     // MARK: - Find State
 
@@ -212,132 +212,6 @@ final class CodeBlockBackgroundTextView: NSTextView {
         hideCopyButton()
     }
 
-    private func updateCopyButtonForMouse(at point: CGPoint) {
-        refreshCachedBlockRects()
-        for entry in cachedBlockRects where entry.rect.contains(point) {
-            if hoveredBlockID != entry.blockID {
-                showCopyButton(for: entry)
-            }
-            return
-        }
-        hideCopyButton()
-    }
-
-    private func showCopyButton(for entry: CodeBlockGeometry) {
-        hoveredBlockID = entry.blockID
-
-        let buttonX = entry.rect.maxX - Self.copyButtonSize - Self.copyButtonInset
-        let buttonY = entry.rect.minY + Self.copyButtonInset
-        let buttonFrame = CGRect(
-            x: buttonX,
-            y: buttonY,
-            width: Self.copyButtonSize,
-            height: Self.copyButtonSize
-        )
-
-        if let existing = copyButtonOverlay {
-            existing.frame = buttonFrame
-            if let hostingView = existing as? NSHostingView<CodeBlockCopyButton> {
-                hostingView.rootView = makeCopyButtonView(
-                    colorInfo: entry.colorInfo,
-                    range: entry.range
-                )
-            }
-        } else {
-            let hostingView = NSHostingView(
-                rootView: makeCopyButtonView(
-                    colorInfo: entry.colorInfo,
-                    range: entry.range
-                )
-            )
-            hostingView.frame = buttonFrame
-            addSubview(hostingView)
-            copyButtonOverlay = hostingView
-        }
-
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.2
-            self.copyButtonOverlay?.animator().alphaValue = 1.0
-        }
-    }
-
-    private func hideCopyButton() {
-        guard hoveredBlockID != nil else { return }
-        hoveredBlockID = nil
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.2
-            self.copyButtonOverlay?.animator().alphaValue = 0.0
-        }
-    }
-
-    private func makeCopyButtonView(
-        colorInfo: CodeBlockColorInfo,
-        range: NSRange
-    ) -> CodeBlockCopyButton {
-        CodeBlockCopyButton(codeBlockColors: colorInfo) { [weak self] in
-            self?.copyCodeBlock(at: range)
-        }
-    }
-
-    private func copyCodeBlock(at range: NSRange) {
-        guard let textStorage,
-              range.location + range.length <= textStorage.length,
-              let rawCode = textStorage.attribute(
-                  CodeBlockAttributes.rawCode,
-                  at: range.location,
-                  effectiveRange: nil
-              ) as? String
-        else { return }
-
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(rawCode, forType: .string)
-    }
-
-    // MARK: - Block Rect Cache
-
-    private func refreshCachedBlockRects() {
-        guard let textStorage,
-              let layoutManager = textLayoutManager,
-              let contentManager = layoutManager.textContentManager
-        else {
-            cachedBlockRects = []
-            return
-        }
-
-        let blocks = collectCodeBlocks(from: textStorage)
-        guard !blocks.isEmpty else {
-            cachedBlockRects = []
-            return
-        }
-
-        let origin = textContainerOrigin
-        let containerWidth = textContainer?.size.width ?? bounds.width
-        let borderInset = Self.borderWidth / 2
-
-        cachedBlockRects = blocks.compactMap { block in
-            let frames = fragmentFrames(
-                for: block.range,
-                layoutManager: layoutManager,
-                contentManager: contentManager
-            )
-            guard !frames.isEmpty else { return nil }
-
-            let bounding = frames.reduce(frames[0]) { $0.union($1) }
-            let drawRect = CGRect(
-                x: origin.x + borderInset,
-                y: bounding.minY + origin.y,
-                width: containerWidth - 2 * borderInset,
-                height: bounding.height + Self.bottomPadding
-            )
-            return CodeBlockGeometry(
-                blockID: block.blockID,
-                rect: drawRect,
-                range: block.range,
-                colorInfo: block.colorInfo
-            )
-        }
-    }
-
     // MARK: - Drawing
 
     /// Required for print rendering and table selection highlight suppression.
@@ -382,150 +256,5 @@ final class CodeBlockBackgroundTextView: NSTextView {
             textStorage?.setAttributedString(saved)
         }
         backgroundColor = savedBgColor
-    }
-
-    private func drawCodeBlockContainers(in dirtyRect: NSRect) {
-        guard let textStorage,
-              let layoutManager = textLayoutManager,
-              let contentManager = layoutManager.textContentManager
-        else { return }
-
-        let blocks = collectCodeBlocks(from: textStorage)
-        guard !blocks.isEmpty else { return }
-
-        let origin = textContainerOrigin
-        let containerWidth = textContainer?.size.width ?? bounds.width
-        let borderInset = Self.borderWidth / 2
-
-        for block in blocks {
-            let frames = fragmentFrames(
-                for: block.range,
-                layoutManager: layoutManager,
-                contentManager: contentManager
-            )
-            guard !frames.isEmpty else { continue }
-
-            let bounding = frames.reduce(frames[0]) { $0.union($1) }
-            let drawRect = CGRect(
-                x: origin.x + borderInset,
-                y: bounding.minY + origin.y,
-                width: containerWidth - 2 * borderInset,
-                height: bounding.height + Self.bottomPadding
-            )
-            guard drawRect.intersects(dirtyRect) else { continue }
-
-            drawRoundedContainer(
-                in: drawRect,
-                colorInfo: block.colorInfo
-            )
-        }
-    }
-
-    private func drawRoundedContainer(
-        in rect: NSRect,
-        colorInfo: CodeBlockColorInfo
-    ) {
-        let path = NSBezierPath(
-            roundedRect: rect,
-            xRadius: Self.cornerRadius,
-            yRadius: Self.cornerRadius
-        )
-
-        colorInfo.background.setFill()
-        path.fill()
-
-        colorInfo.border
-            .withAlphaComponent(Self.borderOpacity).setStroke()
-        path.lineWidth = Self.borderWidth
-        path.stroke()
-    }
-
-    // MARK: - Block Collection
-
-    private func collectCodeBlocks(
-        from textStorage: NSTextStorage
-    ) -> [CodeBlockInfo] {
-        if isCodeBlockCacheValid {
-            return cachedCodeBlocks
-        }
-
-        var grouped: [String: (range: NSRange, colorInfo: CodeBlockColorInfo)] = [:]
-        let fullRange = NSRange(location: 0, length: textStorage.length)
-
-        textStorage.enumerateAttribute(
-            CodeBlockAttributes.range,
-            in: fullRange,
-            options: []
-        ) { value, range, _ in
-            guard let blockID = value as? String else { return }
-            if var existing = grouped[blockID] {
-                existing.range = NSUnionRange(existing.range, range)
-                grouped[blockID] = existing
-            } else if let colorInfo = textStorage.attribute(
-                CodeBlockAttributes.colors,
-                at: range.location,
-                effectiveRange: nil
-            ) as? CodeBlockColorInfo {
-                grouped[blockID] = (range: range, colorInfo: colorInfo)
-            }
-        }
-
-        cachedCodeBlocks = grouped.map { blockID, entry in
-            CodeBlockInfo(blockID: blockID, range: entry.range, colorInfo: entry.colorInfo)
-        }
-        isCodeBlockCacheValid = true
-        return cachedCodeBlocks
-    }
-
-    // MARK: - Layout Fragment Geometry
-
-    private func fragmentFrames(
-        for nsRange: NSRange,
-        layoutManager: NSTextLayoutManager,
-        contentManager: NSTextContentManager
-    ) -> [CGRect] {
-        guard let textRange = textRange(
-            from: nsRange,
-            contentManager: contentManager
-        )
-        else { return [] }
-
-        var frames: [CGRect] = []
-        let endLocation = textRange.endLocation
-
-        layoutManager.enumerateTextLayoutFragments(
-            from: textRange.location,
-            options: [.ensuresLayout]
-        ) { fragment in
-            let fragmentStart = fragment.rangeInElement.location
-            if fragmentStart.compare(endLocation) != .orderedAscending {
-                return false
-            }
-            frames.append(fragment.layoutFragmentFrame)
-            return true
-        }
-
-        return frames
-    }
-
-    private func textRange(
-        from nsRange: NSRange,
-        contentManager: NSTextContentManager
-    ) -> NSTextRange? {
-        guard nsRange.length > 0 else { return nil }
-
-        guard let startLocation = contentManager.location(
-            contentManager.documentRange.location,
-            offsetBy: nsRange.location
-        )
-        else { return nil }
-
-        guard let endLocation = contentManager.location(
-            startLocation,
-            offsetBy: nsRange.length
-        )
-        else { return nil }
-
-        return NSTextRange(location: startLocation, end: endLocation)
     }
 }
