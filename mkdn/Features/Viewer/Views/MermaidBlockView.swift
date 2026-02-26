@@ -11,6 +11,7 @@ struct MermaidBlockView: View {
     var onSizeChange: ((CGFloat, CGFloat) -> Void)?
 
     @Environment(AppSettings.self) private var appSettings
+    @Environment(OverlayContainerState.self) private var containerState
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var isFocused = false
@@ -55,6 +56,10 @@ struct MermaidBlockView: View {
                 onSizeChange?(renderedHeight, renderedAspectRatio)
             }
             .onChange(of: renderedAspectRatio) {
+                onSizeChange?(renderedHeight, renderedAspectRatio)
+            }
+            .onChange(of: containerState.containerWidth) {
+                guard renderedAspectRatio > 0 else { return }
                 onSizeChange?(renderedHeight, renderedAspectRatio)
             }
             .onChange(of: renderState) { _, newValue in

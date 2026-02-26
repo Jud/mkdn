@@ -14,12 +14,17 @@ struct ImageBlockView: View {
 
     @Environment(DocumentState.self) private var documentState
     @Environment(AppSettings.self) private var appSettings
+    @Environment(OverlayContainerState.self) private var containerState
     @State private var loadedImage: NSImage?
     @State private var loadError = false
     @State private var isLoading = true
 
     private var colors: ThemeColors {
         appSettings.theme.colors
+    }
+
+    private var effectiveWidth: CGFloat {
+        containerState.containerWidth > 0 ? containerState.containerWidth : containerWidth
     }
 
     var body: some View {
@@ -53,7 +58,8 @@ struct ImageBlockView: View {
     private func imageContent(_ image: NSImage) -> some View {
         let naturalWidth = image.size.width
         let naturalHeight = image.size.height
-        let renderedWidth = min(naturalWidth, containerWidth)
+        let width = effectiveWidth
+        let renderedWidth = min(naturalWidth, width)
         let scale = naturalHeight > 0 ? renderedWidth / naturalWidth : 1
         let renderedHeight = naturalHeight * scale
 
@@ -73,8 +79,8 @@ struct ImageBlockView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .onAppear { reportSize(width: renderedWidth, height: renderedHeight) }
-        .onChange(of: containerWidth) {
-            let newWidth = min(naturalWidth, containerWidth)
+        .onChange(of: effectiveWidth) {
+            let newWidth = min(naturalWidth, effectiveWidth)
             let newScale = naturalHeight > 0 ? newWidth / naturalWidth : 1
             let newHeight = naturalHeight * newScale
             reportSize(width: newWidth, height: newHeight)
