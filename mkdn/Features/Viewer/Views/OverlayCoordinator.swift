@@ -375,27 +375,26 @@ final class OverlayCoordinator {
             return
         }
 
-        guard let fragment = context.layoutManager.textLayoutFragment(
-            for: docLocation
-        )
-        else {
+        var fragmentFrame: CGRect?
+        context.layoutManager.enumerateTextLayoutFragments(
+            from: docLocation,
+            options: [.ensuresLayout]
+        ) { fragment in
+            fragmentFrame = fragment.layoutFragmentFrame
+            return false
+        }
+
+        guard let frame = fragmentFrame, frame.height > 1 else {
             entry.view.isHidden = true
             return
         }
 
-        let fragmentFrame = fragment.layoutFragmentFrame
         let overlayWidth = entry.preferredWidth ?? context.containerWidth
-
-        guard fragmentFrame.height > 1 else {
-            entry.view.isHidden = true
-            return
-        }
-
         entry.view.frame = CGRect(
             x: context.origin.x,
-            y: fragmentFrame.origin.y + context.origin.y,
+            y: frame.origin.y + context.origin.y,
             width: overlayWidth,
-            height: fragmentFrame.height
+            height: frame.height
         )
         entry.view.isHidden = false
     }

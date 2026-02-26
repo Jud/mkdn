@@ -58,7 +58,8 @@ struct MarkdownPreviewView: View {
 
             let newBlocks = MarkdownRenderer.render(
                 text: documentState.markdownContent,
-                theme: appSettings.theme
+                theme: appSettings.theme,
+                generation: documentState.loadGeneration
             )
             cachedBlocks = newBlocks
 
