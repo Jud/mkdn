@@ -18,7 +18,7 @@ struct PlatformTypeConverterTests {
             (6, CGFloat(14)),
         ]
     )
-    func headingFontSize(level: Int, expectedSize: CGFloat) {
+    @MainActor func headingFontSize(level: Int, expectedSize: CGFloat) {
         let font = PlatformTypeConverter.headingFont(level: level)
         #expect(font.pointSize == expectedSize)
     }
@@ -26,7 +26,7 @@ struct PlatformTypeConverterTests {
     // MARK: - Heading Font Weights
 
     @Test("H1 and H2 use bold weight")
-    func headingBoldWeight() {
+    @MainActor func headingBoldWeight() {
         for level in 1 ... 2 {
             let font = PlatformTypeConverter.headingFont(level: level)
             let traits = NSFontManager.shared.traits(of: font)
@@ -35,7 +35,7 @@ struct PlatformTypeConverterTests {
     }
 
     @Test("H3 and H4 use semibold weight")
-    func headingSemiboldWeight() {
+    @MainActor func headingSemiboldWeight() {
         for level in 3 ... 4 {
             let font = PlatformTypeConverter.headingFont(level: level)
             let weight = NSFontManager.shared.weight(of: font)
@@ -44,7 +44,7 @@ struct PlatformTypeConverterTests {
     }
 
     @Test("H5 and H6 use medium weight")
-    func headingMediumWeight() {
+    @MainActor func headingMediumWeight() {
         for level in 5 ... 6 {
             let font = PlatformTypeConverter.headingFont(level: level)
             let weight = NSFontManager.shared.weight(of: font)
@@ -53,7 +53,7 @@ struct PlatformTypeConverterTests {
     }
 
     @Test("Out-of-range heading level falls back to H6 spec")
-    func headingOutOfRange() {
+    @MainActor func headingOutOfRange() {
         let font = PlatformTypeConverter.headingFont(level: 7)
         #expect(font.pointSize == 14)
     }
@@ -61,7 +61,7 @@ struct PlatformTypeConverterTests {
     // MARK: - Body Font
 
     @Test("Body font matches system body text style")
-    func bodyFontMatchesSystem() {
+    @MainActor func bodyFontMatchesSystem() {
         let font = PlatformTypeConverter.bodyFont()
         let expected = NSFont.preferredFont(forTextStyle: .body)
         #expect(font.pointSize == expected.pointSize)
@@ -71,26 +71,26 @@ struct PlatformTypeConverterTests {
     // MARK: - Monospaced Fonts
 
     @Test("Monospaced font uses system font size")
-    func monospacedFontSize() {
+    @MainActor func monospacedFontSize() {
         let font = PlatformTypeConverter.monospacedFont()
         #expect(font.pointSize == NSFont.systemFontSize)
     }
 
     @Test("Monospaced font has fixed-pitch trait")
-    func monospacedFontIsFixedPitch() {
+    @MainActor func monospacedFontIsFixedPitch() {
         let font = PlatformTypeConverter.monospacedFont()
         let traits = NSFontManager.shared.traits(of: font)
         #expect(traits.contains(.fixedPitchFontMask))
     }
 
     @Test("Caption monospaced font uses small system font size")
-    func captionMonospacedFontSize() {
+    @MainActor func captionMonospacedFontSize() {
         let font = PlatformTypeConverter.captionMonospacedFont()
         #expect(font.pointSize == NSFont.smallSystemFontSize)
     }
 
     @Test("Caption monospaced font has fixed-pitch trait")
-    func captionMonospacedIsFixedPitch() {
+    @MainActor func captionMonospacedIsFixedPitch() {
         let font = PlatformTypeConverter.captionMonospacedFont()
         let traits = NSFontManager.shared.traits(of: font)
         #expect(traits.contains(.fixedPitchFontMask))
