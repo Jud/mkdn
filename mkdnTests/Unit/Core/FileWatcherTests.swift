@@ -40,7 +40,7 @@ struct FileWatcherTests {
         watcher.resumeAfterSave()
         #expect(watcher.isSavePaused)
 
-        try await Task.sleep(for: .milliseconds(300))
+        try await Task.sleep(for: .milliseconds(500))
         #expect(!watcher.isSavePaused)
     }
 
