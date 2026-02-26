@@ -118,8 +118,8 @@ final class OverlayCoordinator {
     }
 
     /// Recalculates all overlay positions from the current layout geometry.
-    /// Layout is resolved per-fragment via `textLayoutFragment(for:)` and
-    /// `.ensuresLayout` enumeration options rather than an upfront full-document pass.
+    /// Layout is resolved per-fragment via `.ensuresLayout` enumeration
+    /// rather than an upfront full-document pass.
     func repositionOverlays() {
         guard let context = makeLayoutContext() else { return }
         containerState.containerWidth = context.containerWidth
