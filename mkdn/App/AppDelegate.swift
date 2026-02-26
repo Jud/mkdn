@@ -3,11 +3,15 @@ import AppKit
 /// Handles system file-open events and routes them through ``FileOpenCoordinator``.
 ///
 /// Wired into the SwiftUI lifecycle via `@NSApplicationDelegateAdaptor(AppDelegate.self)`.
-/// Intercepts `kAEOpenDocuments` AppleEvents before SwiftUI sees them so that
-/// Finder file-open events are routed through ``LaunchContext`` (cold launch) or
-/// ``FileOpenCoordinator`` (warm launch) without suppressing default window creation.
+/// On cold launch, Finder file-open events are intercepted via a `kAEOpenDocuments`
+/// AppleEvent handler that stores URLs in ``LaunchContext`` and restarts the app
+/// without the event (same strategy as the CLI/execv path in `main.swift`).
+/// On warm launch, `application(_:open:)` routes through ``FileOpenCoordinator``.
 @MainActor
 public final class AppDelegate: NSObject, NSApplicationDelegate {
+    /// Tracks whether the app has fully launched. Used to distinguish cold
+    /// launch (kAEOpenDocuments during startup) from warm launch (file opened
+    /// while app is already running).
     private var didFinishLaunching = false
 
     public func applicationWillFinishLaunching(_: Notification) {
@@ -16,6 +20,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         // lookup errors for Markdown file-open events.
         _ = NonDocumentController()
 
+        // Intercept kAEOpenDocuments before NSApplication's default handler.
+        // On cold launch this prevents the event from suppressing SwiftUI's
+        // default window creation. On warm launch the handler delegates to
+        // FileOpenCoordinator via the pendingURLs queue.
         NSAppleEventManager.shared().setEventHandler(
             self,
             andSelector: #selector(handleOpenDocuments(_:withReply:)),
@@ -36,33 +44,15 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     public func applicationDidFinishLaunching(_: Notification) {
         didFinishLaunching = true
         installCloseWindowMonitor()
-
-        if !LaunchContext.fileURLs.isEmpty {
-            DispatchQueue.main.async {
-                let hasVisibleWindow = NSApp.windows.contains(where: \.isVisible)
-                if !hasVisibleWindow {
-                    _ = try? NSDocumentController.shared.openUntitledDocumentAndDisplay(true)
-                }
-            }
-        }
     }
+
+    // MARK: - kAEOpenDocuments Handler
 
     @objc private func handleOpenDocuments(
         _ event: NSAppleEventDescriptor,
         withReply _: NSAppleEventDescriptor
     ) {
-        guard let listDesc = event.paramDescriptor(forKeyword: keyDirectObject) else { return }
-
-        var urls: [URL] = []
-        for index in 1 ... listDesc.numberOfItems {
-            guard let itemDesc = listDesc.atIndex(index),
-                  let data = itemDesc.coerce(toDescriptorType: typeFileURL)?.data,
-                  let urlString = String(data: data, encoding: .utf8),
-                  let url = URL(string: urlString)
-            else { continue }
-            urls.append(url)
-        }
-
+        let urls = extractURLs(from: event)
         let markdownURLs = urls.filter { FileOpenCoordinator.isMarkdownURL($0) }
         guard !markdownURLs.isEmpty else { return }
 
@@ -71,13 +61,48 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         if didFinishLaunching {
+            // Warm launch: existing DocumentWindow observers pick these up.
             for url in markdownURLs {
                 FileOpenCoordinator.shared.pendingURLs.append(url)
             }
         } else {
-            LaunchContext.fileURLs = markdownURLs
+            // Cold launch: store URLs in the env var and re-exec so that
+            // SwiftUI launches clean (no kAEOpenDocuments to suppress window
+            // creation). This is the same strategy used for CLI file args.
+            let pathString = markdownURLs.map(\.path).joined(separator: "\n")
+            setenv("MKDN_LAUNCH_FILE", pathString, 1)
+
+            let execPath = Bundle.main.executablePath ?? ProcessInfo.processInfo.arguments[0]
+            let cArgs: [UnsafeMutablePointer<CChar>?] = [strdup(execPath), nil]
+            cArgs.withUnsafeBufferPointer { buffer in
+                guard let baseAddress = buffer.baseAddress else { return }
+                _ = execv(execPath, baseAddress)
+            }
+            // execv only returns on failure — fall back to pendingURLs
+            for url in markdownURLs {
+                FileOpenCoordinator.shared.pendingURLs.append(url)
+            }
         }
     }
+
+    private func extractURLs(from event: NSAppleEventDescriptor) -> [URL] {
+        guard let listDesc = event.paramDescriptor(forKeyword: keyDirectObject) else {
+            return []
+        }
+        var urls: [URL] = []
+        for index in 1 ... max(listDesc.numberOfItems, 1) {
+            let desc = listDesc.numberOfItems > 0 ? listDesc.atIndex(index) : listDesc
+            guard let desc,
+                  let data = desc.coerce(toDescriptorType: typeFileURL)?.data,
+                  let urlString = String(data: data, encoding: .utf8),
+                  let url = URL(string: urlString)
+            else { continue }
+            urls.append(url)
+        }
+        return urls
+    }
+
+    // MARK: - Window Management
 
     /// Installs a local event monitor that handles Cmd-W to close the key window.
     ///
@@ -96,7 +121,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Applies macOS-style icon treatment: drop shadow, squircle mask, and inner stroke.
-    private static func applyIconMask(to image: NSImage) -> NSImage {
+    static func applyIconMask(to image: NSImage) -> NSImage {
         let canvasSize = NSSize(width: 1_024, height: 1_024)
         let result = NSImage(size: canvasSize)
         result.lockFocus()
