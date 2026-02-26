@@ -8,6 +8,11 @@ import AppKit
 @MainActor
 public final class AppDelegate: NSObject, NSApplicationDelegate {
     public func applicationWillFinishLaunching(_: Notification) {
+        // Install before NSDocumentController.shared is ever accessed so the
+        // subclass becomes the shared controller, suppressing document-class
+        // lookup errors for Markdown file-open events.
+        _ = NonDocumentController()
+
         guard !TestHarnessMode.isEnabled else { return }
         NSApp.setActivationPolicy(.regular)
 
@@ -28,19 +33,6 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         for url in markdownURLs {
             NSDocumentController.shared.noteNewRecentDocumentURL(url)
             FileOpenCoordinator.shared.pendingURLs.append(url)
-        }
-        // kAEOpenDocuments during cold launch suppresses the default WindowGroup
-        // window, and warm launch with all windows closed has no observer.
-        // Force-create a window so DocumentWindow.consumeLaunchContext() picks
-        // up the pending URLs.
-        if !NSApp.windows.contains(where: \.isVisible) {
-            DispatchQueue.main.async {
-                NSApp.activate()
-                NSApp.sendAction(
-                    #selector(NSDocumentController.newDocument(_:)),
-                    to: nil, from: nil
-                )
-            }
         }
     }
 
