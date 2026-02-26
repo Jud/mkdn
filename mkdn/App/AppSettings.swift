@@ -9,6 +9,10 @@ private let autoReloadEnabledKey = "autoReloadEnabled"
 
 private let scaleFactorKey = "scaleFactor"
 
+private let windowWidthKey = "windowWidth"
+
+private let windowHeightKey = "windowHeight"
+
 /// App-wide settings shared across all windows.
 ///
 /// Manages theme preferences and application-level state that is
@@ -69,6 +73,24 @@ public final class AppSettings {
         }
     }
 
+    // MARK: - Window Size
+
+    /// Last saved window width. Persisted to UserDefaults.
+    /// Default: 800 when no saved value exists.
+    public var windowWidth: CGFloat {
+        didSet {
+            UserDefaults.standard.set(Double(windowWidth), forKey: windowWidthKey)
+        }
+    }
+
+    /// Last saved window height. Persisted to UserDefaults.
+    /// Default: 600 when no saved value exists.
+    public var windowHeight: CGFloat {
+        didSet {
+            UserDefaults.standard.set(Double(windowHeight), forKey: windowHeightKey)
+        }
+    }
+
     public init() {
         let appearance = NSApp?.effectiveAppearance ?? NSAppearance.currentDrawing()
         let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
@@ -87,6 +109,12 @@ public final class AppSettings {
 
         let storedScale = CGFloat(UserDefaults.standard.double(forKey: scaleFactorKey))
         scaleFactor = storedScale > 0 ? storedScale : 1.0
+
+        let storedWidth = CGFloat(UserDefaults.standard.double(forKey: windowWidthKey))
+        windowWidth = storedWidth > 0 ? storedWidth : 800
+
+        let storedHeight = CGFloat(UserDefaults.standard.double(forKey: windowHeightKey))
+        windowHeight = storedHeight > 0 ? storedHeight : 600
     }
 
     // MARK: - Methods
