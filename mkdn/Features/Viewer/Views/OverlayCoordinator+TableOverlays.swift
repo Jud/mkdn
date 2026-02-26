@@ -20,6 +20,10 @@ extension OverlayCoordinator {
         self.textView = textView
         self.appSettings = appSettings
 
+        if let textStorage = textView.textStorage {
+            buildPositionIndex(from: textStorage)
+        }
+
         let validIndices = Set(tableOverlays.map(\.blockIndex))
         removeStaleTableOverlays(keeping: validIndices)
 
@@ -323,28 +327,8 @@ extension OverlayCoordinator {
 
     func findTableTextRange(
         for tableRangeID: String,
-        in textStorage: NSTextStorage
+        in _: NSTextStorage
     ) -> NSRange? {
-        let fullRange = NSRange(location: 0, length: textStorage.length)
-        var rangeStart: Int?
-        var rangeEnd = 0
-
-        textStorage.enumerateAttribute(
-            TableAttributes.range,
-            in: fullRange,
-            options: []
-        ) { value, attrRange, stop in
-            if let ident = value as? String, ident == tableRangeID {
-                if rangeStart == nil {
-                    rangeStart = attrRange.location
-                }
-                rangeEnd = attrRange.location + attrRange.length
-            } else if rangeStart != nil {
-                stop.pointee = true
-            }
-        }
-
-        guard let start = rangeStart else { return nil }
-        return NSRange(location: start, length: rangeEnd - start)
+        tableRangeIndex[tableRangeID]
     }
 }

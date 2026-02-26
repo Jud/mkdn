@@ -178,20 +178,10 @@ final class CodeBlockBackgroundTextView: NSTextView {
             y: viewPoint.y - textContainerInset.height
         )
 
-        var isOverFragment = false
-        textLayoutManager.enumerateTextLayoutFragments(
-            from: textLayoutManager.documentRange.location,
-            options: [.ensuresLayout]
-        ) { fragment in
-            let frame = fragment.layoutFragmentFrame
-            if frame.minY > containerPoint.y { return false }
-            if frame.contains(containerPoint) {
-                isOverFragment = true
-                return false
-            }
+        guard let fragment = textLayoutManager.textLayoutFragment(for: containerPoint) else {
             return true
         }
-        return !isOverFragment
+        return !fragment.layoutFragmentFrame.contains(containerPoint)
     }
 
     override func mouseMoved(with event: NSEvent) {

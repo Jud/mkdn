@@ -22,6 +22,7 @@ struct MarkdownPreviewView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var renderedBlocks: [IndexedBlock] = []
+    @State private var cachedBlocks: [IndexedBlock] = []
     @State private var isInitialRender = true
     @State private var knownBlockIDs: Set<String> = []
     @State private var textStorageResult = TextStorageResult(
@@ -59,6 +60,7 @@ struct MarkdownPreviewView: View {
                 text: documentState.markdownContent,
                 theme: appSettings.theme
             )
+            cachedBlocks = newBlocks
 
             let anyKnown = newBlocks.contains { knownBlockIDs.contains($0.id) }
             let shouldAnimate = !anyKnown && !reduceMotion && !newBlocks.isEmpty
@@ -66,16 +68,10 @@ struct MarkdownPreviewView: View {
             renderAndBuild(newBlocks, isFullReload: shouldAnimate)
         }
         .onChange(of: appSettings.theme) {
-            renderAndBuild(
-                MarkdownRenderer.render(text: documentState.markdownContent, theme: appSettings.theme),
-                isFullReload: false
-            )
+            renderAndBuild(cachedBlocks, isFullReload: false)
         }
         .onChange(of: appSettings.scaleFactor) {
-            renderAndBuild(
-                MarkdownRenderer.render(text: documentState.markdownContent, theme: appSettings.theme),
-                isFullReload: false
-            )
+            renderAndBuild(cachedBlocks, isFullReload: false)
         }
     }
 

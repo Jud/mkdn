@@ -56,6 +56,8 @@ final class OverlayCoordinator {
     nonisolated(unsafe) var scrollObserver: NSObjectProtocol?
     let containerState = OverlayContainerState()
     private var repositionScheduled = false
+    var attachmentIndex: [ObjectIdentifier: NSRange] = [:]
+    var tableRangeIndex: [String: NSRange] = [:]
 
     deinit {
         if let layoutObserver {
@@ -79,6 +81,10 @@ final class OverlayCoordinator {
     ) {
         self.textView = textView
         self.appSettings = appSettings
+
+        if let textStorage = textView.textStorage {
+            buildPositionIndex(from: textStorage)
+        }
 
         let validIndices = Set(attachments.map(\.blockIndex))
         removeStaleAttachmentOverlays(keeping: validIndices)
@@ -205,6 +211,7 @@ final class OverlayCoordinator {
 
         if let range = attachmentRange(for: attachment, in: textStorage) {
             textStorage.edited(.editedAttributes, range: range, changeInLength: 0)
+            buildPositionIndex(from: textStorage)
         }
 
         if let layoutManager = textView.textLayoutManager {
@@ -397,19 +404,9 @@ final class OverlayCoordinator {
 
     private func attachmentRange(
         for attachment: NSTextAttachment,
-        in textStorage: NSTextStorage
+        in _: NSTextStorage
     ) -> NSRange? {
-        let fullRange = NSRange(location: 0, length: textStorage.length)
-        var foundRange: NSRange?
-        textStorage.enumerateAttribute(
-            .attachment, in: fullRange, options: []
-        ) { value, range, stop in
-            if let found = value as? NSTextAttachment, found === attachment {
-                foundRange = range
-                stop.pointee = true
-            }
-        }
-        return foundRange
+        attachmentIndex[ObjectIdentifier(attachment)]
     }
 
     func textContainerWidth(in textView: NSTextView) -> CGFloat {

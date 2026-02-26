@@ -2,9 +2,11 @@ import AppKit
 import SwiftTreeSitter
 
 /// Synchronous syntax highlighting engine using tree-sitter.
-/// Stateless design: parser and query are created per call.
-/// Thread-safe by construction (no shared mutable state).
+/// Query objects are cached per language to avoid recompilation.
+/// Thread-safe by construction (enum with static methods).
 enum SyntaxHighlightEngine {
+    private nonisolated(unsafe) static var queryCache: [String: Query] = [:]
+
     /// Highlight code for a given language, returning a colored NSMutableAttributedString.
     /// Returns nil if the language is not supported (caller should fall back to plain text).
     static func highlight(
@@ -36,8 +38,14 @@ enum SyntaxHighlightEngine {
         let resultLength = result.length
 
         do {
-            let queryData = Data(config.highlightQuery.utf8)
-            let query = try Query(language: config.language, data: queryData)
+            let query: Query
+            if let cached = queryCache[language] {
+                query = cached
+            } else {
+                let queryData = Data(config.highlightQuery.utf8)
+                query = try Query(language: config.language, data: queryData)
+                queryCache[language] = query
+            }
             let cursor = query.execute(in: tree)
 
             for match in cursor {
