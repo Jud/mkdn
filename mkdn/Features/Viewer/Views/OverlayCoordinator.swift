@@ -55,7 +55,7 @@ final class OverlayCoordinator {
     var stickyHeaders: [Int: NSView] = [:]
     nonisolated(unsafe) var scrollObserver: NSObjectProtocol?
     let containerState = OverlayContainerState()
-    private var repositionScheduled = false
+    private var isRepositionScheduled = false
     var attachmentIndex: [ObjectIdentifier: NSRange] = [:]
     var tableRangeIndex: [String: NSRange] = [:]
 
@@ -190,10 +190,10 @@ final class OverlayCoordinator {
     /// has time to process layout invalidation before we read fragment frames.
     /// Multiple calls within the same run-loop cycle are coalesced into a single pass.
     private func scheduleReposition() {
-        guard !repositionScheduled else { return }
-        repositionScheduled = true
+        guard !isRepositionScheduled else { return }
+        isRepositionScheduled = true
         DispatchQueue.main.async { [weak self] in
-            self?.repositionScheduled = false
+            self?.isRepositionScheduled = false
             self?.repositionOverlays()
         }
     }
@@ -209,7 +209,7 @@ final class OverlayCoordinator {
         let containerWidth = textContainerWidth(in: textView)
         attachment.bounds = CGRect(x: 0, y: 0, width: containerWidth, height: newHeight)
 
-        if let range = attachmentRange(for: attachment, in: textStorage) {
+        if let range = attachmentRange(for: attachment) {
             textStorage.edited(.editedAttributes, range: range, changeInLength: 0)
             buildPositionIndex(from: textStorage)
         }
@@ -252,7 +252,7 @@ final class OverlayCoordinator {
                 info.attachment.bounds = CGRect(
                     x: 0, y: 0, width: containerWidth, height: knownHeight
                 )
-                if let range = attachmentRange(for: info.attachment, in: textStorage) {
+                if let range = attachmentRange(for: info.attachment) {
                     textStorage.edited(.editedAttributes, range: range, changeInLength: 0)
                 }
             }
@@ -360,7 +360,7 @@ final class OverlayCoordinator {
         context: LayoutContext
     ) {
         guard let attachment = entry.attachment,
-              let range = attachmentRange(for: attachment, in: context.textStorage)
+              let range = attachmentRange(for: attachment)
         else {
             entry.view.isHidden = true
             return
@@ -403,8 +403,7 @@ final class OverlayCoordinator {
     // MARK: - Helpers
 
     private func attachmentRange(
-        for attachment: NSTextAttachment,
-        in _: NSTextStorage
+        for attachment: NSTextAttachment
     ) -> NSRange? {
         attachmentIndex[ObjectIdentifier(attachment)]
     }

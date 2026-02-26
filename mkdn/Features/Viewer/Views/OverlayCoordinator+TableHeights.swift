@@ -26,7 +26,7 @@ extension OverlayCoordinator {
             else { continue }
 
             guard let tableRange = findTableTextRange(
-                for: tableRangeID, in: textStorage
+                for: tableRangeID
             )
             else { continue }
 

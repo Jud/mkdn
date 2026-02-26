@@ -46,6 +46,11 @@ final class CodeBlockBackgroundTextView: NSTextView {
         let colorInfo: CodeBlockColorInfo
     }
 
+    // MARK: - Code Block Cache
+
+    private var cachedCodeBlocks: [CodeBlockInfo] = []
+    private var isCodeBlockCacheValid = false
+
     // MARK: - Copy Button State
 
     private var hoveredBlockID: String?
@@ -77,7 +82,19 @@ final class CodeBlockBackgroundTextView: NSTextView {
 
     override func setFrameSize(_ newSize: NSSize) {
         super.setFrameSize(newSize)
+        invalidateCodeBlockCache()
         needsDisplay = true
+    }
+
+    // MARK: - Text Change Invalidation
+
+    override func didChangeText() {
+        super.didChangeText()
+        invalidateCodeBlockCache()
+    }
+
+    private func invalidateCodeBlockCache() {
+        isCodeBlockCacheValid = false
     }
 
     // MARK: - Escape to Dismiss Find
@@ -428,6 +445,10 @@ final class CodeBlockBackgroundTextView: NSTextView {
     private func collectCodeBlocks(
         from textStorage: NSTextStorage
     ) -> [CodeBlockInfo] {
+        if isCodeBlockCacheValid {
+            return cachedCodeBlocks
+        }
+
         var grouped: [String: (range: NSRange, colorInfo: CodeBlockColorInfo)] = [:]
         let fullRange = NSRange(location: 0, length: textStorage.length)
 
@@ -449,9 +470,11 @@ final class CodeBlockBackgroundTextView: NSTextView {
             }
         }
 
-        return grouped.map { blockID, entry in
+        cachedCodeBlocks = grouped.map { blockID, entry in
             CodeBlockInfo(blockID: blockID, range: entry.range, colorInfo: entry.colorInfo)
         }
+        isCodeBlockCacheValid = true
+        return cachedCodeBlocks
     }
 
     // MARK: - Layout Fragment Geometry

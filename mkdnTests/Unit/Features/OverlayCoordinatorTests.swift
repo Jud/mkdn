@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 import Testing
 @testable import mkdnLib
 
@@ -175,5 +175,56 @@ struct OverlayCoordinatorTests {
     @MainActor func containerStateDefaultWidth() {
         let coordinator = OverlayCoordinator()
         #expect(coordinator.containerState.containerWidth == 600)
+    }
+
+    // MARK: - Position Index
+
+    @Test("buildPositionIndex indexes attachment by ObjectIdentifier")
+    @MainActor func buildPositionIndexAttachment() {
+        let coordinator = OverlayCoordinator()
+        let attachment = NSTextAttachment()
+        let storage = NSTextStorage(attributedString: NSAttributedString(
+            string: "\u{FFFC}",
+            attributes: [.attachment: attachment]
+        ))
+        coordinator.buildPositionIndex(from: storage)
+
+        let key = ObjectIdentifier(attachment)
+        #expect(coordinator.attachmentIndex[key] == NSRange(location: 0, length: 1))
+    }
+
+    @Test("buildPositionIndex indexes table range by ID")
+    @MainActor func buildPositionIndexTableRange() {
+        let coordinator = OverlayCoordinator()
+        let storage = NSTextStorage(attributedString: NSAttributedString(
+            string: "table text",
+            attributes: [TableAttributes.range: "table-1"]
+        ))
+        coordinator.buildPositionIndex(from: storage)
+
+        #expect(coordinator.tableRangeIndex["table-1"] == NSRange(location: 0, length: 10))
+    }
+
+    @Test("buildPositionIndex merges disjoint table range spans")
+    @MainActor func buildPositionIndexMergesTableRanges() {
+        let coordinator = OverlayCoordinator()
+        let storage = NSTextStorage()
+        let part1 = NSAttributedString(
+            string: "AAA",
+            attributes: [TableAttributes.range: "t1"]
+        )
+        let gap = NSAttributedString(string: "BB")
+        let part2 = NSAttributedString(
+            string: "CCC",
+            attributes: [TableAttributes.range: "t1"]
+        )
+        storage.append(part1)
+        storage.append(gap)
+        storage.append(part2)
+
+        coordinator.buildPositionIndex(from: storage)
+
+        let expected = NSRange(location: 0, length: 8)
+        #expect(coordinator.tableRangeIndex["t1"] == expected)
     }
 }

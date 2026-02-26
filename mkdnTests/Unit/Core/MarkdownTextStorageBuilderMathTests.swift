@@ -6,7 +6,7 @@ import Testing
 struct MarkdownTextStorageBuilderMathTests {
     let theme: AppTheme = .solarizedDark
 
-    private func buildSingle(
+    @MainActor private func buildSingle(
         _ block: MarkdownBlock,
         isPrint: Bool = false
     ) -> TextStorageResult {
@@ -19,21 +19,21 @@ struct MarkdownTextStorageBuilderMathTests {
     // MARK: - Math Block (Screen Mode)
 
     @Test("Math block produces attachment in screen mode")
-    func mathBlockProducesAttachment() {
+    @MainActor func mathBlockProducesAttachment() {
         let result = buildSingle(.mathBlock(code: "E = mc^2"))
         #expect(!result.attachments.isEmpty)
         #expect(result.attachments[0].blockIndex == 0)
     }
 
     @Test("Math block attachment has placeholder height")
-    func mathBlockAttachmentHeight() {
+    @MainActor func mathBlockAttachmentHeight() {
         let result = buildSingle(.mathBlock(code: "x^2"))
         let attachment = result.attachments.first?.attachment
         #expect(attachment?.bounds.height == MarkdownTextStorageBuilder.attachmentPlaceholderHeight)
     }
 
     @Test("Math block attachment block is mathBlock")
-    func mathBlockAttachmentBlockType() {
+    @MainActor func mathBlockAttachmentBlockType() {
         let result = buildSingle(.mathBlock(code: "x^2"))
         guard case .mathBlock = result.attachments.first?.block else {
             Issue.record("Expected mathBlock in attachment info")
@@ -44,14 +44,14 @@ struct MarkdownTextStorageBuilderMathTests {
     // MARK: - Math Block (Print Mode)
 
     @Test("Math block print produces inline content, not attachment")
-    func mathBlockPrintProducesInlineContent() {
+    @MainActor func mathBlockPrintProducesInlineContent() {
         let result = buildSingle(.mathBlock(code: "E = mc^2"), isPrint: true)
         #expect(result.attachments.isEmpty)
         #expect(result.attributedString.length > 0)
     }
 
     @Test("Math block print has centered paragraph style")
-    func mathBlockPrintCentered() {
+    @MainActor func mathBlockPrintCentered() {
         let result = buildSingle(.mathBlock(code: "x^2"), isPrint: true)
         let attrs = result.attributedString.attributes(at: 0, effectiveRange: nil)
         let style = attrs[.paragraphStyle] as? NSParagraphStyle
@@ -59,7 +59,7 @@ struct MarkdownTextStorageBuilderMathTests {
     }
 
     @Test("Math block print fallback uses monospaced font")
-    func mathBlockPrintFallbackMonospace() {
+    @MainActor func mathBlockPrintFallbackMonospace() {
         let result = buildSingle(
             .mathBlock(code: "\\invalidcommandthatdoesnotexist"),
             isPrint: true
@@ -76,7 +76,7 @@ struct MarkdownTextStorageBuilderMathTests {
     // MARK: - Inline Math
 
     @Test("Inline math produces NSTextAttachment in attributed string")
-    func inlineMathProducesAttachment() {
+    @MainActor func inlineMathProducesAttachment() {
         var text = AttributedString("x^2")
         text.mathExpression = "x^2"
         let result = buildSingle(.paragraph(text: text))
@@ -95,7 +95,7 @@ struct MarkdownTextStorageBuilderMathTests {
     }
 
     @Test("Inline math fallback uses monospaced font for invalid LaTeX")
-    func inlineMathFallbackMonospace() {
+    @MainActor func inlineMathFallbackMonospace() {
         var text = AttributedString("\\invalidcommandthatdoesnotexist")
         text.mathExpression = "\\invalidcommandthatdoesnotexist"
         let result = buildSingle(.paragraph(text: text))
@@ -117,7 +117,7 @@ struct MarkdownTextStorageBuilderMathTests {
     }
 
     @Test("Inline math fallback uses reduced alpha foreground color")
-    func inlineMathFallbackColor() throws {
+    @MainActor func inlineMathFallbackColor() throws {
         var text = AttributedString("\\invalidcommandthatdoesnotexist")
         text.mathExpression = "\\invalidcommandthatdoesnotexist"
         let result = buildSingle(.paragraph(text: text))
@@ -143,7 +143,7 @@ struct MarkdownTextStorageBuilderMathTests {
     // MARK: - Plain Text Extraction
 
     @Test("plainText extracts math block code")
-    func plainTextMathBlock() {
+    @MainActor func plainTextMathBlock() {
         let text = MarkdownTextStorageBuilder.plainText(
             from: .mathBlock(code: "E = mc^2")
         )
@@ -153,7 +153,7 @@ struct MarkdownTextStorageBuilderMathTests {
     // MARK: - Multi-Block Integration
 
     @Test("Math block in multi-block produces attachment without text contribution")
-    func mathBlockInMultiBlock() {
+    @MainActor func mathBlockInMultiBlock() {
         let blocks = [
             IndexedBlock(index: 0, block: .paragraph(text: AttributedString("Above"))),
             IndexedBlock(index: 1, block: .mathBlock(code: "x^2")),

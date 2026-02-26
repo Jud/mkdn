@@ -163,7 +163,6 @@ struct MarkdownVisitor {
             var result = inlineText(from: link)
             if let destination = link.destination, let url = URL(string: destination) {
                 result.link = url
-                result.foregroundColor = theme.colors.linkColor
                 result.underlineStyle = .single
             }
             return result

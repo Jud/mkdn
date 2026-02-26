@@ -8,7 +8,7 @@ struct MarkdownTextStorageBuilderTableTests {
 
     // MARK: - Helpers
 
-    private func buildSingle(_ block: MarkdownBlock) -> TextStorageResult {
+    @MainActor private func buildSingle(_ block: MarkdownBlock) -> TextStorageResult {
         let indexed = IndexedBlock(index: 0, block: block)
         return MarkdownTextStorageBuilder.build(blocks: [indexed], theme: theme)
     }
@@ -30,7 +30,7 @@ struct MarkdownTextStorageBuilderTableTests {
     // MARK: - Inline Text Generation
 
     @Test("Table generates inline text instead of attachment")
-    func tableGeneratesInlineText() {
+    @MainActor func tableGeneratesInlineText() {
         let result = buildSingle(.table(columns: tableColumns, rows: tableRows))
         #expect(result.attachments.isEmpty)
         let plainText = result.attributedString.string
@@ -40,7 +40,7 @@ struct MarkdownTextStorageBuilderTableTests {
     }
 
     @Test("Table text has clear foreground color for invisible rendering")
-    func tableTextClearForeground() {
+    @MainActor func tableTextClearForeground() {
         let result = buildSingle(.table(columns: tableColumns, rows: tableRows))
         let str = result.attributedString
         var hasClearForeground = false
@@ -56,7 +56,7 @@ struct MarkdownTextStorageBuilderTableTests {
     }
 
     @Test("Table text contains tab-separated cell content")
-    func tableTextTabSeparated() {
+    @MainActor func tableTextTabSeparated() {
         let result = buildSingle(.table(columns: tableColumns, rows: tableRows))
         let plainText = result.attributedString.string
         #expect(plainText.contains("Name\tAge"))
@@ -67,7 +67,7 @@ struct MarkdownTextStorageBuilderTableTests {
     // MARK: - Table Attributes
 
     @Test("Table text has TableAttributes.range on all table characters")
-    func tableTextHasRangeAttribute() {
+    @MainActor func tableTextHasRangeAttribute() {
         let result = buildSingle(.table(columns: tableColumns, rows: tableRows))
         let str = result.attributedString
         var tableCharCount = 0
@@ -83,7 +83,7 @@ struct MarkdownTextStorageBuilderTableTests {
     }
 
     @Test("Table text has TableAttributes.cellMap on all table characters")
-    func tableTextHasCellMapAttribute() {
+    @MainActor func tableTextHasCellMapAttribute() {
         let result = buildSingle(.table(columns: tableColumns, rows: tableRows))
         let str = result.attributedString
         var hasCellMap = false
@@ -99,7 +99,7 @@ struct MarkdownTextStorageBuilderTableTests {
     }
 
     @Test("Table text has TableAttributes.colors on all table characters")
-    func tableTextHasColorsAttribute() {
+    @MainActor func tableTextHasColorsAttribute() {
         let result = buildSingle(.table(columns: tableColumns, rows: tableRows))
         let str = result.attributedString
         var hasColors = false
@@ -115,7 +115,7 @@ struct MarkdownTextStorageBuilderTableTests {
     }
 
     @Test("Table header row has isHeader attribute set to true")
-    func tableHeaderHasIsHeaderAttribute() {
+    @MainActor func tableHeaderHasIsHeaderAttribute() {
         let result = buildSingle(.table(columns: tableColumns, rows: tableRows))
         let str = result.attributedString
         var headerCharCount = 0
@@ -132,7 +132,7 @@ struct MarkdownTextStorageBuilderTableTests {
     }
 
     @Test("Table data rows do not have isHeader attribute")
-    func tableDataRowsNoIsHeader() {
+    @MainActor func tableDataRowsNoIsHeader() {
         let columns = [TableColumn(header: AttributedString("X"), alignment: .left)]
         let rows: [[AttributedString]] = [[AttributedString("Data")]]
         let result = buildSingle(.table(columns: columns, rows: rows))
@@ -154,7 +154,7 @@ struct MarkdownTextStorageBuilderTableTests {
     // MARK: - Print Mode
 
     @Test("Print mode table text has visible foreground")
-    func printModeTableVisibleForeground() {
+    @MainActor func printModeTableVisibleForeground() {
         let indexed = IndexedBlock(
             index: 0,
             block: .table(columns: tableColumns, rows: tableRows)
@@ -180,7 +180,7 @@ struct MarkdownTextStorageBuilderTableTests {
     // MARK: - TableOverlayInfo
 
     @Test("TextStorageResult includes tableOverlays for table blocks")
-    func textStorageResultIncludesTableOverlays() {
+    @MainActor func textStorageResultIncludesTableOverlays() {
         let result = buildSingle(.table(columns: tableColumns, rows: tableRows))
         #expect(result.tableOverlays.count == 1)
         #expect(!result.tableOverlays[0].tableRangeID.isEmpty)
@@ -190,7 +190,7 @@ struct MarkdownTextStorageBuilderTableTests {
     }
 
     @Test("Multiple tables produce separate tableOverlays entries")
-    func multipleTablesProduceSeparateOverlays() {
+    @MainActor func multipleTablesProduceSeparateOverlays() {
         let columns = [TableColumn(header: AttributedString("A"), alignment: .left)]
         let blocks = [
             IndexedBlock(index: 0, block: .table(columns: columns, rows: [[AttributedString("1")]])),
@@ -202,7 +202,7 @@ struct MarkdownTextStorageBuilderTableTests {
     }
 
     @Test("Table with no rows generates header-only text")
-    func tableEmptyRowsGeneratesHeaderOnly() {
+    @MainActor func tableEmptyRowsGeneratesHeaderOnly() {
         let columns = [TableColumn(header: AttributedString("Col"), alignment: .left)]
         let result = buildSingle(.table(columns: columns, rows: []))
         let plainText = result.attributedString.string
@@ -214,7 +214,7 @@ struct MarkdownTextStorageBuilderTableTests {
     // MARK: - CellMap Accuracy
 
     @Test("Table cellMap entries have correct cell positions")
-    func tableCellMapPositions() {
+    @MainActor func tableCellMapPositions() {
         let result = buildSingle(.table(columns: tableColumns, rows: tableRows))
         let cellMap = result.tableOverlays[0].cellMap
         let allPositions = Set(cellMap.cells.map(\.position))
@@ -227,7 +227,7 @@ struct MarkdownTextStorageBuilderTableTests {
     }
 
     @Test("Table cellMap entries have correct content strings")
-    func tableCellMapContent() {
+    @MainActor func tableCellMapContent() {
         let result = buildSingle(.table(columns: tableColumns, rows: tableRows))
         let cellMap = result.tableOverlays[0].cellMap
         let contentByPosition = Dictionary(
@@ -240,7 +240,7 @@ struct MarkdownTextStorageBuilderTableTests {
     }
 
     @Test("Table cellMap ranges correctly identify cell text in attributed string")
-    func tableCellMapRangesAccurate() {
+    @MainActor func tableCellMapRangesAccurate() {
         let result = buildSingle(.table(columns: tableColumns, rows: tableRows))
         let str = result.attributedString
         let cellMap = result.tableOverlays[0].cellMap
@@ -270,7 +270,7 @@ struct MarkdownTextStorageBuilderTableTests {
     // MARK: - Paragraph Style
 
     @Test("Table paragraph style has fixed line heights matching row height estimates")
-    func tableParagraphStyleLineHeights() {
+    @MainActor func tableParagraphStyleLineHeights() {
         let result = buildSingle(.table(columns: tableColumns, rows: tableRows))
         let str = result.attributedString
         let attrs = str.attributes(at: 0, effectiveRange: nil)
