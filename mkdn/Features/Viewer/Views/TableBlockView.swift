@@ -10,6 +10,7 @@ struct TableBlockView: View {
 
     @Environment(AppSettings.self) private var appSettings
     @Environment(OverlayContainerState.self) private var containerState
+    @State private var sizingCache = SizingCache()
 
     private var colors: ThemeColors {
         appSettings.theme.colors
@@ -27,17 +28,29 @@ struct TableBlockView: View {
         containerState.containerWidth > 0 ? containerState.containerWidth : containerWidth
     }
 
-    private var sizingResult: TableColumnSizer.Result {
-        TableColumnSizer.computeWidths(
+    private func cachedSizingResult() -> TableColumnSizer.Result {
+        let width = effectiveWidth
+        let scale = scaleFactor
+        if let cached = sizingCache.result,
+           sizingCache.lastWidth == width,
+           sizingCache.lastScaleFactor == scale
+        {
+            return cached
+        }
+        let result = TableColumnSizer.computeWidths(
             columns: columns,
             rows: rows,
-            containerWidth: effectiveWidth,
-            font: PlatformTypeConverter.bodyFont(scaleFactor: scaleFactor)
+            containerWidth: width,
+            font: PlatformTypeConverter.bodyFont(scaleFactor: scale)
         )
+        sizingCache.lastWidth = width
+        sizingCache.lastScaleFactor = scale
+        sizingCache.result = result
+        return result
     }
 
     var body: some View {
-        let result = sizingResult
+        let result = cachedSizingResult()
         let columnWidths = result.columnWidths
         let totalWidth = result.totalWidth
 
@@ -116,6 +129,12 @@ struct TableBlockView: View {
             )
         }
     }
+}
+
+private class SizingCache {
+    var lastWidth: CGFloat = -1
+    var lastScaleFactor: CGFloat = -1
+    var result: TableColumnSizer.Result?
 }
 
 extension TableColumnAlignment {
