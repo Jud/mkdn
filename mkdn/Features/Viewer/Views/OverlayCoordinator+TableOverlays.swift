@@ -227,6 +227,7 @@ extension OverlayCoordinator {
             self?.updateTablePreferredWidth(blockIndex: blockIndex, width: width)
         }
         .environment(appSettings)
+        .environment(containerState)
         return NSHostingView(rootView: rootView)
     }
 

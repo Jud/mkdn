@@ -9,6 +9,7 @@ struct TableBlockView: View {
     var onSizeChange: ((CGFloat, CGFloat) -> Void)?
 
     @Environment(AppSettings.self) private var appSettings
+    @Environment(OverlayContainerState.self) private var containerState
 
     private var colors: ThemeColors {
         appSettings.theme.colors
@@ -22,11 +23,15 @@ struct TableBlockView: View {
         .system(size: PlatformTypeConverter.bodyFont(scaleFactor: scaleFactor).pointSize)
     }
 
+    private var effectiveWidth: CGFloat {
+        containerState.containerWidth > 0 ? containerState.containerWidth : containerWidth
+    }
+
     private var sizingResult: TableColumnSizer.Result {
         TableColumnSizer.computeWidths(
             columns: columns,
             rows: rows,
-            containerWidth: containerWidth,
+            containerWidth: effectiveWidth,
             font: PlatformTypeConverter.bodyFont(scaleFactor: scaleFactor)
         )
     }

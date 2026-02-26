@@ -50,10 +50,21 @@ final class OverlayCoordinator {
 
     weak var textView: NSTextView?
     var entries: [Int: OverlayEntry] = [:]
-    var layoutObserver: NSObjectProtocol?
+    nonisolated(unsafe) var layoutObserver: NSObjectProtocol?
     var appSettings: AppSettings?
     var stickyHeaders: [Int: NSView] = [:]
-    var scrollObserver: NSObjectProtocol?
+    nonisolated(unsafe) var scrollObserver: NSObjectProtocol?
+    let containerState = OverlayContainerState()
+    private var repositionScheduled = false
+
+    deinit {
+        if let layoutObserver {
+            NotificationCenter.default.removeObserver(layoutObserver)
+        }
+        if let scrollObserver {
+            NotificationCenter.default.removeObserver(scrollObserver)
+        }
+    }
 
     // MARK: - Attachment-Based Overlay API
 
@@ -101,13 +112,11 @@ final class OverlayCoordinator {
     }
 
     /// Recalculates all overlay positions from the current layout geometry.
+    /// Layout is resolved per-fragment via `textLayoutFragment(for:)` and
+    /// `.ensuresLayout` enumeration options rather than an upfront full-document pass.
     func repositionOverlays() {
-        if let layoutManager = textView?.textLayoutManager,
-           let documentRange = layoutManager.textContentManager?.documentRange
-        {
-            layoutManager.ensureLayout(for: documentRange)
-        }
         guard let context = makeLayoutContext() else { return }
+        containerState.containerWidth = context.containerWidth
         for (_, entry) in entries {
             positionEntry(entry, context: context)
         }
@@ -137,7 +146,7 @@ final class OverlayCoordinator {
         invalidateAttachmentHeight(
             attachment, newHeight: newHeight, textView: textView, textStorage: textStorage
         )
-        repositionOverlays()
+        scheduleReposition()
     }
 
     /// Updates both the preferred width and placeholder height for an attachment overlay.
@@ -167,7 +176,19 @@ final class OverlayCoordinator {
         }
 
         if widthChanged || heightChanged {
-            repositionOverlays()
+            scheduleReposition()
+        }
+    }
+
+    /// Schedules overlay repositioning for the next run-loop iteration so TextKit 2
+    /// has time to process layout invalidation before we read fragment frames.
+    /// Multiple calls within the same run-loop cycle are coalesced into a single pass.
+    private func scheduleReposition() {
+        guard !repositionScheduled else { return }
+        repositionScheduled = true
+        DispatchQueue.main.async { [weak self] in
+            self?.repositionScheduled = false
+            self?.repositionOverlays()
         }
     }
 
@@ -211,9 +232,24 @@ final class OverlayCoordinator {
         in textView: NSTextView
     ) {
         if let existing = entries[info.blockIndex],
-           existing.attachment != nil,
+           let oldAttachment = existing.attachment,
            blocksMatch(existing.block, info.block)
         {
+            // Carry over the known height from the old attachment to the new one.
+            // Text storage rebuilds create fresh attachments with the default
+            // placeholder height; the SwiftUI view won't re-fire onSizeChange
+            // because the image is already loaded.
+            let knownHeight = oldAttachment.bounds.height
+            if knownHeight > 1, let textStorage = textView.textStorage {
+                let containerWidth = textContainerWidth(in: textView)
+                info.attachment.bounds = CGRect(
+                    x: 0, y: 0, width: containerWidth, height: knownHeight
+                )
+                if let range = attachmentRange(for: info.attachment, in: textStorage) {
+                    textStorage.edited(.editedAttributes, range: range, changeInLength: 0)
+                }
+            }
+
             entries[info.blockIndex] = OverlayEntry(
                 view: existing.view,
                 block: info.block,
@@ -231,24 +267,6 @@ final class OverlayCoordinator {
             documentState: documentState,
             in: textView
         )
-    }
-
-    func blocksMatch(_ lhs: MarkdownBlock, _ rhs: MarkdownBlock) -> Bool {
-        switch (lhs, rhs) {
-        case let (.mermaidBlock(code1), .mermaidBlock(code2)):
-            code1 == code2
-        case let (.image(src1, _), .image(src2, _)):
-            src1 == src2
-        case (.thematicBreak, .thematicBreak):
-            true
-        case let (.table(cols1, rows1), .table(cols2, rows2)):
-            cols1.map { String($0.header.characters) } == cols2.map { String($0.header.characters) }
-                && rows1.count == rows2.count
-        case let (.mathBlock(code1), .mathBlock(code2)):
-            code1 == code2
-        default:
-            false
-        }
     }
 
     private func removeStaleAttachmentOverlays(keeping validIndices: Set<Int>) {
@@ -418,6 +436,7 @@ extension OverlayCoordinator {
             updateAttachmentHeight(blockIndex: blockIndex, newHeight: height)
         }
         .environment(appSettings)
+        .environment(containerState)
         return NSHostingView(rootView: rootView)
     }
 
@@ -444,6 +463,7 @@ extension OverlayCoordinator {
         }
         .environment(appSettings)
         .environment(documentState)
+        .environment(containerState)
         return NSHostingView(rootView: rootView)
     }
 
