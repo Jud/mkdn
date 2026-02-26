@@ -3,15 +3,25 @@ import AppKit
 /// Handles system file-open events and routes them through ``FileOpenCoordinator``.
 ///
 /// Wired into the SwiftUI lifecycle via `@NSApplicationDelegateAdaptor(AppDelegate.self)`.
-/// Receives `application(_:open:)` calls from Launch Services when the user opens
-/// Markdown files from Finder, dock drag-and-drop, or other applications.
+/// Intercepts `kAEOpenDocuments` AppleEvents before SwiftUI sees them so that
+/// Finder file-open events are routed through ``LaunchContext`` (cold launch) or
+/// ``FileOpenCoordinator`` (warm launch) without suppressing default window creation.
 @MainActor
 public final class AppDelegate: NSObject, NSApplicationDelegate {
+    private var didFinishLaunching = false
+
     public func applicationWillFinishLaunching(_: Notification) {
         // Install before NSDocumentController.shared is ever accessed so the
         // subclass becomes the shared controller, suppressing document-class
         // lookup errors for Markdown file-open events.
         _ = NonDocumentController()
+
+        NSAppleEventManager.shared().setEventHandler(
+            self,
+            andSelector: #selector(handleOpenDocuments(_:withReply:)),
+            forEventClass: AEEventClass(kCoreEventClass),
+            andEventID: AEEventID(kAEOpenDocuments)
+        )
 
         guard !TestHarnessMode.isEnabled else { return }
         NSApp.setActivationPolicy(.regular)
@@ -24,15 +34,48 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     public func applicationDidFinishLaunching(_: Notification) {
+        didFinishLaunching = true
         installCloseWindowMonitor()
+
+        if !LaunchContext.fileURLs.isEmpty {
+            DispatchQueue.main.async {
+                let hasVisibleWindow = NSApp.windows.contains(where: \.isVisible)
+                if !hasVisibleWindow {
+                    _ = try? NSDocumentController.shared.openUntitledDocumentAndDisplay(true)
+                }
+            }
+        }
     }
 
-    public func application(_: NSApplication, open urls: [URL]) {
+    @objc private func handleOpenDocuments(
+        _ event: NSAppleEventDescriptor,
+        withReply _: NSAppleEventDescriptor
+    ) {
+        guard let listDesc = event.paramDescriptor(forKeyword: keyDirectObject) else { return }
+
+        var urls: [URL] = []
+        for index in 1 ... listDesc.numberOfItems {
+            guard let itemDesc = listDesc.atIndex(index),
+                  let data = itemDesc.coerce(toDescriptorType: typeFileURL)?.data,
+                  let urlString = String(data: data, encoding: .utf8),
+                  let url = URL(string: urlString)
+            else { continue }
+            urls.append(url)
+        }
+
         let markdownURLs = urls.filter { FileOpenCoordinator.isMarkdownURL($0) }
         guard !markdownURLs.isEmpty else { return }
+
         for url in markdownURLs {
             NSDocumentController.shared.noteNewRecentDocumentURL(url)
-            FileOpenCoordinator.shared.pendingURLs.append(url)
+        }
+
+        if didFinishLaunching {
+            for url in markdownURLs {
+                FileOpenCoordinator.shared.pendingURLs.append(url)
+            }
+        } else {
+            LaunchContext.fileURLs = markdownURLs
         }
     }
 
