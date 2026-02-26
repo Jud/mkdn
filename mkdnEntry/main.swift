@@ -8,12 +8,23 @@ struct MkdnApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @State private var appSettings = AppSettings()
 
+    private var savedWindowWidth: CGFloat {
+        let stored = UserDefaults.standard.double(forKey: "windowWidth")
+        return stored > 0 ? stored : 800
+    }
+
+    private var savedWindowHeight: CGFloat {
+        let stored = UserDefaults.standard.double(forKey: "windowHeight")
+        return stored > 0 ? stored : 600
+    }
+
     var body: some Scene {
         WindowGroup(for: LaunchItem.self) { $launchItem in // swiftlint:disable:this unused_parameter
             DocumentWindow(launchItem: launchItem)
                 .environment(appSettings)
         }
         .handlesExternalEvents(matching: [])
+        .defaultSize(width: savedWindowWidth, height: savedWindowHeight)
         .windowStyle(.hiddenTitleBar)
         .commands {
             MkdnCommands(appSettings: appSettings)
