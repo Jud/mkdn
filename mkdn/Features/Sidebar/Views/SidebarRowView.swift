@@ -78,7 +78,7 @@ struct SidebarRowView: View {
         .padding(.trailing, 8)
         .padding(.vertical, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(isSelected ? appSettings.theme.colors.accent.opacity(0.2) : .clear)
+        .background(isSelected ? appSettings.theme.colors.foreground.opacity(0.1) : .clear)
         .contentShape(Rectangle())
         .onTapGesture {
             directoryState.selectFile(at: node.url)

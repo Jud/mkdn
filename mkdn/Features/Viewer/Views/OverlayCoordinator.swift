@@ -101,7 +101,7 @@ final class OverlayCoordinator {
 
         observeLayoutChanges(on: textView)
         observeScrollChanges(on: textView)
-        repositionOverlays()
+        scheduleReposition()
     }
 
     // MARK: - Common API
@@ -122,7 +122,8 @@ final class OverlayCoordinator {
     /// rather than an upfront full-document pass.
     func repositionOverlays() {
         guard let context = makeLayoutContext(),
-              context.containerWidth > 0 else { return }
+              context.containerWidth > 0
+        else { return }
         let widthChanged = abs(containerState.containerWidth - context.containerWidth) > 1
         containerState.containerWidth = context.containerWidth
         if widthChanged, let textView {
@@ -195,7 +196,7 @@ final class OverlayCoordinator {
     /// Schedules overlay repositioning for the next run-loop iteration so TextKit 2
     /// has time to process layout invalidation before we read fragment frames.
     /// Multiple calls within the same run-loop cycle are coalesced into a single pass.
-    private func scheduleReposition() {
+    func scheduleReposition() {
         guard !isRepositionScheduled else { return }
         isRepositionScheduled = true
         DispatchQueue.main.async { [weak self] in
