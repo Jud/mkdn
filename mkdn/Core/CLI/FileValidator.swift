@@ -1,8 +1,6 @@
 import Foundation
 
 public enum FileValidator {
-    private static let acceptedExtensions: Set<String> = ["md", "markdown"]
-
     /// Resolve a raw path string to a validated file URL.
     /// Performs: tilde expansion, path resolution, symlink resolution,
     /// extension validation, existence check, and readability check.
@@ -29,10 +27,9 @@ public enum FileValidator {
         return url.standardized.resolvingSymlinksInPath()
     }
 
-    /// Check that the file has a .md or .markdown extension (case-insensitive).
+    /// Check that the file has a recognized text file extension.
     static func validateExtension(url: URL, originalPath: String) throws {
-        let ext = url.pathExtension.lowercased()
-        guard acceptedExtensions.contains(ext) else {
+        guard url.isTextFile else {
             throw CLIError.unsupportedExtension(path: originalPath, ext: url.pathExtension)
         }
     }

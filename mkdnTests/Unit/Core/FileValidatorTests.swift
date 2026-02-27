@@ -99,15 +99,31 @@ struct FileValidatorTests {
         }
     }
 
-    @Test("Rejects .txt extension with descriptive error")
-    func rejectsTxtExtension() {
+    @Test("Accepts .txt extension")
+    func acceptsTxtExtension() throws {
         let url = URL(fileURLWithPath: "/tmp/notes.txt")
-        #expect {
+        #expect(throws: Never.self) {
             try FileValidator.validateExtension(url: url, originalPath: "notes.txt")
+        }
+    }
+
+    @Test("Accepts .swift extension")
+    func acceptsSwiftExtension() throws {
+        let url = URL(fileURLWithPath: "/tmp/main.swift")
+        #expect(throws: Never.self) {
+            try FileValidator.validateExtension(url: url, originalPath: "main.swift")
+        }
+    }
+
+    @Test("Rejects .pdf extension with descriptive error")
+    func rejectsPdfExtension() {
+        let url = URL(fileURLWithPath: "/tmp/doc.pdf")
+        #expect {
+            try FileValidator.validateExtension(url: url, originalPath: "doc.pdf")
         } throws: { error in
             guard let cliError = error as? CLIError else { return false }
             guard case let .unsupportedExtension(path, ext) = cliError else { return false }
-            return path == "notes.txt" && ext == "txt"
+            return path == "doc.pdf" && ext == "pdf"
         }
     }
 
@@ -199,9 +215,9 @@ struct FileValidatorTests {
 
     @Test("validate(path:) checks extension before existence")
     func validateChecksExtensionBeforeExistence() {
-        // A .txt file that does not exist should produce an unsupported extension
+        // A .pdf file that does not exist should produce an unsupported extension
         // error, NOT a file-not-found error -- proving extension is checked first.
-        let fakePath = "/tmp/definitely-does-not-exist-\(UUID()).txt"
+        let fakePath = "/tmp/definitely-does-not-exist-\(UUID()).pdf"
         #expect {
             try FileValidator.validate(path: fakePath)
         } throws: { error in

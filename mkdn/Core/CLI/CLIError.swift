@@ -11,7 +11,7 @@ public enum CLIError: LocalizedError {
         switch self {
         case let .unsupportedExtension(path, ext):
             let extText = ext.isEmpty ? "no extension" : ".\(ext)"
-            return "unsupported file type '\(extText)' for '\(path)'. Accepted: .md, .markdown"
+            return "unsupported file type '\(extText)' for '\(path)'. Accepted: markdown, source code, and text files"
         case let .fileNotFound(resolvedPath):
             return "file not found: \(resolvedPath)"
         case let .fileNotReadable(resolvedPath, reason):

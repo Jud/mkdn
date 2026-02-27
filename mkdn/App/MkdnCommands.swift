@@ -197,12 +197,20 @@ public struct MkdnCommands: Commands {
     @MainActor
     private func openFile() {
         let panel = NSOpenPanel()
+        let extensions = [
+            "md", "markdown",
+            "swift", "py", "js", "ts", "rs", "go",
+            "c", "cpp", "h", "hpp",
+            "java", "rb", "json", "yaml", "yml",
+            "html", "css", "sh", "kt",
+            "toml", "xml", "sql", "r", "lua", "zig",
+            "txt",
+        ]
         var types: [UTType] = []
-        if let mdType = UTType(filenameExtension: "md") { types.append(mdType) }
-        if let markdownType = UTType(filenameExtension: "markdown"),
-           !types.contains(markdownType)
-        {
-            types.append(markdownType)
+        for ext in extensions {
+            if let utType = UTType(filenameExtension: ext), !types.contains(utType) {
+                types.append(utType)
+            }
         }
         if !types.isEmpty { panel.allowedContentTypes = types }
         panel.allowsMultipleSelection = false

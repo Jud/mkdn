@@ -23,13 +23,19 @@ public struct ContentView: View {
                 if documentState.currentFileURL == nil {
                     WelcomeView()
                 } else {
-                    switch documentState.viewMode {
-                    case .previewOnly:
-                        MarkdownPreviewView()
+                    switch documentState.fileKind {
+                    case .sourceCode, .plainText:
+                        CodeFileView()
                             .transition(.opacity)
-                    case .sideBySide:
-                        SplitEditorView()
-                            .transition(.move(edge: .leading).combined(with: .opacity))
+                    case .markdown:
+                        switch documentState.viewMode {
+                        case .previewOnly:
+                            MarkdownPreviewView()
+                                .transition(.opacity)
+                        case .sideBySide:
+                            SplitEditorView()
+                                .transition(.move(edge: .leading).combined(with: .opacity))
+                        }
                     }
                 }
             }
@@ -63,7 +69,7 @@ public struct ContentView: View {
     private func handleFileDrop(_ providers: [NSItemProvider]) -> Bool {
         guard let provider = providers.first else { return false }
         _ = provider.loadObject(ofClass: URL.self) { url, _ in
-            guard let url, url.isMarkdownFile else {
+            guard let url, url.isTextFile else {
                 return
             }
             Task { @MainActor in
