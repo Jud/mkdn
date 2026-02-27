@@ -31,6 +31,7 @@ struct MotionPreference {
         // Spring
         case springSettle
         case gentleSpring
+        case sidebarSlide
         case quickSettle
 
         // Fade
@@ -74,6 +75,7 @@ struct MotionPreference {
         case .haloBloom: AnimationConstants.haloBloom
         case .springSettle: AnimationConstants.springSettle
         case .gentleSpring: AnimationConstants.gentleSpring
+        case .sidebarSlide: AnimationConstants.sidebarSlide
         case .quickSettle: AnimationConstants.quickSettle
         case .fadeIn: AnimationConstants.fadeIn
         case .fadeOut: AnimationConstants.fadeOut
@@ -89,7 +91,7 @@ struct MotionPreference {
             nil
         case .crossfade:
             AnimationConstants.reducedCrossfade
-        case .springSettle, .gentleSpring, .quickSettle,
+        case .springSettle, .gentleSpring, .sidebarSlide, .quickSettle,
              .fadeIn, .fadeOut, .quickFade, .quickShift:
             AnimationConstants.reducedInstant
         }

@@ -79,6 +79,18 @@ enum AnimationConstants {
         dampingFraction: 0.85
     )
 
+    // MARK: - Primitive: Sidebar Slide
+
+    /// Critically-damped spring for sidebar drawer animation.
+    ///
+    /// Uses `dampingFraction: 1.0` (no overshoot) to prevent TextKit text
+    /// reflow jitter at the end of the animation. Same response time as
+    /// `gentleSpring` for consistent pacing.
+    static let sidebarSlide: Animation = .spring(
+        response: 0.4,
+        dampingFraction: 1.0
+    )
+
     // MARK: - Primitive: Quick-Settle
 
     // Fast, crisp spring for micro-interactions. Minimal overshoot.
