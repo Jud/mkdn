@@ -142,7 +142,7 @@ public struct MkdnCommands: Commands {
         CommandGroup(after: .sidebar) {
             Section {
                 Button("Toggle Sidebar") {
-                    withAnimation(motionAnimation(.gentleSpring)) {
+                    withAnimation(motionAnimation(.sidebarSlide)) {
                         documentState?.toggleSidebar()
                     }
                 }

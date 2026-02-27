@@ -122,7 +122,11 @@ final class OverlayCoordinator {
     /// rather than an upfront full-document pass.
     func repositionOverlays() {
         guard let context = makeLayoutContext() else { return }
+        let widthChanged = abs(containerState.containerWidth - context.containerWidth) > 1
         containerState.containerWidth = context.containerWidth
+        if widthChanged, let textView {
+            adjustTableRowHeights(in: textView)
+        }
         for (_, entry) in entries {
             positionEntry(entry, context: context)
         }

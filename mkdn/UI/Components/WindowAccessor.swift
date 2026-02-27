@@ -40,18 +40,19 @@ public final class WindowAccessorView: NSView {
     }
 
     private func configureWindow(_ window: NSWindow) {
-        window.styleMask.remove(.titled)
+        // Keep .titled for proper key window tracking and @FocusedValue
+        // support. Hide the title bar visually and extend content underneath.
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.styleMask.insert(.fullSizeContentView)
         window.styleMask.insert(.resizable)
         window.styleMask.insert(.miniaturizable)
+        window.standardWindowButton(.closeButton)?.isHidden = true
+        window.standardWindowButton(.miniaturizeButton)?.isHidden = true
+        window.standardWindowButton(.zoomButton)?.isHidden = true
         window.isMovableByWindowBackground = true
         window.hasShadow = true
         window.backgroundColor = .clear
-
-        if let contentView = window.contentView {
-            contentView.wantsLayer = true
-            contentView.layer?.cornerRadius = 10
-            contentView.layer?.masksToBounds = true
-        }
 
         // Apply the user's saved window size. .defaultSize() on the
         // WindowGroup only applies reliably to the first window; subsequent

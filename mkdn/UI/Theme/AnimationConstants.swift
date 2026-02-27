@@ -81,15 +81,15 @@ enum AnimationConstants {
 
     // MARK: - Primitive: Sidebar Slide
 
-    /// Critically-damped spring for sidebar drawer animation.
+    /// Smooth easeInOut slide for sidebar drawer animation.
     ///
-    /// Uses `dampingFraction: 1.0` (no overshoot) to prevent TextKit text
-    /// reflow jitter at the end of the animation. Same response time as
-    /// `gentleSpring` for consistent pacing.
-    static let sidebarSlide: Animation = .spring(
-        response: 0.4,
-        dampingFraction: 1.0
-    )
+    /// Uses a timing curve instead of a spring to guarantee zero overshoot.
+    /// Even with continuous TextKit reflow (table row heights update on every
+    /// frame via ``OverlayCoordinator/repositionOverlays()``), spring overshoot
+    /// causes visible jitter as text reflows back and forth during bounce-back.
+    /// An easeInOut curve decelerates smoothly into the final position with no
+    /// directional reversal, producing a clean slide.
+    static let sidebarSlide: Animation = .easeInOut(duration: 0.35)
 
     // MARK: - Primitive: Quick-Settle
 
