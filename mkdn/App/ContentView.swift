@@ -37,13 +37,6 @@ public struct ContentView: View {
 
             TheOrbView()
 
-            if let label = documentState.modeOverlayLabel {
-                ModeTransitionOverlay(label: label) {
-                    documentState.modeOverlayLabel = nil
-                }
-                .id(label)
-            }
-
             FindBarView()
                 .allowsHitTesting(findState.isVisible)
                 .accessibilityHidden(!findState.isVisible)
