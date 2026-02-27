@@ -28,8 +28,19 @@ struct CodeFileView: NSViewRepresentable {
         let coordinator = context.coordinator
         coordinator.textView = textView
 
+        let gutter = LineNumberGutterView(
+            scrollView: scrollView,
+            orientation: .verticalRuler
+        )
+        gutter.clientView = textView
+        scrollView.verticalRulerView = gutter
+        scrollView.hasVerticalRuler = true
+        scrollView.rulersVisible = true
+        coordinator.gutter = gutter
+
         applyTheme(to: textView, scrollView: scrollView)
         applyContent(to: textView)
+        updateGutter(gutter, textView: textView)
 
         return scrollView
     }
@@ -64,6 +75,18 @@ struct CodeFileView: NSViewRepresentable {
             }
         }
 
+        if let gutter = coordinator.gutter {
+            if themeChanged || scaleChanged {
+                gutter.updateAppearance(
+                    theme: theme,
+                    scaleFactor: scale
+                )
+            }
+            if contentChanged || themeChanged || scaleChanged || kindChanged {
+                updateGutter(gutter, textView: textView)
+            }
+        }
+
         coordinator.lastTheme = theme
         coordinator.lastScale = scale
         coordinator.lastContent = content
@@ -86,7 +109,7 @@ struct CodeFileView: NSViewRepresentable {
         textView.isAutomaticQuoteSubstitutionEnabled = false
         textView.isAutomaticDashSubstitutionEnabled = false
 
-        textView.textContainerInset = NSSize(width: 32, height: 32)
+        textView.textContainerInset = NSSize(width: 8, height: 32)
 
         // Horizontal scrolling: text view and container must not wrap
         textView.isHorizontallyResizable = true
@@ -108,6 +131,18 @@ struct CodeFileView: NSViewRepresentable {
         scrollView.hasVerticalScroller = true
         scrollView.hasHorizontalScroller = true
         scrollView.autohidesScrollers = true
+    }
+
+    // MARK: - Gutter
+
+    private func updateGutter(_ gutter: LineNumberGutterView, textView: NSTextView) {
+        gutter.updateAppearance(
+            theme: appSettings.theme,
+            scaleFactor: appSettings.scaleFactor
+        )
+        let lineCount = textView.string.components(separatedBy: "\n").count
+        gutter.updateThickness(lineCount: lineCount)
+        gutter.needsDisplay = true
     }
 
     // MARK: - Theme
@@ -205,6 +240,7 @@ extension CodeFileView {
     @MainActor
     final class Coordinator {
         var textView: NSTextView?
+        var gutter: LineNumberGutterView?
         var lastTheme: AppTheme?
         var lastScale: CGFloat?
         var lastContent: String?
