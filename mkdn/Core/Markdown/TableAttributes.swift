@@ -1,11 +1,15 @@
-import AppKit
+#if os(macOS)
+    import AppKit
+#else
+    import UIKit
+#endif
 
 /// Custom NSAttributedString keys and types for table cross-cell selection.
 ///
 /// The ``range`` key marks all characters within a table's invisible text with
 /// a unique table identifier. The ``cellMap`` key carries the cell geometry and
 /// lookup data for character-to-cell position mapping. The ``colors`` key
-/// carries resolved `NSColor` values for the table container. The ``isHeader``
+/// carries resolved color values for the table container. The ``isHeader``
 /// key distinguishes header row characters from data rows.
 ///
 /// All keys are consumed by ``OverlayCoordinator`` for positioning,
@@ -21,7 +25,7 @@ enum TableAttributes {
     /// Value: a ``TableCellMap`` instance (same instance on every character).
     static let cellMap = NSAttributedString.Key("mkdn.tableCellMap")
 
-    /// Carries resolved NSColor values for the table container.
+    /// Carries resolved color values for the table container.
     /// Value: a ``TableColorInfo`` instance.
     static let colors = NSAttributedString.Key("mkdn.tableColors")
 
@@ -37,20 +41,20 @@ enum TableAttributes {
 /// because `NSAttributedString` attribute values must be `NSObject` subclasses
 /// or bridged types for reliable attribute enumeration.
 final class TableColorInfo: NSObject {
-    let background: NSColor
-    let backgroundSecondary: NSColor
-    let border: NSColor
-    let headerBackground: NSColor
-    let foreground: NSColor
-    let headingColor: NSColor
+    let background: PlatformTypeConverter.PlatformColor
+    let backgroundSecondary: PlatformTypeConverter.PlatformColor
+    let border: PlatformTypeConverter.PlatformColor
+    let headerBackground: PlatformTypeConverter.PlatformColor
+    let foreground: PlatformTypeConverter.PlatformColor
+    let headingColor: PlatformTypeConverter.PlatformColor
 
     init(
-        background: NSColor,
-        backgroundSecondary: NSColor,
-        border: NSColor,
-        headerBackground: NSColor,
-        foreground: NSColor,
-        headingColor: NSColor
+        background: PlatformTypeConverter.PlatformColor,
+        backgroundSecondary: PlatformTypeConverter.PlatformColor,
+        border: PlatformTypeConverter.PlatformColor,
+        headerBackground: PlatformTypeConverter.PlatformColor,
+        foreground: PlatformTypeConverter.PlatformColor,
+        headingColor: PlatformTypeConverter.PlatformColor
     ) {
         self.background = background
         self.backgroundSecondary = backgroundSecondary

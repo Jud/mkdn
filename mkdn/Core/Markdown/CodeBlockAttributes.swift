@@ -1,10 +1,14 @@
-import AppKit
+#if os(macOS)
+    import AppKit
+#else
+    import UIKit
+#endif
 
 /// Custom NSAttributedString keys and types for code block container rendering.
 ///
 /// The ``range`` key marks all characters within a code block (label + body +
 /// trailing newline) with a unique block identifier. The ``colors`` key carries
-/// resolved `NSColor` values so the drawing code can access theme colors without
+/// resolved color values so the drawing code can access theme colors without
 /// external state. Both keys are consumed by ``CodeBlockBackgroundTextView`` in
 /// its `drawBackground(in:)` override.
 enum CodeBlockAttributes {
@@ -12,7 +16,7 @@ enum CodeBlockAttributes {
     /// Value: a unique `String` identifier per code block instance.
     static let range = NSAttributedString.Key("mkdn.codeBlockRange")
 
-    /// Carries the resolved NSColor values for the code block container.
+    /// Carries the resolved color values for the code block container.
     /// Value: a ``CodeBlockColorInfo`` instance.
     static let colors = NSAttributedString.Key("mkdn.codeBlockColors")
 
@@ -28,10 +32,10 @@ enum CodeBlockAttributes {
 /// because `NSAttributedString` attribute values must be `NSObject` subclasses
 /// or bridged types for reliable attribute enumeration.
 final class CodeBlockColorInfo: NSObject {
-    let background: NSColor
-    let border: NSColor
+    let background: PlatformTypeConverter.PlatformColor
+    let border: PlatformTypeConverter.PlatformColor
 
-    init(background: NSColor, border: NSColor) {
+    init(background: PlatformTypeConverter.PlatformColor, border: PlatformTypeConverter.PlatformColor) {
         self.background = background
         self.border = border
     }
