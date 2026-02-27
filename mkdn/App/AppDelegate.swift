@@ -60,15 +60,19 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             NSDocumentController.shared.noteNewRecentDocumentURL(url)
         }
 
-        if didFinishLaunching {
-            // Warm launch: existing DocumentWindow observers pick these up.
+        let hasVisibleWindows = didFinishLaunching
+            && NSApp.windows.contains { $0.isVisible && !($0 is NSPanel) }
+
+        if hasVisibleWindows {
+            // Warm launch with windows: existing DocumentWindow observers
+            // pick these up via onChange(of: pendingURLs).
             for url in markdownURLs {
                 FileOpenCoordinator.shared.pendingURLs.append(url)
             }
         } else {
-            // Cold launch: store URLs in the env var and re-exec so that
-            // SwiftUI launches clean (no kAEOpenDocuments to suppress window
-            // creation). This is the same strategy used for CLI file args.
+            // Cold launch OR warm launch with no windows: store URLs in the
+            // env var and re-exec so SwiftUI launches clean with a default
+            // window. consumeLaunchContext() picks up the URLs.
             let pathString = markdownURLs.map(\.path).joined(separator: "\n")
             setenv("MKDN_LAUNCH_FILE", pathString, 1)
 
