@@ -32,6 +32,8 @@ private struct DragBlocker: NSViewRepresentable {
 /// Clamps the sidebar width within ``DirectoryState/minSidebarWidth``
 /// and ``DirectoryState/maxSidebarWidth``.
 struct SidebarDivider: View {
+    static let width: CGFloat = 8
+
     @Environment(DirectoryState.self) private var directoryState
     @Environment(AppSettings.self) private var appSettings
 
@@ -39,7 +41,7 @@ struct SidebarDivider: View {
 
     var body: some View {
         DragBlocker()
-            .frame(width: 8)
+            .frame(width: Self.width)
             .background(appSettings.theme.colors.backgroundSecondary)
             .contentShape(Rectangle())
             .gesture(
