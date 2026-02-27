@@ -1,18 +1,17 @@
 import AppKit
 import SwiftUI
 
-/// Conditionally injects ``DirectoryState`` into the environment when present.
+/// Publishes ``DirectoryState`` as a focused scene value when present.
+///
+/// Uses a single view branch (no `if/else`) to avoid changing structural
+/// identity when `directoryState` transitions from nil to non-nil, which
+/// would cause SwiftUI to rebuild the content tree and re-render the document.
 private struct OptionalDirectoryEnvironment: ViewModifier {
     let directoryState: DirectoryState?
 
     func body(content: Content) -> some View {
-        if let directoryState {
-            content
-                .environment(directoryState)
-                .focusedSceneValue(\.directoryState, directoryState)
-        } else {
-            content
-        }
+        content
+            .focusedSceneValue(\.directoryState, directoryState)
     }
 }
 
