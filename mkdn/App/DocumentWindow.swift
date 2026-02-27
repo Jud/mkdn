@@ -35,6 +35,7 @@ public struct DocumentWindow: View {
     @State private var findState = FindState()
     @State private var directoryState: DirectoryState?
     @State private var isReady = false
+    @State private var overlayGeneration = 0
     @Environment(AppSettings.self) private var appSettings
     @Environment(\.openWindow) private var openWindow
 
@@ -73,6 +74,22 @@ public struct DocumentWindow: View {
                         )
                     )
                     .offset(x: sidebarOffset)
+            }
+        }
+        .overlay {
+            if let label = documentState.modeOverlayLabel {
+                let gen = overlayGeneration
+                ModeTransitionOverlay(label: label) {
+                    if overlayGeneration == gen {
+                        documentState.modeOverlayLabel = nil
+                    }
+                }
+                .id(gen)
+            }
+        }
+        .onChange(of: documentState.modeOverlayLabel) {
+            if documentState.modeOverlayLabel != nil {
+                overlayGeneration += 1
             }
         }
         .background(appSettings.theme.colors.backgroundSecondary)
