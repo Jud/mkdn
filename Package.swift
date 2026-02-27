@@ -6,8 +6,13 @@ let package = Package(
     name: "mkdn",
     platforms: [
         .macOS(.v14),
+        .iOS(.v17),
     ],
     products: [
+        .library(
+            name: "mkdnLib",
+            targets: ["mkdnLib"]
+        ),
         .executable(
             name: "mkdn",
             targets: ["mkdn"]
@@ -82,7 +87,10 @@ let package = Package(
         ),
         .executableTarget(
             name: "mkdn",
-            dependencies: ["mkdnLib"],
+            dependencies: [
+                "mkdnLib",
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+            ],
             path: "mkdnEntry",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
