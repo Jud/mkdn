@@ -125,7 +125,7 @@ struct CodeFileView: NSViewRepresentable {
         textView.isAutomaticQuoteSubstitutionEnabled = false
         textView.isAutomaticDashSubstitutionEnabled = false
 
-        textView.textContainerInset = NSSize(width: 8, height: 32)
+        textView.textContainerInset = NSSize(width: 8, height: 6)
 
         // Horizontal scrolling: text view and container must not wrap
         textView.isHorizontallyResizable = true

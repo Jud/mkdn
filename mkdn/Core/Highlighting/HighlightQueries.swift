@@ -43,8 +43,6 @@ enum HighlightQueries {
       (mutation_modifier)
     ] @keyword.modifier
 
-    (simple_identifier) @variable
-
     (function_declaration
       (simple_identifier) @function.method)
 
@@ -334,8 +332,6 @@ enum HighlightQueries {
     // MARK: - Python
 
     static let python = #"""
-    (identifier) @variable
-
     ((identifier) @constructor
      (#match? @constructor "^[A-Z]"))
 
@@ -466,8 +462,6 @@ enum HighlightQueries {
     // MARK: - JavaScript
 
     static let javascript = #"""
-    (identifier) @variable
-
     (property_identifier) @property
 
     (function_expression
@@ -860,7 +854,6 @@ enum HighlightQueries {
 
     (type_identifier) @type
     (field_identifier) @property
-    (identifier) @variable
 
     [
       "--"
@@ -1210,8 +1203,6 @@ enum HighlightQueries {
     // MARK: - C
 
     static let cLang = #"""
-    (identifier) @variable
-
     ((identifier) @constant
      (#match? @constant "^[A-Z][A-Z\\d_]*$"))
 
@@ -1359,8 +1350,6 @@ enum HighlightQueries {
     // MARK: - Ruby
 
     static let ruby = #"""
-    (identifier) @variable
-
     ((identifier) @function.method
      (#is-not? local))
 
@@ -1508,8 +1497,6 @@ enum HighlightQueries {
     // MARK: - Java
 
     static let java = #"""
-    (identifier) @variable
-
     (method_declaration
       name: (identifier) @function.method)
     (method_invocation
@@ -1646,8 +1633,6 @@ enum HighlightQueries {
     // MARK: - Kotlin
 
     static let kotlin = #"""
-    (simple_identifier) @variable
-
     ((simple_identifier) @variable.builtin
     (#eq? @variable.builtin "it"))
 

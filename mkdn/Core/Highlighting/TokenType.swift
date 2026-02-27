@@ -18,6 +18,13 @@ enum TokenType: Sendable {
     case attribute
     case punctuation
 
+    /// Compound capture names checked first (e.g. "variable.member" → property).
+    private static let compoundNameMap: [String: Self] = [
+        "variable.member": .property,
+        "variable.builtin": .keyword,
+    ]
+
+    /// Base component map (first segment before ".").
     private static let captureNameMap: [String: Self] = [
         "keyword": .keyword,
         "conditional": .keyword,
@@ -53,8 +60,10 @@ enum TokenType: Sendable {
     ]
 
     /// Map a tree-sitter highlight capture name to a TokenType.
+    /// Checks compound names first (e.g. "variable.member"), then base component.
     /// Returns nil for captures that should use plain text color.
     static func from(captureName: String) -> Self? {
+        if let compound = compoundNameMap[captureName] { return compound }
         let base = captureName.split(separator: ".").first.map(String.init) ?? captureName
         return captureNameMap[base]
     }

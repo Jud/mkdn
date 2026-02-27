@@ -293,8 +293,13 @@ struct TokenTypeTests {
         #expect(TokenType.from(captureName: "keyword.operator") == .keyword)
         #expect(TokenType.from(captureName: "string.regex") == .string)
         #expect(TokenType.from(captureName: "comment.documentation") == .comment)
-        #expect(TokenType.from(captureName: "variable.builtin") == .variable)
         #expect(TokenType.from(captureName: "punctuation.bracket") == .punctuation)
         #expect(TokenType.from(captureName: "type.qualifier") == .type)
+    }
+
+    @Test("Compound capture names override base resolution")
+    func compoundOverridesBase() {
+        #expect(TokenType.from(captureName: "variable.member") == .property)
+        #expect(TokenType.from(captureName: "variable.builtin") == .keyword)
     }
 }
