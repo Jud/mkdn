@@ -17,7 +17,7 @@ extension OverlayCoordinator {
         guard let textStorage = textView.textStorage else { return }
         let containerWidth = textContainerWidth(in: textView)
         let scaleFactor = appSettings?.scaleFactor ?? 1.0
-        var needsLayout = false
+        var modifiedRanges: [NSRange] = []
 
         for (_, entry) in entries {
             guard let tableRangeID = entry.tableRangeID,
@@ -47,15 +47,26 @@ extension OverlayCoordinator {
                 in: textStorage,
                 tableRange: tableRange
             ) {
-                needsLayout = true
+                modifiedRanges.append(tableRange)
             }
 
             cellMap.columnWidths = corrected.columnWidths
             cellMap.rowHeights = corrected.rowHeights
         }
 
-        if needsLayout, let layoutManager = textView.textLayoutManager {
-            layoutManager.ensureLayout(for: layoutManager.documentRange)
+        if !modifiedRanges.isEmpty,
+           let layoutManager = textView.textLayoutManager,
+           let contentManager = layoutManager.textContentManager
+        {
+            let docStart = layoutManager.documentRange.location
+            for range in modifiedRanges {
+                if let start = contentManager.location(docStart, offsetBy: range.location),
+                   let end = contentManager.location(docStart, offsetBy: NSMaxRange(range)),
+                   let textRange = NSTextRange(location: start, end: end)
+                {
+                    layoutManager.invalidateLayout(for: textRange)
+                }
+            }
         }
     }
 

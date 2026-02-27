@@ -121,14 +121,16 @@ final class OverlayCoordinator {
     /// Layout is resolved per-fragment via `.ensuresLayout` enumeration
     /// rather than an upfront full-document pass.
     func repositionOverlays() {
-        guard let context = makeLayoutContext() else { return }
+        guard let context = makeLayoutContext(),
+              context.containerWidth > 0 else { return }
         let widthChanged = abs(containerState.containerWidth - context.containerWidth) > 1
         containerState.containerWidth = context.containerWidth
         if widthChanged, let textView {
             adjustTableRowHeights(in: textView)
         }
+        let finalContext = widthChanged ? (makeLayoutContext() ?? context) : context
         for (_, entry) in entries {
-            positionEntry(entry, context: context)
+            positionEntry(entry, context: finalContext)
         }
     }
 
