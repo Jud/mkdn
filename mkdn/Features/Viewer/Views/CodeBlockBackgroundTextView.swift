@@ -28,6 +28,7 @@ final class CodeBlockBackgroundTextView: NSTextView {
     static let bottomPadding: CGFloat = MarkdownTextStorageBuilder.codeBlockPadding
     static let copyButtonInset: CGFloat = 8
     static let copyButtonSize: CGFloat = 24
+    static let titleBarDragHeight: CGFloat = 28
 
     // MARK: - Types
 
@@ -107,11 +108,24 @@ final class CodeBlockBackgroundTextView: NSTextView {
         super.cancelOperation(sender)
     }
 
+    // MARK: - Title Bar Zone
+
+    func titleBarRect() -> CGRect {
+        let visible = visibleRect
+        return CGRect(
+            x: visible.origin.x,
+            y: visible.origin.y,
+            width: visible.width,
+            height: Self.titleBarDragHeight
+        )
+    }
+
     // MARK: - Cursor Rects
 
     override func resetCursorRects() {
         super.resetCursorRects()
         addLinkCursorRects()
+        addCursorRect(titleBarRect(), cursor: .arrow)
     }
 
     private func addLinkCursorRects() {
@@ -165,6 +179,10 @@ final class CodeBlockBackgroundTextView: NSTextView {
 
     override func mouseDown(with event: NSEvent) {
         let viewPoint = convert(event.locationInWindow, from: nil)
+        if titleBarRect().contains(viewPoint) {
+            window?.performDrag(with: event)
+            return
+        }
         if isPointOverEmptySpace(viewPoint) {
             window?.performDrag(with: event)
             return
@@ -204,6 +222,9 @@ final class CodeBlockBackgroundTextView: NSTextView {
     override func mouseMoved(with event: NSEvent) {
         super.mouseMoved(with: event)
         let point = convert(event.locationInWindow, from: nil)
+        if titleBarRect().contains(point) {
+            NSCursor.arrow.set()
+        }
         updateCopyButtonForMouse(at: point)
     }
 
