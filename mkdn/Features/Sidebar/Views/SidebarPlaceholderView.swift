@@ -6,8 +6,8 @@ import SwiftUI
 /// Provides a button to open an ``NSOpenPanel`` for selecting a
 /// directory, mirroring the visual style of ``SidebarEmptyView``.
 struct SidebarPlaceholderView: View {
+    let onDirectorySelected: (URL) -> Void
     @Environment(AppSettings.self) private var appSettings
-    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         VStack(spacing: 12) {
@@ -21,7 +21,7 @@ struct SidebarPlaceholderView: View {
                     .font(.callout)
             }
             .buttonStyle(.plain)
-            .foregroundStyle(appSettings.theme.colors.accent)
+            .foregroundStyle(appSettings.theme.colors.foregroundSecondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(appSettings.theme.colors.backgroundSecondary)
@@ -35,6 +35,6 @@ struct SidebarPlaceholderView: View {
         panel.allowsMultipleSelection = false
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        openWindow(value: LaunchItem.directory(url))
+        onDirectorySelected(url)
     }
 }
