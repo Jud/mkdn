@@ -1,9 +1,13 @@
-import AppKit
+#if os(macOS)
+    import AppKit
+#else
+    import UIKit
+#endif
 
 /// Context for building a single table row's invisible inline text.
 struct TableRowContext {
-    let font: NSFont
-    let foregroundColor: NSColor
+    let font: PlatformTypeConverter.PlatformFont
+    let foregroundColor: PlatformTypeConverter.PlatformColor
     let tabStops: [NSTextTab]
     let rowHeight: CGFloat
     let isLastRow: Bool
@@ -38,7 +42,7 @@ extension MarkdownTextStorageBuilder {
 
         let scaleFactor: CGFloat = 1.0
         let font = PlatformTypeConverter.bodyFont(scaleFactor: scaleFactor)
-        let boldFont = NSFontManager.shared.convert(font, toHaveTrait: .boldFontMask)
+        let boldFont = PlatformTypeConverter.convertFont(font, toHaveTrait: .bold)
 
         let sizer = TableColumnSizer.computeWidths(
             columns: columns,
@@ -73,19 +77,19 @@ extension MarkdownTextStorageBuilder {
         let tableID = UUID().uuidString
 
         let colorInfo = TableColorInfo(
-            background: PlatformTypeConverter.nsColor(from: colors.background),
-            backgroundSecondary: PlatformTypeConverter.nsColor(from: colors.backgroundSecondary),
-            border: PlatformTypeConverter.nsColor(from: colors.border),
-            headerBackground: PlatformTypeConverter.nsColor(from: colors.backgroundSecondary),
-            foreground: PlatformTypeConverter.nsColor(from: colors.foreground),
-            headingColor: PlatformTypeConverter.nsColor(from: colors.headingColor)
+            background: PlatformTypeConverter.color(from: colors.background),
+            backgroundSecondary: PlatformTypeConverter.color(from: colors.backgroundSecondary),
+            border: PlatformTypeConverter.color(from: colors.border),
+            headerBackground: PlatformTypeConverter.color(from: colors.backgroundSecondary),
+            foreground: PlatformTypeConverter.color(from: colors.foreground),
+            headingColor: PlatformTypeConverter.color(from: colors.headingColor)
         )
 
         let tabStops = buildTableTabStops(columns: columns, columnWidths: columnWidths)
         let textStartOffset = result.length
         var cellEntries: [TableCellMap.CellEntry] = []
 
-        let headerForeground: NSColor = isPrint ? colorInfo.headingColor : .clear
+        let headerForeground: PlatformTypeConverter.PlatformColor = isPrint ? colorInfo.headingColor : .clear
         let headerCtx = TableRowContext(
             font: boldFont,
             foregroundColor: headerForeground,
@@ -105,7 +109,7 @@ extension MarkdownTextStorageBuilder {
             cellEntries: &cellEntries
         )
 
-        let dataForeground: NSColor = isPrint ? colorInfo.foreground : .clear
+        let dataForeground: PlatformTypeConverter.PlatformColor = isPrint ? colorInfo.foreground : .clear
         for (rowIdx, row) in rows.enumerated() {
             let cells = (0 ..< columnCount).map { colIdx in
                 colIdx < row.count ? String(row[colIdx].characters) : ""
@@ -242,7 +246,7 @@ extension MarkdownTextStorageBuilder {
     static func estimateInlineRowHeight(
         cells: [AttributedString],
         columnWidths: [CGFloat],
-        font: NSFont,
+        font: PlatformTypeConverter.PlatformFont,
         lineHeight: CGFloat
     ) -> CGFloat {
         let columnCount = columnWidths.count
@@ -259,7 +263,7 @@ extension MarkdownTextStorageBuilder {
                 attributes: [.font: font]
             )
             let rect = measured.boundingRect(
-                with: NSSize(width: availableWidth, height: .greatestFiniteMagnitude),
+                with: CGSize(width: availableWidth, height: .greatestFiniteMagnitude),
                 options: [.usesLineFragmentOrigin, .usesFontLeading]
             )
             maxCellHeight = max(maxCellHeight, ceil(rect.height))

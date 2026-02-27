@@ -1,4 +1,8 @@
-import AppKit
+#if os(macOS)
+    import AppKit
+#else
+    import UIKit
+#endif
 import SwiftUI
 
 /// Information about a non-text attachment placeholder in the attributed string.
@@ -33,18 +37,18 @@ struct TextStorageResult {
     }
 }
 
-/// Resolved NSColor values from a ThemeColors palette for text storage building.
+/// Resolved platform color values from a ThemeColors palette for text storage building.
 struct ResolvedColors {
-    let foreground: NSColor
-    let headingColor: NSColor
-    let secondaryColor: NSColor
-    let linkColor: NSColor
+    let foreground: PlatformTypeConverter.PlatformColor
+    let headingColor: PlatformTypeConverter.PlatformColor
+    let secondaryColor: PlatformTypeConverter.PlatformColor
+    let linkColor: PlatformTypeConverter.PlatformColor
 
     init(colors: ThemeColors) {
-        foreground = PlatformTypeConverter.nsColor(from: colors.foreground)
-        headingColor = PlatformTypeConverter.nsColor(from: colors.headingColor)
-        secondaryColor = PlatformTypeConverter.nsColor(from: colors.foregroundSecondary)
-        linkColor = PlatformTypeConverter.nsColor(from: colors.linkColor)
+        foreground = PlatformTypeConverter.color(from: colors.foreground)
+        headingColor = PlatformTypeConverter.color(from: colors.headingColor)
+        secondaryColor = PlatformTypeConverter.color(from: colors.foregroundSecondary)
+        linkColor = PlatformTypeConverter.color(from: colors.linkColor)
     }
 }
 
@@ -267,9 +271,9 @@ enum MarkdownTextStorageBuilder {
 
     static func convertInlineContent(
         _ content: AttributedString,
-        baseFont: NSFont,
-        baseForegroundColor: NSColor,
-        linkColor: NSColor,
+        baseFont: PlatformTypeConverter.PlatformFont,
+        baseForegroundColor: PlatformTypeConverter.PlatformColor,
+        linkColor: PlatformTypeConverter.PlatformColor,
         scaleFactor: CGFloat = 1.0
     ) -> NSMutableAttributedString {
         let result = NSMutableAttributedString()
@@ -298,10 +302,10 @@ enum MarkdownTextStorageBuilder {
                 let isBold = intent.contains(.stronglyEmphasized)
                 let isItalic = intent.contains(.emphasized)
                 if isBold || isItalic {
-                    var traits: NSFontTraitMask = []
-                    if isBold { traits.insert(.boldFontMask) }
-                    if isItalic { traits.insert(.italicFontMask) }
-                    font = NSFontManager.shared.convert(font, toHaveTrait: traits)
+                    var traits: PlatformTypeConverter.FontTrait = []
+                    if isBold { traits.insert(.bold) }
+                    if isItalic { traits.insert(.italic) }
+                    font = PlatformTypeConverter.convertFont(font, toHaveTrait: traits)
                 }
             }
             attributes[.font] = font

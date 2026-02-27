@@ -1,4 +1,8 @@
-import AppKit
+#if os(macOS)
+    import AppKit
+#else
+    import UIKit
+#endif
 import SwiftUI
 
 /// Block-type-specific rendering methods for `MarkdownTextStorageBuilder`.
@@ -13,8 +17,8 @@ extension MarkdownTextStorageBuilder {
         scaleFactor: CGFloat = 1.0
     ) {
         let font = PlatformTypeConverter.headingFont(level: level, scaleFactor: scaleFactor)
-        let foreground = PlatformTypeConverter.nsColor(from: colors.headingColor)
-        let linkColor = PlatformTypeConverter.nsColor(from: colors.linkColor)
+        let foreground = PlatformTypeConverter.color(from: colors.headingColor)
+        let linkColor = PlatformTypeConverter.color(from: colors.linkColor)
         let spacingBefore: CGFloat = switch level {
         case 1: 48
         case 2: 20
@@ -47,8 +51,8 @@ extension MarkdownTextStorageBuilder {
         scaleFactor: CGFloat = 1.0
     ) {
         let font = PlatformTypeConverter.bodyFont(scaleFactor: scaleFactor)
-        let foreground = PlatformTypeConverter.nsColor(from: colors.foreground)
-        let linkColor = PlatformTypeConverter.nsColor(from: colors.linkColor)
+        let foreground = PlatformTypeConverter.color(from: colors.foreground)
+        let linkColor = PlatformTypeConverter.color(from: colors.linkColor)
 
         let content = convertInlineContent(
             text,
@@ -75,13 +79,13 @@ extension MarkdownTextStorageBuilder {
         scaleFactor: CGFloat = 1.0
     ) {
         let trimmedCode = code.trimmingCharacters(in: .whitespacesAndNewlines)
-        let codeForeground = PlatformTypeConverter.nsColor(from: colors.codeForeground)
+        let codeForeground = PlatformTypeConverter.color(from: colors.codeForeground)
         let monoFont = PlatformTypeConverter.monospacedFont(scaleFactor: scaleFactor)
 
         let blockID = UUID().uuidString
         let colorInfo = CodeBlockColorInfo(
-            background: PlatformTypeConverter.nsColor(from: colors.codeBackground),
-            border: PlatformTypeConverter.nsColor(from: colors.border)
+            background: PlatformTypeConverter.color(from: colors.codeBackground),
+            border: PlatformTypeConverter.color(from: colors.border)
         )
 
         let hasLabel = !(language ?? "").isEmpty
@@ -142,10 +146,12 @@ extension MarkdownTextStorageBuilder {
         attachments: inout [AttachmentInfo]
     ) {
         let attachment = NSTextAttachment()
-        let placeholderImage = NSImage(
-            size: NSSize(width: 1, height: height)
-        )
-        attachment.image = placeholderImage
+        #if os(macOS)
+            let placeholderImage = PlatformTypeConverter.PlatformImage(
+                size: NSSize(width: 1, height: height)
+            )
+            attachment.image = placeholderImage
+        #endif
         attachment.bounds = CGRect(x: 0, y: 0, width: 1, height: height)
 
         let attachmentStr = NSMutableAttributedString(attachment: attachment)
@@ -173,8 +179,8 @@ extension MarkdownTextStorageBuilder {
     ) {
         let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
         let monoFont = PlatformTypeConverter.monospacedFont(scaleFactor: scaleFactor)
-        let codeBackground = PlatformTypeConverter.nsColor(from: colors.codeBackground)
-        let codeForeground = PlatformTypeConverter.nsColor(from: colors.codeForeground)
+        let codeBackground = PlatformTypeConverter.color(from: colors.codeBackground)
+        let codeForeground = PlatformTypeConverter.color(from: colors.codeForeground)
 
         let htmlContent = NSMutableAttributedString(
             string: trimmed,
@@ -204,7 +210,7 @@ extension MarkdownTextStorageBuilder {
         colors: ThemeColors,
         scaleFactor: CGFloat = 1.0
     ) {
-        let foreground = PlatformTypeConverter.nsColor(from: colors.foreground)
+        let foreground = PlatformTypeConverter.color(from: colors.foreground)
         let baseFontSize = PlatformTypeConverter.bodyFont(scaleFactor: scaleFactor).pointSize
         let displayFontSize = baseFontSize * 1.2
 
@@ -235,7 +241,7 @@ extension MarkdownTextStorageBuilder {
             result.append(attachmentStr)
         } else {
             let monoFont = PlatformTypeConverter.monospacedFont(scaleFactor: scaleFactor)
-            let secondaryColor = PlatformTypeConverter.nsColor(from: colors.foregroundSecondary)
+            let secondaryColor = PlatformTypeConverter.color(from: colors.foregroundSecondary)
             let fallback = NSMutableAttributedString(
                 string: code,
                 attributes: [
@@ -298,7 +304,7 @@ extension MarkdownTextStorageBuilder {
         )
         let labelAttrs: [NSAttributedString.Key: Any] = [
             .font: PlatformTypeConverter.captionMonospacedFont(scaleFactor: scaleFactor),
-            .foregroundColor: PlatformTypeConverter.nsColor(from: colors.foregroundSecondary),
+            .foregroundColor: PlatformTypeConverter.color(from: colors.foregroundSecondary),
             .paragraphStyle: labelStyle,
             CodeBlockAttributes.range: blockID,
             CodeBlockAttributes.colors: colorInfo,

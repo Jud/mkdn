@@ -2,7 +2,7 @@
 
 **Feature ID**: mkdnlib-cross-platform
 **Status**: Not Started
-**Progress**: 35% (6 of 17 tasks)
+**Progress**: 41% (7 of 17 tasks)
 **Estimated Effort**: 4 days
 **Started**: 2026-02-27
 
@@ -227,7 +227,19 @@ Make mkdnLib compile for both macOS 14+ and iOS 17+ by configuring Package.swift
     - **Deviations**: None
     - **Tests**: 587/587 passing
 
-- [ ] **T7**: Migrate MarkdownTextStorageBuilder (main + 4 extensions) `[complexity:medium]`
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | N/A |
+    | Commit | PASS |
+    | Comments | PASS |
+
+- [x] **T7**: Migrate MarkdownTextStorageBuilder (main + 4 extensions) `[complexity:medium]`
 
     **Reference**: [design.md#35-core-file-migration-summary](design.md#35-core-file-migration-summary)
 
@@ -235,13 +247,20 @@ Make mkdnLib compile for both macOS 14+ and iOS 17+ by configuring Package.swift
 
     **Acceptance Criteria**:
 
-    - [ ] **Main file**: conditional import guard added; `NSFont`/`NSColor` replaced with `PlatformFont`/`PlatformColor` in ResolvedColors struct and method signatures; NSFontManager call in `convertInlineContent` replaced with `PlatformTypeConverter.convertFont`
-    - [ ] **+Blocks.swift**: conditional import guard added; `PlatformColor` in method params; `checkboxPrefix` method has full `#if os(macOS) ... #else ... #endif` branch for NSImage vs UIImage SF Symbol rendering (per design.md section 3.3)
-    - [ ] **+Complex.swift**: conditional import guard added; `PlatformColor` in `appendIndented*` helper params
-    - [ ] **+MathInline.swift**: conditional import guard added; `PlatformFont`/`PlatformColor`/`PlatformImage` in method params and attachment creation
-    - [ ] **+TableInline.swift**: conditional import guard added; `PlatformFont`/`PlatformColor` in TableRowContext struct; NSFontManager call replaced with `PlatformTypeConverter.convertFont`
-    - [ ] All 5 files compile on macOS with zero errors
-    - [ ] No bare `NSFont`, `NSColor`, `NSImage`, or `NSFontManager` references outside `#if os(macOS)` blocks
+    - [x] **Main file**: conditional import guard added; `NSFont`/`NSColor` replaced with `PlatformFont`/`PlatformColor` in ResolvedColors struct and method signatures; NSFontManager call in `convertInlineContent` replaced with `PlatformTypeConverter.convertFont`
+    - [x] **+Blocks.swift**: conditional import guard added; `PlatformColor` in method params; `checkboxPrefix` method has full `#if os(macOS) ... #else ... #endif` branch for NSImage vs UIImage SF Symbol rendering (per design.md section 3.3)
+    - [x] **+Complex.swift**: conditional import guard added; `PlatformColor` in `appendIndented*` helper params
+    - [x] **+MathInline.swift**: conditional import guard added; `PlatformFont`/`PlatformColor`/`PlatformImage` in method params and attachment creation
+    - [x] **+TableInline.swift**: conditional import guard added; `PlatformFont`/`PlatformColor` in TableRowContext struct; NSFontManager call replaced with `PlatformTypeConverter.convertFont`
+    - [x] All 5 files compile on macOS with zero errors
+    - [x] No bare `NSFont`, `NSColor`, `NSImage`, or `NSFontManager` references outside `#if os(macOS)` blocks
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Core/Markdown/MarkdownTextStorageBuilder.swift`, `mkdn/Core/Markdown/MarkdownTextStorageBuilder+Blocks.swift`, `mkdn/Core/Markdown/MarkdownTextStorageBuilder+Complex.swift`, `mkdn/Core/Markdown/MarkdownTextStorageBuilder+MathInline.swift`, `mkdn/Core/Markdown/MarkdownTextStorageBuilder+TableInline.swift`
+    - **Approach**: Replaced bare `import AppKit` with `#if os(macOS) import AppKit #else import UIKit #endif` guards in all 5 files. Main file: ResolvedColors struct properties changed from NSColor to PlatformColor, init uses color(from:) instead of nsColor(from:), convertInlineContent params changed to PlatformFont/PlatformColor, NSFontTraitMask/NSFontManager replaced with FontTrait/convertFont bridge. +Blocks.swift: nsColor(from:) renamed to color(from:) across all call sites, appendAttachmentBlock placeholder image creation guarded with #if os(macOS). +Complex.swift: all appendIndented* helper params changed from NSColor to PlatformColor, resolvedListPrefix/listPrefix/checkboxPrefix params changed to PlatformColor, checkboxPrefix split into #if os(macOS) (NSImage) / #else (UIImage) branches for SF Symbol rendering. +MathInline.swift: renderInlineMath params changed from NSFont/NSColor to PlatformFont/PlatformColor. +TableInline.swift: TableRowContext struct properties changed from NSFont/NSColor to PlatformFont/PlatformColor, NSFontManager call replaced with convertFont bridge, nsColor(from:) renamed to color(from:), NSSize replaced with CGSize in boundingRect call, headerForeground/dataForeground type annotations changed to PlatformColor.
+    - **Deviations**: checkboxPrefix is in +Complex.swift (not +Blocks.swift as stated in design task description). Implemented in the correct file following actual code location. appendAttachmentBlock placeholder uses #if os(macOS) guard to skip NSImage creation on iOS (bounds alone suffice for placeholder sizing).
+    - **Tests**: 587/587 passing
 
 - [ ] **T8**: Add file-level #if os(macOS) guard to MermaidWebView.swift `[complexity:simple]`
 

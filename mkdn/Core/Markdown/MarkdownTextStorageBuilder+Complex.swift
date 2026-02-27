@@ -1,4 +1,8 @@
-import AppKit
+#if os(macOS)
+    import AppKit
+#else
+    import UIKit
+#endif
 import SwiftUI
 
 /// Blockquote, list, and table rendering for `MarkdownTextStorageBuilder`.
@@ -113,8 +117,8 @@ extension MarkdownTextStorageBuilder {
         to result: NSMutableAttributedString,
         text: AttributedString,
         indent: CGFloat,
-        foreground: NSColor,
-        linkColor: NSColor,
+        foreground: PlatformTypeConverter.PlatformColor,
+        linkColor: PlatformTypeConverter.PlatformColor,
         scaleFactor: CGFloat = 1.0
     ) {
         let font = PlatformTypeConverter.bodyFont(scaleFactor: scaleFactor)
@@ -141,8 +145,8 @@ extension MarkdownTextStorageBuilder {
         level: Int,
         text: AttributedString,
         indent: CGFloat,
-        headingColor: NSColor,
-        linkColor: NSColor,
+        headingColor: PlatformTypeConverter.PlatformColor,
+        linkColor: PlatformTypeConverter.PlatformColor,
         scaleFactor: CGFloat = 1.0
     ) {
         let font = PlatformTypeConverter.headingFont(level: level, scaleFactor: scaleFactor)
@@ -169,7 +173,7 @@ extension MarkdownTextStorageBuilder {
         to result: NSMutableAttributedString,
         text: String,
         indent: CGFloat,
-        foreground: NSColor,
+        foreground: PlatformTypeConverter.PlatformColor,
         scaleFactor: CGFloat = 1.0
     ) {
         let style = makeParagraphStyle(
@@ -264,7 +268,7 @@ extension MarkdownTextStorageBuilder {
     private static func resolvedListPrefix(
         prefix: String,
         checkbox: CheckboxState?,
-        color: NSColor,
+        color: PlatformTypeConverter.PlatformColor,
         scaleFactor: CGFloat = 1.0
     ) -> NSAttributedString {
         if let checkbox {
@@ -324,7 +328,11 @@ extension MarkdownTextStorageBuilder {
         result.append(content)
     }
 
-    private static func listPrefix(_ prefix: String, color: NSColor, scaleFactor: CGFloat = 1.0) -> NSAttributedString {
+    private static func listPrefix(
+        _ prefix: String,
+        color: PlatformTypeConverter.PlatformColor,
+        scaleFactor: CGFloat = 1.0
+    ) -> NSAttributedString {
         NSAttributedString(
             string: prefix + "\t",
             attributes: [
@@ -335,29 +343,41 @@ extension MarkdownTextStorageBuilder {
     }
 
     private static func checkboxPrefix(
-        _ state: CheckboxState, color: NSColor, scaleFactor: CGFloat = 1.0
+        _ state: CheckboxState,
+        color: PlatformTypeConverter.PlatformColor,
+        scaleFactor: CGFloat = 1.0
     ) -> NSAttributedString {
         let symbolName = state == .checked ? "checkmark.square.fill" : "square"
         let font = PlatformTypeConverter.bodyFont(scaleFactor: scaleFactor)
         let symbolSize = font.pointSize
 
-        guard let symbolImage = NSImage(
-            systemSymbolName: symbolName,
-            accessibilityDescription: state == .checked ? "checked" : "unchecked"
-        )
-        else {
-            return listPrefix(state == .checked ? "[x]" : "[ ]", color: color, scaleFactor: scaleFactor)
-        }
+        #if os(macOS)
+            guard let symbolImage = NSImage(
+                systemSymbolName: symbolName,
+                accessibilityDescription: state == .checked ? "checked" : "unchecked"
+            )
+            else {
+                return listPrefix(state == .checked ? "[x]" : "[ ]", color: color, scaleFactor: scaleFactor)
+            }
 
-        let config = NSImage.SymbolConfiguration(pointSize: symbolSize, weight: .regular)
-        let configuredImage = symbolImage.withSymbolConfiguration(config) ?? symbolImage
+            let config = NSImage.SymbolConfiguration(pointSize: symbolSize, weight: .regular)
+            let configuredImage = symbolImage.withSymbolConfiguration(config) ?? symbolImage
 
-        let tintedImage = NSImage(size: configuredImage.size, flipped: false) { rect in
-            color.set()
-            configuredImage.draw(in: rect)
-            rect.fill(using: .sourceAtop)
-            return true
-        }
+            let tintedImage = NSImage(size: configuredImage.size, flipped: false) { rect in
+                color.set()
+                configuredImage.draw(in: rect)
+                rect.fill(using: .sourceAtop)
+                return true
+            }
+        #else
+            guard let symbolImage = UIImage(systemName: symbolName) else {
+                return listPrefix(state == .checked ? "[x]" : "[ ]", color: color, scaleFactor: scaleFactor)
+            }
+
+            let config = UIImage.SymbolConfiguration(pointSize: symbolSize, weight: .regular)
+            let configuredImage = symbolImage.withConfiguration(config)
+            let tintedImage = configuredImage.withTintColor(color, renderingMode: .alwaysOriginal)
+        #endif
 
         let attachment = NSTextAttachment()
         attachment.image = tintedImage

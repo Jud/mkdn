@@ -1,4 +1,8 @@
-import AppKit
+#if os(macOS)
+    import AppKit
+#else
+    import UIKit
+#endif
 
 /// Inline math rendering for `MarkdownTextStorageBuilder`.
 ///
@@ -12,8 +16,8 @@ extension MarkdownTextStorageBuilder {
     static func renderInlineMath(
         from run: AttributedString.Runs.Run,
         content: AttributedString,
-        baseFont: NSFont,
-        baseForegroundColor: NSColor,
+        baseFont: PlatformTypeConverter.PlatformFont,
+        baseForegroundColor: PlatformTypeConverter.PlatformColor,
         scaleFactor: CGFloat
     ) -> NSAttributedString? {
         guard let latex = content[run.range].mathExpression else {
