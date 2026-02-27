@@ -42,7 +42,7 @@ struct FileWatcherTests {
 
         // Poll instead of fixed sleep — the 200ms internal delay can stretch
         // under MainActor contention during full test suite runs.
-        for _ in 0..<20 {
+        for _ in 0 ..< 20 {
             try await Task.sleep(for: .milliseconds(100))
             if !watcher.isSavePaused { break }
         }
