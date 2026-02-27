@@ -50,6 +50,20 @@ public final class DocumentState {
     /// Label text for the ephemeral mode transition overlay.
     public var modeOverlayLabel: String?
 
+    // MARK: - Sidebar Layout State
+
+    /// Whether the sidebar panel is visible.
+    public var isSidebarVisible = false
+
+    /// Current sidebar width in points.
+    public var sidebarWidth: CGFloat = 240
+
+    /// Minimum sidebar width in points.
+    static let minSidebarWidth: CGFloat = 160
+
+    /// Maximum sidebar width in points.
+    static let maxSidebarWidth: CGFloat = 400
+
     public init() {}
 
     // MARK: - Methods
@@ -117,5 +131,10 @@ public final class DocumentState {
     public func switchMode(to mode: ViewMode) {
         viewMode = mode
         modeOverlayLabel = mode == .previewOnly ? "Preview" : "Edit"
+    }
+
+    /// Toggle sidebar visibility.
+    public func toggleSidebar() {
+        isSidebarVisible.toggle()
     }
 }

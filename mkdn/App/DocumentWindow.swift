@@ -1,6 +1,37 @@
 import AppKit
 import SwiftUI
 
+/// Sets the hosting NSWindow's background color so that clipped SwiftUI
+/// views reveal the correct color rather than the system default.
+private struct WindowBackgroundColor: NSViewRepresentable {
+    let color: NSColor
+
+    func makeNSView(context _: Context) -> NSView {
+        NSView()
+    }
+
+    func updateNSView(_ nsView: NSView, context _: Context) {
+        DispatchQueue.main.async {
+            nsView.window?.backgroundColor = color
+        }
+    }
+}
+
+/// Conditionally injects ``DirectoryState`` into the environment when present.
+private struct OptionalDirectoryEnvironment: ViewModifier {
+    let directoryState: DirectoryState?
+
+    func body(content: Content) -> some View {
+        if let directoryState {
+            content
+                .environment(directoryState)
+                .focusedSceneValue(\.directoryState, directoryState)
+        } else {
+            content
+        }
+    }
+}
+
 /// Wrapper view that creates a per-window ``DocumentState`` and wires it into
 /// the environment. Each ``WindowGroup`` instance embeds one `DocumentWindow`,
 /// giving every window its own independent document lifecycle.
@@ -28,29 +59,61 @@ public struct DocumentWindow: View {
         self.launchItem = launchItem
     }
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var motion: MotionPreference {
+        MotionPreference(reduceMotion: reduceMotion)
+    }
+
+    private var sidebarOffset: CGFloat {
+        documentState.isSidebarVisible
+            ? documentState.sidebarWidth + SidebarDivider.width
+            : 0
+    }
+
     public var body: some View {
-        Group {
-            if let directoryState {
-                DirectoryContentView()
-                    .environment(directoryState)
-                    .focusedSceneValue(\.directoryState, directoryState)
-            } else {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                HStack(spacing: 0) {
+                    sidebarContent
+                        .frame(width: documentState.sidebarWidth)
+
+                    SidebarDivider()
+                }
+
                 ContentView()
-                    .background(appSettings.theme.colors.background.ignoresSafeArea())
+                    .frame(width: geometry.size.width - sidebarOffset)
+                    .clipShape(
+                        UnevenRoundedRectangle(
+                            topLeadingRadius: documentState.isSidebarVisible ? 10 : 0,
+                            bottomLeadingRadius: documentState.isSidebarVisible ? 10 : 0
+                        )
+                    )
+                    .offset(x: sidebarOffset)
             }
         }
+        .background(
+            WindowBackgroundColor(
+                color: NSColor(appSettings.theme.colors.backgroundSecondary)
+            )
+        )
+        .environment(\.isDirectoryMode, directoryState != nil)
+        .animation(motion.resolved(.gentleSpring), value: documentState.isSidebarVisible)
+        .animation(motion.resolved(.gentleSpring), value: documentState.sidebarWidth)
+        .ignoresSafeArea()
+        .frame(minWidth: 600, minHeight: 400)
         .environment(documentState)
         .environment(findState)
         .environment(appSettings)
         .focusedSceneValue(\.documentState, documentState)
         .focusedSceneValue(\.findState, findState)
+        .modifier(OptionalDirectoryEnvironment(directoryState: directoryState))
         .opacity(isReady ? 1 : 0)
         .onAppear {
             handleLaunch()
             if TestHarnessMode.isEnabled {
                 TestHarnessHandler.appSettings = appSettings
                 TestHarnessHandler.documentState = documentState
-                TestHarnessHandler.directoryState = directoryState
                 TestHarnessServer.shared.start()
             }
             isReady = true
@@ -59,6 +122,16 @@ public struct DocumentWindow: View {
             for url in FileOpenCoordinator.shared.consumeAll() {
                 openWindow(value: LaunchItem.file(url))
             }
+        }
+    }
+
+    @ViewBuilder
+    private var sidebarContent: some View {
+        if let directoryState {
+            SidebarView()
+                .environment(directoryState)
+        } else {
+            SidebarPlaceholderView()
         }
     }
 
@@ -80,6 +153,7 @@ public struct DocumentWindow: View {
         let dirState = DirectoryState(rootURL: rootURL)
         dirState.documentState = documentState
         directoryState = dirState
+        documentState.isSidebarVisible = true
         dirState.scan()
     }
 

@@ -29,24 +29,10 @@ public final class DirectoryState {
     /// The currently selected file URL in the sidebar.
     public var selectedFileURL: URL?
 
-    // MARK: - Sidebar Layout State
-
-    /// Whether the sidebar panel is visible.
-    public var isSidebarVisible = true
-
-    /// Current sidebar width in points.
-    public var sidebarWidth: CGFloat = 240
-
     // MARK: - Scanning Configuration
 
     /// Maximum depth for recursive directory scanning.
     static let maxScanDepth = 10
-
-    /// Minimum sidebar width in points.
-    static let minSidebarWidth: CGFloat = 160
-
-    /// Maximum sidebar width in points.
-    static let maxSidebarWidth: CGFloat = 400
 
     // MARK: - Directory Watcher
 
@@ -110,11 +96,6 @@ public final class DirectoryState {
 
         directoryWatcher.acknowledge()
         startWatching()
-    }
-
-    /// Toggle sidebar visibility.
-    public func toggleSidebar() {
-        isSidebarVisible.toggle()
     }
 
     /// Select a file and load it in the content area.

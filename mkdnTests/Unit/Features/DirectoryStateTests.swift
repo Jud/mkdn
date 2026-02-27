@@ -6,7 +6,7 @@ import Testing
 struct DirectoryStateTests {
     // MARK: - Initial State
 
-    @Test("Initial state has sidebar visible and default width")
+    @Test("Initial state has correct defaults")
     @MainActor func initialState() {
         let url = URL(fileURLWithPath: "/tmp/test-dir")
         let state = DirectoryState(rootURL: url)
@@ -15,40 +15,6 @@ struct DirectoryStateTests {
         #expect(state.tree == nil)
         #expect(state.expandedDirectories.isEmpty)
         #expect(state.selectedFileURL == nil)
-        #expect(state.isSidebarVisible == true)
-        #expect(state.sidebarWidth == 240)
-    }
-
-    // MARK: - Sidebar Toggle
-
-    @Test("toggleSidebar flips visibility from true to false")
-    @MainActor func toggleSidebarHides() {
-        let state = DirectoryState(rootURL: URL(fileURLWithPath: "/tmp"))
-        #expect(state.isSidebarVisible == true)
-
-        state.toggleSidebar()
-
-        #expect(state.isSidebarVisible == false)
-    }
-
-    @Test("toggleSidebar flips visibility from false to true")
-    @MainActor func toggleSidebarShows() {
-        let state = DirectoryState(rootURL: URL(fileURLWithPath: "/tmp"))
-        state.isSidebarVisible = false
-
-        state.toggleSidebar()
-
-        #expect(state.isSidebarVisible == true)
-    }
-
-    @Test("Double toggle returns to original state")
-    @MainActor func doubleToggle() {
-        let state = DirectoryState(rootURL: URL(fileURLWithPath: "/tmp"))
-
-        state.toggleSidebar()
-        state.toggleSidebar()
-
-        #expect(state.isSidebarVisible == true)
     }
 
     // MARK: - File Selection
@@ -122,26 +88,6 @@ struct DirectoryStateTests {
     @Test("Max scan depth is 10")
     @MainActor func maxScanDepth() {
         #expect(DirectoryState.maxScanDepth == 10)
-    }
-
-    @Test("Minimum sidebar width is 160")
-    @MainActor func minSidebarWidth() {
-        #expect(DirectoryState.minSidebarWidth == 160)
-    }
-
-    @Test("Maximum sidebar width is 400")
-    @MainActor func maxSidebarWidth() {
-        #expect(DirectoryState.maxSidebarWidth == 400)
-    }
-
-    // MARK: - Sidebar Width
-
-    @Test("Sidebar width can be set within valid range")
-    @MainActor func sidebarWidthSettable() {
-        let state = DirectoryState(rootURL: URL(fileURLWithPath: "/tmp"))
-
-        state.sidebarWidth = 300
-        #expect(state.sidebarWidth == 300)
     }
 
     // MARK: - DirectoryWatcher Initial State

@@ -29,12 +29,12 @@ private struct DragBlocker: NSViewRepresentable {
 /// Uses an 8pt-wide hit target backed by an AppKit view that returns
 /// `mouseDownCanMoveWindow = false`, preventing the window drag handler
 /// from intercepting resize drags.
-/// Clamps the sidebar width within ``DirectoryState/minSidebarWidth``
-/// and ``DirectoryState/maxSidebarWidth``.
+/// Clamps the sidebar width within ``DocumentState/minSidebarWidth``
+/// and ``DocumentState/maxSidebarWidth``.
 struct SidebarDivider: View {
     static let width: CGFloat = 8
 
-    @Environment(DirectoryState.self) private var directoryState
+    @Environment(DocumentState.self) private var documentState
     @Environment(AppSettings.self) private var appSettings
 
     @State private var dragStartWidth: CGFloat?
@@ -48,12 +48,12 @@ struct SidebarDivider: View {
                 DragGesture(coordinateSpace: .global)
                     .onChanged { value in
                         if dragStartWidth == nil {
-                            dragStartWidth = directoryState.sidebarWidth
+                            dragStartWidth = documentState.sidebarWidth
                         }
-                        let newWidth = (dragStartWidth ?? directoryState.sidebarWidth) + value.translation.width
-                        directoryState.sidebarWidth = min(
-                            max(newWidth, DirectoryState.minSidebarWidth),
-                            DirectoryState.maxSidebarWidth
+                        let newWidth = (dragStartWidth ?? documentState.sidebarWidth) + value.translation.width
+                        documentState.sidebarWidth = min(
+                            max(newWidth, DocumentState.minSidebarWidth),
+                            DocumentState.maxSidebarWidth
                         )
                     }
                     .onEnded { _ in
