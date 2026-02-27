@@ -50,7 +50,7 @@ struct MultiFileValidationTests {
         let validFile = dir.appendingPathComponent("valid.md")
         try createTextFile(at: validFile)
         let missingFile = dir.appendingPathComponent("nonexistent.md")
-        let badExtFile = dir.appendingPathComponent("notes.txt")
+        let badExtFile = dir.appendingPathComponent("doc.pdf")
         try createTextFile(at: badExtFile)
 
         var validURLs: [URL] = []

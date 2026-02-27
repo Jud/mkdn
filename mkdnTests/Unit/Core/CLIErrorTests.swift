@@ -28,12 +28,13 @@ struct CLIErrorTests {
 
     @Test("unsupportedExtension message includes extension and accepted types")
     func unsupportedExtensionMessage() {
-        let error = CLIError.unsupportedExtension(path: "notes.txt", ext: "txt")
+        let error = CLIError.unsupportedExtension(path: "doc.pdf", ext: "pdf")
         let message = error.errorDescription ?? ""
-        #expect(message.contains(".txt"))
-        #expect(message.contains("notes.txt"))
-        #expect(message.contains(".md"))
-        #expect(message.contains(".markdown"))
+        #expect(message.contains(".pdf"))
+        #expect(message.contains("doc.pdf"))
+        #expect(message.contains("markdown"))
+        #expect(message.contains("source code"))
+        #expect(message.contains("text files"))
     }
 
     @Test("unsupportedExtension message handles empty extension")

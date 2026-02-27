@@ -15,7 +15,10 @@ public final class DocumentState {
     /// The URL of the currently open Markdown file.
     public var currentFileURL: URL?
 
-    /// Raw Markdown text content of the open file.
+    /// The kind of file currently loaded (markdown, source code, or plain text).
+    public var fileKind: FileKind = .markdown
+
+    /// Raw text content of the open file.
     public var markdownContent = ""
 
     /// Baseline text from the last load or save, used for unsaved-changes detection.
@@ -68,7 +71,7 @@ public final class DocumentState {
 
     // MARK: - Methods
 
-    /// Load a Markdown file from the given URL.
+    /// Load a file from the given URL.
     public func loadFile(at url: URL) throws {
         loadGeneration &+= 1
         let content = try String(contentsOf: url, encoding: .utf8)
@@ -77,6 +80,7 @@ public final class DocumentState {
             return
         }
         currentFileURL = url
+        fileKind = url.fileKind ?? .plainText
         markdownContent = content
         lastSavedContent = content
         fileWatcher.watch(url: url)
