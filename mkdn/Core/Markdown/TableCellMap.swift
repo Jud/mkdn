@@ -180,8 +180,8 @@ final class TableCellMap: NSObject {
         var rtf = "{\\rtf1\\ansi\\deff0\n"
         rtf += "{\\fonttbl{\\f0 Helvetica;}}\n"
 
-        let fgColor = PlatformTypeConverter.nsColor(from: colors.foreground)
-        let hdColor = PlatformTypeConverter.nsColor(from: colors.headingColor)
+        let fgColor = PlatformTypeConverter.color(from: colors.foreground)
+        let hdColor = PlatformTypeConverter.color(from: colors.headingColor)
         let fgRGB = rgbComponents(fgColor)
         let hdRGB = rgbComponents(hdColor)
         rtf += "{\\colortbl;"

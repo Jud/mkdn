@@ -198,8 +198,8 @@ extension SelectableTextView {
         scrollView: NSScrollView
     ) {
         let colors = theme.colors
-        let bgColor = PlatformTypeConverter.nsColor(from: colors.background)
-        let accentColor = PlatformTypeConverter.nsColor(from: colors.accent)
+        let bgColor = PlatformTypeConverter.color(from: colors.background)
+        let accentColor = PlatformTypeConverter.color(from: colors.accent)
 
         textView.backgroundColor = bgColor
         scrollView.backgroundColor = bgColor
@@ -211,7 +211,7 @@ extension SelectableTextView {
 
         textView.insertionPointColor = accentColor
 
-        let linkNSColor = PlatformTypeConverter.nsColor(from: colors.linkColor)
+        let linkNSColor = PlatformTypeConverter.color(from: colors.linkColor)
         textView.linkTextAttributes = [
             .foregroundColor: linkNSColor,
             .underlineStyle: NSUnderlineStyle.single.rawValue,
@@ -382,7 +382,7 @@ extension SelectableTextView {
                 return
             }
 
-            let highlightNSColor = PlatformTypeConverter.nsColor(
+            let highlightNSColor = PlatformTypeConverter.color(
                 from: theme.colors.findHighlight
             )
 

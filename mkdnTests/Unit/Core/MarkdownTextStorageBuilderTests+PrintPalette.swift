@@ -75,8 +75,8 @@ extension MarkdownTextStorageBuilderTests {
         }
 
         #expect(foundColorInfo != nil)
-        let expectedBg = PlatformTypeConverter.nsColor(from: PrintPalette.colors.codeBackground)
-        let expectedBorder = PlatformTypeConverter.nsColor(from: PrintPalette.colors.border)
+        let expectedBg = PlatformTypeConverter.color(from: PrintPalette.colors.codeBackground)
+        let expectedBorder = PlatformTypeConverter.color(from: PrintPalette.colors.border)
         #expect(foundColorInfo?.background == expectedBg)
         #expect(foundColorInfo?.border == expectedBorder)
     }

@@ -170,7 +170,7 @@ struct SyntaxHighlightEngineTests {
             return
         }
 
-        let expectedColor = PlatformTypeConverter.nsColor(from: syntaxColors.keyword)
+        let expectedColor = PlatformTypeConverter.color(from: syntaxColors.keyword)
         let funcRange = NSRange(location: 0, length: 4) // "func" is at start
 
         let actualColor = attrString.attribute(.foregroundColor, at: funcRange.location, effectiveRange: nil)
@@ -212,7 +212,7 @@ struct SyntaxHighlightEngineTests {
             return
         }
 
-        let expectedColor = PlatformTypeConverter.nsColor(from: syntaxColors.string)
+        let expectedColor = PlatformTypeConverter.color(from: syntaxColors.string)
 
         guard let quoteRange = code.range(of: "\"hello\"") else {
             Issue.record("Expected to find string literal in code")

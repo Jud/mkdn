@@ -1,8 +1,8 @@
 # Development Tasks: mkdnLib Cross-Platform Rendering Engine (P1+P2)
 
 **Feature ID**: mkdnlib-cross-platform
-**Status**: Not Started
-**Progress**: 41% (7 of 17 tasks)
+**Status**: In Progress
+**Progress**: 53% (9 of 17 tasks)
 **Estimated Effort**: 4 days
 **Started**: 2026-02-27
 
@@ -262,7 +262,19 @@ Make mkdnLib compile for both macOS 14+ and iOS 17+ by configuring Package.swift
     - **Deviations**: checkboxPrefix is in +Complex.swift (not +Blocks.swift as stated in design task description). Implemented in the correct file following actual code location. appendAttachmentBlock placeholder uses #if os(macOS) guard to skip NSImage creation on iOS (bounds alone suffice for placeholder sizing).
     - **Tests**: 587/587 passing
 
-- [ ] **T8**: Add file-level #if os(macOS) guard to MermaidWebView.swift `[complexity:simple]`
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | N/A |
+    | Commit | PASS |
+    | Comments | PASS |
+
+- [x] **T8**: Add file-level #if os(macOS) guard to MermaidWebView.swift `[complexity:simple]`
 
     **Reference**: [design.md#36-mermaidwebview-file-level-guard](design.md#36-mermaidwebview-file-level-guard)
 
@@ -270,14 +282,21 @@ Make mkdnLib compile for both macOS 14+ and iOS 17+ by configuring Package.swift
 
     **Acceptance Criteria**:
 
-    - [ ] Entire MermaidWebView.swift file body wrapped in `#if os(macOS) ... #endif`
-    - [ ] `import WebKit` wrapped in conditional guard
-    - [ ] File compiles on macOS with zero errors
-    - [ ] On iOS, file compiles as an empty compilation unit (no symbols exported)
+    - [x] Entire MermaidWebView.swift file body wrapped in `#if os(macOS) ... #endif`
+    - [x] `import WebKit` wrapped in conditional guard
+    - [x] File compiles on macOS with zero errors
+    - [x] On iOS, file compiles as an empty compilation unit (no symbols exported)
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Core/Mermaid/MermaidWebView.swift`
+    - **Approach**: Wrapped the entire file body (imports, NoFocusRingWKWebView, MermaidContainerView, MermaidWebView struct + Coordinator) in a single `#if os(macOS) ... #endif` guard. All three imports (AppKit, SwiftUI, WebKit) are inside the guard. On iOS, the file compiles as an empty translation unit.
+    - **Deviations**: None
+    - **Tests**: 587/587 passing
 
 ### Rename Cascade (Parallel Group 3)
 
-- [ ] **T9**: Verify nsColor-to-color rename cascade across all migrated files `[complexity:simple]`
+- [x] **T9**: Verify nsColor-to-color rename cascade across all migrated files `[complexity:simple]`
 
     **Reference**: [design.md#35-core-file-migration-summary](design.md#35-core-file-migration-summary)
 
@@ -285,10 +304,17 @@ Make mkdnLib compile for both macOS 14+ and iOS 17+ by configuring Package.swift
 
     **Acceptance Criteria**:
 
-    - [ ] Global search confirms zero remaining references to `PlatformTypeConverter.nsColor(from:` across the entire codebase
-    - [ ] All call sites use `PlatformTypeConverter.color(from:` instead
-    - [ ] `swift build` succeeds on macOS with zero errors after rename
-    - [ ] Note: This is performed as part of T2-T7 but tracked as a separate verification checkpoint
+    - [x] Global search confirms zero remaining references to `PlatformTypeConverter.nsColor(from:` across the entire codebase
+    - [x] All call sites use `PlatformTypeConverter.color(from:` instead
+    - [x] `swift build` succeeds on macOS with zero errors after rename
+    - [x] Note: This is performed as part of T2-T7 but tracked as a separate verification checkpoint
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Core/Markdown/PlatformTypeConverter.swift`, `mkdn/Core/Markdown/TableCellMap.swift`, `mkdn/Features/Viewer/Views/MathBlockView.swift`, `mkdn/Features/Viewer/Views/SelectableTextView.swift`, `mkdn/Features/Viewer/Views/CodeFileView.swift`, `mkdn/Features/Viewer/Views/CodeBlockBackgroundTextView.swift`, `mkdn/Features/Viewer/Views/LineNumberGutterView.swift`, `mkdnTests/Unit/Core/SyntaxHighlightEngineTests.swift`, `mkdnTests/Unit/Core/MarkdownTextStorageBuilderTests+PrintPalette.swift`, `mkdnTests/Unit/Core/PlatformTypeConverterTests.swift`, `mkdnTests/Unit/Core/CodeBlockStylingTests.swift`, `mkdnTests/Unit/Core/MarkdownTextStorageBuilderTests.swift`, `mkdnTests/Unit/Core/PrintPaletteTests.swift`
+    - **Approach**: Removed the backward-compatible `nsColor(from:)` forwarding wrapper from PlatformTypeConverter. Renamed all 25 remaining `PlatformTypeConverter.nsColor(from:` call sites to `PlatformTypeConverter.color(from:` across 6 source files and 6 test files. Verified zero references remain via global search.
+    - **Deviations**: Scope extended beyond the 12 core migration files to include Features/ and test files, as the T9 acceptance criteria explicitly requires zero references "across the entire codebase". The forwarding wrapper in T2 was designed to be removed in T9.
+    - **Tests**: 587/587 passing
 
 ### Verification (Parallel Group 4)
 

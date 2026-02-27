@@ -46,7 +46,7 @@ struct MathBlockView: View {
     }
 
     private func renderMath() {
-        let foreground = PlatformTypeConverter.nsColor(from: colors.foreground)
+        let foreground = PlatformTypeConverter.color(from: colors.foreground)
         let baseFontSize = PlatformTypeConverter.bodyFont(
             scaleFactor: appSettings.scaleFactor
         ).pointSize

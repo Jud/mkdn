@@ -153,13 +153,13 @@ final class LineNumberGutterView: NSView {
     /// Update colors and font from theme and zoom settings.
     func updateAppearance(theme: AppTheme, scaleFactor: CGFloat) {
         lineNumberColor = Self.resolveColor(
-            PlatformTypeConverter.nsColor(from: theme.colors.foregroundSecondary)
+            PlatformTypeConverter.color(from: theme.colors.foregroundSecondary)
         )
         gutterBackgroundColor = Self.resolveColor(
-            PlatformTypeConverter.nsColor(from: theme.colors.background)
+            PlatformTypeConverter.color(from: theme.colors.background)
         )
         borderColor = Self.resolveColor(
-            PlatformTypeConverter.nsColor(from: theme.colors.border)
+            PlatformTypeConverter.color(from: theme.colors.border)
         )
         lineNumberFont = .monospacedSystemFont(
             ofSize: NSFont.systemFontSize * scaleFactor * 0.85,

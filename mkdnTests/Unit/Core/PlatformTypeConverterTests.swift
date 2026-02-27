@@ -101,15 +101,15 @@ struct PlatformTypeConverterTests {
     @Test("Color conversion produces non-nil NSColor for theme colors")
     func colorConversionProducesNSColor() {
         let colors = AppTheme.solarizedDark.colors
-        let nsColor = PlatformTypeConverter.nsColor(from: colors.foreground)
+        let nsColor = PlatformTypeConverter.color(from: colors.foreground)
         #expect(nsColor.colorSpace.colorSpaceModel != .unknown)
     }
 
     @Test("Different theme colors produce different NSColors")
     func differentColorsProduceDifferentNSColors() {
         let colors = AppTheme.solarizedDark.colors
-        let fg = PlatformTypeConverter.nsColor(from: colors.foreground)
-        let bg = PlatformTypeConverter.nsColor(from: colors.background)
+        let fg = PlatformTypeConverter.color(from: colors.foreground)
+        let bg = PlatformTypeConverter.color(from: colors.background)
         #expect(fg != bg)
     }
 

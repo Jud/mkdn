@@ -8,7 +8,7 @@ struct PrintPaletteTests {
     // MARK: - Helpers
 
     private func nsColor(_ color: Color) -> NSColor {
-        PlatformTypeConverter.nsColor(from: color)
+        PlatformTypeConverter.color(from: color)
     }
 
     private func sRGBComponents(_ color: Color) -> (red: CGFloat, green: CGFloat, blue: CGFloat)? {

@@ -55,11 +55,6 @@ enum PlatformTypeConverter {
         PlatformColor(color)
     }
 
-    /// Backward-compatible forwarding wrapper. Prefer ``color(from:)`` for new code.
-    static func nsColor(from color: Color) -> PlatformColor {
-        self.color(from: color)
-    }
-
     // MARK: - Font Factory
 
     static func headingFont(level: Int, scaleFactor: CGFloat = 1.0) -> PlatformFont {

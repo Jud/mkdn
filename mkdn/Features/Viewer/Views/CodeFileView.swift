@@ -171,8 +171,8 @@ struct CodeFileView: NSViewRepresentable {
 
     private func applyTheme(to textView: NSTextView, scrollView: NSScrollView) {
         let colors = appSettings.theme.colors
-        let bgColor = PlatformTypeConverter.nsColor(from: colors.background)
-        let accentColor = PlatformTypeConverter.nsColor(from: colors.accent)
+        let bgColor = PlatformTypeConverter.color(from: colors.background)
+        let accentColor = PlatformTypeConverter.color(from: colors.accent)
 
         textView.backgroundColor = bgColor
         scrollView.backgroundColor = bgColor
@@ -234,7 +234,7 @@ struct CodeFileView: NSViewRepresentable {
         font: NSFont,
         theme: AppTheme
     ) -> NSAttributedString {
-        let foregroundColor = PlatformTypeConverter.nsColor(
+        let foregroundColor = PlatformTypeConverter.color(
             from: theme.colors.foreground
         )
         let paragraphStyle = makeParagraphStyle(font: font)

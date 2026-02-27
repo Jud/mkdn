@@ -57,8 +57,8 @@ struct CodeBlockStylingTests {
         let result = buildSingle(.codeBlock(language: nil, code: "print(1)"), theme: theme)
         let str = result.attributedString
 
-        let expectedBackground = PlatformTypeConverter.nsColor(from: theme.colors.codeBackground)
-        let expectedBorder = PlatformTypeConverter.nsColor(from: theme.colors.border)
+        let expectedBackground = PlatformTypeConverter.color(from: theme.colors.codeBackground)
+        let expectedBorder = PlatformTypeConverter.color(from: theme.colors.border)
 
         var foundColorInfo = false
         str.enumerateAttribute(
@@ -181,7 +181,7 @@ struct CodeBlockStylingTests {
             Issue.record("Expected to find code content in attributed string")
             return
         }
-        let expected = PlatformTypeConverter.nsColor(from: AppTheme.solarizedDark.colors.codeForeground)
+        let expected = PlatformTypeConverter.color(from: AppTheme.solarizedDark.colors.codeForeground)
 
         let attrs = str.attributes(at: location, effectiveRange: nil)
         let color = attrs[.foregroundColor] as? NSColor

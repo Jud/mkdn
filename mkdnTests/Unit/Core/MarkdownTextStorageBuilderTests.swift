@@ -44,7 +44,7 @@ struct MarkdownTextStorageBuilderTests {
         let result = buildSingle(.heading(level: 1, text: AttributedString("Title")))
         let attrs = attributes(of: result)
         let color = attrs[.foregroundColor] as? NSColor
-        let expected = PlatformTypeConverter.nsColor(from: theme.colors.headingColor)
+        let expected = PlatformTypeConverter.color(from: theme.colors.headingColor)
         #expect(color == expected)
     }
 
@@ -72,7 +72,7 @@ struct MarkdownTextStorageBuilderTests {
         let result = buildSingle(.paragraph(text: AttributedString("Hello world")))
         let attrs = attributes(of: result)
         let color = attrs[.foregroundColor] as? NSColor
-        let expected = PlatformTypeConverter.nsColor(from: theme.colors.foreground)
+        let expected = PlatformTypeConverter.color(from: theme.colors.foreground)
         #expect(color == expected)
     }
 

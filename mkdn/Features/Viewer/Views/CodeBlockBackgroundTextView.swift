@@ -273,7 +273,7 @@ final class CodeBlockBackgroundTextView: NSTextView {
             isPrint: true
         )
         textStorage?.setAttributedString(result.attributedString)
-        backgroundColor = PlatformTypeConverter.nsColor(from: PrintPalette.colors.background)
+        backgroundColor = PlatformTypeConverter.color(from: PrintPalette.colors.background)
 
         // swiftlint:disable:next force_cast
         let printInfo = NSPrintInfo.shared.copy() as! NSPrintInfo
