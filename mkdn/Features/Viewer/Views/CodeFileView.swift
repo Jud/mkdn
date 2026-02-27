@@ -8,6 +8,9 @@ import SwiftUI
 /// `.sourceCode` files when the language is supported, falling back to
 /// plain monospaced rendering.
 ///
+/// A line number gutter is displayed alongside the code using a sibling NSView
+/// with scroll-synchronized positioning.
+///
 /// The view re-highlights when theme, zoom, or content changes.
 struct CodeFileView: NSViewRepresentable {
     @Environment(DocumentState.self) private var documentState
@@ -17,7 +20,7 @@ struct CodeFileView: NSViewRepresentable {
         Coordinator()
     }
 
-    func makeNSView(context: Context) -> NSScrollView {
+    func makeNSView(context: Context) -> NSView {
         let textView = NSTextView()
         configureTextView(textView)
 
@@ -25,30 +28,45 @@ struct CodeFileView: NSViewRepresentable {
         scrollView.documentView = textView
         configureScrollView(scrollView)
 
+        let gutter = LineNumberGutterView()
+        gutter.textView = textView
+        gutter.scrollView = scrollView
+
+        let container = CodeContainerView(gutter: gutter, scrollView: scrollView)
+
         let coordinator = context.coordinator
         coordinator.textView = textView
-
-        let gutter = LineNumberGutterView(
-            scrollView: scrollView,
-            orientation: .verticalRuler
-        )
-        gutter.clientView = textView
-        scrollView.verticalRulerView = gutter
-        scrollView.hasVerticalRuler = true
-        scrollView.rulersVisible = true
+        coordinator.scrollView = scrollView
         coordinator.gutter = gutter
+        coordinator.container = container
 
         applyTheme(to: textView, scrollView: scrollView)
         applyContent(to: textView)
-        updateGutter(gutter, textView: textView)
+        updateGutter(gutter, textView: textView, container: container)
 
-        return scrollView
+        // Observe scroll changes to keep gutter in sync
+        coordinator.scrollObserver = NotificationCenter.default.addObserver(
+            forName: NSView.boundsDidChangeNotification,
+            object: scrollView.contentView,
+            queue: .main
+        ) { [weak gutter] _ in
+            MainActor.assumeIsolated {
+                gutter?.needsDisplay = true
+            }
+        }
+        scrollView.contentView.postsBoundsChangedNotifications = true
+
+        return container
     }
 
-    func updateNSView(_ scrollView: NSScrollView, context: Context) {
-        guard let textView = scrollView.documentView as? NSTextView else { return }
-
+    func updateNSView(_ nsView: NSView, context: Context) {
         let coordinator = context.coordinator
+        guard let textView = coordinator.textView,
+              let scrollView = coordinator.scrollView,
+              let gutter = coordinator.gutter,
+              let container = coordinator.container
+        else { return }
+
         let theme = appSettings.theme
         let scale = appSettings.scaleFactor
         let content = documentState.markdownContent
@@ -75,16 +93,14 @@ struct CodeFileView: NSViewRepresentable {
             }
         }
 
-        if let gutter = coordinator.gutter {
-            if themeChanged || scaleChanged {
-                gutter.updateAppearance(
-                    theme: theme,
-                    scaleFactor: scale
-                )
-            }
-            if contentChanged || themeChanged || scaleChanged || kindChanged {
-                updateGutter(gutter, textView: textView)
-            }
+        if themeChanged || scaleChanged {
+            gutter.updateAppearance(
+                theme: theme,
+                scaleFactor: scale
+            )
+        }
+        if contentChanged || themeChanged || scaleChanged || kindChanged {
+            updateGutter(gutter, textView: textView, container: container)
         }
 
         coordinator.lastTheme = theme
@@ -135,13 +151,19 @@ struct CodeFileView: NSViewRepresentable {
 
     // MARK: - Gutter
 
-    private func updateGutter(_ gutter: LineNumberGutterView, textView: NSTextView) {
+    private func updateGutter(
+        _ gutter: LineNumberGutterView,
+        textView: NSTextView,
+        container: CodeContainerView
+    ) {
         gutter.updateAppearance(
             theme: appSettings.theme,
             scaleFactor: appSettings.scaleFactor
         )
         let lineCount = textView.string.components(separatedBy: "\n").count
-        gutter.updateThickness(lineCount: lineCount)
+        let thickness = gutter.updateThickness(lineCount: lineCount)
+        container.gutterWidth = thickness
+        container.needsLayout = true
         gutter.needsDisplay = true
     }
 
@@ -234,16 +256,59 @@ struct CodeFileView: NSViewRepresentable {
     }
 }
 
+// MARK: - CodeContainerView
+
+/// Container that positions the gutter and scroll view side by side.
+final class CodeContainerView: NSView {
+    let gutter: LineNumberGutterView
+    let scrollView: NSScrollView
+    var gutterWidth: CGFloat = 35
+
+    override var isFlipped: Bool {
+        true
+    }
+
+    init(gutter: LineNumberGutterView, scrollView: NSScrollView) {
+        self.gutter = gutter
+        self.scrollView = scrollView
+        super.init(frame: .zero)
+        addSubview(gutter)
+        addSubview(scrollView)
+        autoresizingMask = [.width, .height]
+    }
+
+    @available(*, unavailable)
+    required init?(coder _: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func layout() {
+        super.layout()
+        let w = gutterWidth
+        gutter.frame = NSRect(x: 0, y: 0, width: w, height: bounds.height)
+        scrollView.frame = NSRect(x: w, y: 0, width: bounds.width - w, height: bounds.height)
+    }
+}
+
 // MARK: - Coordinator
 
 extension CodeFileView {
     @MainActor
     final class Coordinator {
         var textView: NSTextView?
+        var scrollView: NSScrollView?
         var gutter: LineNumberGutterView?
+        var container: CodeContainerView?
+        nonisolated(unsafe) var scrollObserver: Any?
         var lastTheme: AppTheme?
         var lastScale: CGFloat?
         var lastContent: String?
         var lastFileKind: FileKind?
+
+        deinit {
+            if let obs = scrollObserver {
+                NotificationCenter.default.removeObserver(obs)
+            }
+        }
     }
 }

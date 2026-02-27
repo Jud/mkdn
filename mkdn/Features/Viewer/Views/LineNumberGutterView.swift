@@ -2,14 +2,14 @@ import AppKit
 
 /// Line number gutter displayed alongside code in CodeFileView.
 ///
-/// An NSRulerView subclass that draws right-aligned line numbers by enumerating
-/// the text view's NSLayoutManager line fragments. Installed as the NSScrollView's
-/// vertical ruler view for automatic scroll synchronization.
+/// A plain NSView that draws right-aligned line numbers by enumerating
+/// the text view's NSLayoutManager line fragments. Positioned as a sibling
+/// to the NSScrollView for explicit layout control and scroll synchronization.
 ///
-/// Uses theme ``ThemeColors/foregroundSecondary`` at reduced opacity for numbers,
-/// ``ThemeColors/background`` for the gutter background, and an optional subtle
+/// Uses theme ``ThemeColors/foregroundSecondary`` for numbers,
+/// ``ThemeColors/background`` for the gutter background, and a subtle
 /// right border at ``ThemeColors/border`` with very low opacity.
-final class LineNumberGutterView: NSRulerView {
+final class LineNumberGutterView: NSView {
     // MARK: - Drawing Properties
 
     var lineNumberColor: NSColor = .secondaryLabelColor
@@ -23,7 +23,11 @@ final class LineNumberGutterView: NSRulerView {
     static let rightPadding: CGFloat = 6
     static let minimumDigitCount = 2
     private static let borderOpacity: CGFloat = 0.15
-    private static let numberOpacity: CGFloat = 0.6
+
+    // MARK: - References
+
+    weak var textView: NSTextView?
+    weak var scrollView: NSScrollView?
 
     // MARK: - Init
 
@@ -31,29 +35,31 @@ final class LineNumberGutterView: NSRulerView {
         true
     }
 
-    override init(scrollView: NSScrollView?, orientation: NSRulerView.Orientation) {
-        super.init(scrollView: scrollView, orientation: orientation)
-        ruleThickness = Self.calculateThickness(lineCount: 1, font: lineNumberFont)
+    init() {
+        super.init(frame: .zero)
     }
 
     @available(*, unavailable)
-    required init(coder _: NSCoder) {
+    required init?(coder _: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
     // MARK: - Drawing
 
-    override func drawHashMarksAndLabels(in rect: NSRect) {
+    override func draw(_ dirtyRect: NSRect) {
         gutterBackgroundColor.setFill()
-        rect.fill()
+        bounds.fill()
 
         borderColor.withAlphaComponent(Self.borderOpacity).setFill()
-        NSRect(x: bounds.maxX - 1, y: rect.minY, width: 1, height: rect.height).fill()
+        NSRect(x: bounds.maxX - 1, y: dirtyRect.minY, width: 1, height: dirtyRect.height).fill()
 
-        guard let textView = clientView as? NSTextView,
+        guard let textView,
               let layoutManager = textView.layoutManager,
-              let textContainer = textView.textContainer
-        else { return }
+              let textContainer = textView.textContainer,
+              let scrollView
+        else {
+            return
+        }
 
         let origin = textView.textContainerOrigin
         let attrs: [NSAttributedString.Key: Any] = [
@@ -71,7 +77,6 @@ final class LineNumberGutterView: NSRulerView {
             return
         }
 
-        guard let scrollView else { return }
         let visibleRect = scrollView.contentView.bounds
         let containerRect = visibleRect.offsetBy(dx: -origin.x, dy: -origin.y)
         let visibleGlyphs = layoutManager.glyphRange(
@@ -86,7 +91,7 @@ final class LineNumberGutterView: NSRulerView {
         )
 
         layoutManager.enumerateLineFragments(forGlyphRange: visibleGlyphs) { fragmentRect, _, _, _, _ in
-            let y = fragmentRect.minY + origin.y
+            let y = fragmentRect.minY + origin.y - visibleRect.origin.y
             self.drawLineNumber(
                 lineNumber,
                 atY: y,
@@ -134,23 +139,36 @@ final class LineNumberGutterView: NSRulerView {
         return ceil(leftPadding + digitWidth + rightPadding)
     }
 
-    /// Update the gutter thickness when the line count changes.
-    func updateThickness(lineCount: Int) {
+    /// Update the gutter width when the line count changes.
+    /// Returns the new thickness so the caller can adjust layout.
+    @discardableResult
+    func updateThickness(lineCount: Int) -> CGFloat {
         let thickness = Self.calculateThickness(lineCount: lineCount, font: lineNumberFont)
-        if abs(ruleThickness - thickness) > 0.5 {
-            ruleThickness = thickness
+        if abs(frame.width - thickness) > 0.5 {
+            frame.size.width = thickness
         }
+        return thickness
     }
 
     /// Update colors and font from theme and zoom settings.
     func updateAppearance(theme: AppTheme, scaleFactor: CGFloat) {
-        lineNumberColor = PlatformTypeConverter.nsColor(from: theme.colors.foregroundSecondary)
-            .withAlphaComponent(Self.numberOpacity)
-        gutterBackgroundColor = PlatformTypeConverter.nsColor(from: theme.colors.background)
-        borderColor = PlatformTypeConverter.nsColor(from: theme.colors.border)
+        lineNumberColor = Self.resolveColor(
+            PlatformTypeConverter.nsColor(from: theme.colors.foregroundSecondary)
+        )
+        gutterBackgroundColor = Self.resolveColor(
+            PlatformTypeConverter.nsColor(from: theme.colors.background)
+        )
+        borderColor = Self.resolveColor(
+            PlatformTypeConverter.nsColor(from: theme.colors.border)
+        )
         lineNumberFont = .monospacedSystemFont(
             ofSize: NSFont.systemFontSize * scaleFactor * 0.85,
             weight: .regular
         )
+    }
+
+    /// Convert a potentially dynamic NSColor (from SwiftUI) to a concrete sRGB color.
+    private static func resolveColor(_ color: NSColor) -> NSColor {
+        color.usingColorSpace(.sRGB) ?? color
     }
 }
