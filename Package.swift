@@ -58,7 +58,11 @@ let package = Package(
             name: "mkdnLib",
             dependencies: [
                 .product(name: "Markdown", package: "swift-markdown"),
-                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                .product(
+                    name: "ArgumentParser",
+                    package: "swift-argument-parser",
+                    condition: .when(platforms: [.macOS])
+                ),
                 .product(name: "SwiftTreeSitter", package: "SwiftTreeSitter"),
                 .product(name: "TreeSitterSwift", package: "tree-sitter-swift"),
                 .product(name: "TreeSitterPython", package: "tree-sitter-python"),
