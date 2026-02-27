@@ -114,7 +114,9 @@ public struct DocumentWindow: View {
             SidebarView()
                 .environment(directoryState)
         } else {
-            SidebarPlaceholderView()
+            SidebarPlaceholderView { url in
+                setupDirectoryState(rootURL: url)
+            }
         }
     }
 
