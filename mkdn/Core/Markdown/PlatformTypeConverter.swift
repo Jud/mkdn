@@ -1,17 +1,68 @@
-import AppKit
+#if os(macOS)
+    import AppKit
+#else
+    import UIKit
+#endif
 import SwiftUI
 
-/// Converts SwiftUI types to AppKit platform equivalents for NSTextView rendering.
+/// Converts SwiftUI types to platform equivalents for attributed string rendering.
+/// Serves as the cross-platform abstraction hub: all platform-specific type references
+/// in core rendering files route through typealiases and bridge methods defined here.
 enum PlatformTypeConverter {
+    // MARK: - Platform Type Aliases
+
+    #if os(macOS)
+        typealias PlatformFont = NSFont
+        typealias PlatformColor = NSColor
+        typealias PlatformImage = NSImage
+    #else
+        typealias PlatformFont = UIFont
+        typealias PlatformColor = UIColor
+        typealias PlatformImage = UIImage
+    #endif
+
+    // MARK: - Font Trait Bridge
+
+    struct FontTrait: OptionSet, Sendable {
+        let rawValue: UInt
+        static let bold = Self(rawValue: 1 << 0)
+        static let italic = Self(rawValue: 1 << 1)
+    }
+
+    static func convertFont(
+        _ font: PlatformFont,
+        toHaveTrait trait: FontTrait
+    ) -> PlatformFont {
+        #if os(macOS)
+            var nsMask: NSFontTraitMask = []
+            if trait.contains(.bold) { nsMask.insert(.boldFontMask) }
+            if trait.contains(.italic) { nsMask.insert(.italicFontMask) }
+            return NSFontManager.shared.convert(font, toHaveTrait: nsMask)
+        #else
+            var symbolicTraits = font.fontDescriptor.symbolicTraits
+            if trait.contains(.bold) { symbolicTraits.insert(.traitBold) }
+            if trait.contains(.italic) { symbolicTraits.insert(.traitItalic) }
+            guard let descriptor = font.fontDescriptor.withSymbolicTraits(symbolicTraits) else {
+                return font
+            }
+            return UIFont(descriptor: descriptor, size: 0)
+        #endif
+    }
+
     // MARK: - Color Conversion
 
-    static func nsColor(from color: Color) -> NSColor {
-        NSColor(color)
+    static func color(from color: Color) -> PlatformColor {
+        PlatformColor(color)
+    }
+
+    /// Backward-compatible forwarding wrapper. Prefer ``color(from:)`` for new code.
+    static func nsColor(from color: Color) -> PlatformColor {
+        self.color(from: color)
     }
 
     // MARK: - Font Factory
 
-    static func headingFont(level: Int, scaleFactor: CGFloat = 1.0) -> NSFont {
+    static func headingFont(level: Int, scaleFactor: CGFloat = 1.0) -> PlatformFont {
         let baseSize: CGFloat = switch level {
         case 1: 28
         case 2: 24
@@ -20,21 +71,21 @@ enum PlatformTypeConverter {
         case 5: 16
         default: 14
         }
-        let weight: NSFont.Weight = level <= 2 ? .bold : level <= 4 ? .semibold : .medium
+        let weight: PlatformFont.Weight = level <= 2 ? .bold : level <= 4 ? .semibold : .medium
         return .systemFont(ofSize: baseSize * scaleFactor, weight: weight)
     }
 
-    static func bodyFont(scaleFactor: CGFloat = 1.0) -> NSFont {
-        let base = NSFont.preferredFont(forTextStyle: .body)
+    static func bodyFont(scaleFactor: CGFloat = 1.0) -> PlatformFont {
+        let base = PlatformFont.preferredFont(forTextStyle: .body)
         return .systemFont(ofSize: base.pointSize * scaleFactor)
     }
 
-    static func monospacedFont(scaleFactor: CGFloat = 1.0) -> NSFont {
-        .monospacedSystemFont(ofSize: NSFont.systemFontSize * scaleFactor, weight: .regular)
+    static func monospacedFont(scaleFactor: CGFloat = 1.0) -> PlatformFont {
+        .monospacedSystemFont(ofSize: PlatformFont.systemFontSize * scaleFactor, weight: .regular)
     }
 
-    static func captionMonospacedFont(scaleFactor: CGFloat = 1.0) -> NSFont {
-        .monospacedSystemFont(ofSize: NSFont.smallSystemFontSize * scaleFactor, weight: .regular)
+    static func captionMonospacedFont(scaleFactor: CGFloat = 1.0) -> PlatformFont {
+        .monospacedSystemFont(ofSize: PlatformFont.smallSystemFontSize * scaleFactor, weight: .regular)
     }
 
     // MARK: - Paragraph Style
