@@ -60,12 +60,24 @@ struct SidebarRowView: View {
         }
     }
 
+    private var fileIconName: String {
+        if let kind = node.url.fileKind {
+            switch kind {
+            case .markdown:
+                return "doc.richtext"
+            case .sourceCode, .plainText:
+                return "doc.text"
+            }
+        }
+        return "doc.text"
+    }
+
     private var fileRow: some View {
         HStack(spacing: 6) {
             Spacer()
                 .frame(width: 12)
 
-            Image(systemName: "doc.text")
+            Image(systemName: fileIconName)
                 .foregroundStyle(appSettings.theme.colors.foregroundSecondary)
 
             Text(node.name)

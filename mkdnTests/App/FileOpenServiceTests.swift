@@ -81,14 +81,14 @@ struct FileOpenServiceTests {
         #expect(reexecURLs == [url])
     }
 
-    @Test("Non-markdown URLs are filtered out")
-    @MainActor func nonMarkdownFiltered() {
+    @Test("Unrecognized file types are filtered out")
+    @MainActor func unrecognizedFiltered() {
         let service = FileOpenService()
-        let txt = URL(fileURLWithPath: "/tmp/readme.txt")
-        let html = URL(fileURLWithPath: "/tmp/index.html")
+        let png = URL(fileURLWithPath: "/tmp/photo.png")
+        let pdf = URL(fileURLWithPath: "/tmp/report.pdf")
 
         service.handleOpenDocuments(
-            urls: [txt, html],
+            urls: [png, pdf],
             didFinishLaunching: true,
             hasVisibleWindows: true
         )
@@ -96,19 +96,36 @@ struct FileOpenServiceTests {
         #expect(service.pendingURLs.isEmpty)
     }
 
-    @Test("Mixed URLs: only markdown URLs are routed")
-    @MainActor func mixedURLsOnlyMarkdownRouted() {
+    @Test("Text files are accepted alongside markdown")
+    @MainActor func textFilesAccepted() {
         let service = FileOpenService()
         let md = URL(fileURLWithPath: "/tmp/readme.md")
         let txt = URL(fileURLWithPath: "/tmp/notes.txt")
-        let markdown = URL(fileURLWithPath: "/tmp/doc.markdown")
+        let swift = URL(fileURLWithPath: "/tmp/main.swift")
+        let html = URL(fileURLWithPath: "/tmp/index.html")
 
         service.handleOpenDocuments(
-            urls: [md, txt, markdown],
+            urls: [md, txt, swift, html],
             didFinishLaunching: true,
             hasVisibleWindows: true
         )
 
-        #expect(service.pendingURLs == [md, markdown])
+        #expect(service.pendingURLs == [md, txt, swift, html])
+    }
+
+    @Test("Mixed URLs: only recognized text files are routed")
+    @MainActor func mixedURLsOnlyTextFilesRouted() {
+        let service = FileOpenService()
+        let md = URL(fileURLWithPath: "/tmp/readme.md")
+        let png = URL(fileURLWithPath: "/tmp/photo.png")
+        let json = URL(fileURLWithPath: "/tmp/data.json")
+
+        service.handleOpenDocuments(
+            urls: [md, png, json],
+            didFinishLaunching: true,
+            hasVisibleWindows: true
+        )
+
+        #expect(service.pendingURLs == [md, json])
     }
 }

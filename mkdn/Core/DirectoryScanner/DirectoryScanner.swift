@@ -1,10 +1,12 @@
 import Foundation
 
 /// Recursively scans a directory and builds a ``FileTreeNode`` tree
-/// containing only Markdown files and directories that contain them.
+/// containing only text files recognized by ``FileKind`` and directories
+/// that contain them.
 public enum DirectoryScanner {
     /// Scan a directory and return a ``FileTreeNode`` tree containing
-    /// only Markdown files and directories that contain them.
+    /// only text files recognized by ``FileKind`` and directories that
+    /// contain them.
     ///
     /// - Parameters:
     ///   - url: Root directory URL.
@@ -70,7 +72,7 @@ public enum DirectoryScanner {
                 ) {
                     directories.append(node)
                 }
-            } else if isMarkdownFile(itemURL) {
+            } else if itemURL.isTextFile {
                 files.append(FileTreeNode(name: itemName, url: itemURL, isDirectory: false, depth: depth + 1))
             }
         }
@@ -105,7 +107,7 @@ public enum DirectoryScanner {
         depth: Int,
         fileManager: FileManager
     ) -> FileTreeNode? {
-        guard directoryHasMarkdownFiles(at: url, fileManager: fileManager) else { return nil }
+        guard directoryHasTextFiles(at: url, fileManager: fileManager) else { return nil }
 
         let truncationURL = url.appendingPathComponent("...")
         let truncationNode = FileTreeNode(
@@ -118,11 +120,7 @@ public enum DirectoryScanner {
         return FileTreeNode(name: name, url: url, isDirectory: true, depth: depth, children: [truncationNode])
     }
 
-    private static func isMarkdownFile(_ url: URL) -> Bool {
-        url.isMarkdownFile
-    }
-
-    private static func directoryHasMarkdownFiles(
+    private static func directoryHasTextFiles(
         at url: URL,
         fileManager: FileManager
     ) -> Bool {
@@ -134,6 +132,6 @@ public enum DirectoryScanner {
         else {
             return false
         }
-        return contents.contains { isMarkdownFile($0) }
+        return contents.contains(where: \.isTextFile)
     }
 }

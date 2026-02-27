@@ -39,7 +39,7 @@ public final class FileOpenService {
     /// Routes file-open events based on current app state.
     ///
     /// - Parameters:
-    ///   - urls: Raw URLs from the system event (non-Markdown URLs are filtered out).
+    ///   - urls: Raw URLs from the system event (unrecognized file types are filtered out).
     ///   - didFinishLaunching: Whether `applicationDidFinishLaunching` has fired.
     ///   - hasVisibleWindows: Whether the app has at least one visible non-panel window.
     public func handleOpenDocuments(
@@ -47,34 +47,34 @@ public final class FileOpenService {
         didFinishLaunching: Bool,
         hasVisibleWindows: Bool
     ) {
-        let markdownURLs = urls.filter(\.isMarkdownFile)
-        guard !markdownURLs.isEmpty else { return }
+        let textFileURLs = urls.filter(\.isTextFile)
+        guard !textFileURLs.isEmpty else { return }
 
-        for url in markdownURLs {
+        for url in textFileURLs {
             NSDocumentController.shared.noteNewRecentDocumentURL(url)
         }
 
         if hasVisibleWindows {
-            for url in markdownURLs {
+            for url in textFileURLs {
                 pendingURLs.append(url)
             }
         } else if didFinishLaunching {
-            for url in markdownURLs {
+            for url in textFileURLs {
                 openFileWindow?(url)
             }
         } else {
             if let reexecHandler {
-                reexecHandler(markdownURLs)
+                reexecHandler(textFileURLs)
             } else {
-                performDefaultReexec(markdownURLs)
+                performDefaultReexec(textFileURLs)
             }
         }
     }
 
     // MARK: - Private
 
-    private func performDefaultReexec(_ markdownURLs: [URL]) {
-        let pathString = markdownURLs.map(\.path).joined(separator: "\n")
+    private func performDefaultReexec(_ textFileURLs: [URL]) {
+        let pathString = textFileURLs.map(\.path).joined(separator: "\n")
         setenv("MKDN_LAUNCH_FILE", pathString, 1)
 
         let execPath = Bundle.main.executablePath ?? ProcessInfo.processInfo.arguments[0]
@@ -85,7 +85,7 @@ public final class FileOpenService {
         }
 
         // execv only returns on failure -- fall back to pendingURLs
-        for url in markdownURLs {
+        for url in textFileURLs {
             pendingURLs.append(url)
         }
     }
