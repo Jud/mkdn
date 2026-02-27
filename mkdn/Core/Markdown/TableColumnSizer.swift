@@ -1,4 +1,8 @@
-import AppKit
+#if os(macOS)
+    import AppKit
+#else
+    import UIKit
+#endif
 
 /// Pure-computation engine that measures column widths from table cell content.
 ///
@@ -35,14 +39,14 @@ enum TableColumnSizer {
         columns: [TableColumn],
         rows: [[AttributedString]],
         containerWidth: CGFloat,
-        font: NSFont
+        font: PlatformTypeConverter.PlatformFont
     ) -> Result {
         let columnCount = columns.count
         guard columnCount > 0 else {
             return Result(columnWidths: [], totalWidth: 0)
         }
 
-        let boldFont = NSFontManager.shared.convert(font, toHaveTrait: .boldFontMask)
+        let boldFont = PlatformTypeConverter.convertFont(font, toHaveTrait: .bold)
 
         var intrinsicWidths = [CGFloat](repeating: 0, count: columnCount)
         for (colIndex, column) in columns.enumerated() {
@@ -121,12 +125,12 @@ enum TableColumnSizer {
         columns: [TableColumn],
         rows: [[AttributedString]],
         columnWidths: [CGFloat],
-        font: NSFont
+        font: PlatformTypeConverter.PlatformFont
     ) -> CGFloat {
         let columnCount = columns.count
         guard columnCount > 0 else { return 0 }
 
-        let boldFont = NSFontManager.shared.convert(font, toHaveTrait: .boldFontMask)
+        let boldFont = PlatformTypeConverter.convertFont(font, toHaveTrait: .bold)
         let lineHeight = ceil(font.ascender - font.descender + font.leading)
         let boldLineHeight = ceil(boldFont.ascender - boldFont.descender + boldFont.leading)
 
@@ -158,7 +162,7 @@ enum TableColumnSizer {
 
     private static func measureCellWidth(
         _ content: AttributedString,
-        font: NSFont
+        font: PlatformTypeConverter.PlatformFont
     ) -> CGFloat {
         let plainText = String(content.characters)
         guard !plainText.isEmpty else { return 0 }
@@ -178,7 +182,7 @@ enum TableColumnSizer {
     private static func estimateRowHeight(
         cells: [AttributedString],
         columnWidths: [CGFloat],
-        font: NSFont,
+        font: PlatformTypeConverter.PlatformFont,
         lineHeight: CGFloat
     ) -> CGFloat {
         let columnCount = columnWidths.count

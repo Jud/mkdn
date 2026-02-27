@@ -2,7 +2,7 @@
 
 **Feature ID**: mkdnlib-cross-platform
 **Status**: Not Started
-**Progress**: 29% (5 of 17 tasks)
+**Progress**: 35% (6 of 17 tasks)
 **Estimated Effort**: 4 days
 **Started**: 2026-02-27
 
@@ -129,6 +129,18 @@ Make mkdnLib compile for both macOS 14+ and iOS 17+ by configuring Package.swift
     - **Deviations**: None
     - **Tests**: 587/587 passing
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | N/A |
+    | Commit | PASS |
+    | Comments | PASS |
+
 - [x] **T4**: Migrate SyntaxHighlightEngine with conditional imports and color rename `[complexity:simple]`
 
     **Reference**: [design.md#35-core-file-migration-summary](design.md#35-core-file-migration-summary)
@@ -148,6 +160,18 @@ Make mkdnLib compile for both macOS 14+ and iOS 17+ by configuring Package.swift
     - **Approach**: Replaced bare `import AppKit` with conditional import guard. Renamed 2 `PlatformTypeConverter.nsColor(from:)` calls to `.color(from:)` for platform-neutral API. No other changes needed; NSMutableAttributedString and .foregroundColor are Foundation types.
     - **Deviations**: None
     - **Tests**: 587/587 passing
+
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | N/A |
+    | Commit | PASS |
+    | Comments | PASS |
 
 - [x] **T5**: Migrate MathRenderer with conditional imports and platform types `[complexity:simple]`
 
@@ -170,7 +194,19 @@ Make mkdnLib compile for both macOS 14+ and iOS 17+ by configuring Package.swift
     - **Deviations**: None
     - **Tests**: 587/587 passing
 
-- [ ] **T6**: Migrate TableColumnSizer with conditional imports and font bridge `[complexity:simple]`
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | N/A |
+    | Commit | PASS |
+    | Comments | PASS |
+
+- [x] **T6**: Migrate TableColumnSizer with conditional imports and font bridge `[complexity:simple]`
 
     **Reference**: [design.md#35-core-file-migration-summary](design.md#35-core-file-migration-summary)
 
@@ -178,11 +214,18 @@ Make mkdnLib compile for both macOS 14+ and iOS 17+ by configuring Package.swift
 
     **Acceptance Criteria**:
 
-    - [ ] `import AppKit` replaced with `#if os(macOS) import AppKit #else import UIKit #endif`
-    - [ ] `font: NSFont` parameters changed to `PlatformFont`
-    - [ ] 2 `NSFontManager.shared.convert(font, toHaveTrait: .boldFontMask)` calls replaced with `PlatformTypeConverter.convertFont(font, toHaveTrait: .bold)`
-    - [ ] NSAttributedString measurement APIs confirmed as Foundation (no changes)
-    - [ ] `swift build` succeeds on macOS with zero errors
+    - [x] `import AppKit` replaced with `#if os(macOS) import AppKit #else import UIKit #endif`
+    - [x] `font: NSFont` parameters changed to `PlatformFont`
+    - [x] 2 `NSFontManager.shared.convert(font, toHaveTrait: .boldFontMask)` calls replaced with `PlatformTypeConverter.convertFont(font, toHaveTrait: .bold)`
+    - [x] NSAttributedString measurement APIs confirmed as Foundation (no changes)
+    - [x] `swift build` succeeds on macOS with zero errors
+
+    **Implementation Summary**:
+
+    - **Files**: `mkdn/Core/Markdown/TableColumnSizer.swift`
+    - **Approach**: Replaced bare `import AppKit` with conditional import guard. Changed 4 `NSFont` parameter types to `PlatformTypeConverter.PlatformFont` (computeWidths, estimateTableHeight, measureCellWidth, estimateRowHeight). Replaced 2 `NSFontManager.shared.convert(font, toHaveTrait: .boldFontMask)` calls with `PlatformTypeConverter.convertFont(font, toHaveTrait: .bold)`. NSAttributedString measurement APIs (.size(), .boundingRect()) confirmed as Foundation types requiring no changes.
+    - **Deviations**: None
+    - **Tests**: 587/587 passing
 
 - [ ] **T7**: Migrate MarkdownTextStorageBuilder (main + 4 extensions) `[complexity:medium]`
 
