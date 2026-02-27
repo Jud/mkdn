@@ -1,4 +1,8 @@
-import AppKit
+#if os(macOS)
+    import AppKit
+#else
+    import UIKit
+#endif
 import SwiftTreeSitter
 
 /// Synchronous syntax highlighting engine using tree-sitter.
@@ -29,7 +33,7 @@ enum SyntaxHighlightEngine {
             return nil
         }
 
-        let plainColor = PlatformTypeConverter.nsColor(from: syntaxColors.variable)
+        let plainColor = PlatformTypeConverter.color(from: syntaxColors.variable)
         let result = NSMutableAttributedString(
             string: code,
             attributes: [.foregroundColor: plainColor]
@@ -58,7 +62,7 @@ enum SyntaxHighlightEngine {
                           range.location + range.length <= resultLength
                     else { continue }
 
-                    let color = PlatformTypeConverter.nsColor(
+                    let color = PlatformTypeConverter.color(
                         from: tokenType.color(from: syntaxColors)
                     )
                     result.addAttribute(.foregroundColor, value: color, range: range)
