@@ -31,7 +31,6 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
 
         guard !TestHarnessMode.isEnabled else { return }
         NSApp.setActivationPolicy(.regular)
-
     }
 
     public func applicationDidFinishLaunching(_: Notification) {

@@ -163,9 +163,7 @@ public struct MkdnCommands: Commands {
 
             Section {
                 Button("Cycle Theme") {
-                    withAnimation(motionAnimation(.crossfade)) {
-                        appSettings.cycleTheme()
-                    }
+                    appSettings.cycleTheme()
                     documentState?.modeOverlayLabel = appSettings.themeMode.displayName
                 }
                 .keyboardShortcut("t", modifiers: .command)

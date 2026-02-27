@@ -38,7 +38,7 @@ extension OverlayCoordinator {
         adjustTableRowHeights(in: textView)
         observeLayoutChanges(on: textView)
         observeScrollChanges(on: textView)
-        repositionOverlays()
+        scheduleReposition()
     }
 
     /// Maps the current NSTextView selection to cell positions for each table
