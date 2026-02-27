@@ -52,13 +52,71 @@ Imagine opening a repository in mkdn:
 - **Diff rendering**: Inline diff view showing what changed, with the same annotation capability.
 - **Live file watching in sidebar**: Auto-refresh when the AI agent modifies files in the project tree.
 
+### The Agentic Review Session
+
+The critical architectural insight: the review session is a **long-lived main thread** that stays lightweight, while all implementation work happens in disposable agent contexts.
+
+```
+mkdn                          Main Thread                    Agents
+  │                          (long-lived)
+  │  "rename this var"  ──▶  receives feedback
+  │                          spawns agent      ──▶  Agent: renames var,
+  │                                                 updates 3 callers,
+  │                                                 writes files, exits
+  │  ◀── file watcher picks up changes
+  │  re-renders
+  │
+  │                          ◀── agent returns summary
+  │  ◀── "renamed in 4 places,
+  │       but UserService.swift
+  │       has a related method
+  │       — should I update that too?"
+  │
+  │  user taps "show me"  ──▶  navigates mkdn to that file
+  │
+  │  "yeah, update it"   ──▶  spawns another agent  ──▶  ...
+```
+
+The main thread's context is almost entirely **natural language** — short user comments, short agent summaries, short questions. No code dumps, no file contents, no tool output bloat. All of that lives in agents that come and go. You could review an entire codebase in one session.
+
+### Protocol Design — Minimal MCP Surface
+
+Context bloat kills long-lived agent sessions. The MCP API surface must be **surgical** — one tool, three fields:
+
+**mkdn → Claude Code** (single MCP tool):
+```
+review_feedback { file, lines, comment }
+```
+
+**Claude Code → mkdn** (filesystem, not MCP):
+```json
+// .mkdn/agent-messages/001.json
+{
+  "type": "question",
+  "text": "Update UserService too?",
+  "file": "src/UserService.swift",
+  "lines": [42, 45],
+  "options": ["Yes", "Show me first", "Skip"]
+}
+```
+
+mkdn watches the message directory, renders questions inline as cards near the relevant lines, and user responses flow back through the same `review_feedback` tool. Claude Code never needs a second tool. The return channel is just the filesystem.
+
+This keeps the MCP context cost to one tool definition with three fields — minimal injection per message.
+
+### Why This Architecture Works
+
+- **The filesystem is shared state**: Both mkdn and Claude Code already read/write files. No new transport needed for most data flow.
+- **MCP is the narrow feedback channel**: Only human reactions need a dedicated protocol. Everything else rides on file watching.
+- **Agents keep the main thread lean**: Implementation details never enter the review conversation. The main thread holds intent ("user cares about naming consistency in this module") while agents hold execution.
+- **Sessions can run for hours**: Because the main thread is natural language, not code, the context window lasts. One review session can cover an entire codebase.
+
 ### Open Questions
 
-- What's the simplest viable feedback loop? (File-based? MCP? Clipboard?)
 - Should code files render as enhanced markdown (fenced code blocks) or have their own dedicated renderer?
 - How does voice input fit? (macOS dictation? Whisper? Something else?)
-- Is there a Claude Code hook/plugin API that could receive structured feedback?
-- How do we handle large repositories in the sidebar without performance issues?
+- What's the right UX for inline agent questions — floating cards? A conversation rail? Toast notifications?
+- How should mkdn handle multiple concurrent agent responses?
 
 ### Phased Approach
 
@@ -66,6 +124,6 @@ Imagine opening a repository in mkdn:
 
 **Phase 2 — Annotation Layer**: Add the ability to tap lines/ranges and attach text comments. Store annotations locally. Export as structured data (JSON, markdown).
 
-**Phase 3 — Agent Integration**: Connect annotations to a running AI agent. Explore Claude Code MCP integration, local API, or file-based protocols. Close the feedback loop.
+**Phase 3 — Agent Integration**: Single MCP tool (`review_feedback`). File-based return channel (`.mkdn/agent-messages/`). Close the feedback loop with Claude Code.
 
-**Phase 4 — Live Collaboration**: Real-time file watching, auto-refresh on changes, diff views, artifact streaming. The full review-first development surface.
+**Phase 4 — Agentic Review Sessions**: Long-lived main thread with agent dispatch. Inline question rendering. Diff views. The full review-first development surface.
