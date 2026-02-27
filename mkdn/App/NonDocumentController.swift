@@ -9,11 +9,11 @@ import AppKit
 ///
 /// By installing this subclass before `NSDocumentController.shared` is first
 /// accessed (in `AppDelegate.applicationWillFinishLaunching`), all document-class
-/// lookup errors are suppressed. File routing goes through ``FileOpenCoordinator``
+/// lookup errors are suppressed. File routing goes through ``FileOpenService``
 /// instead.
 @MainActor
 public final class NonDocumentController: NSDocumentController {
-    /// Routes Markdown files through ``FileOpenCoordinator`` instead of the
+    /// Routes Markdown files through ``FileOpenService`` instead of the
     /// document-class machinery.
     ///
     /// Calls `completionHandler(nil, false, nil)` to tell AppKit the open
@@ -24,8 +24,8 @@ public final class NonDocumentController: NSDocumentController {
         // swiftlint:disable:next unneeded_escaping
         completionHandler: @escaping (NSDocument?, Bool, (any Error)?) -> Void
     ) {
-        if FileOpenCoordinator.isMarkdownURL(url) {
-            FileOpenCoordinator.shared.pendingURLs.append(url)
+        if url.isMarkdownFile {
+            FileOpenService.shared.pendingURLs.append(url)
             completionHandler(nil, false, nil)
             return
         }

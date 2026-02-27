@@ -263,7 +263,7 @@ extension SelectableTextView {
             switch destination {
             case let .localMarkdown(resolvedURL):
                 if isCmdClick {
-                    FileOpenCoordinator.shared.pendingURLs.append(resolvedURL)
+                    FileOpenService.shared.pendingURLs.append(resolvedURL)
                 } else {
                     try? documentState?.loadFile(at: resolvedURL)
                 }

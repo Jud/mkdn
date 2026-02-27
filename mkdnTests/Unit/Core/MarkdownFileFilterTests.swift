@@ -5,44 +5,44 @@ import Testing
 @Suite("Markdown File Filter")
 struct MarkdownFileFilterTests {
     @Test(".md extension accepted")
-    @MainActor func acceptsMd() {
+    func acceptsMd() {
         let url = URL(fileURLWithPath: "/tmp/readme.md")
-        #expect(FileOpenCoordinator.isMarkdownURL(url))
+        #expect(url.isMarkdownFile)
     }
 
     @Test(".markdown extension accepted")
-    @MainActor func acceptsMarkdown() {
+    func acceptsMarkdown() {
         let url = URL(fileURLWithPath: "/tmp/readme.markdown")
-        #expect(FileOpenCoordinator.isMarkdownURL(url))
+        #expect(url.isMarkdownFile)
     }
 
     @Test(".txt extension rejected")
-    @MainActor func rejectsTxt() {
+    func rejectsTxt() {
         let url = URL(fileURLWithPath: "/tmp/readme.txt")
-        #expect(!FileOpenCoordinator.isMarkdownURL(url))
+        #expect(!url.isMarkdownFile)
     }
 
     @Test(".html extension rejected")
-    @MainActor func rejectsHtml() {
+    func rejectsHtml() {
         let url = URL(fileURLWithPath: "/tmp/readme.html")
-        #expect(!FileOpenCoordinator.isMarkdownURL(url))
+        #expect(!url.isMarkdownFile)
     }
 
     @Test(".rst extension rejected")
-    @MainActor func rejectsRst() {
+    func rejectsRst() {
         let url = URL(fileURLWithPath: "/tmp/readme.rst")
-        #expect(!FileOpenCoordinator.isMarkdownURL(url))
+        #expect(!url.isMarkdownFile)
     }
 
     @Test("Case-insensitive: .MD accepted")
-    @MainActor func acceptsUppercaseMD() {
+    func acceptsUppercaseMD() {
         let url = URL(fileURLWithPath: "/tmp/README.MD")
-        #expect(FileOpenCoordinator.isMarkdownURL(url))
+        #expect(url.isMarkdownFile)
     }
 
     @Test("Case-insensitive: .Markdown accepted")
-    @MainActor func acceptsMixedCaseMarkdown() {
+    func acceptsMixedCaseMarkdown() {
         let url = URL(fileURLWithPath: "/tmp/README.Markdown")
-        #expect(FileOpenCoordinator.isMarkdownURL(url))
+        #expect(url.isMarkdownFile)
     }
 }

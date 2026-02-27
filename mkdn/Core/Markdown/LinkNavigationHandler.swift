@@ -59,7 +59,7 @@ enum LinkNavigationHandler {
     // MARK: - Private
 
     private static func classifyLocalFile(_ url: URL) -> LinkDestination {
-        if FileOpenCoordinator.isMarkdownURL(url) {
+        if url.isMarkdownFile {
             return .localMarkdown(url)
         }
         return .otherLocalFile(url)
