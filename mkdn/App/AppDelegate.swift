@@ -119,7 +119,13 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
             else {
                 return event
             }
-            NSApp.keyWindow?.close()
+            if let keyWindow = NSApp.keyWindow {
+                keyWindow.close()
+            } else if let frontWindow = NSApp.orderedWindows.first(where: {
+                $0.isVisible && !($0 is NSPanel)
+            }) {
+                frontWindow.close()
+            }
             return nil
         }
     }

@@ -40,7 +40,6 @@ public final class WindowAccessorView: NSView {
     }
 
     private func configureWindow(_ window: NSWindow) {
-        let previousFrame = window.frame
         window.styleMask.remove(.titled)
         window.styleMask.insert(.resizable)
         window.styleMask.insert(.miniaturizable)
@@ -54,7 +53,16 @@ public final class WindowAccessorView: NSView {
             contentView.layer?.masksToBounds = true
         }
 
-        window.setFrame(previousFrame, display: true)
+        // Apply the user's saved window size. .defaultSize() on the
+        // WindowGroup only applies reliably to the first window; subsequent
+        // windows opened via openWindow(value:) may ignore it.
+        let savedWidth = UserDefaults.standard.double(forKey: "windowWidth")
+        let savedHeight = UserDefaults.standard.double(forKey: "windowHeight")
+        if savedWidth > 0, savedHeight > 0 {
+            var frame = window.frame
+            frame.size = NSSize(width: savedWidth, height: savedHeight)
+            window.setFrame(frame, display: true)
+        }
 
         NotificationCenter.default.addObserver(
             self,
