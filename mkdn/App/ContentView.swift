@@ -70,7 +70,7 @@ public struct ContentView: View {
     private func handleFileDrop(_ providers: [NSItemProvider]) -> Bool {
         guard let provider = providers.first else { return false }
         _ = provider.loadObject(ofClass: URL.self) { url, _ in
-            guard let url, FileOpenCoordinator.isMarkdownURL(url) else {
+            guard let url, url.isMarkdownFile else {
                 return
             }
             Task { @MainActor in

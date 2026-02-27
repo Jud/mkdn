@@ -25,7 +25,7 @@ private struct OptionalDirectoryEnvironment: ViewModifier {
 /// `focusedSceneValue` so menu commands can operate on the active window's
 /// document.
 ///
-/// The view also observes ``FileOpenCoordinator/pendingURLs`` and opens a new
+/// The view also observes ``FileOpenService/pendingURLs`` and opens a new
 /// window for every URL that arrives at runtime (Finder, dock, other apps).
 /// On the initial launch window (where `launchItem` is nil), pending URLs from
 /// the CLI or a cold-start Finder open are adopted directly to avoid an extra
@@ -96,10 +96,13 @@ public struct DocumentWindow: View {
                 TestHarnessHandler.documentState = documentState
                 TestHarnessServer.shared.start()
             }
+            FileOpenService.shared.openFileWindow = { [openWindow] url in
+                openWindow(value: LaunchItem.file(url))
+            }
             isReady = true
         }
-        .onChange(of: FileOpenCoordinator.shared.pendingURLs) {
-            for url in FileOpenCoordinator.shared.consumeAll() {
+        .onChange(of: FileOpenService.shared.pendingURLs) {
+            for url in FileOpenService.shared.consumePendingURLs() {
                 openWindow(value: LaunchItem.file(url))
             }
         }
@@ -158,7 +161,7 @@ public struct DocumentWindow: View {
                 openWindow(value: LaunchItem.directory(url))
             }
         } else {
-            let pending = FileOpenCoordinator.shared.consumeAll()
+            let pending = FileOpenService.shared.consumePendingURLs()
             if let first = pending.first {
                 try? documentState.loadFile(at: first)
                 NSDocumentController.shared.noteNewRecentDocumentURL(first)

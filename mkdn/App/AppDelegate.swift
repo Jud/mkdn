@@ -1,12 +1,10 @@
 import AppKit
 
-/// Handles system file-open events and routes them through ``FileOpenCoordinator``.
+/// Handles system file-open events and routes them through ``FileOpenService``.
 ///
 /// Wired into the SwiftUI lifecycle via `@NSApplicationDelegateAdaptor(AppDelegate.self)`.
-/// On cold launch, Finder file-open events are intercepted via a `kAEOpenDocuments`
-/// AppleEvent handler that stores URLs in ``LaunchContext`` and restarts the app
-/// without the event (same strategy as the CLI/execv path in `main.swift`).
-/// On warm launch, `application(_:open:)` routes through ``FileOpenCoordinator``.
+/// This is a thin delegate that extracts URLs from AppleEvents and delegates all
+/// routing logic to ``FileOpenService/handleOpenDocuments(urls:didFinishLaunching:hasVisibleWindows:)``.
 @MainActor
 public final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Tracks whether the app has fully launched. Used to distinguish cold
@@ -23,7 +21,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         // Intercept kAEOpenDocuments before NSApplication's default handler.
         // On cold launch this prevents the event from suppressing SwiftUI's
         // default window creation. On warm launch the handler delegates to
-        // FileOpenCoordinator via the pendingURLs queue.
+        // FileOpenService via the pendingURLs queue.
         NSAppleEventManager.shared().setEventHandler(
             self,
             andSelector: #selector(handleOpenDocuments(_:withReply:)),
@@ -53,40 +51,14 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         withReply _: NSAppleEventDescriptor
     ) {
         let urls = extractURLs(from: event)
-        let markdownURLs = urls.filter { FileOpenCoordinator.isMarkdownURL($0) }
-        guard !markdownURLs.isEmpty else { return }
-
-        for url in markdownURLs {
-            NSDocumentController.shared.noteNewRecentDocumentURL(url)
-        }
-
         let hasVisibleWindows = didFinishLaunching
             && NSApp.windows.contains { $0.isVisible && !($0 is NSPanel) }
 
-        if hasVisibleWindows {
-            // Warm launch with windows: existing DocumentWindow observers
-            // pick these up via onChange(of: pendingURLs).
-            for url in markdownURLs {
-                FileOpenCoordinator.shared.pendingURLs.append(url)
-            }
-        } else {
-            // Cold launch OR warm launch with no windows: store URLs in the
-            // env var and re-exec so SwiftUI launches clean with a default
-            // window. consumeLaunchContext() picks up the URLs.
-            let pathString = markdownURLs.map(\.path).joined(separator: "\n")
-            setenv("MKDN_LAUNCH_FILE", pathString, 1)
-
-            let execPath = Bundle.main.executablePath ?? ProcessInfo.processInfo.arguments[0]
-            let cArgs: [UnsafeMutablePointer<CChar>?] = [strdup(execPath), nil]
-            cArgs.withUnsafeBufferPointer { buffer in
-                guard let baseAddress = buffer.baseAddress else { return }
-                _ = execv(execPath, baseAddress)
-            }
-            // execv only returns on failure — fall back to pendingURLs
-            for url in markdownURLs {
-                FileOpenCoordinator.shared.pendingURLs.append(url)
-            }
-        }
+        FileOpenService.shared.handleOpenDocuments(
+            urls: urls,
+            didFinishLaunching: didFinishLaunching,
+            hasVisibleWindows: hasVisibleWindows
+        )
     }
 
     private func extractURLs(from event: NSAppleEventDescriptor) -> [URL] {

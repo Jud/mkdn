@@ -119,7 +119,7 @@ public enum DirectoryScanner {
     }
 
     private static func isMarkdownFile(_ url: URL) -> Bool {
-        FileOpenCoordinator.isMarkdownURL(url)
+        url.isMarkdownFile
     }
 
     private static func directoryHasMarkdownFiles(
