@@ -32,6 +32,13 @@ public final class WindowAccessorView: NSView {
         }
     }
 
+    @objc private func windowDidResize(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow else { return }
+        let size = window.frame.size
+        UserDefaults.standard.set(Double(size.width), forKey: "windowWidth")
+        UserDefaults.standard.set(Double(size.height), forKey: "windowHeight")
+    }
+
     private func configureWindow(_ window: NSWindow) {
         let previousFrame = window.frame
         window.styleMask.remove(.titled)
@@ -48,6 +55,13 @@ public final class WindowAccessorView: NSView {
         }
 
         window.setFrame(previousFrame, display: true)
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(windowDidResize(_:)),
+            name: NSWindow.didResizeNotification,
+            object: window
+        )
 
         guard !TestHarnessMode.isEnabled else { return }
         window.makeKeyAndOrderFront(nil)
