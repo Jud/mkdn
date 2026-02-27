@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Displayed when the directory contains no Markdown files.
+/// Displayed when the directory contains no recognized text files.
 struct SidebarEmptyView: View {
     @Environment(AppSettings.self) private var appSettings
 
@@ -9,7 +9,7 @@ struct SidebarEmptyView: View {
             Image(systemName: "doc.text.magnifyingglass")
                 .font(.title2)
                 .foregroundStyle(appSettings.theme.colors.foregroundSecondary)
-            Text("No Markdown files found")
+            Text("No text files found")
                 .font(.callout)
                 .foregroundStyle(appSettings.theme.colors.foregroundSecondary)
         }

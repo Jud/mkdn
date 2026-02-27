@@ -27,8 +27,8 @@ struct DirectoryScannerTests {
 
     // MARK: - Extension Filtering
 
-    @Test("Scans only .md and .markdown files")
-    func scansOnlyMarkdown() throws {
+    @Test("Scans all recognized text files")
+    func scansAllTextFiles() throws {
         let dir = try makeTempDir()
         defer { removeTempDir(dir) }
 
@@ -37,13 +37,19 @@ struct DirectoryScannerTests {
         try createFile(at: dir.appendingPathComponent("image.png"), content: "fake")
         try createFile(at: dir.appendingPathComponent("data.json"), content: "{}")
         try createFile(at: dir.appendingPathComponent("script.sh"), content: "#!/bin/bash")
+        try createFile(at: dir.appendingPathComponent("main.swift"), content: "import Foundation")
+        try createFile(at: dir.appendingPathComponent("notes.txt"), content: "hello")
 
         let tree = DirectoryScanner.scan(url: dir)
         let names = tree?.children.map(\.name) ?? []
 
-        #expect(names.count == 2)
-        #expect(names.contains("notes.markdown"))
         #expect(names.contains("readme.md"))
+        #expect(names.contains("notes.markdown"))
+        #expect(names.contains("data.json"))
+        #expect(names.contains("script.sh"))
+        #expect(names.contains("main.swift"))
+        #expect(names.contains("notes.txt"))
+        #expect(!names.contains("image.png"))
     }
 
     // MARK: - Hidden File/Directory Exclusion
@@ -66,21 +72,25 @@ struct DirectoryScannerTests {
 
     // MARK: - Empty Directory Pruning
 
-    @Test("Excludes directories containing no Markdown files")
+    @Test("Excludes directories containing no recognized text files")
     func excludesEmptyDirectories() throws {
         let dir = try makeTempDir()
         defer { removeTempDir(dir) }
 
         let emptyDir = try createSubdir(dir, name: "empty")
-        try createFile(at: emptyDir.appendingPathComponent("data.json"), content: "{}")
+        try createFile(at: emptyDir.appendingPathComponent("image.png"), content: "fake")
 
-        let dirWithMd = try createSubdir(dir, name: "docs")
-        try createFile(at: dirWithMd.appendingPathComponent("guide.md"))
+        let dirWithText = try createSubdir(dir, name: "docs")
+        try createFile(at: dirWithText.appendingPathComponent("guide.md"))
+
+        let dirWithSource = try createSubdir(dir, name: "src")
+        try createFile(at: dirWithSource.appendingPathComponent("main.swift"), content: "import Foundation")
 
         let tree = DirectoryScanner.scan(url: dir)
         let childNames = tree?.children.map(\.name) ?? []
 
         #expect(childNames.contains("docs"))
+        #expect(childNames.contains("src"))
         #expect(!childNames.contains("empty"))
     }
 
@@ -171,12 +181,12 @@ struct DirectoryScannerTests {
 
     // MARK: - Empty Directory
 
-    @Test("Handles directory with no Markdown files")
+    @Test("Handles directory with no recognized text files")
     func handlesEmptyDirectory() throws {
         let dir = try makeTempDir()
         defer { removeTempDir(dir) }
 
-        try createFile(at: dir.appendingPathComponent("readme.txt"), content: "text")
+        try createFile(at: dir.appendingPathComponent("image.png"), content: "fake")
 
         let tree = DirectoryScanner.scan(url: dir)
         #expect(tree != nil)
