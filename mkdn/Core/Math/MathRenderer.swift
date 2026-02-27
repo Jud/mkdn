@@ -1,14 +1,17 @@
-import AppKit
+#if os(macOS)
+    import AppKit
+#else
+    import UIKit
+#endif
 import SwiftMath
 
-/// Renders LaTeX math expressions to NSImage using SwiftMath.
+/// Renders LaTeX math expressions to images using SwiftMath.
 ///
-/// SwiftMath renders via CoreGraphics drawing commands into an NSImage with
-/// a draw handler, producing resolution-independent output that renders
-/// crisply on Retina displays. Uses the `MathImage` struct (not NSView),
-/// so rendering is safe from any thread.
+/// SwiftMath renders via CoreGraphics drawing commands, producing
+/// resolution-independent output that renders crisply on Retina displays.
+/// Uses the `MathImage` struct (not a view), so rendering is safe from any thread.
 enum MathRenderer {
-    /// Renders a LaTeX expression to an NSImage.
+    /// Renders a LaTeX expression to a platform image.
     ///
     /// - Parameters:
     ///   - latex: The LaTeX math expression (without delimiters).
@@ -22,9 +25,9 @@ enum MathRenderer {
     static func renderToImage(
         latex: String,
         fontSize: CGFloat,
-        textColor: NSColor,
+        textColor: PlatformTypeConverter.PlatformColor,
         displayMode: Bool = false
-    ) -> (image: NSImage, baseline: CGFloat)? {
+    ) -> (image: PlatformTypeConverter.PlatformImage, baseline: CGFloat)? {
         let trimmed = latex.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
 
