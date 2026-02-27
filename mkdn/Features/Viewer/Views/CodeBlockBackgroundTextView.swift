@@ -125,7 +125,6 @@ final class CodeBlockBackgroundTextView: NSTextView {
     override func resetCursorRects() {
         super.resetCursorRects()
         addLinkCursorRects()
-        addCursorRect(titleBarRect(), cursor: .arrow)
     }
 
     private func addLinkCursorRects() {
@@ -220,12 +219,22 @@ final class CodeBlockBackgroundTextView: NSTextView {
     }
 
     override func mouseMoved(with event: NSEvent) {
-        super.mouseMoved(with: event)
         let point = convert(event.locationInWindow, from: nil)
-        if titleBarRect().contains(point) {
+        if titleBarRect().contains(point) || isPointOverEmptySpace(point) {
             NSCursor.arrow.set()
+        } else {
+            super.mouseMoved(with: event)
         }
         updateCopyButtonForMouse(at: point)
+    }
+
+    override func cursorUpdate(with event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        if titleBarRect().contains(point) || isPointOverEmptySpace(point) {
+            NSCursor.arrow.set()
+            return
+        }
+        super.cursorUpdate(with: event)
     }
 
     override func mouseExited(with event: NSEvent) {
