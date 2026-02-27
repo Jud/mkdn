@@ -1,22 +1,6 @@
 import AppKit
 import SwiftUI
 
-/// Sets the hosting NSWindow's background color so that clipped SwiftUI
-/// views reveal the correct color rather than the system default.
-private struct WindowBackgroundColor: NSViewRepresentable {
-    let color: NSColor
-
-    func makeNSView(context _: Context) -> NSView {
-        NSView()
-    }
-
-    func updateNSView(_ nsView: NSView, context _: Context) {
-        DispatchQueue.main.async {
-            nsView.window?.backgroundColor = color
-        }
-    }
-}
-
 /// Conditionally injects ``DirectoryState`` into the environment when present.
 private struct OptionalDirectoryEnvironment: ViewModifier {
     let directoryState: DirectoryState?
@@ -92,11 +76,7 @@ public struct DocumentWindow: View {
                     .offset(x: sidebarOffset)
             }
         }
-        .background(
-            WindowBackgroundColor(
-                color: NSColor(appSettings.theme.colors.backgroundSecondary)
-            )
-        )
+        .background(appSettings.theme.colors.backgroundSecondary)
         .environment(\.isDirectoryMode, directoryState != nil)
         .animation(motion.resolved(.sidebarSlide), value: documentState.isSidebarVisible)
         .animation(motion.resolved(.sidebarSlide), value: documentState.sidebarWidth)
