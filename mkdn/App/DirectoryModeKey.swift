@@ -1,5 +1,7 @@
-import SwiftUI
+#if os(macOS)
+    import SwiftUI
 
-public extension EnvironmentValues {
-    @Entry var isDirectoryMode = false
-}
+    public extension EnvironmentValues {
+        @Entry var isDirectoryMode = false
+    }
+#endif

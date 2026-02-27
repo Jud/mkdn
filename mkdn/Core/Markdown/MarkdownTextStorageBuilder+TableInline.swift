@@ -264,7 +264,8 @@ extension MarkdownTextStorageBuilder {
             )
             let rect = measured.boundingRect(
                 with: CGSize(width: availableWidth, height: .greatestFiniteMagnitude),
-                options: [.usesLineFragmentOrigin, .usesFontLeading]
+                options: [.usesLineFragmentOrigin, .usesFontLeading],
+                context: nil
             )
             maxCellHeight = max(maxCellHeight, ceil(rect.height))
         }

@@ -1,23 +1,25 @@
-import SwiftUI
+#if os(macOS)
+    import SwiftUI
 
-/// Side-by-side editor and preview split view.
-struct SplitEditorView: View {
-    @Environment(DocumentState.self) private var documentState
-    @Environment(AppSettings.self) private var appSettings
+    /// Side-by-side editor and preview split view.
+    struct SplitEditorView: View {
+        @Environment(DocumentState.self) private var documentState
+        @Environment(AppSettings.self) private var appSettings
 
-    var body: some View {
-        ResizableSplitView {
-            editorPane
-        } right: {
-            MarkdownPreviewView()
+        var body: some View {
+            ResizableSplitView {
+                editorPane
+            } right: {
+                MarkdownPreviewView()
+            }
+            .focusEffectDisabled()
         }
-        .focusEffectDisabled()
-    }
 
-    private var editorPane: some View {
-        @Bindable var state = documentState
+        private var editorPane: some View {
+            @Bindable var state = documentState
 
-        return MarkdownEditorView(text: $state.markdownContent)
-            .background(appSettings.theme.colors.background)
+            return MarkdownEditorView(text: $state.markdownContent)
+                .background(appSettings.theme.colors.background)
+        }
     }
-}
+#endif

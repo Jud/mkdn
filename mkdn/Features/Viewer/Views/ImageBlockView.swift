@@ -1,197 +1,199 @@
-import SwiftUI
+#if os(macOS)
+    import SwiftUI
 
-/// Renders a Markdown image with async loading, error placeholders, and path security.
-///
-/// Images render at their natural size when smaller than the container, and scale
-/// down to fit when larger. Aspect ratio is always preserved. Reports rendered
-/// dimensions via `onSizeChange` so the overlay coordinator can update the
-/// attachment placeholder height.
-struct ImageBlockView: View {
-    let source: String
-    let alt: String
-    let containerWidth: CGFloat
-    var onSizeChange: ((CGFloat, CGFloat) -> Void)?
+    /// Renders a Markdown image with async loading, error placeholders, and path security.
+    ///
+    /// Images render at their natural size when smaller than the container, and scale
+    /// down to fit when larger. Aspect ratio is always preserved. Reports rendered
+    /// dimensions via `onSizeChange` so the overlay coordinator can update the
+    /// attachment placeholder height.
+    struct ImageBlockView: View {
+        let source: String
+        let alt: String
+        let containerWidth: CGFloat
+        var onSizeChange: ((CGFloat, CGFloat) -> Void)?
 
-    @Environment(DocumentState.self) private var documentState
-    @Environment(AppSettings.self) private var appSettings
-    @Environment(OverlayContainerState.self) private var containerState
-    @State private var loadedImage: NSImage?
-    @State private var loadError = false
-    @State private var isLoading = true
+        @Environment(DocumentState.self) private var documentState
+        @Environment(AppSettings.self) private var appSettings
+        @Environment(OverlayContainerState.self) private var containerState
+        @State private var loadedImage: NSImage?
+        @State private var loadError = false
+        @State private var isLoading = true
 
-    private var colors: ThemeColors {
-        appSettings.theme.colors
-    }
+        private var colors: ThemeColors {
+            appSettings.theme.colors
+        }
 
-    private var effectiveWidth: CGFloat {
-        containerState.containerWidth > 0 ? containerState.containerWidth : containerWidth
-    }
+        private var effectiveWidth: CGFloat {
+            containerState.containerWidth > 0 ? containerState.containerWidth : containerWidth
+        }
 
-    var body: some View {
-        Group {
-            if isLoading {
-                loadingPlaceholder
-            } else if let image = loadedImage {
-                imageContent(image)
+        var body: some View {
+            Group {
+                if isLoading {
+                    loadingPlaceholder
+                } else if let image = loadedImage {
+                    imageContent(image)
+                } else {
+                    errorPlaceholder
+                }
+            }
+            .task(id: source) { await loadImage() }
+        }
+
+        // MARK: - Subviews
+
+        private var loadingPlaceholder: some View {
+            HStack(spacing: 8) {
+                ProgressView()
+                    .controlSize(.small)
+                Text("Loading image...")
+                    .font(.caption)
+                    .foregroundColor(colors.foregroundSecondary)
+            }
+            .frame(maxWidth: .infinity, minHeight: 60)
+            .background(colors.backgroundSecondary)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+        }
+
+        private func imageContent(_ image: NSImage) -> some View {
+            let naturalWidth = image.size.width
+            let naturalHeight = image.size.height
+            let width = effectiveWidth
+            let renderedWidth = min(naturalWidth, width)
+            let scale = naturalHeight > 0 ? renderedWidth / naturalWidth : 1
+            let renderedHeight = naturalHeight * scale
+
+            return VStack(alignment: .leading, spacing: 4) {
+                Image(nsImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: renderedWidth, height: renderedHeight)
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+
+                if !alt.isEmpty {
+                    Text(alt)
+                        .font(.caption)
+                        .foregroundColor(colors.foregroundSecondary)
+                        .frame(maxWidth: renderedWidth, alignment: .leading)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .onAppear { reportSize(width: renderedWidth, height: renderedHeight) }
+            .onChange(of: effectiveWidth) {
+                let newWidth = min(naturalWidth, effectiveWidth)
+                let newScale = naturalHeight > 0 ? newWidth / naturalWidth : 1
+                let newHeight = naturalHeight * newScale
+                reportSize(width: newWidth, height: newHeight)
+            }
+        }
+
+        private func reportSize(width: CGFloat, height: CGFloat) {
+            let captionHeight: CGFloat = alt.isEmpty ? 0 : 20
+            onSizeChange?(width, height + captionHeight + 4)
+        }
+
+        private var errorPlaceholder: some View {
+            VStack(spacing: 8) {
+                Image(systemName: "photo.badge.exclamationmark")
+                    .font(.title2)
+                    .foregroundColor(colors.foregroundSecondary)
+
+                if !alt.isEmpty {
+                    Text(alt)
+                        .font(.caption)
+                        .foregroundColor(colors.foregroundSecondary)
+                } else {
+                    Text("Image failed to load")
+                        .font(.caption)
+                        .foregroundColor(colors.foregroundSecondary)
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 60)
+            .background(colors.backgroundSecondary)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+        }
+
+        // MARK: - Loading
+
+        private func loadImage() async {
+            guard loadedImage == nil, !loadError else { return }
+
+            isLoading = true
+            defer { isLoading = false }
+
+            guard let resolvedURL = resolveSource() else {
+                loadError = true
+                return
+            }
+
+            if resolvedURL.isFileURL {
+                loadLocalImage(url: resolvedURL)
             } else {
-                errorPlaceholder
+                await loadRemoteImage(url: resolvedURL)
             }
         }
-        .task(id: source) { await loadImage() }
-    }
 
-    // MARK: - Subviews
-
-    private var loadingPlaceholder: some View {
-        HStack(spacing: 8) {
-            ProgressView()
-                .controlSize(.small)
-            Text("Loading image...")
-                .font(.caption)
-                .foregroundColor(colors.foregroundSecondary)
-        }
-        .frame(maxWidth: .infinity, minHeight: 60)
-        .background(colors.backgroundSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: 6))
-    }
-
-    private func imageContent(_ image: NSImage) -> some View {
-        let naturalWidth = image.size.width
-        let naturalHeight = image.size.height
-        let width = effectiveWidth
-        let renderedWidth = min(naturalWidth, width)
-        let scale = naturalHeight > 0 ? renderedWidth / naturalWidth : 1
-        let renderedHeight = naturalHeight * scale
-
-        return VStack(alignment: .leading, spacing: 4) {
-            Image(nsImage: image)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(width: renderedWidth, height: renderedHeight)
-                .clipShape(RoundedRectangle(cornerRadius: 4))
-
-            if !alt.isEmpty {
-                Text(alt)
-                    .font(.caption)
-                    .foregroundColor(colors.foregroundSecondary)
-                    .frame(maxWidth: renderedWidth, alignment: .leading)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .onAppear { reportSize(width: renderedWidth, height: renderedHeight) }
-        .onChange(of: effectiveWidth) {
-            let newWidth = min(naturalWidth, effectiveWidth)
-            let newScale = naturalHeight > 0 ? newWidth / naturalWidth : 1
-            let newHeight = naturalHeight * newScale
-            reportSize(width: newWidth, height: newHeight)
-        }
-    }
-
-    private func reportSize(width: CGFloat, height: CGFloat) {
-        let captionHeight: CGFloat = alt.isEmpty ? 0 : 20
-        onSizeChange?(width, height + captionHeight + 4)
-    }
-
-    private var errorPlaceholder: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "photo.badge.exclamationmark")
-                .font(.title2)
-                .foregroundColor(colors.foregroundSecondary)
-
-            if !alt.isEmpty {
-                Text(alt)
-                    .font(.caption)
-                    .foregroundColor(colors.foregroundSecondary)
-            } else {
-                Text("Image failed to load")
-                    .font(.caption)
-                    .foregroundColor(colors.foregroundSecondary)
-            }
-        }
-        .frame(maxWidth: .infinity, minHeight: 60)
-        .background(colors.backgroundSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: 6))
-    }
-
-    // MARK: - Loading
-
-    private func loadImage() async {
-        guard loadedImage == nil, !loadError else { return }
-
-        isLoading = true
-        defer { isLoading = false }
-
-        guard let resolvedURL = resolveSource() else {
-            loadError = true
-            return
-        }
-
-        if resolvedURL.isFileURL {
-            loadLocalImage(url: resolvedURL)
-        } else {
-            await loadRemoteImage(url: resolvedURL)
-        }
-    }
-
-    private func loadLocalImage(url: URL) {
-        let image = NSImage(contentsOf: url)
-        if let image {
-            loadedImage = image
-        } else {
-            loadError = true
-        }
-    }
-
-    private func loadRemoteImage(url: URL) async {
-        do {
-            var request = URLRequest(url: url)
-            request.timeoutInterval = 10
-            let (data, _) = try await URLSession.shared.data(for: request)
-            if let image = NSImage(data: data) {
+        private func loadLocalImage(url: URL) {
+            let image = NSImage(contentsOf: url)
+            if let image {
                 loadedImage = image
             } else {
                 loadError = true
             }
-        } catch {
-            loadError = true
         }
-    }
 
-    // MARK: - Source Resolution
-
-    private func resolveSource() -> URL? {
-        if let url = URL(string: source) {
-            let scheme = url.scheme?.lowercased()
-            if scheme == "http" || scheme == "https" {
-                return url
-            }
-
-            if scheme == "file" {
-                return validateLocalPath(url)
+        private func loadRemoteImage(url: URL) async {
+            do {
+                var request = URLRequest(url: url)
+                request.timeoutInterval = 10
+                let (data, _) = try await URLSession.shared.data(for: request)
+                if let image = NSImage(data: data) {
+                    loadedImage = image
+                } else {
+                    loadError = true
+                }
+            } catch {
+                loadError = true
             }
         }
 
-        return resolveRelativePath(source)
-    }
+        // MARK: - Source Resolution
 
-    private func resolveRelativePath(_ path: String) -> URL? {
-        guard let fileURL = documentState.currentFileURL else {
-            return nil
-        }
-        let baseDirectory = fileURL.deletingLastPathComponent()
-        let resolved = baseDirectory.appendingPathComponent(path).standardized
-        return validateLocalPath(resolved)
-    }
+        private func resolveSource() -> URL? {
+            if let url = URL(string: source) {
+                let scheme = url.scheme?.lowercased()
+                if scheme == "http" || scheme == "https" {
+                    return url
+                }
 
-    private func validateLocalPath(_ url: URL) -> URL? {
-        guard let fileURL = documentState.currentFileURL else {
-            return nil
+                if scheme == "file" {
+                    return validateLocalPath(url)
+                }
+            }
+
+            return resolveRelativePath(source)
         }
-        let baseDirectory = fileURL.deletingLastPathComponent().standardized
-        let resolved = url.standardized
-        guard resolved.path.hasPrefix(baseDirectory.path) else {
-            return nil
+
+        private func resolveRelativePath(_ path: String) -> URL? {
+            guard let fileURL = documentState.currentFileURL else {
+                return nil
+            }
+            let baseDirectory = fileURL.deletingLastPathComponent()
+            let resolved = baseDirectory.appendingPathComponent(path).standardized
+            return validateLocalPath(resolved)
         }
-        return resolved
+
+        private func validateLocalPath(_ url: URL) -> URL? {
+            guard let fileURL = documentState.currentFileURL else {
+                return nil
+            }
+            let baseDirectory = fileURL.deletingLastPathComponent().standardized
+            let resolved = url.standardized
+            guard resolved.path.hasPrefix(baseDirectory.path) else {
+                return nil
+            }
+            return resolved
+        }
     }
-}
+#endif

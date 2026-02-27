@@ -1,4 +1,8 @@
-import AppKit
+#if os(macOS)
+    import AppKit
+#else
+    import UIKit
+#endif
 
 /// Maps character offsets in a table's invisible text to cell positions
 /// and provides content extraction for clipboard operations.
@@ -234,15 +238,26 @@ final class TableCellMap: NSObject {
         }
     }
 
-    /// Extracts RGB components (0-255) from an NSColor.
-    private func rgbComponents(_ color: NSColor) -> (r: Int, g: Int, b: Int) {
-        let converted = color.usingColorSpace(.sRGB) ?? color
-        return (
-            r: Int(converted.redComponent * 255),
-            g: Int(converted.greenComponent * 255),
-            b: Int(converted.blueComponent * 255)
-        )
-    }
+    // Extracts RGB components (0-255) from a platform color.
+    #if os(macOS)
+        private func rgbComponents(_ color: PlatformTypeConverter.PlatformColor) -> (r: Int, g: Int, b: Int) {
+            let converted = color.usingColorSpace(.sRGB) ?? color
+            return (
+                r: Int(converted.redComponent * 255),
+                g: Int(converted.greenComponent * 255),
+                b: Int(converted.blueComponent * 255)
+            )
+        }
+    #else
+        private func rgbComponents(_ color: PlatformTypeConverter.PlatformColor) -> (r: Int, g: Int, b: Int) {
+            var red: CGFloat = 0
+            var green: CGFloat = 0
+            var blue: CGFloat = 0
+            var alpha: CGFloat = 0
+            color.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+            return (r: Int(red * 255), g: Int(green * 255), b: Int(blue * 255))
+        }
+    #endif
 
     /// Escapes special RTF characters in plain text.
     private func escapeRTF(_ text: String) -> String {

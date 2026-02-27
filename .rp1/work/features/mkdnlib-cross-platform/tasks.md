@@ -2,7 +2,7 @@
 
 **Feature ID**: mkdnlib-cross-platform
 **Status**: In Progress
-**Progress**: 53% (9 of 17 tasks)
+**Progress**: 59% (10 of 17 tasks)
 **Estimated Effort**: 4 days
 **Started**: 2026-02-27
 
@@ -294,6 +294,18 @@ Make mkdnLib compile for both macOS 14+ and iOS 17+ by configuring Package.swift
     - **Deviations**: None
     - **Tests**: 587/587 passing
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | N/A |
+    | Commit | PASS |
+    | Comments | PASS |
+
 ### Rename Cascade (Parallel Group 3)
 
 - [x] **T9**: Verify nsColor-to-color rename cascade across all migrated files `[complexity:simple]`
@@ -316,9 +328,21 @@ Make mkdnLib compile for both macOS 14+ and iOS 17+ by configuring Package.swift
     - **Deviations**: Scope extended beyond the 12 core migration files to include Features/ and test files, as the T9 acceptance criteria explicitly requires zero references "across the entire codebase". The forwarding wrapper in T2 was designed to be removed in T9.
     - **Tests**: 587/587 passing
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | N/A |
+    | Commit | PASS |
+    | Comments | PASS |
+
 ### Verification (Parallel Group 4)
 
-- [ ] **T10**: Full cross-platform build and test verification `[complexity:medium]`
+- [x] **T10**: Full cross-platform build and test verification `[complexity:medium]`
 
     **Reference**: [design.md#7-testing-strategy](design.md#7-testing-strategy)
 
@@ -326,15 +350,22 @@ Make mkdnLib compile for both macOS 14+ and iOS 17+ by configuring Package.swift
 
     **Acceptance Criteria**:
 
-    - [ ] `swift build` on macOS: zero errors, zero new warnings
-    - [ ] `swift test` on macOS: 579/579 tests pass
-    - [ ] iOS simulator build (`xcodebuild -scheme mkdnLib -destination 'platform=iOS Simulator,name=iPhone 16' build`): zero errors
-    - [ ] Swift 6 strict concurrency: zero new warnings on both platforms
-    - [ ] `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swiftlint lint`: zero new violations in modified files
-    - [ ] `swiftformat .`: no changes needed in modified files
-    - [ ] No `#if os()` guard is missing (no AppKit types leak into iOS compilation)
-    - [ ] No `@unchecked Sendable` annotations added in any migrated file
-    - [ ] Visual verification via mkdn-ctl confirms identical rendering in both Solarized themes
+    - [x] `swift build` on macOS: zero errors, zero new warnings
+    - [x] `swift test` on macOS: 587/587 tests pass
+    - [x] iOS simulator build (`xcodebuild -scheme mkdnLib -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=18.4' build`): zero errors
+    - [x] Swift 6 strict concurrency: zero new warnings on both platforms
+    - [x] `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer swiftlint lint`: zero new violations in modified files
+    - [x] `swiftformat .`: no changes needed in modified files
+    - [x] No `#if os()` guard is missing (no AppKit types leak into iOS compilation)
+    - [x] No `@unchecked Sendable` annotations added in any migrated file
+    - [x] Visual verification via mkdn-ctl confirms identical rendering in both Solarized themes
+
+    **Implementation Summary**:
+
+    - **Files**: 80 Mac-only files in App/, Features/, UI/Components/, Core/CLI/, Core/FileWatcher/, Core/DirectoryScanner/, Core/DirectoryWatcher/, Core/Services/, Core/TestHarness/ (file-level `#if os(macOS)` guards); `mkdn/Core/Markdown/TableCellMap.swift` (conditional import + platform type migration); `mkdn/Core/Markdown/MarkdownTextStorageBuilder+TableInline.swift` (cross-platform `boundingRect` context parameter)
+    - **Approach**: Added `#if os(macOS) ... #endif` file-level guards to all 80 Mac-only files (same pattern as T8/MermaidWebView), enabling them to compile as empty translation units on iOS. Migrated `TableCellMap.swift` which was missed in earlier tasks (imports AppKit, uses NSColor for RTF color extraction). Fixed `MarkdownTextStorageBuilder+TableInline.swift` `boundingRect` call to include `context: nil` parameter required on iOS. Excluded `MarkdownURLCheck.swift` from guarding as it's pure Foundation and cross-referenced by `LinkNavigationHandler.swift`.
+    - **Deviations**: `TableCellMap.swift` required migration despite being listed as "pure Swift" in the requirements -- it imports AppKit and uses NSColor. `MarkdownTextStorageBuilder+TableInline.swift` needed a cross-platform API fix for `NSAttributedString.boundingRect`. Test count is 587 (not 579 as originally specified in requirements).
+    - **Tests**: 587/587 passing (macOS); iOS simulator BUILD SUCCEEDED
 
 ### User Docs
 
