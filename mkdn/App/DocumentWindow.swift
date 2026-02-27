@@ -89,6 +89,9 @@ public struct DocumentWindow: View {
                             bottomLeadingRadius: documentState.isSidebarVisible ? 10 : 0
                         )
                     )
+                    // Disable animation on width/clip changes to prevent
+                    // TextKit text reflow jitter during the slide animation.
+                    .animation(nil, value: documentState.isSidebarVisible)
                     .offset(x: sidebarOffset)
             }
         }
