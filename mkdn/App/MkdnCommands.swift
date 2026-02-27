@@ -9,7 +9,6 @@ public struct MkdnCommands: Commands {
     public let appSettings: AppSettings
     @FocusedValue(\.documentState) private var documentState
     @FocusedValue(\.findState) private var findState
-    @FocusedValue(\.directoryState) private var directoryState
 
     public init(appSettings: AppSettings) {
         self.appSettings = appSettings
@@ -144,11 +143,10 @@ public struct MkdnCommands: Commands {
             Section {
                 Button("Toggle Sidebar") {
                     withAnimation(motionAnimation(.gentleSpring)) {
-                        directoryState?.toggleSidebar()
+                        documentState?.toggleSidebar()
                     }
                 }
                 .keyboardShortcut("l", modifiers: [.command, .shift])
-                .disabled(directoryState == nil)
             }
 
             Section {

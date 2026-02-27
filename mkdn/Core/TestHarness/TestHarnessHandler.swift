@@ -5,7 +5,6 @@ import SwiftUI
 enum TestHarnessHandler {
     weak static var appSettings: AppSettings?
     weak static var documentState: DocumentState?
-    weak static var directoryState: DirectoryState?
 
     // MARK: - Command Dispatch
 
@@ -570,23 +569,23 @@ enum TestHarnessHandler {
     private static func handleSetSidebarWidth(
         _ width: Double
     ) -> HarnessResponse {
-        guard let dirState = directoryState else {
-            return .error("Not in directory mode")
+        guard let docState = documentState else {
+            return .error("No document state available")
         }
         let clamped = min(
-            max(CGFloat(width), DirectoryState.minSidebarWidth),
-            DirectoryState.maxSidebarWidth
+            max(CGFloat(width), DocumentState.minSidebarWidth),
+            DocumentState.maxSidebarWidth
         )
-        dirState.sidebarWidth = clamped
+        docState.sidebarWidth = clamped
         return .ok(message: "Sidebar width: \(clamped)")
     }
 
     private static func handleToggleSidebar() -> HarnessResponse {
-        guard let dirState = directoryState else {
-            return .error("Not in directory mode")
+        guard let docState = documentState else {
+            return .error("No document state available")
         }
-        dirState.toggleSidebar()
-        return .ok(message: "Sidebar visible: \(dirState.isSidebarVisible)")
+        docState.toggleSidebar()
+        return .ok(message: "Sidebar visible: \(docState.isSidebarVisible)")
     }
 
     // MARK: - Lifecycle Commands

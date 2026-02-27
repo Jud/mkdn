@@ -22,7 +22,7 @@ struct DocumentStateTests {
         return (state, url)
     }
 
-    @Test("Default state is preview-only with no file")
+    @Test("Default state is preview-only with no file and sidebar hidden")
     @MainActor func defaultState() {
         let state = DocumentState()
 
@@ -31,6 +31,8 @@ struct DocumentStateTests {
         #expect(!state.isFileOutdated)
         #expect(state.viewMode == .previewOnly)
         #expect(state.modeOverlayLabel == nil)
+        #expect(state.isSidebarVisible == false)
+        #expect(state.sidebarWidth == 240)
     }
 
     @Test("Loads a Markdown file")
@@ -181,5 +183,57 @@ struct DocumentStateTests {
         state.markdownContent = "# Third"
         try state.saveFile()
         #expect(state.lastSavedContent == "# Third")
+    }
+
+    // MARK: - Sidebar Toggle
+
+    @Test("toggleSidebar flips visibility from false to true")
+    @MainActor func toggleSidebarShows() {
+        let state = DocumentState()
+        #expect(state.isSidebarVisible == false)
+
+        state.toggleSidebar()
+
+        #expect(state.isSidebarVisible == true)
+    }
+
+    @Test("toggleSidebar flips visibility from true to false")
+    @MainActor func toggleSidebarHides() {
+        let state = DocumentState()
+        state.isSidebarVisible = true
+
+        state.toggleSidebar()
+
+        #expect(state.isSidebarVisible == false)
+    }
+
+    @Test("Double toggle returns to original state")
+    @MainActor func doubleToggle() {
+        let state = DocumentState()
+
+        state.toggleSidebar()
+        state.toggleSidebar()
+
+        #expect(state.isSidebarVisible == false)
+    }
+
+    // MARK: - Sidebar Layout Constants
+
+    @Test("Minimum sidebar width is 160")
+    @MainActor func minSidebarWidth() {
+        #expect(DocumentState.minSidebarWidth == 160)
+    }
+
+    @Test("Maximum sidebar width is 400")
+    @MainActor func maxSidebarWidth() {
+        #expect(DocumentState.maxSidebarWidth == 400)
+    }
+
+    @Test("Sidebar width can be set within valid range")
+    @MainActor func sidebarWidthSettable() {
+        let state = DocumentState()
+
+        state.sidebarWidth = 300
+        #expect(state.sidebarWidth == 300)
     }
 }
