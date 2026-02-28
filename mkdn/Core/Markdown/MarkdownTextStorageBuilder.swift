@@ -6,25 +6,25 @@
 import SwiftUI
 
 /// Information about a non-text attachment placeholder in the attributed string.
-struct AttachmentInfo {
-    let blockIndex: Int
-    let block: MarkdownBlock
-    let attachment: NSTextAttachment
+public struct AttachmentInfo {
+    public let blockIndex: Int
+    public let block: MarkdownBlock
+    public let attachment: NSTextAttachment
 }
 
 /// Information about a table rendered as invisible inline text in the attributed string.
-struct TableOverlayInfo {
-    let blockIndex: Int
-    let block: MarkdownBlock
-    let tableRangeID: String
-    let cellMap: TableCellMap
+public struct TableOverlayInfo {
+    public let blockIndex: Int
+    public let block: MarkdownBlock
+    public let tableRangeID: String
+    public let cellMap: TableCellMap
 }
 
 /// Result of converting `[IndexedBlock]` to an `NSAttributedString`.
-struct TextStorageResult {
-    let attributedString: NSAttributedString
-    let attachments: [AttachmentInfo]
-    let tableOverlays: [TableOverlayInfo]
+public struct TextStorageResult {
+    public let attributedString: NSAttributedString
+    public let attachments: [AttachmentInfo]
+    public let tableOverlays: [TableOverlayInfo]
 
     init(
         attributedString: NSAttributedString,
@@ -71,7 +71,7 @@ struct BlockBuildContext {
 /// suitable for display in an `NSTextView`, plus a mapping of attachment
 /// positions to their source block data.
 @MainActor
-enum MarkdownTextStorageBuilder {
+public enum MarkdownTextStorageBuilder {
     // MARK: - Constants
 
     static let blockSpacing: CGFloat = 12
@@ -94,7 +94,7 @@ enum MarkdownTextStorageBuilder {
 
     // MARK: - Public API
 
-    static func build(
+    public static func build(
         blocks: [IndexedBlock],
         theme: AppTheme,
         scaleFactor: CGFloat = 1.0,
@@ -109,7 +109,7 @@ enum MarkdownTextStorageBuilder {
         )
     }
 
-    static func build(
+    public static func build(
         blocks: [IndexedBlock],
         colors: ThemeColors,
         syntaxColors: SyntaxColors,
@@ -402,7 +402,7 @@ enum MarkdownTextStorageBuilder {
         attrStr.addAttribute(.paragraphStyle, value: mutable, range: lastParaRange)
     }
 
-    static func plainText(from block: MarkdownBlock) -> String {
+    public static func plainText(from block: MarkdownBlock) -> String {
         switch block {
         case let .heading(_, text):
             return String(text.characters)

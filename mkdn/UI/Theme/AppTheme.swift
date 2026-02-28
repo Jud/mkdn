@@ -5,7 +5,7 @@ public enum AppTheme: String, CaseIterable, Sendable {
     case solarizedDark = "Solarized Dark"
     case solarizedLight = "Solarized Light"
 
-    var colors: ThemeColors {
+    public var colors: ThemeColors {
         switch self {
         case .solarizedDark:
             SolarizedDark.colors
@@ -14,7 +14,7 @@ public enum AppTheme: String, CaseIterable, Sendable {
         }
     }
 
-    var syntaxColors: SyntaxColors {
+    public var syntaxColors: SyntaxColors {
         switch self {
         case .solarizedDark:
             SolarizedDark.syntaxColors

@@ -14,7 +14,7 @@
 ///
 /// This is a class (not struct) because `NSAttributedString` attribute values must be
 /// `NSObject` subclasses or bridged types for reliable attribute enumeration.
-final class TableCellMap: NSObject {
+public final class TableCellMap: NSObject {
     /// Identifies a cell by its row and column within the table.
     ///
     /// Header row uses `row == -1`. Data rows use `row >= 0`.

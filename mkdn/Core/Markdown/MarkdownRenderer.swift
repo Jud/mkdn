@@ -5,14 +5,14 @@ import SwiftUI
 ///
 /// Uses apple/swift-markdown for parsing and a custom `MarkdownVisitor`
 /// for rendering each node type as SwiftUI views.
-enum MarkdownRenderer {
+public enum MarkdownRenderer {
     /// Parse raw Markdown text into a structured document.
-    static func parse(_ text: String) -> Document {
+    public static func parse(_ text: String) -> Document {
         Document(parsing: text)
     }
 
     /// Render a Markdown document into an array of indexed block-level elements.
-    static func render(
+    public static func render(
         document: Document,
         theme: AppTheme,
         generation: UInt64 = 0
@@ -25,7 +25,7 @@ enum MarkdownRenderer {
     }
 
     /// Convenience: parse and render in a single call.
-    static func render(
+    public static func render(
         text: String,
         theme: AppTheme,
         generation: UInt64 = 0

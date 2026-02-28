@@ -1,20 +1,25 @@
 import SwiftUI
 
 /// Column alignment matching Markdown table syntax.
-enum TableColumnAlignment: Sendable {
+public enum TableColumnAlignment: Sendable {
     case left
     case center
     case right
 }
 
 /// Column definition for a Markdown table.
-struct TableColumn: Sendable {
-    let header: AttributedString
-    let alignment: TableColumnAlignment
+public struct TableColumn: Sendable {
+    public let header: AttributedString
+    public let alignment: TableColumnAlignment
+
+    public init(header: AttributedString, alignment: TableColumnAlignment) {
+        self.header = header
+        self.alignment = alignment
+    }
 }
 
 /// Represents a rendered Markdown block element.
-enum MarkdownBlock: Identifiable {
+public enum MarkdownBlock: Identifiable {
     case heading(level: Int, text: AttributedString)
     case paragraph(text: AttributedString)
     case codeBlock(language: String?, code: String)
@@ -28,7 +33,7 @@ enum MarkdownBlock: Identifiable {
     case htmlBlock(content: String)
     case mathBlock(code: String)
 
-    var id: String {
+    public var id: String {
         switch self {
         case let .heading(level, text):
             "heading-\(level)-\(stableHash(String(text.characters)))"
@@ -60,39 +65,39 @@ enum MarkdownBlock: Identifiable {
 
 /// Pairs a MarkdownBlock with its position in the rendered document,
 /// producing a unique ID for SwiftUI view identity.
-struct IndexedBlock: Identifiable {
-    let index: Int
-    let block: MarkdownBlock
-    let generation: UInt64
+public struct IndexedBlock: Identifiable {
+    public let index: Int
+    public let block: MarkdownBlock
+    public let generation: UInt64
 
-    init(index: Int, block: MarkdownBlock, generation: UInt64 = 0) {
+    public init(index: Int, block: MarkdownBlock, generation: UInt64 = 0) {
         self.index = index
         self.block = block
         self.generation = generation
     }
 
-    var id: String {
+    public var id: String {
         "\(generation)-\(index)-\(block.id)"
     }
 }
 
 /// Checkbox state for task list items.
-enum CheckboxState: Sendable {
+public enum CheckboxState: Sendable {
     case checked
     case unchecked
 }
 
 /// A list item containing child blocks.
-struct ListItem: Identifiable {
-    let blocks: [MarkdownBlock]
-    let checkbox: CheckboxState?
+public struct ListItem: Identifiable {
+    public let blocks: [MarkdownBlock]
+    public let checkbox: CheckboxState?
 
-    init(blocks: [MarkdownBlock], checkbox: CheckboxState? = nil) {
+    public init(blocks: [MarkdownBlock], checkbox: CheckboxState? = nil) {
         self.blocks = blocks
         self.checkbox = checkbox
     }
 
-    var id: String {
+    public var id: String {
         let checkboxSuffix = checkbox.map { "-\($0)" } ?? ""
         return "li-\(blocks.map(\.id).joined(separator: "-"))\(checkboxSuffix)"
     }
