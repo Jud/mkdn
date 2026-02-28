@@ -16,22 +16,22 @@
 /// ``TableHighlightOverlay`` for selection/find drawing,
 /// ``CodeBlockBackgroundTextView`` for copy handling and print rendering,
 /// and ``EntranceAnimator`` for table fragment grouping.
-enum TableAttributes {
+public enum TableAttributes {
     /// Marks all characters within a table's invisible text.
     /// Value: a unique `String` identifier per table instance (UUID).
-    static let range = NSAttributedString.Key("mkdn.tableRange")
+    public static let range = NSAttributedString.Key("mkdn.tableRange")
 
     /// Carries the cell map for character-to-cell position mapping.
     /// Value: a ``TableCellMap`` instance (same instance on every character).
-    static let cellMap = NSAttributedString.Key("mkdn.tableCellMap")
+    public static let cellMap = NSAttributedString.Key("mkdn.tableCellMap")
 
     /// Carries resolved color values for the table container.
     /// Value: a ``TableColorInfo`` instance.
-    static let colors = NSAttributedString.Key("mkdn.tableColors")
+    public static let colors = NSAttributedString.Key("mkdn.tableColors")
 
     /// Marks header row characters for differentiated selection highlight.
     /// Value: `NSNumber(booleanLiteral: true)`.
-    static let isHeader = NSAttributedString.Key("mkdn.tableIsHeader")
+    public static let isHeader = NSAttributedString.Key("mkdn.tableIsHeader")
 }
 
 /// Resolved color values for drawing a table container.
@@ -40,15 +40,15 @@ enum TableAttributes {
 /// can access theme colors without external state. This is a class (not struct)
 /// because `NSAttributedString` attribute values must be `NSObject` subclasses
 /// or bridged types for reliable attribute enumeration.
-final class TableColorInfo: NSObject {
-    let background: PlatformTypeConverter.PlatformColor
-    let backgroundSecondary: PlatformTypeConverter.PlatformColor
-    let border: PlatformTypeConverter.PlatformColor
-    let headerBackground: PlatformTypeConverter.PlatformColor
-    let foreground: PlatformTypeConverter.PlatformColor
-    let headingColor: PlatformTypeConverter.PlatformColor
+public final class TableColorInfo: NSObject {
+    public let background: PlatformTypeConverter.PlatformColor
+    public let backgroundSecondary: PlatformTypeConverter.PlatformColor
+    public let border: PlatformTypeConverter.PlatformColor
+    public let headerBackground: PlatformTypeConverter.PlatformColor
+    public let foreground: PlatformTypeConverter.PlatformColor
+    public let headingColor: PlatformTypeConverter.PlatformColor
 
-    init(
+    public init(
         background: PlatformTypeConverter.PlatformColor,
         backgroundSecondary: PlatformTypeConverter.PlatformColor,
         border: PlatformTypeConverter.PlatformColor,

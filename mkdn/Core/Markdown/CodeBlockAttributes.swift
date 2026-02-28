@@ -11,18 +11,18 @@
 /// resolved color values so the drawing code can access theme colors without
 /// external state. Both keys are consumed by ``CodeBlockBackgroundTextView`` in
 /// its `drawBackground(in:)` override.
-enum CodeBlockAttributes {
+public enum CodeBlockAttributes {
     /// Applied to all characters within a code block (including language label).
     /// Value: a unique `String` identifier per code block instance.
-    static let range = NSAttributedString.Key("mkdn.codeBlockRange")
+    public static let range = NSAttributedString.Key("mkdn.codeBlockRange")
 
     /// Carries the resolved color values for the code block container.
     /// Value: a ``CodeBlockColorInfo`` instance.
-    static let colors = NSAttributedString.Key("mkdn.codeBlockColors")
+    public static let colors = NSAttributedString.Key("mkdn.codeBlockColors")
 
     /// Stores the raw code string (without language label, trimmed) for clipboard copy.
     /// Value: a `String` containing the unformatted code content.
-    static let rawCode = NSAttributedString.Key("mkdn.codeBlock.rawCode")
+    public static let rawCode = NSAttributedString.Key("mkdn.codeBlock.rawCode")
 }
 
 /// Resolved color values for drawing a code block container.
@@ -31,11 +31,11 @@ enum CodeBlockAttributes {
 /// can access theme colors without external state. This is a class (not struct)
 /// because `NSAttributedString` attribute values must be `NSObject` subclasses
 /// or bridged types for reliable attribute enumeration.
-final class CodeBlockColorInfo: NSObject {
-    let background: PlatformTypeConverter.PlatformColor
-    let border: PlatformTypeConverter.PlatformColor
+public final class CodeBlockColorInfo: NSObject {
+    public let background: PlatformTypeConverter.PlatformColor
+    public let border: PlatformTypeConverter.PlatformColor
 
-    init(background: PlatformTypeConverter.PlatformColor, border: PlatformTypeConverter.PlatformColor) {
+    public init(background: PlatformTypeConverter.PlatformColor, border: PlatformTypeConverter.PlatformColor) {
         self.background = background
         self.border = border
     }
