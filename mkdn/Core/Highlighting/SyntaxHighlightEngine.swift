@@ -8,12 +8,12 @@ import SwiftTreeSitter
 /// Synchronous syntax highlighting engine using tree-sitter.
 /// Query objects are cached per language to avoid recompilation.
 @MainActor
-enum SyntaxHighlightEngine {
+public enum SyntaxHighlightEngine {
     private static var queryCache: [String: Query] = [:]
 
     /// Highlight code for a given language, returning a colored NSMutableAttributedString.
     /// Returns nil if the language is not supported (caller should fall back to plain text).
-    static func highlight(
+    public static func highlight(
         code: String,
         language: String,
         syntaxColors: SyntaxColors

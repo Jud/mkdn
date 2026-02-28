@@ -8,28 +8,33 @@ import SwiftUI
 /// Converts SwiftUI types to platform equivalents for attributed string rendering.
 /// Serves as the cross-platform abstraction hub: all platform-specific type references
 /// in core rendering files route through typealiases and bridge methods defined here.
-enum PlatformTypeConverter {
+public enum PlatformTypeConverter {
     // MARK: - Platform Type Aliases
 
     #if os(macOS)
-        typealias PlatformFont = NSFont
-        typealias PlatformColor = NSColor
-        typealias PlatformImage = NSImage
+        public typealias PlatformFont = NSFont
+        public typealias PlatformColor = NSColor
+        public typealias PlatformImage = NSImage
     #else
-        typealias PlatformFont = UIFont
-        typealias PlatformColor = UIColor
-        typealias PlatformImage = UIImage
+        public typealias PlatformFont = UIFont
+        public typealias PlatformColor = UIColor
+        public typealias PlatformImage = UIImage
     #endif
 
     // MARK: - Font Trait Bridge
 
-    struct FontTrait: OptionSet, Sendable {
-        let rawValue: UInt
-        static let bold = Self(rawValue: 1 << 0)
-        static let italic = Self(rawValue: 1 << 1)
+    public struct FontTrait: OptionSet, Sendable {
+        public let rawValue: UInt
+
+        public init(rawValue: UInt) {
+            self.rawValue = rawValue
+        }
+
+        public static let bold = Self(rawValue: 1 << 0)
+        public static let italic = Self(rawValue: 1 << 1)
     }
 
-    static func convertFont(
+    public static func convertFont(
         _ font: PlatformFont,
         toHaveTrait trait: FontTrait
     ) -> PlatformFont {
@@ -51,13 +56,13 @@ enum PlatformTypeConverter {
 
     // MARK: - Color Conversion
 
-    static func color(from color: Color) -> PlatformColor {
+    public static func color(from color: Color) -> PlatformColor {
         PlatformColor(color)
     }
 
     // MARK: - Font Factory
 
-    static func headingFont(level: Int, scaleFactor: CGFloat = 1.0) -> PlatformFont {
+    public static func headingFont(level: Int, scaleFactor: CGFloat = 1.0) -> PlatformFont {
         let baseSize: CGFloat = switch level {
         case 1: 28
         case 2: 24
@@ -70,16 +75,16 @@ enum PlatformTypeConverter {
         return .systemFont(ofSize: baseSize * scaleFactor, weight: weight)
     }
 
-    static func bodyFont(scaleFactor: CGFloat = 1.0) -> PlatformFont {
+    public static func bodyFont(scaleFactor: CGFloat = 1.0) -> PlatformFont {
         let base = PlatformFont.preferredFont(forTextStyle: .body)
         return .systemFont(ofSize: base.pointSize * scaleFactor)
     }
 
-    static func monospacedFont(scaleFactor: CGFloat = 1.0) -> PlatformFont {
+    public static func monospacedFont(scaleFactor: CGFloat = 1.0) -> PlatformFont {
         .monospacedSystemFont(ofSize: PlatformFont.systemFontSize * scaleFactor, weight: .regular)
     }
 
-    static func captionMonospacedFont(scaleFactor: CGFloat = 1.0) -> PlatformFont {
+    public static func captionMonospacedFont(scaleFactor: CGFloat = 1.0) -> PlatformFont {
         .monospacedSystemFont(ofSize: PlatformFont.smallSystemFontSize * scaleFactor, weight: .regular)
     }
 

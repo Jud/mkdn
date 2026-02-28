@@ -10,7 +10,7 @@ import SwiftMath
 /// SwiftMath renders via CoreGraphics drawing commands, producing
 /// resolution-independent output that renders crisply on Retina displays.
 /// Uses the `MathImage` struct (not a view), so rendering is safe from any thread.
-enum MathRenderer {
+public enum MathRenderer {
     /// Renders a LaTeX expression to a platform image.
     ///
     /// - Parameters:
@@ -22,7 +22,7 @@ enum MathRenderer {
     /// - Returns: A tuple of (image, baseline) on success, nil on parse failure.
     ///   The baseline is the distance from the bottom of the image to the
     ///   mathematical baseline, used for NSTextAttachment alignment.
-    static func renderToImage(
+    public static func renderToImage(
         latex: String,
         fontSize: CGFloat,
         textColor: PlatformTypeConverter.PlatformColor,

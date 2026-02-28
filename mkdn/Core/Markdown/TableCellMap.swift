@@ -18,35 +18,46 @@ public final class TableCellMap: NSObject {
     /// Identifies a cell by its row and column within the table.
     ///
     /// Header row uses `row == -1`. Data rows use `row >= 0`.
-    struct CellPosition: Hashable, Comparable, Sendable {
-        let row: Int
-        let column: Int
+    public struct CellPosition: Hashable, Comparable, Sendable {
+        public let row: Int
+        public let column: Int
 
-        static func < (lhs: Self, rhs: Self) -> Bool {
+        public init(row: Int, column: Int) {
+            self.row = row
+            self.column = column
+        }
+
+        public static func < (lhs: Self, rhs: Self) -> Bool {
             if lhs.row != rhs.row { return lhs.row < rhs.row }
             return lhs.column < rhs.column
         }
     }
 
     /// A single cell's metadata: position, character range, and plain text content.
-    struct CellEntry: Sendable {
-        let position: CellPosition
+    public struct CellEntry: Sendable {
+        public let position: CellPosition
         /// Character range relative to the table's text start offset.
-        let range: NSRange
-        let content: String
+        public let range: NSRange
+        public let content: String
+
+        public init(position: CellPosition, range: NSRange, content: String) {
+            self.position = position
+            self.range = range
+            self.content = content
+        }
     }
 
     /// All cells sorted by `range.location` (ascending).
-    let cells: [CellEntry]
-    let columnCount: Int
+    public let cells: [CellEntry]
+    public let columnCount: Int
     /// Number of data rows (header excluded).
-    let rowCount: Int
-    var columnWidths: [CGFloat]
+    public let rowCount: Int
+    public internal(set) var columnWidths: [CGFloat]
     /// Row heights indexed as: 0 = header, 1+ = data rows.
-    var rowHeights: [CGFloat]
-    let columns: [TableColumn]
+    public internal(set) var rowHeights: [CGFloat]
+    public let columns: [TableColumn]
 
-    init(
+    public init(
         cells: [CellEntry],
         columnCount: Int,
         rowCount: Int,
@@ -68,7 +79,7 @@ public final class TableCellMap: NSObject {
     ///
     /// Returns `nil` if the offset falls outside any cell range (e.g., in a tab
     /// or newline separator between cells).
-    func cellAt(offset: Int) -> CellPosition? {
+    public func cellAt(offset: Int) -> CellPosition? {
         guard !cells.isEmpty else { return nil }
 
         var low = 0
@@ -96,7 +107,7 @@ public final class TableCellMap: NSObject {
     /// character ranges overlap the given range.
     ///
     /// Both `range` and cell entry ranges are relative to the table text start.
-    func cellsInRange(_ range: NSRange) -> Set<CellPosition> {
+    public func cellsInRange(_ range: NSRange) -> Set<CellPosition> {
         guard range.length > 0, !cells.isEmpty else { return [] }
 
         let rangeEnd = range.location + range.length
@@ -133,7 +144,7 @@ public final class TableCellMap: NSObject {
     /// Cell position -> character range (relative to table text start).
     ///
     /// Returns `nil` if the position does not exist in this table.
-    func rangeFor(cell: CellPosition) -> NSRange? {
+    public func rangeFor(cell: CellPosition) -> NSRange? {
         cells.first { $0.position == cell }?.range
     }
 
@@ -145,7 +156,7 @@ public final class TableCellMap: NSObject {
     /// tab characters. Only rows that contain at least one selected cell are
     /// included. Within each included row, all columns are output (empty string
     /// for unselected cells) to preserve column alignment.
-    func tabDelimitedText(for selectedCells: Set<CellPosition>) -> String {
+    public func tabDelimitedText(for selectedCells: Set<CellPosition>) -> String {
         guard !selectedCells.isEmpty else { return "" }
 
         let cellsByPosition = Dictionary(cells.map { ($0.position, $0.content) }) { first, _ in first }
@@ -174,7 +185,7 @@ public final class TableCellMap: NSObject {
     /// The RTF output uses standard table markup (`\trowd`, `\cell`, `\row`)
     /// so that rich text editors render it as a formatted table. Column widths
     /// are derived from `columnWidths` converted to twips (1pt = 20 twips).
-    func rtfData(for selectedCells: Set<CellPosition>, colors: ThemeColors) -> Data? {
+    public func rtfData(for selectedCells: Set<CellPosition>, colors: ThemeColors) -> Data? {
         guard !selectedCells.isEmpty else { return nil }
 
         let cellsByPosition = Dictionary(cells.map { ($0.position, $0.content) }) { first, _ in first }
