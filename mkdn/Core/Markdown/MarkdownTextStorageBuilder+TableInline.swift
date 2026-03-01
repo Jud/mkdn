@@ -159,7 +159,7 @@ extension MarkdownTextStorageBuilder {
 
     // MARK: - Table Tab Stops
 
-    private static func buildTableTabStops(
+    static func buildTableTabStops(
         columns: [TableColumn],
         columnWidths: [CGFloat]
     ) -> [NSTextTab] {

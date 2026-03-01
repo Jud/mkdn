@@ -128,6 +128,8 @@
             let widthChanged = abs(containerState.containerWidth - context.containerWidth) > 1
             containerState.containerWidth = context.containerWidth
             if widthChanged, let textView {
+                stickyHeaders.values.forEach { $0.removeFromSuperview() }
+                stickyHeaders.removeAll()
                 adjustTableRowHeights(in: textView)
             }
             let finalContext = widthChanged ? (makeLayoutContext() ?? context) : context

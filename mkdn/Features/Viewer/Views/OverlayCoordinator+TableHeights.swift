@@ -45,6 +45,8 @@
 
                 if applyRowHeights(
                     corrected.rowHeights,
+                    columns: columns,
+                    columnWidths: corrected.columnWidths,
                     in: textStorage,
                     tableRange: tableRange
                 ) {
@@ -184,9 +186,14 @@
 
         private func applyRowHeights(
             _ heights: [CGFloat],
+            columns: [TableColumn],
+            columnWidths: [CGFloat],
             in textStorage: NSTextStorage,
             tableRange: NSRange
         ) -> Bool {
+            let newTabStops = MarkdownTextStorageBuilder.buildTableTabStops(
+                columns: columns, columnWidths: columnWidths
+            )
             // swiftlint:disable:next legacy_objc_type
             let nsString = textStorage.string as NSString
             var rowIndex = 0
@@ -204,18 +211,22 @@
 
                 if let style = textStorage.attribute(
                     .paragraphStyle, at: pos, effectiveRange: nil
-                ) as? NSParagraphStyle,
-                    abs(style.minimumLineHeight - targetHeight) > 0.5
-                {
-                    // swiftlint:disable:next force_cast
-                    let mutable = style.mutableCopy() as! NSMutableParagraphStyle
-                    mutable.minimumLineHeight = targetHeight
-                    mutable.maximumLineHeight = targetHeight
-                    mutable.lineBreakMode = .byClipping
-                    textStorage.addAttribute(
-                        .paragraphStyle, value: mutable, range: paraRange
-                    )
-                    changed = true
+                ) as? NSParagraphStyle {
+                    let heightDiffers = abs(style.minimumLineHeight - targetHeight) > 0.5
+                    let tabsDiffer = style.tabStops != newTabStops
+
+                    if heightDiffers || tabsDiffer {
+                        // swiftlint:disable:next force_cast
+                        let mutable = style.mutableCopy() as! NSMutableParagraphStyle
+                        mutable.minimumLineHeight = targetHeight
+                        mutable.maximumLineHeight = targetHeight
+                        mutable.lineBreakMode = .byClipping
+                        mutable.tabStops = newTabStops
+                        textStorage.addAttribute(
+                            .paragraphStyle, value: mutable, range: paraRange
+                        )
+                        changed = true
+                    }
                 }
 
                 pos = NSMaxRange(paraRange)
