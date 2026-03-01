@@ -60,21 +60,24 @@
 
         static func dismantleUIView(_: WKWebView, coordinator: Coordinator) {
             coordinator.removeMessageHandlers()
+            coordinator.cleanUpTempFile()
         }
 
         // MARK: - Template Loading
 
         private func loadTemplate(into webView: WKWebView, coordinator: Coordinator) {
-            guard let html = MermaidTemplateLoader.loadTemplate(code: code, theme: theme) else {
+            guard let result = MermaidTemplateLoader.writeTemplateFile(code: code, theme: theme) else {
                 coordinator.parent.renderState = .error(
                     MermaidError.templateNotFound.localizedDescription
                 )
                 return
             }
-            let baseURL = Bundle.module
-                .url(forResource: "mermaid-template", withExtension: "html")?
-                .deletingLastPathComponent()
-            webView.loadHTMLString(html, baseURL: baseURL)
+            coordinator.cleanUpTempFile()
+            coordinator.tempFileURL = result.tempFileURL
+            webView.loadFileURL(
+                result.tempFileURL,
+                allowingReadAccessTo: result.bundleDirectoryURL
+            )
         }
 
         private func reRenderWithTheme(coordinator: Coordinator) {
@@ -98,6 +101,7 @@
             var parent: MermaidWebViewiOS
             var webView: WKWebView?
             var currentTheme: AppTheme
+            var tempFileURL: URL?
             private var hasCompletedInitialNavigation = false
 
             init(parent: MermaidWebViewiOS) {
@@ -173,6 +177,13 @@
                     .removeScriptMessageHandler(forName: "renderComplete")
                 webView?.configuration.userContentController
                     .removeScriptMessageHandler(forName: "renderError")
+            }
+
+            func cleanUpTempFile() {
+                if let url = tempFileURL {
+                    MermaidTemplateLoader.cleanUpTemplateFile(at: url)
+                    tempFileURL = nil
+                }
             }
         }
     }
