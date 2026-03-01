@@ -80,8 +80,10 @@
         private func reRenderWithTheme(coordinator: Coordinator) {
             guard let webView = coordinator.webView else { return }
             let script = MermaidTemplateLoader.reRenderScript(theme: theme)
-            webView.evaluateJavaScript(script) { _, error in
-                if let error {
+            Task { @MainActor in
+                do {
+                    _ = try await webView.evaluateJavaScript(script)
+                } catch {
                     coordinator.parent.renderState = .error(
                         MermaidError.renderFailed(error.localizedDescription).localizedDescription
                     )

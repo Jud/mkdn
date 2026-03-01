@@ -34,6 +34,8 @@
                 }
             }
             .task(id: source) { await loadImage() }
+            .accessibilityLabel(alt.isEmpty ? "Image" : alt)
+            .accessibilityAddTraits(.isImage)
         }
 
         // MARK: - Subviews

@@ -1,12 +1,15 @@
 import SwiftUI
 
 /// Composed Markdown rendering view that displays an array of parsed blocks
-/// with full fidelity using platform-appropriate hosting views.
+/// using platform-appropriate hosting views.
 ///
-/// On iOS, renders blocks in a ``ScrollViewReader`` > ``ScrollView`` >
-/// ``LazyVStack`` hierarchy, dispatching each block to its type-specific
-/// renderer via ``BlockWrapperView``. On macOS, provides a simplified
-/// rendering path since the Mac app uses ``MarkdownPreviewView`` directly.
+/// On iOS, provides full block-level rendering in a ``ScrollViewReader`` >
+/// ``ScrollView`` > ``LazyVStack`` hierarchy, dispatching each block to its
+/// type-specific renderer via ``BlockWrapperView``. On macOS, provides a
+/// simplified text-only fallback that renders all blocks into a single
+/// `NSAttributedString` via ``MarkdownTextStorageBuilder``. The full Mac
+/// experience (overlays, syntax highlighting, Mermaid diagrams, tables) uses
+/// ``MarkdownPreviewView`` directly.
 ///
 /// Interaction behavior is layered on via view modifiers from
 /// ``View+MarkdownInteraction``:
@@ -79,7 +82,7 @@ public struct MarkdownContentView: View {
         }
     #endif
 
-    // MARK: - macOS Body
+    // MARK: - Simplified macOS Fallback
 
     #if os(macOS)
         private var macOSBody: some View {

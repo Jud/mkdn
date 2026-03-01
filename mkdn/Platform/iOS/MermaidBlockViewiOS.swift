@@ -40,6 +40,7 @@
                     .stroke(colors.border.opacity(0.3), lineWidth: 1)
             )
             .animation(.easeInOut(duration: 0.3), value: renderState)
+            .accessibilityLabel("Mermaid diagram")
         }
 
         // MARK: - Overlay

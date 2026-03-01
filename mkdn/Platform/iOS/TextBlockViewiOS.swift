@@ -9,6 +9,10 @@
     /// single view handles all text-based block types because the builder already
     /// encodes styling differences (heading font sizes, blockquote indentation,
     /// list prefixes, etc.) into the attributed string.
+    ///
+    /// No additional accessibility modifiers are needed here. ``MarkdownTextViewiOS``
+    /// wraps a `UITextView`, which provides native VoiceOver support (text content
+    /// reading, element traversal, and trait announcement) out of the box.
     struct TextBlockViewiOS: View {
         let indexedBlock: IndexedBlock
         let theme: AppTheme

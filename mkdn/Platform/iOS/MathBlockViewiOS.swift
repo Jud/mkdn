@@ -35,6 +35,7 @@
                 }
             }
             .onAppear { renderMath() }
+            .accessibilityLabel("Math expression: \(code)")
         }
 
         private var fallbackView: some View {

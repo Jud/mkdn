@@ -61,6 +61,15 @@
             .task(id: cacheKey) {
                 cachedHighlight = computeHighlightedCode()
             }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel(codeBlockAccessibilityLabel)
+        }
+
+        private var codeBlockAccessibilityLabel: String {
+            if let language, !language.isEmpty {
+                return "Code block, \(language)"
+            }
+            return "Code block"
         }
 
         // MARK: - Copy Button

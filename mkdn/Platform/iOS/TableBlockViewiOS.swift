@@ -35,6 +35,7 @@
             ScrollView(.horizontal, showsIndicators: true) {
                 tableBody(columnWidths: columnWidths, totalWidth: totalWidth)
             }
+            .accessibilityLabel("Table, \(columns.count) columns, \(rows.count) rows")
         }
 
         private func tableBody(columnWidths: [CGFloat], totalWidth: CGFloat) -> some View {
