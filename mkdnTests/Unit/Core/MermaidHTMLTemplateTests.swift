@@ -13,8 +13,8 @@ struct MermaidHTMLTemplateTests {
         let template = try String(contentsOf: templateURL, encoding: .utf8)
 
         let code = "graph TD; A-->B;"
-        let htmlEscaped = MermaidWebView.htmlEscape(code)
-        let jsEscaped = MermaidWebView.jsEscape(code)
+        let htmlEscaped = MermaidTemplateLoader.htmlEscape(code)
+        let jsEscaped = MermaidTemplateLoader.jsEscape(code)
         let themeJSON = MermaidThemeMapper.themeVariablesJSON(for: .solarizedDark)
 
         let html = template
@@ -33,7 +33,7 @@ struct MermaidHTMLTemplateTests {
     @Test("HTML escaping handles special characters")
     func htmlEscapingSpecialCharacters() {
         let input = "A<B>C&D\"E"
-        let escaped = MermaidWebView.htmlEscape(input)
+        let escaped = MermaidTemplateLoader.htmlEscape(input)
 
         #expect(escaped == "A&lt;B&gt;C&amp;D&quot;E")
         #expect(!escaped.contains("<"))
@@ -45,9 +45,42 @@ struct MermaidHTMLTemplateTests {
     @Test("JS escaping handles backticks, backslashes, and dollar signs")
     func jsEscapingSpecialCharacters() {
         let input = "text `with` $var and \\"
-        let escaped = MermaidWebView.jsEscape(input)
+        let escaped = MermaidTemplateLoader.jsEscape(input)
 
         #expect(escaped == "text \\`with\\` \\$var and \\\\")
+    }
+
+    @MainActor
+    @Test("loadTemplate returns non-nil HTML with markers replaced")
+    func loadTemplateReturnsHTML() throws {
+        let code = "graph LR; A-->B;"
+        let html = try #require(MermaidTemplateLoader.loadTemplate(code: code, theme: .solarizedDark))
+
+        #expect(!html.contains("__MERMAID_CODE__"))
+        #expect(!html.contains("__MERMAID_CODE_JS__"))
+        #expect(!html.contains("__THEME_VARIABLES__"))
+        #expect(html.contains("graph LR; A--&gt;B;"))
+    }
+
+    @MainActor
+    @Test("reRenderScript returns JS calling reRenderWithTheme")
+    func reRenderScriptFormat() {
+        let script = MermaidTemplateLoader.reRenderScript(theme: .solarizedDark)
+
+        #expect(script.hasPrefix("reRenderWithTheme("))
+        #expect(script.hasSuffix(");"))
+
+        let themeJSON = MermaidThemeMapper.themeVariablesJSON(for: .solarizedDark)
+        #expect(script.contains(themeJSON))
+    }
+
+    @MainActor
+    @Test("reRenderScript varies by theme")
+    func reRenderScriptVariesByTheme() {
+        let dark = MermaidTemplateLoader.reRenderScript(theme: .solarizedDark)
+        let light = MermaidTemplateLoader.reRenderScript(theme: .solarizedLight)
+
+        #expect(dark != light)
     }
 
     @Test("MermaidRenderState equatable conformance")

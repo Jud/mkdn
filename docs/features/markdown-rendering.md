@@ -37,7 +37,7 @@ Raw Markdown String
 - `MarkdownVisitor` -- stateless struct that walks the swift-markdown AST and produces `[MarkdownBlock]`, handling inline formatting (bold, italic, code, strikethrough, links) and inline math detection (`$...$`)
 - `MarkdownRenderer` -- static coordinator: parse + visit in one call
 - `MarkdownTextStorageBuilder` -- converts `[IndexedBlock]` to `NSAttributedString` with `NSTextAttachment` placeholders and table overlay info
-- `PlatformTypeConverter` -- SwiftUI Color/Font to NSColor/NSFont conversion
+- `PlatformTypeConverter` -- Cross-platform abstraction hub: `PlatformFont`/`PlatformColor`/`PlatformImage` typealiases, `FontTrait` OptionSet, color/font bridge methods
 - `SelectableTextView` -- `NSViewRepresentable` wrapping a read-only, selectable `NSTextView` (TextKit 2)
 - `OverlayCoordinator` -- manages lifecycle and positioning of `NSHostingView` overlays for non-text blocks, including sticky table headers
 - `EntranceAnimator` -- per-layout-fragment CALayer animation for staggered document entrance
@@ -75,7 +75,7 @@ Raw Markdown String
 | `mkdn/Core/Markdown/MarkdownTextStorageBuilder+Complex.swift` | Blockquote, ordered/unordered list, task list checkbox rendering |
 | `mkdn/Core/Markdown/MarkdownTextStorageBuilder+TableInline.swift` | Table invisible-text + overlay info generation |
 | `mkdn/Core/Markdown/MarkdownTextStorageBuilder+MathInline.swift` | Inline math -> NSTextAttachment image rendering |
-| `mkdn/Core/Markdown/PlatformTypeConverter.swift` | SwiftUI Color/Font to NSColor/NSFont conversion |
+| `mkdn/Core/Markdown/PlatformTypeConverter.swift` | Cross-platform abstraction: PlatformFont/PlatformColor/PlatformImage typealiases, FontTrait OptionSet, bridge methods |
 | `mkdn/Core/Markdown/LinkNavigationHandler.swift` | Link URL classification and relative path resolution |
 | `mkdn/Core/Markdown/CodeBlockAttributes.swift` | Custom NSAttributedString keys for code block background drawing |
 | `mkdn/Core/Markdown/TableAttributes.swift` | Custom NSAttributedString keys for table range tracking |

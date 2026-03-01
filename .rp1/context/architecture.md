@@ -2,7 +2,7 @@
 
 **Project**: mkdn
 **Architecture Pattern**: Feature-Based MVVM
-**Last Updated**: 2026-02-25
+**Last Updated**: 2026-02-28
 
 ## High-Level Architecture
 
@@ -37,10 +37,28 @@ graph TB
         MTSB["MarkdownTextStorageBuilder\n(NSAttributedString)"]
         SHE["SyntaxHighlightEngine\n(tree-sitter, 16 langs)"]
         MWV["MermaidWebView\n(WKWebView per diagram)"]
+        MTL["MermaidTemplateLoader\n(shared template logic)"]
         MATH["MathRenderer\n(SwiftMath)"]
         FW["FileWatcher\n(DispatchSource)"]
         DirW["DirectoryWatcher"]
         DirS["DirectoryScanner"]
+        BIC["BlockInteractionContext\n(@Observable)"]
+    end
+
+    subgraph Platform["Platform Layer"]
+        MCV["MarkdownContentView\n(cross-platform)"]
+        MI["MarkdownInteraction\n(environment carrier)"]
+        VMI["View+MarkdownInteraction\n(8 view modifiers)"]
+        subgraph iOSViews["iOS Views"]
+            MTVI["MarkdownTextViewiOS"]
+            CBVI["CodeBlockViewiOS"]
+            MWVI["MermaidWebViewiOS"]
+            MBVI["MermaidBlockViewiOS"]
+            MaVI["MathBlockViewiOS"]
+            TBVI["TableBlockViewiOS"]
+            IBVI["ImageBlockViewiOS"]
+            TxVI["TextBlockViewiOS"]
+        end
     end
 
     subgraph TestH["Test Harness"]
@@ -77,6 +95,16 @@ graph TB
     MTSB --> SHE
     MTSB --> MATH
     MPV -->|mermaid blocks| MWV
+    MWV --> MTL
+    MCV --> MR
+    MCV --> MTSB
+    MI --> VMI
+    MCV --> MI
+    MWVI --> MTL
+    CBVI --> SHE
+    MaVI --> MATH
+    TxVI --> MTSB
+    TxVI --> MTVI
     AS --> Theme
     Theme --> Anim
     THS -->|"@MainActor bridge"| THH
@@ -88,7 +116,20 @@ graph TB
 ## Architectural Patterns
 
 ### Two-Target Split (Library + Executable)
-All source lives in `mkdnLib` (library target). A thin executable target (`mkdnEntry/main.swift`) provides the `@main`-free entry point, avoiding Swift test-runner crashes from `@main` in executable targets. Tests import `@testable import mkdnLib`.
+All source lives in `mkdnLib` (library target), which compiles for both macOS and iOS. Platform-specific code uses `#if os(macOS)` / `#if os(iOS)` conditional compilation, with `PlatformTypeConverter` providing cross-platform typealiases (`PlatformFont`, `PlatformColor`, `PlatformImage`) and bridge methods. A thin executable target (`mkdnEntry/main.swift`) provides the macOS-only `@main`-free entry point, avoiding Swift test-runner crashes from `@main` in executable targets. Tests import `@testable import mkdnLib`.
+
+**Public API Surface**: mkdnLib exports public types organized into four tiers:
+
+| Tier | Purpose | Key Types |
+|------|---------|-----------|
+| Core Pipeline | Markdown parsing and rendering | `MarkdownRenderer`, `MarkdownBlock`, `IndexedBlock`, `MarkdownTextStorageBuilder`, `TextStorageResult`, `AttachmentInfo`, `TableOverlayInfo`, `PlatformTypeConverter`, `FontTrait`, `SyntaxHighlightEngine`, `MathRenderer` |
+| Theme & Config | Visual styling consumed by renderers | `AppTheme`, `ThemeColors`, `SyntaxColors`, `ThemeMode` |
+| Attributed String Attributes | Custom NSAttributedString keys and carriers | `TableAttributes`, `CodeBlockAttributes`, `TableCellMap` (+ `CellPosition`, `CellEntry`) |
+| Platform & Interaction | Cross-platform views and consumer interaction API | `MarkdownContentView`, `MarkdownInteraction`, `BlockInteractionContext`, `BlockScrollTarget`, `BlockRenderState`, `LinkNavigationHandler` (+ `LinkDestination`), 8 view modifiers |
+
+**Consumer zero** (mkdn Mac app) exercises 100% of the API internally. **Consumer one** (SudoPhone iOS app) imports mkdnLib via local SPM path dependency for cross-platform Markdown rendering.
+
+**Public API entry points**: `MarkdownRenderer.render(text:theme:generation:)` produces `[IndexedBlock]`. `MarkdownTextStorageBuilder.build(blocks:colors:syntaxColors:scaleFactor:)` produces `TextStorageResult`. `MarkdownContentView(blocks:theme:scaleFactor:)` provides the composed rendering view with interaction modifiers. Internal types (`MarkdownVisitor`, `TokenType`, `TableColumnSizer`, `ResolvedColors`, `BlockBuildContext`) remain `internal`.
 
 ### Environment-Based Dependency Injection
 SwiftUI environment is the sole DI mechanism. `AppSettings` is app-wide; `DocumentState` and `FindState` are per-window. No service locator or external DI framework.
@@ -132,13 +173,27 @@ Feature-specific views and view models organized by domain.
 
 ### Core Layer
 Domain logic: parsing, rendering, highlighting, file watching, directory scanning.
-- **Markdown**: Visitor, Renderer, TextStorageBuilder (+ extensions for blocks, math, tables), TableCellMap, TableColumnSizer
+- **Markdown**: Visitor, Renderer, TextStorageBuilder (+ extensions for blocks, math, tables), TableCellMap, TableColumnSizer, BlockInteractionContext, BlockScrollTarget, LinkNavigationHandler
 - **Highlighting**: SyntaxHighlightEngine, TreeSitterLanguageMap, TokenType, HighlightQueries
-- **Mermaid**: MermaidWebView, MermaidThemeMapper, MermaidRenderState
+- **Mermaid**: MermaidWebView, MermaidTemplateLoader (shared template logic), MermaidThemeMapper, MermaidRenderState
 - **Math**: MathRenderer, MathAttributes
 - **FileWatcher**: DispatchSource-based per-document change detection
 - **DirectoryWatcher**: Filesystem monitoring for sidebar directory mode
 - **DirectoryScanner**: Recursive file tree builder
+
+### Platform Layer
+Cross-platform rendering views and consumer interaction API. Platform-agnostic files at root; iOS-specific views in `iOS/` subdirectory.
+- `Platform/MarkdownContentView.swift` — Composed rendering view dispatching blocks to type-specific renderers
+- `Platform/MarkdownInteraction.swift` — Environment-carried interaction closures (block tap, link tap, context menu, size, scroll, code copy, visible blocks, block wrapper)
+- `Platform/View+MarkdownInteraction.swift` — 8 public view modifiers using `transformEnvironment`
+- `Platform/iOS/MarkdownTextViewiOS.swift` — UITextView with TextKit 2, iOS 17 text item interaction
+- `Platform/iOS/CodeBlockViewiOS.swift` — Syntax-highlighted code with copy button
+- `Platform/iOS/MermaidWebViewiOS.swift` — WKWebView with shared process pool, MermaidTemplateLoader
+- `Platform/iOS/MermaidBlockViewiOS.swift` — Mermaid container with loading/error overlays
+- `Platform/iOS/MathBlockViewiOS.swift` — Display math via MathRenderer → UIImage
+- `Platform/iOS/TableBlockViewiOS.swift` — Native SwiftUI grid with TableColumnSizer
+- `Platform/iOS/ImageBlockViewiOS.swift` — Async image loading (local + remote)
+- `Platform/iOS/TextBlockViewiOS.swift` — Unified text block renderer via MarkdownTextStorageBuilder
 
 ### UI Layer (Cross-Cutting)
 Shared components, theme definitions, animation constants.
@@ -185,5 +240,5 @@ In-process test automation via Unix domain socket (active only with `--test-harn
 | SwiftTreeSitter + 16 grammars | Syntax highlighting | Library — SyntaxHighlightEngine creates parser/query per call |
 | Mermaid.js (bundled) | Diagram rendering | Bundled JS — loaded into per-diagram WKWebView |
 | SwiftMath (mgriebling) | LaTeX math rendering | Library — MathRenderer converts to NSImage |
-| swift-argument-parser | CLI argument parsing | Library — MkdnCLI struct |
+| swift-argument-parser | CLI argument parsing | Library — MkdnCLI struct. Conditional: macOS only (`.when(platforms: [.macOS])` in mkdnLib; direct dependency in mkdn executable) |
 | ScreenCaptureKit | Animation frame capture | System framework — test harness only |

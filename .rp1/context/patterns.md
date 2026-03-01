@@ -1,14 +1,15 @@
 # Implementation Patterns
 
 **Project**: mkdn
-**Last Updated**: 2026-02-25
+**Last Updated**: 2026-02-28
 
 ## Naming & Organization
 
 **Files**: PascalCase matching primary type (`MarkdownBlock.swift`, `AppSettings.swift`). Extensions use `+` suffix (`MarkdownTextStorageBuilder+Blocks.swift`, `CodeBlockBackgroundTextView+TableCopy.swift`).
 **Functions**: Verb-prefixed methods (`loadFile`, `appendHeading`, `convertInline`). Static factories use `make`/`build` prefix. Boolean properties use `is`/`has`/`allows` prefix.
-**Imports**: Absolute imports grouped by framework: Foundation/AppKit first, then third-party, no intra-project imports (single module).
-**Organization**: Feature-Based MVVM: `Features/{Name}/Views/` and `ViewModels/`. `Core/{Domain}/` for shared logic. `UI/Theme/` for visual constants.
+**Imports**: Absolute imports grouped by framework: Foundation/AppKit first, then third-party, no intra-project imports (single module). Platform-conditional imports use `#if os(macOS)` / `#else` for AppKit vs UIKit.
+**Organization**: Feature-Based MVVM: `Features/{Name}/Views/` and `ViewModels/`. `Core/{Domain}/` for shared logic. `UI/Theme/` for visual constants. `Platform/` for cross-platform views and interaction API; `Platform/iOS/` for iOS-specific renderers.
+**Cross-platform conventions**: Platform-specific code uses `#if os(macOS)` / `#if os(iOS)` guards. All platform type references in core rendering files route through `PlatformTypeConverter` typealiases (`PlatformFont`, `PlatformColor`, `PlatformImage`) rather than using `NSFont`/`UIFont` directly. iOS-specific view files are wrapped entirely in `#if os(iOS)` compilation guards.
 
 Evidence: `mkdn/Core/Markdown/MarkdownTextStorageBuilder+Blocks.swift`, `mkdn/App/DocumentState.swift`
 
@@ -16,9 +17,16 @@ Evidence: `mkdn/Core/Markdown/MarkdownTextStorageBuilder+Blocks.swift`, `mkdn/Ap
 
 **Data Representation**: Enums with associated values for domain models (`MarkdownBlock`, `CheckboxState`). Structs for data carriers (`AttachmentInfo`, `TextStorageResult`). NSObject subclasses only when required for NSAttributedString storage (`TableCellMap`).
 **Type Strictness**: Strong typing throughout. Sendable conformance on value types. `@MainActor` isolation on all `@Observable` state classes. `nonisolated(unsafe)` with `@ObservationIgnored` for DispatchSource/Task fields bridging concurrency.
+**Platform Typealiases**: `PlatformTypeConverter` defines `PlatformFont`, `PlatformColor`, `PlatformImage` as conditional typealiases (NSFont/UIFont, NSColor/UIColor, NSImage/UIImage). Core rendering code references these typealiases exclusively. The `FontTrait` OptionSet (`.bold`, `.italic`) abstracts NSFontTraitMask (macOS) vs UIFontDescriptor.SymbolicTraits (iOS) for font trait conversion.
 **Immutability**: Structs are default immutable. State classes use `private(set)` for read-only properties. Computed properties for derived state (`hasUnsavedChanges`, `theme`). `static let` for constants.
+**Public API Surface**: mkdnLib exports public types across four tiers for external consumers (mkdn Mac app, SudoPhone iOS app). Five visibility patterns govern the surface:
+- *Surgical member visibility*: Type is `public` but only select members carry `public`. Internal helpers, resolved colors, and build context remain `internal` (e.g., `MarkdownTextStorageBuilder` exposes `build()` and `plainText(from:)` publicly while `ResolvedColors` and `BlockBuildContext` stay internal).
+- *Explicit public init*: Swift does not auto-synthesize public memberwise initializers for public structs. Every public struct provides an explicit `public init` (`TableColumn`, `ListItem`, `IndexedBlock`, `FontTrait`, `CellPosition`, `CellEntry`, `ThemeColors`, `SyntaxColors`).
+- *public internal(set) var*: Properties mutable internally but read-only to consumers. Used for layout values computed after construction (`TableCellMap.columnWidths`, `TableCellMap.rowHeights`).
+- *Output-only structs*: Public `let` properties but `internal` init. Consumers read these but never construct them directly (`TextStorageResult`, `AttachmentInfo`, `TableOverlayInfo`).
+- *transformEnvironment view modifiers*: Public `View` extensions that mutate an environment-carried struct via `transformEnvironment(\.key)`. Each modifier sets one closure field, enabling composable chaining (`onBlockTapped`, `onLinkTapped`, `blockContextMenu`, `onBlockSizeChanged`, `scrollTarget`, `onCodeCopy`, `onVisibleBlocksChanged`, `blockViewWrapper`).
 
-Evidence: `mkdn/Core/Markdown/MarkdownBlock.swift`, `mkdn/App/DocumentState.swift:11-12`, `mkdn/Core/FileWatcher/FileWatcher.swift:19-21`
+Evidence: `mkdn/Core/Markdown/MarkdownBlock.swift`, `mkdn/App/DocumentState.swift:11-12`, `mkdn/Core/FileWatcher/FileWatcher.swift:19-21`, `mkdn/Core/Markdown/MarkdownTextStorageBuilder.swift:9-37`, `mkdn/Core/Markdown/TableCellMap.swift:55-57`
 
 ## Error Handling
 
@@ -45,7 +53,7 @@ Evidence: `mkdn/Core/Markdown/MarkdownVisitor.swift:24-34`, `mkdn/Core/Math/Math
 
 **Organization**: `mkdnTests/Unit/` mirrors source: `Core/`, `Features/`, `UI/`, `Support/`. Tests import `@testable import mkdnLib` (two-target layout).
 **Fixtures**: Inline test data in test methods. `SyntheticImage` helper for image tests. `.solarizedDark` as standard test theme.
-**Levels**: Unit dominant (~55 test files). Visual verification via test harness (`scripts/mkdn-ctl`). No XCUITest.
+**Levels**: Unit dominant (~57 test files). Visual verification via test harness (`scripts/mkdn-ctl`). No XCUITest.
 **Mocking**: No mocking framework. Tests exercise real implementations. `@MainActor` on individual test functions (not `@Suite`).
 
 Evidence: `mkdnTests/Unit/Core/MarkdownRendererTests.swift`, `mkdnTests/Unit/Features/DocumentStateTests.swift`
@@ -71,3 +79,11 @@ Evidence: `mkdn/Core/FileWatcher/FileWatcher.swift`, `mkdn/App/AppSettings.swift
 **Attachment Placeholder**: Mermaid, math, images, and thematic breaks inserted as `NSTextAttachment` placeholders. Overlay views positioned via `AttachmentInfo` geometry.
 
 **Theme Resolution Chain**: `ThemeMode` (user pref) + `ColorScheme` (system) → `AppTheme` (resolved) → `ThemeColors` + `SyntaxColors` (palettes) → concrete colors.
+
+**Environment-Carried Interaction API**: `MarkdownInteraction` is a struct carrying optional closures for all consumer interaction hooks (block tap, link tap, context menu, size change, scroll target, code copy, visible blocks, block wrapper). Each of the 8 public view modifiers uses `transformEnvironment(\.markdownInteraction)` to set its respective field, enabling composable chaining without ordering conflicts. The `MarkdownInteractionKey` uses `@preconcurrency EnvironmentKey` for Swift 6 compatibility with `@MainActor`-isolated default values.
+
+**Block-Per-View iOS Rendering**: On iOS, `MarkdownContentView` renders blocks in a `ScrollViewReader` > `ScrollView` > `LazyVStack` hierarchy, dispatching each `IndexedBlock` to a type-specific view via `BlockWrapperView`. Each iOS view (e.g., `CodeBlockViewiOS`, `TableBlockViewiOS`) handles one block type independently, unlike macOS which composes all blocks into a single `NSAttributedString` in one `NSTextView`.
+
+**Shared Template Extraction**: `MermaidTemplateLoader` (uninhabitable enum with static methods) extracts HTML template loading, string escaping (HTML + JS), and theme re-render script generation from `MermaidWebView`. Both macOS `MermaidWebView` and iOS `MermaidWebViewiOS` call the shared loader instead of duplicating template logic.
+
+**BlockInteractionContext as Observable Bridge**: `BlockInteractionContext` is an `@Observable` class (not struct) so that library-internal views can publish async-loaded assets (images, rendered math) and consumer wrapper views can reactively observe them. Created per-block by `BlockWrapperView`, passed to interaction handlers and the `blockViewWrapper` closure.

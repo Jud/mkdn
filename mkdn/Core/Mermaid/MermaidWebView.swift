@@ -157,35 +157,21 @@
         // MARK: - Template Loading
 
         private func loadTemplate(into webView: WKWebView, coordinator: Coordinator) {
-            guard let templateURL = Bundle.module.url(
-                forResource: "mermaid-template",
-                withExtension: "html"
-            ),
-                let templateString = try? String(contentsOf: templateURL, encoding: .utf8)
-            else {
+            guard let html = MermaidTemplateLoader.loadTemplate(code: code, theme: theme) else {
                 coordinator.parent.renderState = .error(
                     MermaidError.templateNotFound.localizedDescription
                 )
                 return
             }
-
-            let htmlEscaped = Self.htmlEscape(code)
-            let jsEscaped = Self.jsEscape(code)
-            let themeJSON = MermaidThemeMapper.themeVariablesJSON(for: theme)
-
-            let html = templateString
-                .replacingOccurrences(of: "__MERMAID_CODE_JS__", with: jsEscaped)
-                .replacingOccurrences(of: "__MERMAID_CODE__", with: htmlEscaped)
-                .replacingOccurrences(of: "__THEME_VARIABLES__", with: themeJSON)
-
-            let resourceDirectory = templateURL.deletingLastPathComponent()
-            webView.loadHTMLString(html, baseURL: resourceDirectory)
+            let baseURL = Bundle.module
+                .url(forResource: "mermaid-template", withExtension: "html")?
+                .deletingLastPathComponent()
+            webView.loadHTMLString(html, baseURL: baseURL)
         }
 
         private func reRenderWithTheme(coordinator: Coordinator) {
             guard let webView = coordinator.webView else { return }
-            let themeJSON = MermaidThemeMapper.themeVariablesJSON(for: theme)
-            let script = "reRenderWithTheme(\(themeJSON));"
+            let script = MermaidTemplateLoader.reRenderScript(theme: theme)
             webView.evaluateJavaScript(script) { _, error in
                 if let error {
                     coordinator.parent.renderState = .error(
@@ -193,23 +179,6 @@
                     )
                 }
             }
-        }
-
-        // MARK: - Escaping
-
-        static func htmlEscape(_ string: String) -> String {
-            string
-                .replacingOccurrences(of: "&", with: "&amp;")
-                .replacingOccurrences(of: "<", with: "&lt;")
-                .replacingOccurrences(of: ">", with: "&gt;")
-                .replacingOccurrences(of: "\"", with: "&quot;")
-        }
-
-        static func jsEscape(_ string: String) -> String {
-            string
-                .replacingOccurrences(of: "\\", with: "\\\\")
-                .replacingOccurrences(of: "`", with: "\\`")
-                .replacingOccurrences(of: "$", with: "\\$")
         }
 
         // MARK: - Coordinator

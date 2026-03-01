@@ -8,9 +8,9 @@ import Foundation
 /// - **External**: `http`, `https`, `mailto`, `tel`, and other scheme-based URLs,
 ///   opened in the default system handler.
 /// - **Other local files**: non-Markdown local files, opened in the default app.
-enum LinkNavigationHandler {
+public enum LinkNavigationHandler {
     /// The resolved destination for a clicked link.
-    enum LinkDestination: Equatable {
+    public enum LinkDestination: Equatable {
         case localMarkdown(URL)
         case external(URL)
         case otherLocalFile(URL)
@@ -22,7 +22,7 @@ enum LinkNavigationHandler {
     ///   - url: The URL from the `.link` attribute (constructed via `URL(string:)` in the visitor).
     ///   - documentURL: The currently open document's URL, used to resolve relative paths.
     /// - Returns: The classified destination with a fully resolved URL.
-    static func classify(url: URL, relativeTo documentURL: URL?) -> LinkDestination {
+    public static func classify(url: URL, relativeTo documentURL: URL?) -> LinkDestination {
         if let scheme = url.scheme?.lowercased() {
             switch scheme {
             case "http", "https", "mailto", "tel":

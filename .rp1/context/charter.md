@@ -25,13 +25,14 @@ Every visual and interactive element must be crafted with obsessive attention to
 - CLI-launchable (`mkdn file.md`)
 - Homebrew installable
 - File-change detection: subtle "outdated" indicator when file changes on disk, with manual reload prompt (not auto-reload)
+- Cross-platform rendering library: mkdnLib compiles for macOS + iOS, exposing the markdown parsing, attributed string building, syntax highlighting, math, and theming pipeline as a consumable SPM library product. The mkdn Mac app remains Mac-only; mkdnLib is the cross-platform leaf library consumed by external iOS apps (e.g., Sudo)
 
 ### Won't Do
 - Cloud sync
 - Collaboration features
 - Export formats (PDF, HTML, etc.)
 - Plugin system
-- iOS/iPad support
+- iOS/iPad mkdn app (mkdnLib is cross-platform, but mkdn the standalone app is Mac-only)
 - File management or file browser UI
 
 ## Success Criteria

@@ -1,8 +1,8 @@
 # Module & Component Breakdown
 
 **Project**: mkdn
-**Analysis Date**: 2026-02-25
-**Modules Analyzed**: 15
+**Analysis Date**: 2026-02-28
+**Modules Analyzed**: 17
 
 ## App Layer (`mkdn/App/`)
 
@@ -43,8 +43,10 @@ Markdown parsing pipeline: AST visitor, block model, NSAttributedString builder.
 | `TableColumnSizer.swift` | Content-aware column width computation with proportional compression |
 | `TableAttributes.swift` | Custom NSAttributedString keys for table rendering metadata |
 | `CodeBlockAttributes.swift` | Custom NSAttributedString keys for code block rendering and copy |
-| `LinkNavigationHandler.swift` | URL classification: local Markdown (in-app), external (system), other local file |
-| `PlatformTypeConverter.swift` | SwiftUI → AppKit bridge: NSColor, fonts, paragraph styles with scale factor |
+| `LinkNavigationHandler.swift` | Public enum: URL classification into `.localMarkdown`/`.external`/`.otherLocalFile` with `LinkDestination` and `classify(url:relativeTo:)` |
+| `PlatformTypeConverter.swift` | Cross-platform abstraction hub: `PlatformFont`/`PlatformColor`/`PlatformImage` typealiases (NSFont/UIFont, NSColor/UIColor, NSImage/UIImage), `FontTrait` OptionSet for bold/italic conversion, font factories, color bridge, paragraph styles |
+| `BlockInteractionContext.swift` | `@Observable` class: per-block interaction state — source block, async-loaded/rendered images, convenience accessors (language, headingLevel, plainText) |
+| `BlockScrollTarget.swift` | Public struct: programmatic scroll-to-block target with blockIndex + UnitPoint anchor |
 
 ## Core/Highlighting (`mkdn/Core/Highlighting/`)
 
@@ -72,7 +74,8 @@ Mermaid diagram rendering via WKWebView.
 
 | File | Purpose |
 |------|---------|
-| `MermaidWebView.swift` | NSViewRepresentable wrapping WKWebView. Template loading, JS bridge, size reporting |
+| `MermaidWebView.swift` | NSViewRepresentable wrapping WKWebView. JS bridge, size reporting (macOS only) |
+| `MermaidTemplateLoader.swift` | Shared utility: loads mermaid-template.html, performs token substitution, generates re-render scripts. Used by both macOS `MermaidWebView` and iOS `MermaidWebViewiOS` |
 | `MermaidThemeMapper.swift` | Maps AppTheme → Mermaid.js themeVariables JSON |
 | `MermaidRenderState.swift` | Lifecycle enum: loading, rendered, error(String) |
 | `MermaidError.swift` | LocalizedError types for rendering failures |
@@ -208,6 +211,31 @@ Directory browser sidebar.
 | `UnsavedIndicator.swift` | Dot indicator for unsaved changes |
 | `HoverFeedbackModifier.swift` | Reusable hover scale + cursor modifier |
 
+## Platform Layer (`mkdn/Platform/`)
+
+Cross-platform composition views and interaction API for external consumers of mkdnLib. Platform-agnostic files at the root; iOS-specific views in the `iOS/` subdirectory.
+
+| File | Purpose |
+|------|---------|
+| `MarkdownContentView.swift` | Public SwiftUI view: renders `[IndexedBlock]` with full fidelity. iOS: `ScrollViewReader` > `LazyVStack` dispatching blocks to type-specific renderers via `BlockWrapperView`. macOS: simplified `MarkdownTextStorageBuilder` path |
+| `MarkdownInteraction.swift` | Public struct carried through SwiftUI environment: closures for block tap, link tap, context menu, size change, scroll target, code copy, visible blocks, block wrapper |
+| `View+MarkdownInteraction.swift` | 8 public view modifiers: `onBlockTapped`, `onLinkTapped`, `blockContextMenu`, `onBlockSizeChanged`, `scrollTarget`, `onCodeCopy`, `onVisibleBlocksChanged`, `blockViewWrapper` |
+
+## Platform/iOS (`mkdn/Platform/iOS/`)
+
+iOS-specific block renderers. All wrapped in `#if os(iOS)`. Each handles one `MarkdownBlock` case.
+
+| File | Purpose |
+|------|---------|
+| `MarkdownTextViewiOS.swift` | `UIViewRepresentable` wrapping read-only `UITextView` with TextKit 2. iOS 17 text item interaction API for link taps. Never touches `textView.layoutManager` |
+| `CodeBlockViewiOS.swift` | Fenced code block with tree-sitter highlighting via `SyntaxHighlightEngine`, horizontal scroll, copy button → `UIPasteboard` + `onCodeCopy` handler |
+| `MermaidWebViewiOS.swift` | `UIViewRepresentable` wrapping `WKWebView` with shared `WKProcessPool`. Uses `MermaidTemplateLoader` for template/theme. JS message handlers for size and render state |
+| `MermaidBlockViewiOS.swift` | Wraps `MermaidWebViewiOS` with loading/error overlays and render state animation |
+| `MathBlockViewiOS.swift` | Display math via `MathRenderer` → `UIImage`. Publishes to `BlockInteractionContext.renderedImage`. Falls back to monospace text |
+| `TableBlockViewiOS.swift` | Native SwiftUI grid with `TableColumnSizer` widths, horizontal scroll, alternating row backgrounds, styled header |
+| `ImageBlockViewiOS.swift` | Async image loading (local + remote) with loading/error placeholders. Publishes to `BlockInteractionContext.loadedImage` |
+| `TextBlockViewiOS.swift` | Unified renderer for headings, paragraphs, blockquotes, lists, thematic breaks, HTML blocks — delegates to `MarkdownTextStorageBuilder` + `MarkdownTextViewiOS` |
+
 ## External Dependencies
 
 | Package | Purpose |
@@ -220,4 +248,4 @@ Directory browser sidebar.
 
 ## Test Layer (`mkdnTests/`)
 
-55 test files organized as `Unit/Core/`, `Unit/Features/`, `Unit/UI/`, `Unit/Support/`. Uses Swift Testing (`@Test`, `#expect`, `@Suite`). Support utilities: `ImageAnalyzer`, `SpatialMeasurement`, `FrameAnalyzer`, `TestHarnessClient`, `SyntheticImage`, `JSONResultReporter`, `PRDCoverageTracker`.
+~57 test files organized as `Unit/Core/`, `Unit/Features/`, `Unit/UI/`, `Unit/Support/`, `App/`. Uses Swift Testing (`@Test`, `#expect`, `@Suite`). Support utilities: `ImageAnalyzer`, `SpatialMeasurement`, `FrameAnalyzer`, `TestHarnessClient`, `SyntheticImage`, `JSONResultReporter`, `PRDCoverageTracker`. Includes `MarkdownInteractionTests`, `BlockScrollTargetTests`, `BlockInteractionContextTests` for Platform layer types.

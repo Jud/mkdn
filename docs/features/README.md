@@ -24,6 +24,10 @@ Concise specifications for every feature mkdn ships. Each blueprint documents ho
 - [Split Editor](split-editor.md) -- Side-by-side editing with live preview
 - [Directory Sidebar](directory-sidebar.md) -- Folder browsing
 
+## Platform
+
+- [Cross-Platform Rendering](cross-platform-rendering.md) -- macOS + iOS shared rendering pipeline
+
 ## Infrastructure
 
 - [CLI Integration](cli-integration.md) -- Terminal launch and Homebrew distribution
