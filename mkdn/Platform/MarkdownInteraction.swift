@@ -15,7 +15,7 @@ public struct MarkdownInteraction {
     public var scrollTarget: Binding<BlockScrollTarget?>?
     public var onCodeCopy: ((_ code: String, _ language: String?) -> Void)?
     public var onVisibleBlocksChanged: ((Set<Int>) -> Void)?
-    public var onScrollOffsetChanged: ((CGFloat) -> Void)?
+    var onScrollOffsetChanged: ((CGFloat) -> Void)?
     public var blockViewWrapperClosure: ((BlockInteractionContext, AnyView) -> AnyView)?
 
     public init() {}

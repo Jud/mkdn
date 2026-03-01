@@ -112,38 +112,4 @@ struct PlatformTypeConverterTests {
         let bg = PlatformTypeConverter.color(from: colors.background)
         #expect(fg != bg)
     }
-
-    // MARK: - Paragraph Style
-
-    @Test("Paragraph style applies line spacing")
-    func paragraphStyleLineSpacing() {
-        let style = PlatformTypeConverter.paragraphStyle(
-            lineSpacing: 6,
-            paragraphSpacing: 0
-        )
-        #expect(style.lineSpacing == 6)
-    }
-
-    @Test("Paragraph style applies paragraph spacing")
-    func paragraphStyleParagraphSpacing() {
-        let style = PlatformTypeConverter.paragraphStyle(
-            lineSpacing: 0,
-            paragraphSpacing: 12
-        )
-        #expect(style.paragraphSpacing == 12)
-    }
-
-    @Test("Paragraph style applies alignment")
-    func paragraphStyleAlignment() {
-        let style = PlatformTypeConverter.paragraphStyle(
-            alignment: .center
-        )
-        #expect(style.alignment == .center)
-    }
-
-    @Test("Paragraph style defaults to left alignment")
-    func paragraphStyleDefaultAlignment() {
-        let style = PlatformTypeConverter.paragraphStyle()
-        #expect(style.alignment == .left)
-    }
 }

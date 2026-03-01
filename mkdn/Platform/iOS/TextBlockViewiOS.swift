@@ -14,16 +14,28 @@
         let theme: AppTheme
         let scaleFactor: CGFloat
 
+        @State private var cachedAttributedString: NSAttributedString?
+
+        private var cacheKey: String {
+            "\(indexedBlock.id)-\(theme.rawValue)-\(scaleFactor)"
+        }
+
         var body: some View {
-            let result = MarkdownTextStorageBuilder.build(
-                blocks: [indexedBlock],
-                theme: theme,
-                scaleFactor: scaleFactor
-            )
-            MarkdownTextViewiOS(
-                attributedString: result.attributedString,
-                theme: theme
-            )
+            Group {
+                if let cached = cachedAttributedString {
+                    MarkdownTextViewiOS(
+                        attributedString: cached,
+                        theme: theme
+                    )
+                }
+            }
+            .task(id: cacheKey) {
+                cachedAttributedString = MarkdownTextStorageBuilder.build(
+                    blocks: [indexedBlock],
+                    theme: theme,
+                    scaleFactor: scaleFactor
+                ).attributedString
+            }
         }
     }
 #endif

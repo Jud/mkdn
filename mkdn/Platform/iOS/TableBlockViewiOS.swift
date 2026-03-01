@@ -12,6 +12,7 @@
         let rows: [[AttributedString]]
         let theme: AppTheme
         let scaleFactor: CGFloat
+        let containerWidth: CGFloat
 
         private var colors: ThemeColors {
             theme.colors
@@ -25,7 +26,7 @@
             let result = TableColumnSizer.computeWidths(
                 columns: columns,
                 rows: rows,
-                containerWidth: UIScreen.main.bounds.width - 32,
+                containerWidth: containerWidth,
                 font: PlatformTypeConverter.bodyFont(scaleFactor: scaleFactor)
             )
             let columnWidths = result.columnWidths

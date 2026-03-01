@@ -73,9 +73,7 @@ public final class BlockInteractionContext: Identifiable {
 
 /// Tracks per-block render lifecycle for consumers who want to display
 /// loading indicators or error states for individual blocks.
-///
-/// Design-only in this phase -- the enum is defined but no handlers consume it.
-public enum BlockRenderState: Equatable, Sendable {
+enum BlockRenderState: Equatable, Sendable {
     case idle
     case loading
     case rendered

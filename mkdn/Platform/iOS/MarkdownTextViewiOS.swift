@@ -62,7 +62,7 @@
             uiView textView: UITextView,
             context _: Context
         ) -> CGSize? {
-            let width = proposal.width ?? UIScreen.main.bounds.width
+            let width = proposal.width ?? 320
             let constraintSize = CGSize(width: width, height: CGFloat.greatestFiniteMagnitude)
             let fittingSize = textView.sizeThatFits(constraintSize)
             return CGSize(width: width, height: fittingSize.height)

@@ -18,9 +18,14 @@
         @Environment(\.markdownInteraction) private var interaction
 
         @State private var isCopied = false
+        @State private var cachedHighlight: AttributedString?
 
         private var colors: ThemeColors {
             theme.colors
+        }
+
+        private var cacheKey: String {
+            "\(language ?? "")-\(theme.rawValue)-\(scaleFactor)"
         }
 
         var body: some View {
@@ -35,7 +40,7 @@
                 }
 
                 ScrollView(.horizontal, showsIndicators: true) {
-                    Text(highlightedCode)
+                    Text(cachedHighlight ?? plainFallback)
                         .font(.system(.body, design: .monospaced))
                         .foregroundColor(colors.codeForeground)
                         .textSelection(.enabled)
@@ -52,6 +57,9 @@
             .overlay(alignment: .topTrailing) {
                 copyButton
                     .padding(8)
+            }
+            .task(id: cacheKey) {
+                cachedHighlight = computeHighlightedCode()
             }
         }
 
@@ -90,7 +98,13 @@
 
         // MARK: - Syntax Highlighting
 
-        private var highlightedCode: AttributedString {
+        private var plainFallback: AttributedString {
+            var result = AttributedString(code.trimmingCharacters(in: .whitespacesAndNewlines))
+            result.foregroundColor = colors.codeForeground
+            return result
+        }
+
+        private func computeHighlightedCode() -> AttributedString {
             let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines)
 
             guard let language,

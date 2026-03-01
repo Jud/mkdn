@@ -21,13 +21,20 @@ public struct MarkdownContentView: View {
     public let blocks: [IndexedBlock]
     public let theme: AppTheme
     public let scaleFactor: CGFloat
+    public let baseURL: URL?
 
     @Environment(\.markdownInteraction) private var interaction
 
-    public init(blocks: [IndexedBlock], theme: AppTheme, scaleFactor: CGFloat = 1.0) {
+    public init(
+        blocks: [IndexedBlock],
+        theme: AppTheme,
+        scaleFactor: CGFloat = 1.0,
+        baseURL: URL? = nil
+    ) {
         self.blocks = blocks
         self.theme = theme
         self.scaleFactor = scaleFactor
+        self.baseURL = baseURL
     }
 
     public var body: some View {
@@ -49,7 +56,8 @@ public struct MarkdownContentView: View {
                             BlockWrapperView(
                                 indexedBlock: block,
                                 theme: theme,
-                                scaleFactor: scaleFactor
+                                scaleFactor: scaleFactor,
+                                baseURL: baseURL
                             )
                             .id(block.id)
                         }
@@ -108,15 +116,18 @@ public struct MarkdownContentView: View {
         let indexedBlock: IndexedBlock
         let theme: AppTheme
         let scaleFactor: CGFloat
+        let baseURL: URL?
 
         @Environment(\.markdownInteraction) private var interaction
         @State private var context: BlockInteractionContext
         @State private var cachedSize: CGSize = .zero
+        @State private var containerWidth: CGFloat = 320
 
-        init(indexedBlock: IndexedBlock, theme: AppTheme, scaleFactor: CGFloat) {
+        init(indexedBlock: IndexedBlock, theme: AppTheme, scaleFactor: CGFloat, baseURL: URL?) {
             self.indexedBlock = indexedBlock
             self.theme = theme
             self.scaleFactor = scaleFactor
+            self.baseURL = baseURL
             _context = State(initialValue: BlockInteractionContext(block: indexedBlock))
         }
 
@@ -142,6 +153,17 @@ public struct MarkdownContentView: View {
                 cachedSize: $cachedSize,
                 blockIndex: indexedBlock.index,
                 handler: interaction.onBlockSizeChanged
+            )
+            .background(
+                GeometryReader { geometry in
+                    Color.clear
+                        .onAppear {
+                            containerWidth = geometry.size.width
+                        }
+                        .onChange(of: geometry.size.width) { _, newWidth in
+                            containerWidth = newWidth
+                        }
+                }
             )
         }
 
@@ -174,7 +196,8 @@ public struct MarkdownContentView: View {
                     columns: columns,
                     rows: rows,
                     theme: theme,
-                    scaleFactor: scaleFactor
+                    scaleFactor: scaleFactor,
+                    containerWidth: containerWidth
                 )
 
             case let .image(source, alt):
@@ -182,7 +205,7 @@ public struct MarkdownContentView: View {
                     source: source,
                     alt: alt,
                     theme: theme,
-                    baseURL: nil,
+                    baseURL: baseURL,
                     context: context
                 )
 

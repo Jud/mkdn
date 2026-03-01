@@ -87,18 +87,4 @@ public enum PlatformTypeConverter {
     public static func captionMonospacedFont(scaleFactor: CGFloat = 1.0) -> PlatformFont {
         .monospacedSystemFont(ofSize: PlatformFont.smallSystemFontSize * scaleFactor, weight: .regular)
     }
-
-    // MARK: - Paragraph Style
-
-    static func paragraphStyle(
-        lineSpacing: CGFloat = 0,
-        paragraphSpacing: CGFloat = 0,
-        alignment: NSTextAlignment = .left
-    ) -> NSParagraphStyle {
-        let style = NSMutableParagraphStyle()
-        style.lineSpacing = lineSpacing
-        style.paragraphSpacing = paragraphSpacing
-        style.alignment = alignment
-        return style
-    }
 }
