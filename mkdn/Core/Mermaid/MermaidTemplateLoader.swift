@@ -43,31 +43,32 @@ enum MermaidTemplateLoader {
             .replacingOccurrences(of: "__THEME_VARIABLES__", with: themeJSON)
     }
 
-    /// Writes the substituted Mermaid HTML template to a temporary file
-    /// and returns both the temp file URL and the bundle resource directory.
+    /// Shared temp directory containing a symlink to the bundled `mermaid.min.js`.
     ///
-    /// Use `loadFileURL(_:allowingReadAccessTo:)` with the returned URLs
-    /// so that WebKit gains filesystem read access to the bundled
-    /// `mermaid.min.js`.
+    /// Created once per process. Each diagram gets its own HTML file in this
+    /// directory so that the relative `<script src="mermaid.min.js">` in the
+    /// template resolves correctly.
+    private nonisolated(unsafe) static var sharedTempDirectory: URL?
+
+    /// Writes the substituted Mermaid HTML template to a temporary file
+    /// in a directory alongside `mermaid.min.js`, so that both the HTML
+    /// and the script are accessible via `loadFileURL(_:allowingReadAccessTo:)`.
     ///
     /// - Parameters:
     ///   - code: The raw Mermaid diagram source code.
     ///   - theme: The application theme to apply via Mermaid.js themeVariables.
-    /// - Returns: A ``TemplateFileResult`` with the temp file and bundle
-    ///   directory URLs, or `nil` if the template could not be loaded or written.
+    /// - Returns: A ``TemplateFileResult`` with the temp file and directory
+    ///   URLs, or `nil` if the template could not be loaded or written.
     static func writeTemplateFile(code: String, theme: AppTheme) -> TemplateFileResult? {
         guard let html = loadTemplate(code: code, theme: theme) else {
             return nil
         }
 
-        guard let bundleDirectoryURL = Bundle.module
-            .url(forResource: "mermaid-template", withExtension: "html")?
-            .deletingLastPathComponent()
-        else {
+        guard let tempDir = ensureSharedTempDirectory() else {
             return nil
         }
 
-        let tempFileURL = FileManager.default.temporaryDirectory
+        let tempFileURL = tempDir
             .appendingPathComponent(UUID().uuidString)
             .appendingPathExtension("html")
 
@@ -83,8 +84,49 @@ enum MermaidTemplateLoader {
 
         return TemplateFileResult(
             tempFileURL: tempFileURL,
-            bundleDirectoryURL: bundleDirectoryURL
+            bundleDirectoryURL: tempDir
         )
+    }
+
+    /// Creates (if needed) a shared temp directory with a symlink to
+    /// the bundled `mermaid.min.js`.
+    private static func ensureSharedTempDirectory() -> URL? {
+        if let existing = sharedTempDirectory,
+           FileManager.default.fileExists(atPath: existing.path)
+        {
+            return existing
+        }
+
+        guard let mermaidJSURL = Bundle.module.url(
+            forResource: "mermaid.min",
+            withExtension: "js"
+        )
+        else {
+            return nil
+        }
+
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mkdn-mermaid")
+
+        do {
+            try FileManager.default.createDirectory(
+                at: tempDir,
+                withIntermediateDirectories: true
+            )
+
+            let symlinkURL = tempDir.appendingPathComponent("mermaid.min.js")
+            if !FileManager.default.fileExists(atPath: symlinkURL.path) {
+                try FileManager.default.createSymbolicLink(
+                    at: symlinkURL,
+                    withDestinationURL: mermaidJSURL
+                )
+            }
+
+            sharedTempDirectory = tempDir
+            return tempDir
+        } catch {
+            return nil
+        }
     }
 
     /// Removes a previously written temporary template file.
