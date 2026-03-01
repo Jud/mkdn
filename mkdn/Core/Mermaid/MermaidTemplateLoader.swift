@@ -88,8 +88,12 @@ enum MermaidTemplateLoader {
         )
     }
 
-    /// Creates (if needed) a shared temp directory with a symlink to
+    /// Creates (if needed) a shared temp directory with a copy of
     /// the bundled `mermaid.min.js`.
+    ///
+    /// A hard copy is used instead of a symlink because WebKit resolves
+    /// symlinks before checking `allowingReadAccessTo:`, so a symlink
+    /// pointing outside the allowed directory is denied.
     private static func ensureSharedTempDirectory() -> URL? {
         if let existing = sharedTempDirectory,
            FileManager.default.fileExists(atPath: existing.path)
@@ -114,13 +118,11 @@ enum MermaidTemplateLoader {
                 withIntermediateDirectories: true
             )
 
-            let symlinkURL = tempDir.appendingPathComponent("mermaid.min.js")
-            if !FileManager.default.fileExists(atPath: symlinkURL.path) {
-                try FileManager.default.createSymbolicLink(
-                    at: symlinkURL,
-                    withDestinationURL: mermaidJSURL
-                )
+            let destURL = tempDir.appendingPathComponent("mermaid.min.js")
+            if FileManager.default.fileExists(atPath: destURL.path) {
+                try? FileManager.default.removeItem(at: destURL)
             }
+            try FileManager.default.copyItem(at: mermaidJSURL, to: destURL)
 
             sharedTempDirectory = tempDir
             return tempDir
