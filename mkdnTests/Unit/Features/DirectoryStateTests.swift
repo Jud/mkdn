@@ -90,6 +90,14 @@ struct DirectoryStateTests {
         #expect(DirectoryState.maxScanDepth == 10)
     }
 
+    // MARK: - Loading State
+
+    @Test("loadingDirectories starts empty")
+    @MainActor func loadingDirectoriesStartsEmpty() {
+        let state = DirectoryState(rootURL: URL(fileURLWithPath: "/tmp"))
+        #expect(state.loadingDirectories.isEmpty)
+    }
+
     // MARK: - DirectoryWatcher Initial State
 
     @Test("DirectoryWatcher starts with no changes")

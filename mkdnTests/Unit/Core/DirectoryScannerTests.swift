@@ -41,7 +41,7 @@ struct DirectoryScannerTests {
         try createFile(at: dir.appendingPathComponent("notes.txt"), content: "hello")
 
         let tree = DirectoryScanner.scan(url: dir)
-        let names = tree?.children.map(\.name) ?? []
+        let names = tree?.children?.map(\.name) ?? []
 
         #expect(names.contains("readme.md"))
         #expect(names.contains("notes.markdown"))
@@ -65,7 +65,7 @@ struct DirectoryScannerTests {
         try createFile(at: hiddenDir.appendingPathComponent("inside.md"))
 
         let tree = DirectoryScanner.scan(url: dir)
-        let names = tree?.children.map(\.name) ?? []
+        let names = tree?.children?.map(\.name) ?? []
 
         #expect(names == ["visible.md"])
     }
@@ -87,7 +87,7 @@ struct DirectoryScannerTests {
         try createFile(at: dirWithSource.appendingPathComponent("main.swift"), content: "import Foundation")
 
         let tree = DirectoryScanner.scan(url: dir)
-        let childNames = tree?.children.map(\.name) ?? []
+        let childNames = tree?.children?.map(\.name) ?? []
 
         #expect(childNames.contains("docs"))
         #expect(childNames.contains("src"))
@@ -111,7 +111,7 @@ struct DirectoryScannerTests {
         try createFile(at: dirAlpha.appendingPathComponent("file.md"))
 
         let tree = DirectoryScanner.scan(url: dir)
-        let names = tree?.children.map(\.name) ?? []
+        let names = tree?.children?.map(\.name) ?? []
 
         #expect(names == ["alpha", "Beta", "apple.md", "zebra.md"])
     }
@@ -134,7 +134,7 @@ struct DirectoryScannerTests {
 
         func findTruncation(in node: FileTreeNode) -> Bool {
             if node.isTruncated { return true }
-            return node.children.contains { findTruncation(in: $0) }
+            return (node.children ?? []).contains { findTruncation(in: $0) }
         }
 
         let root = try #require(tree)
@@ -150,12 +150,12 @@ struct DirectoryScannerTests {
         try createFile(at: sub.appendingPathComponent("file.md"))
 
         let tree = DirectoryScanner.scan(url: dir, maxDepth: 1)
-        let nestedNode = tree?.children.first { $0.name == "nested" }
+        let nestedNode = tree?.children?.first { $0.name == "nested" }
 
         #expect(nestedNode != nil)
-        #expect(nestedNode?.children.count == 1)
-        #expect(nestedNode?.children.first?.isTruncated == true)
-        #expect(nestedNode?.children.first?.name == "...")
+        #expect(nestedNode?.children?.count == 1)
+        #expect(nestedNode?.children?.first?.isTruncated == true)
+        #expect(nestedNode?.children?.first?.name == "...")
     }
 
     // MARK: - Nonexistent / Unreadable
@@ -190,7 +190,7 @@ struct DirectoryScannerTests {
 
         let tree = DirectoryScanner.scan(url: dir)
         #expect(tree != nil)
-        #expect(tree?.children.isEmpty == true)
+        #expect(tree?.children?.isEmpty == true)
     }
 
     @Test("Handles completely empty directory")
@@ -200,7 +200,7 @@ struct DirectoryScannerTests {
 
         let tree = DirectoryScanner.scan(url: dir)
         #expect(tree != nil)
-        #expect(tree?.children.isEmpty == true)
+        #expect(tree?.children?.isEmpty == true)
     }
 
     // MARK: - Root Node
@@ -232,15 +232,122 @@ struct DirectoryScannerTests {
         try createFile(at: dir.appendingPathComponent("readme.md"))
 
         let tree = DirectoryScanner.scan(url: dir)
-        let topNames = tree?.children.map(\.name) ?? []
+        let topNames = tree?.children?.map(\.name) ?? []
 
         #expect(topNames == ["guides", "readme.md"])
 
-        let guidesNode = tree?.children.first { $0.name == "guides" }
+        let guidesNode = tree?.children?.first { $0.name == "guides" }
         #expect(guidesNode?.isDirectory == true)
-        #expect(guidesNode?.children.count == 1)
-        #expect(guidesNode?.children.first?.name == "intro.md")
+        #expect(guidesNode?.children?.count == 1)
+        #expect(guidesNode?.children?.first?.name == "intro.md")
     }
+
+    // MARK: - Single Level Scanning
+
+    @Test("scanSingleLevel returns only direct children")
+    func scanSingleLevelDirectChildren() throws {
+        let dir = try makeTempDir()
+        defer { removeTempDir(dir) }
+
+        let sub = try createSubdir(dir, name: "guides")
+        try createFile(at: sub.appendingPathComponent("nested.md"))
+        try createFile(at: dir.appendingPathComponent("readme.md"))
+
+        let children = DirectoryScanner.scanSingleLevel(url: dir)
+        let names = children.map(\.name)
+
+        #expect(names == ["guides", "readme.md"])
+    }
+
+    @Test("scanSingleLevel directories have nil children")
+    func scanSingleLevelDirectoriesUnloaded() throws {
+        let dir = try makeTempDir()
+        defer { removeTempDir(dir) }
+
+        let sub = try createSubdir(dir, name: "docs")
+        try createFile(at: sub.appendingPathComponent("file.md"))
+
+        let children = DirectoryScanner.scanSingleLevel(url: dir)
+        let docsNode = children.first { $0.name == "docs" }
+
+        #expect(docsNode != nil)
+        #expect(docsNode?.isDirectory == true)
+        #expect(docsNode?.children == nil)
+        #expect(docsNode?.isLoaded == false)
+    }
+
+    @Test("scanSingleLevel files have nil children")
+    func scanSingleLevelFilesNilChildren() throws {
+        let dir = try makeTempDir()
+        defer { removeTempDir(dir) }
+
+        try createFile(at: dir.appendingPathComponent("readme.md"))
+
+        let children = DirectoryScanner.scanSingleLevel(url: dir)
+        let fileNode = children.first { $0.name == "readme.md" }
+
+        #expect(fileNode != nil)
+        #expect(fileNode?.isDirectory == false)
+        #expect(fileNode?.children == nil)
+    }
+
+    @Test("scanSingleLevel applies same filtering as scan")
+    func scanSingleLevelFiltering() throws {
+        let dir = try makeTempDir()
+        defer { removeTempDir(dir) }
+
+        try createFile(at: dir.appendingPathComponent("readme.md"))
+        try createFile(at: dir.appendingPathComponent(".hidden.md"))
+        try createFile(at: dir.appendingPathComponent("image.png"), content: "fake")
+
+        let children = DirectoryScanner.scanSingleLevel(url: dir)
+        let names = children.map(\.name)
+
+        #expect(names == ["readme.md"])
+    }
+
+    @Test("scanSingleLevel sorts directories first then files alphabetically")
+    func scanSingleLevelSortOrder() throws {
+        let dir = try makeTempDir()
+        defer { removeTempDir(dir) }
+
+        try createFile(at: dir.appendingPathComponent("zebra.md"))
+        try createFile(at: dir.appendingPathComponent("apple.md"))
+        let betaDir = try createSubdir(dir, name: "Beta")
+        try createFile(at: betaDir.appendingPathComponent("file.md"))
+        let alphaDir = try createSubdir(dir, name: "alpha")
+        try createFile(at: alphaDir.appendingPathComponent("file.md"))
+
+        let children = DirectoryScanner.scanSingleLevel(url: dir)
+        let names = children.map(\.name)
+
+        #expect(names == ["alpha", "Beta", "apple.md", "zebra.md"])
+    }
+
+    @Test("scanSingleLevel uses correct depth parameter")
+    func scanSingleLevelDepth() throws {
+        let dir = try makeTempDir()
+        defer { removeTempDir(dir) }
+
+        try createFile(at: dir.appendingPathComponent("readme.md"))
+        let sub = try createSubdir(dir, name: "docs")
+        try createFile(at: sub.appendingPathComponent("file.md"))
+
+        let children = DirectoryScanner.scanSingleLevel(url: dir, depth: 3)
+
+        for child in children {
+            #expect(child.depth == 4)
+        }
+    }
+
+    @Test("scanSingleLevel returns empty for nonexistent directory")
+    func scanSingleLevelNonexistent() {
+        let fakeURL = URL(fileURLWithPath: "/tmp/definitely-does-not-exist-\(UUID())")
+        let result = DirectoryScanner.scanSingleLevel(url: fakeURL)
+        #expect(result.isEmpty)
+    }
+
+    // MARK: - Depth Values
 
     @Test("Child files have correct depth values")
     func childDepthValues() throws {
@@ -255,19 +362,19 @@ struct DirectoryScannerTests {
 
         let tree = DirectoryScanner.scan(url: dir)
 
-        let rootFile = tree?.children.first { $0.name == "root.md" }
+        let rootFile = tree?.children?.first { $0.name == "root.md" }
         #expect(rootFile?.depth == 1)
 
-        let level1Dir = tree?.children.first { $0.name == "level1" }
+        let level1Dir = tree?.children?.first { $0.name == "level1" }
         #expect(level1Dir?.depth == 1)
 
-        let level1File = level1Dir?.children.first { $0.name == "one.md" }
+        let level1File = level1Dir?.children?.first { $0.name == "one.md" }
         #expect(level1File?.depth == 2)
 
-        let level2Dir = level1Dir?.children.first { $0.name == "level2" }
+        let level2Dir = level1Dir?.children?.first { $0.name == "level2" }
         #expect(level2Dir?.depth == 2)
 
-        let level2File = level2Dir?.children.first { $0.name == "two.md" }
+        let level2File = level2Dir?.children?.first { $0.name == "two.md" }
         #expect(level2File?.depth == 3)
     }
 }

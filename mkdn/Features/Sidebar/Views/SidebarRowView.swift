@@ -56,6 +56,7 @@
                 if isExpanded {
                     directoryState.expandedDirectories.remove(node.url)
                 } else {
+                    directoryState.loadChildrenIfNeeded(for: node.url)
                     directoryState.expandedDirectories.insert(node.url)
                 }
             }

@@ -39,11 +39,11 @@ struct FileTreeNodeTests {
         #expect(node.isTruncated == false)
     }
 
-    @Test("children defaults to empty array")
-    func childrenDefaultsEmpty() {
+    @Test("children defaults to nil")
+    func childrenDefaultsNil() {
         let url = URL(fileURLWithPath: "/tmp/docs/readme.md")
         let node = FileTreeNode(name: "readme.md", url: url, isDirectory: false, depth: 0)
-        #expect(node.children.isEmpty)
+        #expect(node.children == nil)
     }
 
     // MARK: - Truncation Indicator
@@ -79,8 +79,40 @@ struct FileTreeNodeTests {
         )
 
         #expect(parent.isDirectory == true)
-        #expect(parent.children.count == 1)
-        #expect(parent.children.first == child)
+        #expect(parent.children?.count == 1)
+        #expect(parent.children?.first == child)
+    }
+
+    // MARK: - isLoaded
+
+    @Test("isLoaded is false when children is nil")
+    func isLoadedFalseForNilChildren() {
+        let url = URL(fileURLWithPath: "/tmp/docs")
+        let node = FileTreeNode(name: "docs", url: url, isDirectory: true, depth: 0)
+        #expect(node.isLoaded == false)
+    }
+
+    @Test("isLoaded is true when children is empty array")
+    func isLoadedTrueForEmptyChildren() {
+        let url = URL(fileURLWithPath: "/tmp/docs")
+        let node = FileTreeNode(name: "docs", url: url, isDirectory: true, depth: 0, children: [])
+        #expect(node.isLoaded == true)
+    }
+
+    @Test("isLoaded is true when children has elements")
+    func isLoadedTrueForPopulatedChildren() {
+        let childURL = URL(fileURLWithPath: "/tmp/docs/readme.md")
+        let child = FileTreeNode(name: "readme.md", url: childURL, isDirectory: false, depth: 1)
+        let url = URL(fileURLWithPath: "/tmp/docs")
+        let node = FileTreeNode(name: "docs", url: url, isDirectory: true, depth: 0, children: [child])
+        #expect(node.isLoaded == true)
+    }
+
+    @Test("File node isLoaded is false")
+    func fileNodeIsLoadedFalse() {
+        let url = URL(fileURLWithPath: "/tmp/docs/readme.md")
+        let node = FileTreeNode(name: "readme.md", url: url, isDirectory: false, depth: 1)
+        #expect(node.isLoaded == false)
     }
 
     // MARK: - Hashable

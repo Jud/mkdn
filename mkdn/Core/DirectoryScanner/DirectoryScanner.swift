@@ -34,6 +34,68 @@
             )
         }
 
+        /// Enumerate only the direct children of a directory without recursion.
+        ///
+        /// Child directories are returned with `children = nil` (not yet loaded).
+        /// Files are returned with `children = nil` (leaf nodes).
+        /// The same filtering logic as the recursive ``scan(url:maxDepth:)`` is
+        /// applied: hidden files are excluded, only recognized text files are
+        /// included, and results are sorted directories-first then alphabetically.
+        ///
+        /// - Parameters:
+        ///   - url: Directory URL to enumerate.
+        ///   - depth: The depth of the children in the tree (for display indentation).
+        /// - Returns: Sorted array of child ``FileTreeNode`` values.
+        public static func scanSingleLevel(url: URL, depth: Int = 0) -> [FileTreeNode] {
+            let fileManager = FileManager.default
+            guard let contents = try? fileManager.contentsOfDirectory(
+                at: url,
+                includingPropertiesForKeys: [.isDirectoryKey, .isReadableKey],
+                options: [.skipsHiddenFiles]
+            )
+            else {
+                return []
+            }
+
+            var directories: [FileTreeNode] = []
+            var files: [FileTreeNode] = []
+
+            for itemURL in contents {
+                let itemName = itemURL.lastPathComponent
+                if itemName.hasPrefix(".") { continue }
+
+                var isDir: ObjCBool = false
+                guard fileManager.fileExists(atPath: itemURL.path, isDirectory: &isDir) else {
+                    continue
+                }
+
+                if isDir.boolValue {
+                    directories.append(
+                        FileTreeNode(
+                            name: itemName,
+                            url: itemURL,
+                            isDirectory: true,
+                            depth: depth + 1
+                        )
+                    )
+                } else if itemURL.isTextFile {
+                    files.append(
+                        FileTreeNode(
+                            name: itemName,
+                            url: itemURL,
+                            isDirectory: false,
+                            depth: depth + 1
+                        )
+                    )
+                }
+            }
+
+            directories.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            files.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+
+            return directories + files
+        }
+
         // MARK: - Private
 
         private static func scanChildren(
