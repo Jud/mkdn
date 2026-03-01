@@ -50,7 +50,7 @@
             }
             .frame(minWidth: 600, minHeight: 400)
             .background(appSettings.theme.colors.background)
-            .background(WindowAccessor(theme: appSettings.theme))
+            .background(WindowAccessor())
             .onAppear {
                 appSettings.systemColorScheme = colorScheme
             }

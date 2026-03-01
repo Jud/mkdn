@@ -183,8 +183,6 @@
                 .backgroundColor: accentColor.withAlphaComponent(0.3),
             ]
             textView.insertionPointColor = accentColor
-
-            scrollView.scrollerKnobStyle = (appSettings.theme == .solarizedDark) ? .light : .dark
         }
 
         // MARK: - Content

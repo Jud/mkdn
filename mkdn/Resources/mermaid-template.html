@@ -39,6 +39,7 @@
                 flowchart: { htmlLabels: true },
             });
 
+            var currentThemeVars = __THEME_VARIABLES__;
             var resizeObserver = null;
             var resizeRAF = null;
 
@@ -89,22 +90,57 @@
                 }
             }
 
-            window.reRenderWithTheme = function(themeVarsJSON) {
-                mermaid.initialize({
-                    startOnLoad: false,
-                    theme: 'base',
-                    themeVariables: themeVarsJSON,
-                    securityLevel: 'strict',
-                    flowchart: { htmlLabels: true },
-                });
-                var container = document.getElementById('diagram');
-                var svg = container.querySelector('svg');
-                if (svg) svg.remove();
-                var pre = document.createElement('pre');
-                pre.className = 'mermaid';
-                pre.textContent = originalCode;
-                container.appendChild(pre);
-                render();
+            window.reRenderWithTheme = function(newThemeVars) {
+                var svg = document.querySelector('#diagram svg');
+                if (!svg) {
+                    // No SVG yet — fall back to full re-render.
+                    mermaid.initialize({
+                        startOnLoad: false,
+                        theme: 'base',
+                        themeVariables: newThemeVars,
+                        securityLevel: 'strict',
+                        flowchart: { htmlLabels: true },
+                    });
+                    var container = document.getElementById('diagram');
+                    var pre = document.createElement('pre');
+                    pre.className = 'mermaid';
+                    pre.textContent = originalCode;
+                    container.appendChild(pre);
+                    render();
+                    currentThemeVars = newThemeVars;
+                    return;
+                }
+
+                // Fast path: swap hex colors in the SVG without re-rendering.
+                var html = svg.outerHTML;
+                for (var key in currentThemeVars) {
+                    var oldColor = currentThemeVars[key];
+                    var newColor = newThemeVars[key];
+                    if (oldColor && newColor && oldColor !== newColor) {
+                        html = html.split(oldColor).join(newColor);
+                    }
+                }
+
+                // Also patch the SVG's internal <style> block (case variations).
+                for (var key in currentThemeVars) {
+                    var oldColor = currentThemeVars[key];
+                    var newColor = newThemeVars[key];
+                    if (oldColor && newColor && oldColor !== newColor) {
+                        var oldLower = oldColor.toLowerCase();
+                        var oldUpper = oldColor.toUpperCase();
+                        if (oldLower !== oldColor) {
+                            html = html.split(oldLower).join(newColor);
+                        }
+                        if (oldUpper !== oldColor) {
+                            html = html.split(oldUpper).join(newColor);
+                        }
+                    }
+                }
+
+                svg.outerHTML = html;
+                currentThemeVars = newThemeVars;
+                sendSizeReport();
+                installResizeObserver();
             };
 
             render();
