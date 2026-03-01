@@ -218,6 +218,8 @@
                 .underlineStyle: NSUnderlineStyle.single.rawValue,
                 .cursor: NSCursor.pointingHand,
             ]
+
+            scrollView.scrollerKnobStyle = (theme == .solarizedDark) ? .light : .dark
         }
     }
 

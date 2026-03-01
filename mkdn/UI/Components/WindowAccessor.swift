@@ -6,19 +6,36 @@
     /// Transparent NSView helper that configures the hosting NSWindow
     /// to remove the title bar compositing layer (which covers scrolled content)
     /// while preserving rounded corners, window dragging, and resizability.
+    ///
+    /// Accepts the current `AppTheme` so it can set `window.appearance` to
+    /// match the Solarized palette, ensuring native scroll bar thumbs and
+    /// other chrome follow the pinned theme rather than the system setting.
     public struct WindowAccessor: NSViewRepresentable {
-        public init() {}
+        let theme: AppTheme
 
-        public func makeNSView(context _: Context) -> WindowAccessorView {
-            WindowAccessorView()
+        public init(theme: AppTheme) {
+            self.theme = theme
         }
 
-        public func updateNSView(_: WindowAccessorView, context _: Context) {}
+        public func makeNSView(context _: Context) -> WindowAccessorView {
+            let view = WindowAccessorView()
+            view.pendingTheme = theme
+            return view
+        }
+
+        public func updateNSView(_ nsView: WindowAccessorView, context _: Context) {
+            nsView.pendingTheme = theme
+            guard let window = nsView.window else { return }
+            window.appearance = (theme == .solarizedDark)
+                ? NSAppearance(named: .darkAqua)
+                : NSAppearance(named: .aqua)
+        }
     }
 
     /// Custom NSView that configures its hosting window when attached.
     public final class WindowAccessorView: NSView {
         private var didConfigure = false
+        var pendingTheme: AppTheme?
 
         override public func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
@@ -54,6 +71,12 @@
             window.isMovableByWindowBackground = true
             window.hasShadow = true
             window.backgroundColor = .clear
+
+            if let theme = pendingTheme {
+                window.appearance = (theme == .solarizedDark)
+                    ? NSAppearance(named: .darkAqua)
+                    : NSAppearance(named: .aqua)
+            }
 
             // Apply the user's saved window size. .defaultSize() on the
             // WindowGroup only applies reliably to the first window; subsequent
