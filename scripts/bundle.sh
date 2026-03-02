@@ -62,15 +62,4 @@ if [ -f "${ICON_SRC}" ]; then
     echo "  Installed AppIcon.icns"
 fi
 
-ASSETS_SRC="${PROJECT_ROOT}/Resources/Assets.xcassets"
-if [ -d "${ASSETS_SRC}" ]; then
-    xcrun actool "${ASSETS_SRC}" \
-        --compile "${BUNDLE_DIR}/Resources" \
-        --platform macosx \
-        --minimum-deployment-target 14.0 \
-        --app-icon AppIcon \
-        --output-partial-info-plist /dev/null
-    echo "  Compiled Asset Catalog (Assets.car)"
-fi
-
 echo "==> Built ${BUILD_DIR}/${APP_NAME}.app"

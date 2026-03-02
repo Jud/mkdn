@@ -119,16 +119,6 @@ ICON_SRC="${PROJECT_ROOT}/Resources/AppIcon.icns"
 cp "${ICON_SRC}" "${APP_BUNDLE}/Contents/Resources/AppIcon.icns"
 echo "  Installed AppIcon.icns"
 
-ASSETS_SRC="${PROJECT_ROOT}/Resources/Assets.xcassets"
-[ -d "${ASSETS_SRC}" ] || error "Resources/Assets.xcassets not found at ${ASSETS_SRC}"
-xcrun actool "${ASSETS_SRC}" \
-    --compile "${APP_BUNDLE}/Contents/Resources" \
-    --platform macosx \
-    --minimum-deployment-target 14.0 \
-    --app-icon AppIcon \
-    --output-partial-info-plist /dev/null
-echo "  Compiled Asset Catalog (Assets.car)"
-
 # ---------------------------------------------------------------------------
 # Phase 6: Code signing
 # ---------------------------------------------------------------------------
