@@ -61,7 +61,6 @@
                 else {
                     highlightOverlay.selectedCells = []
                     highlightOverlay.needsDisplay = true
-                    highlightOverlay.displayIfNeeded()
                     continue
                 }
 
@@ -76,7 +75,6 @@
                     highlightOverlay.selectedCells = []
                 }
                 highlightOverlay.needsDisplay = true
-                highlightOverlay.displayIfNeeded()
             }
         }
 
@@ -120,7 +118,6 @@
                 highlightOverlay.findHighlightCells = []
                 highlightOverlay.currentFindCell = nil
                 highlightOverlay.needsDisplay = true
-                highlightOverlay.displayIfNeeded()
                 return
             }
 
@@ -146,7 +143,6 @@
             highlightOverlay.findHighlightCells = findCells
             highlightOverlay.currentFindCell = currentCell
             highlightOverlay.needsDisplay = true
-            highlightOverlay.displayIfNeeded()
         }
 
         // MARK: - Table Overlay Lifecycle

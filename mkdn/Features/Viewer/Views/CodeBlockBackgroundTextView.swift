@@ -52,6 +52,11 @@
         var cachedCodeBlocks: [CodeBlockInfo] = []
         var isCodeBlockCacheValid = false
 
+        // MARK: - Table Range Cache
+
+        var cachedTableRanges: [String: NSRange] = [:]
+        var isTableRangeCacheValid = false
+
         // MARK: - Copy Button State
 
         var hoveredBlockID: String?
@@ -94,8 +99,9 @@
             invalidateCodeBlockCache()
         }
 
-        private func invalidateCodeBlockCache() {
+        func invalidateCodeBlockCache() {
             isCodeBlockCacheValid = false
+            isTableRangeCacheValid = false
         }
 
         // MARK: - Escape to Dismiss Find
@@ -158,7 +164,7 @@
         override func mouseDown(with event: NSEvent) {
             let point = convert(event.locationInWindow, from: nil)
             if isOverEmptyTextArea(point) {
-                window?.performDrag(with: event)
+                setSelectedRange(NSRange(location: 0, length: 0))
                 return
             }
             super.mouseDown(with: event)

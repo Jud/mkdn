@@ -30,22 +30,7 @@
                     result = result.length == 0 ? range : NSUnionRange(result, range)
                 }
 
-            let fullRange = NSRange(location: 0, length: textStorage.length)
-            var tableRanges: [String: NSRange] = [:]
-
-            textStorage.enumerateAttribute(
-                TableAttributes.range,
-                in: fullRange,
-                options: []
-            ) { value, range, _ in
-                guard let tableID = value as? String else { return }
-                if let existing = tableRanges[tableID] {
-                    tableRanges[tableID] = NSUnionRange(existing, range)
-                } else {
-                    tableRanges[tableID] = range
-                }
-            }
-
+            let tableRanges = resolveTableRanges(from: textStorage)
             guard !tableRanges.isEmpty else { return }
 
             let bgColor = backgroundColor
@@ -63,8 +48,6 @@
                 guard !frames.isEmpty else { continue }
 
                 let bounding = frames.reduce(frames[0]) { $0.union($1) }
-                // Use full view width — native selection extends across the
-                // entire text container, not just the layout fragment bounds.
                 let eraseRect = CGRect(
                     x: 0,
                     y: bounding.minY + origin.y,
@@ -76,6 +59,33 @@
                 bgColor.setFill()
                 eraseRect.fill()
             }
+        }
+
+        // MARK: - Table Range Resolution
+
+        private func resolveTableRanges(
+            from textStorage: NSTextStorage
+        ) -> [String: NSRange] {
+            if isTableRangeCacheValid {
+                return cachedTableRanges
+            }
+            var scanned: [String: NSRange] = [:]
+            let fullRange = NSRange(location: 0, length: textStorage.length)
+            textStorage.enumerateAttribute(
+                TableAttributes.range,
+                in: fullRange,
+                options: []
+            ) { value, range, _ in
+                guard let tableID = value as? String else { return }
+                if let existing = scanned[tableID] {
+                    scanned[tableID] = NSUnionRange(existing, range)
+                } else {
+                    scanned[tableID] = range
+                }
+            }
+            cachedTableRanges = scanned
+            isTableRangeCacheValid = true
+            return scanned
         }
 
         // MARK: - Layout Fragment Geometry

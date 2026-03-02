@@ -59,18 +59,6 @@
                 return true
             }
 
-            // MARK: - Selection Change
-
-            func textViewDidChangeSelection(_ notification: Notification) {
-                guard let textView = notification.object as? NSTextView,
-                      let selectedRange = textView.selectedRanges.first
-                else { return }
-
-                overlayCoordinator.updateTableSelections(
-                    selectedRange: selectedRange.rangeValue
-                )
-            }
-
             // MARK: - Find State Tracking
 
             var lastFindQuery = ""
