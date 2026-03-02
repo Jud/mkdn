@@ -332,9 +332,9 @@
             let point = convert(event.locationInWindow, from: nil)
             if isOverEmptyTextArea(point) {
                 NSCursor.arrow.set()
-                return
+            } else {
+                NSCursor.iBeam.set()
             }
-            super.cursorUpdate(with: event)
         }
     }
 
