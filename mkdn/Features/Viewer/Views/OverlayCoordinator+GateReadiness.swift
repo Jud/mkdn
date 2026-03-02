@@ -3,15 +3,14 @@
 
     /// Entrance gate readiness tracking for ``OverlayCoordinator``.
     extension OverlayCoordinator {
-        /// Checks whether all Mermaid attachment overlays visible in the scroll
-        /// view's viewport have reported their rendered size. Returns `true` when
-        /// every viewport Mermaid overlay has called ``updateAttachmentHeight`` or
-        /// ``updateAttachmentSize``, or when no Mermaid overlays fall within the
-        /// visible rect.
+        /// Checks whether all async attachment overlays (Mermaid diagrams and
+        /// images) visible in the scroll view's viewport have reported their
+        /// rendered size. Returns `true` when every such viewport overlay has
+        /// called ``updateAttachmentHeight`` or ``updateAttachmentSize``, or when
+        /// no async overlays fall within the visible rect.
         ///
-        /// Non-Mermaid overlays (images, math, thematic breaks) are excluded from
-        /// the check because they report size near-instantly and do not cause
-        /// visible layout jumps.
+        /// Synchronous overlays (math, thematic breaks) are excluded from the
+        /// check because they report size near-instantly.
         func viewportOverlaysReady(in scrollView: NSScrollView) -> Bool {
             let visibleRect = scrollView.contentView.bounds
             guard let context = makeLayoutContext() else { return true }
@@ -19,10 +18,13 @@
             for (blockIndex, entry) in entries {
                 guard entry.attachment != nil else { continue }
                 guard !reportedOverlays.contains(blockIndex) else { continue }
-                guard case .mermaidBlock = entry.block else { continue }
+                guard entry.block.isAsync else { continue }
 
                 let frameToCheck = resolveEntryFrame(entry, context: context)
-                guard let frame = frameToCheck else { continue }
+
+                // If we can't resolve the frame, the overlay hasn't been
+                // positioned yet — conservatively assume it's in the viewport.
+                guard let frame = frameToCheck else { return false }
 
                 if frame.intersects(visibleRect) {
                     return false

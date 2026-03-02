@@ -35,12 +35,12 @@
 
         private var entranceStartTime: CFTimeInterval = 0
         private var reduceMotion = false
-        private var coverLayers: [CALayer] = []
-        private var cleanupTask: Task<Void, Never>?
+        var coverLayers: [CALayer] = []
+        var cleanupTask: Task<Void, Never>?
 
         // MARK: - Constants
 
-        private static let driftDistance: CGFloat = 8
+        static let driftDistance: CGFloat = 8
 
         // MARK: - Types
 
@@ -102,9 +102,6 @@
         func animateVisibleFragments() {
             guard isAnimating, !reduceMotion else { return }
             guard let textView,
-                  let layoutManager = textView.textLayoutManager,
-                  let contentManager = layoutManager.textContentManager,
-                  let textStorage = textView.textStorage,
                   let viewLayer = textView.layer
             else { return }
 
@@ -119,11 +116,48 @@
             // Past the animation window — nothing to cover.
             guard elapsed < totalRevealTime else { return }
 
-            // Compute document height for position-based stagger.
-            let docHeight = documentHeight(
-                layoutManager: layoutManager,
-                contentManager: contentManager
+            // Only cover fragments within or near the viewport.
+            let viewportMaxY: CGFloat = if let scrollView = textView.enclosingScrollView {
+                scrollView.contentView.bounds.maxY
+            } else {
+                textView.visibleRect.maxY
+            }
+            let coverLimit = viewportMaxY + 100
+
+            // Stagger relative to viewport height, not full document height,
+            // to avoid compressing delays on long documents.
+            let docHeight = max(viewportMaxY, 1)
+
+            let blockGroups = enumerateAndCoverFragments(
+                viewLayer: viewLayer,
+                textView: textView,
+                elapsed: elapsed,
+                docHeight: docHeight,
+                coverLimit: coverLimit
             )
+
+            processBlockGroups(
+                blockGroups,
+                elapsed: elapsed,
+                staggerHeight: docHeight,
+                in: textView,
+                to: viewLayer
+            )
+        }
+
+        // MARK: - Fragment Enumeration
+
+        private func enumerateAndCoverFragments(
+            viewLayer: CALayer,
+            textView: NSTextView,
+            elapsed: CFTimeInterval,
+            docHeight: CGFloat,
+            coverLimit: CGFloat
+        ) -> [String: BlockGroup] {
+            guard let layoutManager = textView.textLayoutManager,
+                  let contentManager = layoutManager.textContentManager,
+                  let textStorage = textView.textStorage
+            else { return [:] }
 
             var blockGroups: [String: BlockGroup] = [:]
 
@@ -132,58 +166,35 @@
                 options: [.ensuresLayout]
             ) { fragment in
                 let frame = fragment.layoutFragmentFrame
-                let positionDelay = self.positionDelay(
-                    y: frame.origin.y, documentHeight: docHeight
-                )
+                guard frame.origin.y <= coverLimit else { return false }
 
-                // Skip fragments already fully revealed.
-                if elapsed >= positionDelay + AnimationConstants.fadeInDuration {
-                    return true
-                }
+                let delay = self.positionDelay(y: frame.origin.y, documentHeight: docHeight)
+                guard elapsed < delay + AnimationConstants.fadeInDuration else { return true }
 
                 let groupID = self.blockGroupID(
-                    for: fragment,
-                    contentManager: contentManager,
-                    textStorage: textStorage
+                    for: fragment, contentManager: contentManager, textStorage: textStorage
                 )
 
                 if let groupID {
-                    if var group = blockGroups[groupID] {
-                        group.frames.append(frame)
-                        blockGroups[groupID] = group
-                    } else {
-                        blockGroups[groupID] = BlockGroup(
-                            minY: frame.origin.y,
-                            frames: [frame]
-                        )
-                    }
+                    blockGroups[groupID, default: BlockGroup(minY: frame.origin.y)]
+                        .frames.append(frame)
                 } else {
-                    let coverLayer = self.makeCoverLayer(
-                        for: fragment, in: textView
-                    )
-                    self.addCoverAnimation(
-                        to: coverLayer,
-                        positionDelay: positionDelay,
-                        elapsed: elapsed
-                    )
+                    let coverLayer = self.makeCoverLayer(for: fragment, in: textView)
+                    self.addCoverAnimation(to: coverLayer, positionDelay: delay, elapsed: elapsed)
                     viewLayer.addSublayer(coverLayer)
                     self.coverLayers.append(coverLayer)
-
                     self.recordAttachmentDelay(
                         fragment: fragment,
-                        positionDelay: positionDelay,
+                        positionDelay: delay,
                         elapsed: elapsed,
                         contentManager: contentManager,
                         textStorage: textStorage
                     )
                 }
-
                 return true
             }
 
-            processBlockGroups(
-                blockGroups, elapsed: elapsed, in: textView, to: viewLayer
-            )
+            return blockGroups
         }
 
         // MARK: - Block Group Processing
@@ -191,29 +202,80 @@
         private func processBlockGroups(
             _ groups: [String: BlockGroup],
             elapsed: CFTimeInterval,
+            staggerHeight: CGFloat,
             in textView: NSTextView,
             to viewLayer: CALayer
         ) {
-            let docHeight = documentHeight(textView: textView)
+            let docHeight = staggerHeight
 
             for (groupID, group) in groups {
-                let positionDelay = positionDelay(
-                    y: group.minY, documentHeight: docHeight
-                )
-
                 if groupID.hasPrefix("table-") {
+                    let positionDelay = positionDelay(
+                        y: group.minY, documentHeight: docHeight
+                    )
                     let tableRangeID = String(groupID.dropFirst("table-".count))
                     tableDelays[tableRangeID] = max(positionDelay - elapsed, 0)
+                    let coverLayer = makeBlockGroupCoverLayer(
+                        frames: group.frames, in: textView
+                    )
+                    addCoverAnimation(
+                        to: coverLayer, positionDelay: positionDelay, elapsed: elapsed
+                    )
+                    viewLayer.addSublayer(coverLayer)
+                    coverLayers.append(coverLayer)
+                } else {
+                    // Code blocks: per-line covers for line-by-line cascade.
+                    addCodeBlockLineCoverLayers(
+                        group: group,
+                        elapsed: elapsed,
+                        docHeight: docHeight,
+                        in: textView,
+                        to: viewLayer
+                    )
+                }
+            }
+        }
+
+        /// Creates one cover layer per line within a code block, each with its
+        /// own position-based stagger delay. The last line's cover extends down
+        /// to include the code block's bottom padding.
+        private func addCodeBlockLineCoverLayers(
+            group: BlockGroup,
+            elapsed: CFTimeInterval,
+            docHeight: CGFloat,
+            in textView: NSTextView,
+            to viewLayer: CALayer
+        ) {
+            let origin = textView.textContainerOrigin
+            let containerWidth =
+                textView.textContainer?.size.width ?? textView.bounds.width
+            let sortedFrames = group.frames.sorted { $0.origin.y < $1.origin.y }
+
+            for (index, frame) in sortedFrames.enumerated() {
+                let positionDelay = positionDelay(
+                    y: frame.origin.y, documentHeight: docHeight
+                )
+
+                var coverHeight = frame.height
+                if index == sortedFrames.count - 1 {
+                    coverHeight += CodeBlockBackgroundTextView.bottomPadding
                 }
 
-                let coverLayer = makeBlockGroupCoverLayer(
-                    frames: group.frames, in: textView
+                let layer = CALayer()
+                layer.frame = CGRect(
+                    x: origin.x,
+                    y: frame.origin.y + origin.y,
+                    width: containerWidth,
+                    height: coverHeight
                 )
+                layer.backgroundColor = textView.backgroundColor.cgColor
+                layer.zPosition = 1
+
                 addCoverAnimation(
-                    to: coverLayer, positionDelay: positionDelay, elapsed: elapsed
+                    to: layer, positionDelay: positionDelay, elapsed: elapsed
                 )
-                viewLayer.addSublayer(coverLayer)
-                coverLayers.append(coverLayer)
+                viewLayer.addSublayer(layer)
+                coverLayers.append(layer)
             }
         }
 
@@ -256,30 +318,6 @@
             return fraction * AnimationConstants.staggerCap
         }
 
-        private func documentHeight(textView: NSTextView) -> CGFloat {
-            guard let layoutManager = textView.textLayoutManager,
-                  let contentManager = layoutManager.textContentManager
-            else { return textView.bounds.height }
-            return documentHeight(
-                layoutManager: layoutManager, contentManager: contentManager
-            )
-        }
-
-        private func documentHeight(
-            layoutManager: NSTextLayoutManager,
-            contentManager: NSTextContentManager
-        ) -> CGFloat {
-            var maxY: CGFloat = 0
-            layoutManager.enumerateTextLayoutFragments(
-                from: contentManager.documentRange.endLocation,
-                options: [.reverse, .ensuresLayout]
-            ) { fragment in
-                maxY = fragment.layoutFragmentFrame.maxY
-                return false
-            }
-            return max(maxY, 1)
-        }
-
         // MARK: - Block Group Detection
 
         private func blockGroupID(
@@ -312,134 +350,6 @@
             }
 
             return nil
-        }
-
-        // MARK: - Cover Layer Animation
-
-        /// Adds a fade animation to a cover layer, accounting for elapsed time.
-        ///
-        /// If the entrance started some time ago, the cover starts at a partially
-        /// faded opacity and runs for the remaining duration only. This keeps
-        /// covers visually consistent after relayout.
-        private func addCoverAnimation(
-            to layer: CALayer,
-            positionDelay: CFTimeInterval,
-            elapsed: CFTimeInterval
-        ) {
-            let remainingDelay = max(positionDelay - elapsed, 0)
-
-            // How far into this cover's fade are we?
-            let fadeElapsed = max(elapsed - positionDelay, 0)
-            let fadeDuration = AnimationConstants.fadeInDuration
-            let fadeProgress = min(fadeElapsed / fadeDuration, 1)
-            let startOpacity = Float(1.0 - fadeProgress)
-            let remainingFade = fadeDuration * (1.0 - fadeProgress)
-
-            guard remainingFade > 0.01 else {
-                // Already fully revealed — no animation needed.
-                layer.opacity = 0
-                return
-            }
-
-            let animation = CABasicAnimation(keyPath: "opacity")
-            animation.fromValue = startOpacity
-            animation.toValue = 0.0
-            animation.duration = remainingFade
-            animation.beginTime = CACurrentMediaTime() + remainingDelay
-            animation.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            animation.fillMode = .both
-
-            layer.opacity = 0
-            layer.add(animation, forKey: "coverFade")
-        }
-
-        // MARK: - Cover Layers
-
-        private func makeCoverLayer(
-            for fragment: NSTextLayoutFragment,
-            in textView: NSTextView
-        ) -> CALayer {
-            let frame = fragment.layoutFragmentFrame
-            let origin = textView.textContainerOrigin
-            let adjustedFrame = frame.offsetBy(dx: origin.x, dy: origin.y)
-
-            let layer = CALayer()
-            layer.frame = adjustedFrame
-            layer.backgroundColor = textView.backgroundColor.cgColor
-            layer.zPosition = 1
-            return layer
-        }
-
-        private func makeBlockGroupCoverLayer(
-            frames: [CGRect],
-            in textView: NSTextView
-        ) -> CALayer {
-            let origin = textView.textContainerOrigin
-            let containerWidth =
-                textView.textContainer?.size.width ?? textView.bounds.width
-            let union = frames.reduce(frames[0]) { $0.union($1) }
-
-            let margin: CGFloat = 1
-
-            let layer = CALayer()
-            layer.frame = CGRect(
-                x: origin.x - margin,
-                y: union.minY + origin.y - margin,
-                width: containerWidth + 2 * margin,
-                height: union.height + 2 * margin
-            )
-            layer.backgroundColor = textView.backgroundColor.cgColor
-            layer.zPosition = 1
-            return layer
-        }
-
-        // MARK: - View Drift
-
-        private func applyViewDriftAnimation() {
-            guard let layer = textView?.layer else { return }
-
-            let driftTransform = CATransform3DMakeTranslation(
-                0, Self.driftDistance, 0
-            )
-            let totalDuration =
-                AnimationConstants.staggerCap + AnimationConstants.fadeInDuration
-
-            let animation = CABasicAnimation(keyPath: "transform")
-            animation.fromValue = NSValue(caTransform3D: driftTransform)
-            animation.toValue = NSValue(caTransform3D: CATransform3DIdentity)
-            animation.duration = totalDuration
-            animation.timingFunction = CAMediaTimingFunction(name: .easeOut)
-
-            layer.transform = CATransform3DIdentity
-            layer.add(animation, forKey: "entranceDrift")
-        }
-
-        private func removeViewDriftAnimation() {
-            guard let layer = textView?.layer else { return }
-            layer.removeAnimation(forKey: "entranceDrift")
-            layer.transform = CATransform3DIdentity
-        }
-
-        // MARK: - Cleanup
-
-        private func removeCoverLayers() {
-            for layer in coverLayers {
-                layer.removeAllAnimations()
-                layer.removeFromSuperlayer()
-            }
-            coverLayers.removeAll()
-        }
-
-        private func scheduleCleanup() {
-            cleanupTask?.cancel()
-            let totalDuration =
-                AnimationConstants.staggerCap + AnimationConstants.fadeInDuration + 0.1
-            cleanupTask = Task { [weak self] in
-                try? await Task.sleep(for: .seconds(totalDuration))
-                guard !Task.isCancelled else { return }
-                self?.removeCoverLayers()
-                self?.isAnimating = false
-            }
         }
     }
 #endif

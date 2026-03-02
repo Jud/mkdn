@@ -266,16 +266,16 @@
                 // Carry over the known height from the old attachment to the new one.
                 // Text storage rebuilds create fresh attachments with the default
                 // placeholder height; the SwiftUI view won't re-fire onSizeChange
-                // because the image is already loaded.
+                // because the image is already loaded. Use invalidateAttachmentHeight
+                // so entrance animation cover layers get rebuilt for the new layout.
                 let knownHeight = oldAttachment.bounds.height
                 if knownHeight > 1, let textStorage = textView.textStorage {
-                    let containerWidth = textContainerWidth(in: textView)
-                    info.attachment.bounds = CGRect(
-                        x: 0, y: 0, width: containerWidth, height: knownHeight
+                    invalidateAttachmentHeight(
+                        info.attachment,
+                        newHeight: knownHeight,
+                        textView: textView,
+                        textStorage: textStorage
                     )
-                    if let range = attachmentRange(for: info.attachment) {
-                        textStorage.edited(.editedAttributes, range: range, changeInLength: 0)
-                    }
                 }
 
                 entries[info.blockIndex] = OverlayEntry(
@@ -344,166 +344,6 @@
                 view: overlayView, block: info.block, attachment: info.attachment
             )
         }
-
-        // MARK: - Positioning
-
-        func makeLayoutContext() -> LayoutContext? {
-            guard let textView,
-                  let layoutManager = textView.textLayoutManager,
-                  let textStorage = textView.textStorage,
-                  let contentManager = layoutManager.textContentManager
-            else { return nil }
-
-            return LayoutContext(
-                origin: textView.textContainerOrigin,
-                containerWidth: textContainerWidth(in: textView),
-                textStorage: textStorage,
-                contentManager: contentManager,
-                layoutManager: layoutManager
-            )
-        }
-
-        func positionEntry(
-            _ entry: OverlayEntry,
-            context: LayoutContext
-        ) {
-            if entry.tableRangeID != nil {
-                positionTextRangeEntry(entry, context: context)
-            } else if entry.attachment != nil {
-                positionAttachmentEntry(entry, context: context)
-            } else {
-                entry.view.isHidden = true
-            }
-        }
-
-        private func positionAttachmentEntry(
-            _ entry: OverlayEntry,
-            context: LayoutContext
-        ) {
-            guard let attachment = entry.attachment,
-                  let range = attachmentRange(for: attachment)
-            else {
-                entry.view.isHidden = true
-                return
-            }
-
-            guard let docLocation = context.contentManager.location(
-                context.contentManager.documentRange.location,
-                offsetBy: range.location
-            )
-            else {
-                entry.view.isHidden = true
-                return
-            }
-
-            var fragmentFrame: CGRect?
-            context.layoutManager.enumerateTextLayoutFragments(
-                from: docLocation,
-                options: [.ensuresLayout]
-            ) { fragment in
-                fragmentFrame = fragment.layoutFragmentFrame
-                return false
-            }
-
-            guard let frame = fragmentFrame, frame.height > 1 else {
-                entry.view.isHidden = true
-                return
-            }
-
-            let overlayWidth = entry.preferredWidth ?? context.containerWidth
-            entry.view.frame = CGRect(
-                x: context.origin.x,
-                y: frame.origin.y + context.origin.y,
-                width: overlayWidth,
-                height: frame.height
-            )
-            entry.view.isHidden = false
-        }
-
-        // MARK: - Helpers
-
-        private func attachmentRange(
-            for attachment: NSTextAttachment
-        ) -> NSRange? {
-            attachmentIndex[ObjectIdentifier(attachment)]
-        }
-
-        func textContainerWidth(in textView: NSTextView) -> CGFloat {
-            if let container = textView.textContainer {
-                return container.size.width
-            }
-            let inset = textView.textContainerInset
-            return textView.bounds.width - inset.width * 2
-        }
     }
 
-    // MARK: - Attachment Overlay Factories
-
-    extension OverlayCoordinator {
-        func makeMermaidOverlay(
-            code: String,
-            blockIndex: Int,
-            appSettings: AppSettings
-        ) -> NSView {
-            let rootView = MermaidBlockView(code: code) { [weak self] height, _ in
-                guard let self else { return }
-                updateAttachmentHeight(blockIndex: blockIndex, newHeight: max(height, 100))
-            }
-            .environment(appSettings)
-            .environment(containerState)
-            return NSHostingView(rootView: rootView)
-        }
-
-        func makeImageOverlay(
-            source: String,
-            alt: String,
-            blockIndex: Int,
-            appSettings: AppSettings,
-            documentState: DocumentState
-        ) -> NSView {
-            let containerWidth = textView.map { textContainerWidth(in: $0) } ?? 600
-            let rootView = ImageBlockView(
-                source: source,
-                alt: alt,
-                containerWidth: containerWidth
-            ) { [weak self] renderedWidth, renderedHeight in
-                guard let self else { return }
-                let preferredWidth = renderedWidth < containerWidth ? renderedWidth : nil
-                updateAttachmentSize(
-                    blockIndex: blockIndex,
-                    newWidth: preferredWidth,
-                    newHeight: renderedHeight
-                )
-            }
-            .environment(appSettings)
-            .environment(documentState)
-            .environment(containerState)
-            return NSHostingView(rootView: rootView)
-        }
-
-        func makeThematicBreakOverlay(
-            appSettings: AppSettings
-        ) -> NSView {
-            let borderColor = appSettings.theme.colors.border
-            let rootView = borderColor
-                .frame(height: 1)
-                .padding(.vertical, 8)
-            return NSHostingView(rootView: rootView)
-        }
-
-        func makeMathBlockOverlay(
-            code: String,
-            blockIndex: Int,
-            appSettings: AppSettings
-        ) -> NSView {
-            let rootView = MathBlockView(code: code) { [weak self] newHeight in
-                self?.updateAttachmentHeight(
-                    blockIndex: blockIndex,
-                    newHeight: newHeight
-                )
-            }
-            .environment(appSettings)
-            return NSHostingView(rootView: rootView)
-        }
-    }
 #endif

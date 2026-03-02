@@ -33,6 +33,16 @@ public enum MarkdownBlock: Identifiable {
     case htmlBlock(content: String)
     case mathBlock(code: String)
 
+    /// Whether this block type loads content asynchronously (Mermaid via
+    /// WKWebView, images via network/disk). Used by the entrance gate to
+    /// decide whether to hold the loading orb while overlays render.
+    public var isAsync: Bool {
+        switch self {
+        case .mermaidBlock, .image: true
+        default: false
+        }
+    }
+
     public var id: String {
         switch self {
         case let .heading(level, text):

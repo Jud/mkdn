@@ -12,6 +12,9 @@
         @Environment(\.colorScheme) private var colorScheme
         @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+        @State private var loadingOrbPulsing = false
+        @State private var loadingOrbHaloExpanded = false
+
         private var motion: MotionPreference {
             MotionPreference(reduceMotion: reduceMotion)
         }
@@ -42,12 +45,18 @@
                 }
                 .animation(motion.resolved(.gentleSpring), value: documentState.viewMode)
 
+                if documentState.isLoadingGateActive {
+                    loadingGateOrb
+                        .transition(.opacity)
+                }
+
                 TheOrbView()
 
                 FindBarView()
                     .allowsHitTesting(findState.isVisible)
                     .accessibilityHidden(!findState.isVisible)
             }
+            .animation(motion.resolved(.fadeOut), value: documentState.isLoadingGateActive)
             .frame(minWidth: 600, minHeight: 400)
             .background(appSettings.theme.colors.background)
             .background(WindowAccessor())
@@ -64,6 +73,27 @@
             }
             .onDrop(of: [.fileURL], isTargeted: nil) { providers in
                 handleFileDrop(providers)
+            }
+        }
+
+        private var loadingGateOrb: some View {
+            OrbVisual(
+                color: AnimationConstants.orbLoadingColor,
+                isPulsing: loadingOrbPulsing,
+                isHaloExpanded: loadingOrbHaloExpanded
+            )
+            .onAppear {
+                if motion.allowsContinuousAnimation {
+                    withAnimation(motion.resolved(.breathe)) { loadingOrbPulsing = true }
+                    withAnimation(motion.resolved(.haloBloom)) { loadingOrbHaloExpanded = true }
+                } else {
+                    loadingOrbPulsing = true
+                    loadingOrbHaloExpanded = true
+                }
+            }
+            .onDisappear {
+                loadingOrbPulsing = false
+                loadingOrbHaloExpanded = false
             }
         }
 

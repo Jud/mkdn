@@ -54,6 +54,11 @@
         /// Label text for the ephemeral mode transition overlay.
         public var modeOverlayLabel: String?
 
+        // MARK: - Entrance Gate
+
+        /// Whether the loading gate is active (waiting for viewport overlays).
+        var isLoadingGateActive = false
+
         // MARK: - Sidebar Layout State
 
         /// Whether the sidebar panel is visible.
