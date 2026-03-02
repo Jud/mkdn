@@ -60,6 +60,8 @@
         var attachmentIndex: [ObjectIdentifier: NSRange] = [:]
         var tableRangeIndex: [String: NSRange] = [:]
         var onLayoutInvalidation: (() -> Void)?
+        var onOverlayReady: (() -> Void)?
+        var reportedOverlays: Set<Int> = []
 
         deinit {
             if let layoutObserver {
@@ -83,6 +85,7 @@
         ) {
             self.textView = textView
             self.appSettings = appSettings
+            reportedOverlays.removeAll()
 
             if let textStorage = textView.textStorage {
                 buildPositionIndex(from: textStorage)
@@ -146,6 +149,7 @@
                 entry.highlightOverlay?.removeFromSuperview()
             }
             entries.removeAll()
+            reportedOverlays.removeAll()
             stickyHeaders.values.forEach { $0.removeFromSuperview() }
             stickyHeaders.removeAll()
             removeObservers()
@@ -163,6 +167,8 @@
             invalidateAttachmentHeight(
                 attachment, newHeight: newHeight, textView: textView, textStorage: textStorage
             )
+            reportedOverlays.insert(blockIndex)
+            onOverlayReady?()
             scheduleReposition()
         }
 
@@ -193,6 +199,8 @@
             }
 
             if widthChanged || heightChanged {
+                reportedOverlays.insert(blockIndex)
+                onOverlayReady?()
                 scheduleReposition()
             }
         }

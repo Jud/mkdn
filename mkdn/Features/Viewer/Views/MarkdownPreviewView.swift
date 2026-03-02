@@ -31,23 +31,39 @@
             attachments: []
         )
         @State private var isFullReload = false
+        @State private var isLoadingGateActive = false
+        @State private var loadingOrbPulsing = false
+        @State private var loadingOrbHaloExpanded = false
+
+        private var motion: MotionPreference {
+            MotionPreference(reduceMotion: reduceMotion)
+        }
 
         var body: some View {
-            SelectableTextView(
-                attributedText: textStorageResult.attributedString,
-                attachments: textStorageResult.attachments,
-                tableOverlays: textStorageResult.tableOverlays,
-                blocks: renderedBlocks,
-                theme: appSettings.theme,
-                isFullReload: isFullReload,
-                reduceMotion: reduceMotion,
-                appSettings: appSettings,
-                documentState: documentState,
-                findQuery: findState.query,
-                findCurrentIndex: findState.currentMatchIndex,
-                findIsVisible: findState.isVisible,
-                findState: findState
-            )
+            ZStack {
+                SelectableTextView(
+                    attributedText: textStorageResult.attributedString,
+                    attachments: textStorageResult.attachments,
+                    tableOverlays: textStorageResult.tableOverlays,
+                    blocks: renderedBlocks,
+                    theme: appSettings.theme,
+                    isFullReload: isFullReload,
+                    reduceMotion: reduceMotion,
+                    appSettings: appSettings,
+                    documentState: documentState,
+                    findQuery: findState.query,
+                    findCurrentIndex: findState.currentMatchIndex,
+                    findIsVisible: findState.isVisible,
+                    findState: findState,
+                    isLoadingGateActive: $isLoadingGateActive
+                )
+
+                if isLoadingGateActive {
+                    loadingOrb
+                        .transition(.opacity)
+                }
+            }
+            .animation(motion.resolved(.fadeOut), value: isLoadingGateActive)
             .background(appSettings.theme.colors.background)
             .task(id: documentState.markdownContent) {
                 if isInitialRender {
@@ -74,6 +90,31 @@
             }
             .onChange(of: appSettings.scaleFactor) {
                 renderAndBuild(cachedBlocks, isFullReload: false)
+            }
+        }
+
+        private var loadingOrb: some View {
+            OrbVisual(
+                color: AnimationConstants.orbLoadingColor,
+                isPulsing: loadingOrbPulsing,
+                isHaloExpanded: loadingOrbHaloExpanded
+            )
+            .onAppear {
+                if motion.allowsContinuousAnimation {
+                    withAnimation(motion.resolved(.breathe)) {
+                        loadingOrbPulsing = true
+                    }
+                    withAnimation(motion.resolved(.haloBloom)) {
+                        loadingOrbHaloExpanded = true
+                    }
+                } else {
+                    loadingOrbPulsing = true
+                    loadingOrbHaloExpanded = true
+                }
+            }
+            .onDisappear {
+                loadingOrbPulsing = false
+                loadingOrbHaloExpanded = false
             }
         }
 

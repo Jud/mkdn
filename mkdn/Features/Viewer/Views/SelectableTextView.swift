@@ -27,6 +27,7 @@
         let findCurrentIndex: Int
         let findIsVisible: Bool
         let findState: FindState
+        @Binding var isLoadingGateActive: Bool
 
         // MARK: - NSViewRepresentable
 
@@ -51,7 +52,9 @@
                 )
             }
             coordinator.overlayCoordinator.onLayoutInvalidation = { [weak coordinator] in
-                guard let coordinator, coordinator.animator.isAnimating else { return }
+                guard let coordinator else { return }
+                guard !coordinator.gate.isGateActive else { return }
+                guard coordinator.animator.isAnimating else { return }
                 coordinator.animator.animateVisibleFragments()
                 coordinator.overlayCoordinator.applyEntranceAnimation(
                     attachmentDelays: coordinator.animator.attachmentDelays,
@@ -64,22 +67,11 @@
             textView.findState = findState
             textView.printBlocks = blocks
 
-            if isFullReload {
-                coordinator.animator.beginEntrance(reduceMotion: reduceMotion)
-            }
-
             textView.textStorage?.setAttributedString(attributedText)
             textView.window?.invalidateCursorRects(for: textView)
-            coordinator.animator.animateVisibleFragments()
-
-            refreshOverlays(coordinator: coordinator, in: textView)
-            if coordinator.animator.isAnimating {
-                coordinator.overlayCoordinator.applyEntranceAnimation(
-                    attachmentDelays: coordinator.animator.attachmentDelays,
-                    tableDelays: coordinator.animator.tableDelays,
-                    fadeInDuration: AnimationConstants.fadeInDuration
-                )
-            }
+            applyEntranceOrGate(
+                coordinator: coordinator, textView: textView, scrollView: scrollView
+            )
             coordinator.lastAppliedText = attributedText
             RenderCompletionSignal.shared.signalRenderComplete()
 
@@ -99,36 +91,9 @@
 
             let isNewContent = coordinator.lastAppliedText !== attributedText
             if isNewContent {
-                let textChanged = textView.textStorage?.string != attributedText.string
-
-                if isFullReload {
-                    coordinator.animator.beginEntrance(reduceMotion: reduceMotion)
-                } else {
-                    coordinator.animator.reset()
-                }
-
-                coordinator.overlayCoordinator.hideAllOverlays()
-                textView.textStorage?.setAttributedString(attributedText)
-                textView.window?.invalidateCursorRects(for: textView)
-
-                if textChanged {
-                    textView.setSelectedRange(NSRange(location: 0, length: 0))
-                    scrollView.contentView.scroll(to: .zero)
-                    scrollView.reflectScrolledClipView(scrollView.contentView)
-                }
-
-                coordinator.animator.animateVisibleFragments()
-
-                refreshOverlays(coordinator: coordinator, in: textView)
-                if coordinator.animator.isAnimating {
-                    coordinator.overlayCoordinator.applyEntranceAnimation(
-                        attachmentDelays: coordinator.animator.attachmentDelays,
-                        tableDelays: coordinator.animator.tableDelays,
-                        fadeInDuration: AnimationConstants.fadeInDuration
-                    )
-                }
-                coordinator.lastAppliedText = attributedText
-                RenderCompletionSignal.shared.signalRenderComplete()
+                applyNewContent(
+                    coordinator: coordinator, textView: textView, scrollView: scrollView
+                )
             }
 
             coordinator.handleFindUpdate(
@@ -203,6 +168,99 @@
             scrollView.contentView.layerContentsRedrawPolicy = .duringViewResize
         }
 
+        private func applyNewContent(
+            coordinator: Coordinator,
+            textView: CodeBlockBackgroundTextView,
+            scrollView: NSScrollView
+        ) {
+            let textChanged = textView.textStorage?.string != attributedText.string
+
+            coordinator.gate.reset()
+            isLoadingGateActive = false
+
+            if !isFullReload {
+                coordinator.animator.reset()
+            }
+
+            coordinator.overlayCoordinator.hideAllOverlays()
+            textView.textStorage?.setAttributedString(attributedText)
+            textView.window?.invalidateCursorRects(for: textView)
+
+            if textChanged {
+                textView.setSelectedRange(NSRange(location: 0, length: 0))
+                scrollView.contentView.scroll(to: .zero)
+                scrollView.reflectScrolledClipView(scrollView.contentView)
+            }
+
+            applyEntranceOrGate(
+                coordinator: coordinator, textView: textView, scrollView: scrollView
+            )
+            coordinator.lastAppliedText = attributedText
+            RenderCompletionSignal.shared.signalRenderComplete()
+        }
+
+        private func applyEntranceOrGate(
+            coordinator: Coordinator,
+            textView: NSTextView,
+            scrollView: NSScrollView
+        ) {
+            let shouldGate = isFullReload && !reduceMotion && !attachments.isEmpty
+            if shouldGate {
+                textView.alphaValue = 0
+                refreshOverlays(coordinator: coordinator, in: textView)
+                wireGate(coordinator: coordinator, textView: textView, scrollView: scrollView)
+                if coordinator.overlayCoordinator.viewportOverlaysReady(in: scrollView) {
+                    coordinator.gate.markReady()
+                }
+            } else {
+                if isFullReload {
+                    coordinator.animator.beginEntrance(reduceMotion: reduceMotion)
+                }
+                coordinator.animator.animateVisibleFragments()
+                refreshOverlays(coordinator: coordinator, in: textView)
+                if coordinator.animator.isAnimating {
+                    coordinator.overlayCoordinator.applyEntranceAnimation(
+                        attachmentDelays: coordinator.animator.attachmentDelays,
+                        tableDelays: coordinator.animator.tableDelays,
+                        fadeInDuration: AnimationConstants.fadeInDuration
+                    )
+                }
+            }
+        }
+
+        private func wireGate(
+            coordinator: Coordinator,
+            textView: NSTextView,
+            scrollView: NSScrollView
+        ) {
+            coordinator.gate.reset()
+            coordinator.gate.beginGate()
+            isLoadingGateActive = true
+            let loadingBinding = _isLoadingGateActive
+
+            coordinator.overlayCoordinator.onOverlayReady = { [weak coordinator] in
+                guard let coordinator else { return }
+                if coordinator.overlayCoordinator.viewportOverlaysReady(in: scrollView) {
+                    coordinator.gate.markReady()
+                }
+            }
+
+            coordinator.gate.onReady = { [weak coordinator] in
+                guard let coordinator else { return }
+                loadingBinding.wrappedValue = false
+                textView.alphaValue = 1
+                coordinator.animator.beginEntrance(reduceMotion: false)
+                coordinator.animator.animateVisibleFragments()
+                if coordinator.animator.isAnimating {
+                    coordinator.overlayCoordinator.applyEntranceAnimation(
+                        attachmentDelays: coordinator.animator.attachmentDelays,
+                        tableDelays: coordinator.animator.tableDelays,
+                        fadeInDuration: AnimationConstants.fadeInDuration
+                    )
+                }
+            }
+        }
+
         private func refreshOverlays(coordinator: Coordinator, in textView: NSTextView) {
             coordinator.overlayCoordinator.updateOverlays(
                 attachments: attachments,
@@ -253,6 +311,7 @@
             weak var documentState: DocumentState?
             let animator = EntranceAnimator()
             let overlayCoordinator = OverlayCoordinator()
+            let gate = EntranceGate()
             var lastAppliedText: NSAttributedString?
 
             // MARK: - Link Navigation

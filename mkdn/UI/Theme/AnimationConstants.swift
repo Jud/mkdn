@@ -221,6 +221,17 @@ enum AnimationConstants {
     ///   stagger; beyond that, remaining blocks share the tail of the window.
     static let staggerCap = 0.5
 
+    // MARK: - Entrance Gate
+
+    /// Maximum time to wait for viewport overlays to report their rendered size
+    /// before dismissing the loading gate and starting the entrance cascade.
+    ///
+    /// - Design rationale: 2s balances user patience with slow-rendering Mermaid
+    ///   diagrams. Most diagrams render within 1s; the timeout handles edge cases
+    ///   (complex graphs, cold WebKit process pool) without leaving users staring
+    ///   at a loading orb indefinitely.
+    static let gateTimeout: TimeInterval = 2.0
+
     // MARK: - Orb Colors
 
     /// Solarized violet (#6c71c4) -- default handler prompt.
@@ -230,6 +241,11 @@ enum AnimationConstants {
     /// Solarized orange (#cb4b16) -- file changed on disk.
     /// A warm alert color signaling that attention is needed.
     static let orbFileChangedColor = Color(red: 0.796, green: 0.294, blue: 0.086)
+
+    /// Loading gate orb color -- reuses the default handler violet for visual
+    /// consistency with the orb family. The loading gate orb is a transient
+    /// centered indicator, distinct from the bottom-right ``TheOrbView``.
+    static let orbLoadingColor = orbDefaultHandlerColor
 
     // MARK: - Overlay Timing
 
