@@ -22,7 +22,7 @@
         }
 
         func makeNSView(context: Context) -> NSView {
-            let textView = NSTextView()
+            let textView = DraggableCodeTextView()
             configureTextView(textView)
 
             let scrollView = NSScrollView()
@@ -126,7 +126,7 @@
             textView.isAutomaticQuoteSubstitutionEnabled = false
             textView.isAutomaticDashSubstitutionEnabled = false
 
-            textView.textContainerInset = NSSize(width: 8, height: 6)
+            textView.textContainerInset = NSSize(width: 8, height: 16)
 
             // Horizontal scrolling: text view and container must not wrap
             textView.isHorizontallyResizable = true
@@ -289,6 +289,45 @@
             let gutterW = gutterWidth
             gutter.frame = NSRect(x: 0, y: 0, width: gutterW, height: bounds.height)
             scrollView.frame = NSRect(x: gutterW, y: 0, width: bounds.width - gutterW, height: bounds.height)
+        }
+    }
+
+    // MARK: - DraggableCodeTextView
+
+    /// NSTextView subclass that allows window dragging from empty space,
+    /// matching the behavior of ``CodeBlockBackgroundTextView`` in the
+    /// markdown preview. Hit-testing logic is shared via ``NSTextView+DragZone``.
+    private final class DraggableCodeTextView: NSTextView {
+        override func updateTrackingAreas() {
+            super.updateTrackingAreas()
+            installFullBoundsTrackingArea()
+        }
+
+        override func mouseDown(with event: NSEvent) {
+            let point = convert(event.locationInWindow, from: nil)
+            if isOverEmptyTextArea(point) {
+                window?.performDrag(with: event)
+                return
+            }
+            super.mouseDown(with: event)
+        }
+
+        override func mouseMoved(with event: NSEvent) {
+            let point = convert(event.locationInWindow, from: nil)
+            if isOverEmptyTextArea(point) {
+                NSCursor.arrow.set()
+            } else {
+                super.mouseMoved(with: event)
+            }
+        }
+
+        override func cursorUpdate(with event: NSEvent) {
+            let point = convert(event.locationInWindow, from: nil)
+            if isOverEmptyTextArea(point) {
+                NSCursor.arrow.set()
+                return
+            }
+            super.cursorUpdate(with: event)
         }
     }
 

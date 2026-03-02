@@ -29,7 +29,6 @@
         static let bottomPadding: CGFloat = MarkdownTextStorageBuilder.codeBlockPadding
         static let copyButtonInset: CGFloat = 8
         static let copyButtonSize: CGFloat = 24
-        static let titleBarDragHeight: CGFloat = 28
 
         // MARK: - Types
 
@@ -109,18 +108,6 @@
             super.cancelOperation(sender)
         }
 
-        // MARK: - Title Bar Zone
-
-        func titleBarRect() -> CGRect {
-            let visible = visibleRect
-            return CGRect(
-                x: visible.origin.x,
-                y: visible.origin.y,
-                width: visible.width,
-                height: Self.titleBarDragHeight
-            )
-        }
-
         // MARK: - Cursor Rects
 
         override func resetCursorRects() {
@@ -165,25 +152,12 @@
 
         override func updateTrackingAreas() {
             super.updateTrackingAreas()
-            for area in trackingAreas where area.owner === self {
-                removeTrackingArea(area)
-            }
-            let area = NSTrackingArea(
-                rect: bounds,
-                options: [.mouseMoved, .mouseEnteredAndExited, .activeInActiveApp],
-                owner: self,
-                userInfo: nil
-            )
-            addTrackingArea(area)
+            installFullBoundsTrackingArea()
         }
 
         override func mouseDown(with event: NSEvent) {
-            let viewPoint = convert(event.locationInWindow, from: nil)
-            if titleBarRect().contains(viewPoint) {
-                window?.performDrag(with: event)
-                return
-            }
-            if isPointOverEmptySpace(viewPoint) {
+            let point = convert(event.locationInWindow, from: nil)
+            if isOverEmptyTextArea(point) {
                 window?.performDrag(with: event)
                 return
             }
@@ -203,25 +177,9 @@
             }
         }
 
-        /// Returns `true` when the point is not over any text layout fragment,
-        /// i.e. it's in the textContainerInset margins or below the last line.
-        private func isPointOverEmptySpace(_ viewPoint: CGPoint) -> Bool {
-            guard let textLayoutManager else { return true }
-
-            let containerPoint = CGPoint(
-                x: viewPoint.x - textContainerInset.width,
-                y: viewPoint.y - textContainerInset.height
-            )
-
-            guard let fragment = textLayoutManager.textLayoutFragment(for: containerPoint) else {
-                return true
-            }
-            return !fragment.layoutFragmentFrame.contains(containerPoint)
-        }
-
         override func mouseMoved(with event: NSEvent) {
             let point = convert(event.locationInWindow, from: nil)
-            if titleBarRect().contains(point) || isPointOverEmptySpace(point) {
+            if isOverEmptyTextArea(point) {
                 NSCursor.arrow.set()
             } else {
                 super.mouseMoved(with: event)
@@ -231,7 +189,7 @@
 
         override func cursorUpdate(with event: NSEvent) {
             let point = convert(event.locationInWindow, from: nil)
-            if titleBarRect().contains(point) || isPointOverEmptySpace(point) {
+            if isOverEmptyTextArea(point) {
                 NSCursor.arrow.set()
                 return
             }
