@@ -335,33 +335,6 @@ jobs:
         run: swift test
 ```
 
-## SQL
-
-```sql
-CREATE TABLE documents (
-    id          SERIAL PRIMARY KEY,
-    title       VARCHAR(255) NOT NULL,
-    content     TEXT,
-    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    author_id   INTEGER REFERENCES users(id)
-);
-
-SELECT
-    d.title,
-    u.name AS author,
-    COUNT(c.id) AS comment_count,
-    MAX(c.created_at) AS last_comment
-FROM documents d
-JOIN users u ON u.id = d.author_id
-LEFT JOIN comments c ON c.document_id = d.id
-WHERE d.created_at >= NOW() - INTERVAL '30 days'
-GROUP BY d.id, d.title, u.name
-HAVING COUNT(c.id) > 0
-ORDER BY last_comment DESC
-LIMIT 20;
-```
-
 ## CSS
 
 ```css
