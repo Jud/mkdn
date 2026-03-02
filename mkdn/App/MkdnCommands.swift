@@ -167,7 +167,7 @@
                         appSettings.cycleTheme()
                         documentState?.modeOverlayLabel = appSettings.themeMode.displayName
                     }
-                    .keyboardShortcut("t", modifiers: .command)
+                    .keyboardShortcut("t", modifiers: [.command, .shift])
                 }
             }
         }
