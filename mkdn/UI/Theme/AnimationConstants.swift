@@ -232,6 +232,11 @@ enum AnimationConstants {
     ///   at a loading orb indefinitely.
     static let gateTimeout: TimeInterval = 2.0
 
+    // MARK: - Orb Rotation
+
+    /// Full rotation period for the orb's highlight orbit (seconds).
+    static let orbRotationPeriod: TimeInterval = 8.0
+
     // MARK: - Orb Colors
 
     /// Solarized violet (#6c71c4) -- default handler prompt.
@@ -242,10 +247,10 @@ enum AnimationConstants {
     /// A warm alert color signaling that attention is needed.
     static let orbFileChangedColor = Color(red: 0.796, green: 0.294, blue: 0.086)
 
-    /// Loading gate orb color -- reuses the default handler violet for visual
-    /// consistency with the orb family. The loading gate orb is a transient
-    /// centered indicator, distinct from the bottom-right ``TheOrbView``.
-    static let orbLoadingColor = orbDefaultHandlerColor
+    /// Solarized base01 (#586e75) -- loading gate orb.
+    /// Neutral grey-blue that reads as "working" without competing with the
+    /// violet/orange status orb in the bottom-right corner.
+    static let orbLoadingColor = Color(red: 0.345, green: 0.431, blue: 0.459)
 
     // MARK: - Overlay Timing
 

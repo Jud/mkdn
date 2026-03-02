@@ -13,6 +13,11 @@
         let isPulsing: Bool
         let isHaloExpanded: Bool
 
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+        /// Static highlight position (original value, used when animation is off).
+        private static let staticHighlight = UnitPoint(x: 0.4, y: 0.35)
+
         var body: some View {
             ZStack {
                 outerHalo
@@ -63,22 +68,79 @@
                 .scaleEffect(isPulsing ? 1.0 : 0.85)
         }
 
+        @ViewBuilder
         private var innerCore: some View {
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            Color.white.opacity(0.9),
-                            color,
-                            color.opacity(0.3),
-                        ],
-                        center: UnitPoint(x: 0.4, y: 0.35),
-                        startRadius: 0,
-                        endRadius: 7
+            if reduceMotion {
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color.white.opacity(0.9),
+                                color,
+                                color.opacity(0.3),
+                            ],
+                            center: Self.staticHighlight,
+                            startRadius: 0,
+                            endRadius: 7
+                        )
                     )
-                )
-                .frame(width: 12, height: 12)
-                .opacity(isPulsing ? 1.0 : 0.5)
+                    .frame(width: 12, height: 12)
+                    .opacity(isPulsing ? 1.0 : 0.5)
+            } else {
+                TimelineView(.animation) { timeline in
+                    let highlight = isPulsing
+                        ? Self.highlightPosition(at: timeline.date)
+                        : Self.staticHighlight
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    Color.white.opacity(0.9),
+                                    color,
+                                    color.opacity(0.3),
+                                ],
+                                center: highlight,
+                                startRadius: 0,
+                                endRadius: 7
+                            )
+                        )
+                        .frame(width: 12, height: 12)
+                        .opacity(isPulsing ? 1.0 : 0.5)
+                }
+            }
+        }
+
+        // MARK: - Highlight Orbit
+
+        /// Computes the highlight UnitPoint along a tilted elliptical orbit.
+        ///
+        /// The ellipse is wider than tall (horizontal rotation axis viewed from
+        /// slightly above), tilted 23.5° to match Earth's axial tilt.
+        private static func highlightPosition(at date: Date) -> UnitPoint {
+            let period = AnimationConstants.orbRotationPeriod
+            let elapsed = date.timeIntervalSinceReferenceDate
+            let angle = (elapsed.truncatingRemainder(dividingBy: period) / period) * 2.0 * .pi
+
+            // Orbit center and radii
+            let centerX = 0.5
+            let centerY = 0.38
+            let radiusX = 0.12
+            let radiusY = 0.05
+
+            // Earth-like axial tilt (23.5°)
+            let tilt = 23.5 * .pi / 180.0
+
+            // Parametric ellipse point before tilt
+            let ex = radiusX * cos(angle)
+            let ey = radiusY * sin(angle)
+
+            // Rotate by tilt angle
+            let cosT = cos(tilt)
+            let sinT = sin(tilt)
+            let rx = ex * cosT - ey * sinT
+            let ry = ex * sinT + ey * cosT
+
+            return UnitPoint(x: centerX + rx, y: centerY + ry)
         }
     }
 #endif
