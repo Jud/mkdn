@@ -10,6 +10,7 @@
         public let appSettings: AppSettings
         @FocusedValue(\.documentState) private var documentState
         @FocusedValue(\.findState) private var findState
+        @FocusedValue(\.directorySetup) private var directorySetup
 
         public init(appSettings: AppSettings) {
             self.appSettings = appSettings
@@ -111,6 +112,11 @@
                 }
                 .keyboardShortcut("o", modifiers: .command)
 
+                Button("Open Directory...") {
+                    openDirectory()
+                }
+                .keyboardShortcut("O", modifiers: [.command, .shift])
+
                 Button("Reload") {
                     try? documentState?.reloadFile()
                 }
@@ -193,6 +199,21 @@
         private func motionAnimation(_ primitive: MotionPreference.Primitive) -> Animation? {
             let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
             return MotionPreference(reduceMotion: reduceMotion).resolved(primitive)
+        }
+
+        @MainActor
+        private func openDirectory() {
+            let panel = NSOpenPanel()
+            panel.canChooseFiles = false
+            panel.canChooseDirectories = true
+            panel.allowsMultipleSelection = false
+
+            if let fileURL = documentState?.currentFileURL {
+                panel.directoryURL = fileURL.deletingLastPathComponent()
+            }
+
+            guard panel.runModal() == .OK, let url = panel.url else { return }
+            directorySetup?(url)
         }
 
         @MainActor

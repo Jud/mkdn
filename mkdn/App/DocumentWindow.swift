@@ -104,6 +104,9 @@
             .environment(appSettings)
             .focusedSceneValue(\.documentState, documentState)
             .focusedSceneValue(\.findState, findState)
+            .focusedSceneValue(\.directorySetup) { url in
+                setupDirectoryState(rootURL: url)
+            }
             .modifier(OptionalDirectoryEnvironment(directoryState: directoryState))
             .opacity(isReady ? 1 : 0)
             .onAppear {
