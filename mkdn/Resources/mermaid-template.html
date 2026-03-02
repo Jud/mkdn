@@ -8,7 +8,7 @@
         html, body { background: transparent; width: 100%; }
         body { overflow: visible; }
         #diagram { display: block; width: 100%; }
-        #diagram svg { display: block; width: 100%; height: auto; }
+        #diagram svg { display: block; width: 100%; height: auto; margin: 0 auto; }
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(128, 128, 128, 0.3); border-radius: 4px; }
@@ -48,9 +48,19 @@
                 if (svg) {
                     var bbox = svg.getBoundingClientRect();
                     if (bbox.width > 0) {
+                        var intrinsicWidth = bbox.width;
+                        var vb = svg.getAttribute('viewBox');
+                        if (vb) {
+                            var parts = vb.split(/[\s,]+/);
+                            if (parts.length >= 3) {
+                                var vbW = parseFloat(parts[2]);
+                                if (vbW > 0) intrinsicWidth = vbW;
+                            }
+                        }
                         window.webkit.messageHandlers.sizeReport.postMessage({
                             width: bbox.width,
-                            height: bbox.height
+                            height: bbox.height,
+                            intrinsicWidth: intrinsicWidth
                         });
                     }
                 }
@@ -111,30 +121,46 @@
                     return;
                 }
 
-                // Fast path: swap hex colors in the SVG without re-rendering.
-                var html = svg.outerHTML;
+                // Build a deduplicated color swap map. A hex value is safe to
+                // swap only when every key that uses it agrees on the target.
+                // If key A says #X -> #Y but key B says #X -> #X (no change),
+                // #X is ambiguous and must be skipped to avoid corrupting the
+                // non-changing instances (e.g. borders that share a hex with
+                // titleColor across themes).
+                var colorMap = {};
+                var ambiguous = {};
                 for (var key in currentThemeVars) {
-                    var oldColor = currentThemeVars[key];
-                    var newColor = newThemeVars[key];
-                    if (oldColor && newColor && oldColor !== newColor) {
-                        html = html.split(oldColor).join(newColor);
+                    var oldC = currentThemeVars[key];
+                    var newC = newThemeVars[key];
+                    if (!oldC || !newC) continue;
+                    if (oldC in colorMap) {
+                        if (colorMap[oldC] !== newC) ambiguous[oldC] = true;
+                    } else {
+                        colorMap[oldC] = newC;
                     }
                 }
+                // Remove ambiguous and no-op entries.
+                for (var c in colorMap) {
+                    if (ambiguous[c] || colorMap[c] === c) delete colorMap[c];
+                }
 
-                // Also patch the SVG's internal <style> block (case variations).
-                for (var key in currentThemeVars) {
-                    var oldColor = currentThemeVars[key];
-                    var newColor = newThemeVars[key];
-                    if (oldColor && newColor && oldColor !== newColor) {
-                        var oldLower = oldColor.toLowerCase();
-                        var oldUpper = oldColor.toUpperCase();
-                        if (oldLower !== oldColor) {
-                            html = html.split(oldLower).join(newColor);
-                        }
-                        if (oldUpper !== oldColor) {
-                            html = html.split(oldUpper).join(newColor);
-                        }
-                    }
+                // Two-pass placeholder replacement prevents chain swaps
+                // (where a new color matches another old color).
+                var html = svg.outerHTML;
+                var placeholders = {};
+                var idx = 0;
+                for (var old in colorMap) {
+                    var ph = '__MKDN_T' + idx + '__';
+                    placeholders[ph] = colorMap[old];
+                    html = html.split(old).join(ph);
+                    var lo = old.toLowerCase();
+                    var up = old.toUpperCase();
+                    if (lo !== old) html = html.split(lo).join(ph);
+                    if (up !== old) html = html.split(up).join(ph);
+                    idx++;
+                }
+                for (var ph in placeholders) {
+                    html = html.split(ph).join(placeholders[ph]);
                 }
 
                 svg.outerHTML = html;

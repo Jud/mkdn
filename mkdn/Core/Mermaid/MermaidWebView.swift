@@ -80,6 +80,7 @@
         @Binding var isFocused: Bool
         @Binding var renderedHeight: CGFloat
         @Binding var renderedAspectRatio: CGFloat
+        @Binding var intrinsicWidth: CGFloat
         @Binding var renderState: MermaidRenderState
 
         /// All diagram `WKWebView` instances share a single web content process.
@@ -228,6 +229,9 @@
                     }
                     parent.renderedHeight = max(height, 1)
                     parent.renderedAspectRatio = height / width
+                    if let iw = body["intrinsicWidth"] as? CGFloat, iw > 0 {
+                        parent.intrinsicWidth = iw
+                    }
 
                 case "renderComplete":
                     parent.renderState = .rendered

@@ -18,6 +18,7 @@
         @State private var isFocused = false
         @State private var renderedHeight: CGFloat = 100
         @State private var renderedAspectRatio: CGFloat = 0.5
+        @State private var intrinsicWidth: CGFloat = 0
         @State private var renderState: MermaidRenderState = .loading
         @State private var overlayDismissed = false
         @State private var isCursorPushed = false
@@ -85,6 +86,7 @@
                     isFocused: $isFocused,
                     renderedHeight: $renderedHeight,
                     renderedAspectRatio: $renderedAspectRatio,
+                    intrinsicWidth: $intrinsicWidth,
                     renderState: $renderState
                 )
                 .opacity(renderState == .rendered ? 1 : 0)
@@ -98,10 +100,6 @@
                 maxWidth: .infinity,
                 minHeight: 100,
                 maxHeight: renderState == .rendered ? .infinity : 100
-            )
-            .aspectRatio(
-                renderState == .rendered ? 1 / renderedAspectRatio : nil,
-                contentMode: .fit
             )
             .animation(motion.resolved(.gentleSpring), value: renderState)
         }
