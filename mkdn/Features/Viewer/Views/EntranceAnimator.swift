@@ -28,6 +28,8 @@
 
         var isAnimating = false
         weak var textView: NSTextView?
+        private(set) var attachmentDelays: [ObjectIdentifier: CFTimeInterval] = [:]
+        private(set) var tableDelays: [String: CFTimeInterval] = [:]
 
         // MARK: - Private State
 
@@ -39,7 +41,6 @@
 
         // MARK: - Constants
 
-        private static let fadeInDuration: CFTimeInterval = 0.5
         private static let driftDistance: CGFloat = 8
 
         // MARK: - Types
@@ -62,6 +63,8 @@
             removeViewDriftAnimation()
 
             animatedFragments.removeAll()
+            attachmentDelays.removeAll()
+            tableDelays.removeAll()
             fragmentIndex = 0
             self.reduceMotion = reduceMotion
 
@@ -82,6 +85,8 @@
             removeViewDriftAnimation()
 
             animatedFragments.removeAll()
+            attachmentDelays.removeAll()
+            tableDelays.removeAll()
             fragmentIndex = 0
             isAnimating = false
         }
@@ -134,28 +139,35 @@
                         )
                     }
                 } else {
-                    let coverLayer = self.makeCoverLayer(
-                        for: fragment, in: textView
-                    )
                     let delay = self.staggerDelay(for: self.fragmentIndex)
-                    self.applyCoverFadeAnimation(to: coverLayer, delay: delay)
-                    viewLayer.addSublayer(coverLayer)
-                    self.coverLayers.append(coverLayer)
+                    self.addUngroupedFragment(
+                        fragment,
+                        delay: delay,
+                        textView: textView,
+                        viewLayer: viewLayer,
+                        contentManager: contentManager,
+                        textStorage: textStorage
+                    )
                 }
 
                 self.fragmentIndex += 1
                 return true
             }
 
-            addBlockGroupCovers(blockGroups, in: textView, to: viewLayer)
+            processBlockGroups(blockGroups, in: textView, to: viewLayer)
         }
 
-        private func addBlockGroupCovers(
+        private func processBlockGroups(
             _ groups: [String: BlockGroup],
             in textView: NSTextView,
             to viewLayer: CALayer
         ) {
-            for group in groups.values {
+            for (groupID, group) in groups {
+                if groupID.hasPrefix("table-") {
+                    let tableRangeID = String(groupID.dropFirst("table-".count))
+                    tableDelays[tableRangeID] = staggerDelay(for: group.staggerIndex)
+                }
+
                 let coverLayer = makeBlockGroupCoverLayer(
                     frames: group.frames, in: textView
                 )
@@ -163,6 +175,33 @@
                 applyCoverFadeAnimation(to: coverLayer, delay: delay)
                 viewLayer.addSublayer(coverLayer)
                 coverLayers.append(coverLayer)
+            }
+        }
+
+        private func addUngroupedFragment(
+            _ fragment: NSTextLayoutFragment,
+            delay: CFTimeInterval,
+            textView: NSTextView,
+            viewLayer: CALayer,
+            contentManager: NSTextContentManager,
+            textStorage: NSTextStorage
+        ) {
+            let coverLayer = makeCoverLayer(for: fragment, in: textView)
+            applyCoverFadeAnimation(to: coverLayer, delay: delay)
+            viewLayer.addSublayer(coverLayer)
+            coverLayers.append(coverLayer)
+
+            let docStart = contentManager.documentRange.location
+            let fragStart = fragment.rangeInElement.location
+            let charOffset = contentManager.offset(
+                from: docStart, to: fragStart
+            )
+            if charOffset >= 0, charOffset < textStorage.length,
+               let attachment = textStorage.attribute(
+                   .attachment, at: charOffset, effectiveRange: nil
+               ) as? NSTextAttachment
+            {
+                attachmentDelays[ObjectIdentifier(attachment)] = delay
             }
         }
 
@@ -257,7 +296,7 @@
             let animation = CABasicAnimation(keyPath: "opacity")
             animation.fromValue = 1.0
             animation.toValue = 0.0
-            animation.duration = Self.fadeInDuration
+            animation.duration = AnimationConstants.fadeInDuration
             animation.beginTime = CACurrentMediaTime() + delay
             animation.timingFunction = CAMediaTimingFunction(name: .easeOut)
             animation.fillMode = .both
@@ -275,7 +314,7 @@
                 0, Self.driftDistance, 0
             )
             let totalDuration =
-                AnimationConstants.staggerCap + Self.fadeInDuration
+                AnimationConstants.staggerCap + AnimationConstants.fadeInDuration
 
             let animation = CABasicAnimation(keyPath: "transform")
             animation.fromValue = NSValue(caTransform3D: driftTransform)
@@ -306,7 +345,7 @@
         private func scheduleCleanup() {
             cleanupTask?.cancel()
             let totalDuration =
-                AnimationConstants.staggerCap + Self.fadeInDuration + 0.1
+                AnimationConstants.staggerCap + AnimationConstants.fadeInDuration + 0.1
             cleanupTask = Task { [weak self] in
                 try? await Task.sleep(for: .seconds(totalDuration))
                 guard !Task.isCancelled else { return }

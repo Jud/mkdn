@@ -114,6 +114,14 @@ enum AnimationConstants {
     // Smooth appearance. Ease-out curve (decelerates into rest).
     // Derived from: orb appear timing.
 
+    /// Raw fade-in duration (seconds) for use in Core Animation and AppKit contexts.
+    ///
+    /// Matches the duration of ``fadeIn``. Exposed as a `CFTimeInterval` so that
+    /// ``EntranceAnimator`` cover-layer animations and ``OverlayCoordinator``
+    /// overlay alpha animations can share the same timing without importing SwiftUI
+    /// `Animation`.
+    static let fadeInDuration: CFTimeInterval = 0.5
+
     /// Standard fade-in for element appearance.
     ///
     /// - Visual intent: A smooth emergence from invisible to fully visible,
@@ -123,7 +131,7 @@ enum AnimationConstants {
     ///   decelerates into the final state, matching the orb's gentle arrival.
     /// - Derivation: From the orb's appear timing. The orb fades in over 0.5s with
     ///   ease-out; this primitive generalizes that entrance for any element.
-    static let fadeIn: Animation = .easeOut(duration: 0.5)
+    static let fadeIn: Animation = .easeOut(duration: fadeInDuration)
 
     // MARK: - Primitive: Fade-Out
 

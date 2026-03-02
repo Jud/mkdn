@@ -64,6 +64,13 @@
             coordinator.animator.animateVisibleFragments()
 
             refreshOverlays(coordinator: coordinator, in: textView)
+            if coordinator.animator.isAnimating {
+                coordinator.overlayCoordinator.applyEntranceAnimation(
+                    attachmentDelays: coordinator.animator.attachmentDelays,
+                    tableDelays: coordinator.animator.tableDelays,
+                    fadeInDuration: AnimationConstants.fadeInDuration
+                )
+            }
             coordinator.lastAppliedText = attributedText
             RenderCompletionSignal.shared.signalRenderComplete()
 
@@ -104,6 +111,13 @@
                 coordinator.animator.animateVisibleFragments()
 
                 refreshOverlays(coordinator: coordinator, in: textView)
+                if coordinator.animator.isAnimating {
+                    coordinator.overlayCoordinator.applyEntranceAnimation(
+                        attachmentDelays: coordinator.animator.attachmentDelays,
+                        tableDelays: coordinator.animator.tableDelays,
+                        fadeInDuration: AnimationConstants.fadeInDuration
+                    )
+                }
                 coordinator.lastAppliedText = attributedText
                 RenderCompletionSignal.shared.signalRenderComplete()
             }
