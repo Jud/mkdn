@@ -1011,10 +1011,10 @@ enum HighlightQueries {
     // MARK: - JSON
 
     static let json = #"""
+    (string) @string
+
     (pair
       key: (_) @string.special.key)
-
-    (string) @string
 
     (number) @number
 

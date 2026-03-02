@@ -22,6 +22,8 @@ enum TokenType: Sendable {
     private static let compoundNameMap: [String: Self] = [
         "variable.member": .property,
         "variable.builtin": .keyword,
+        "string.special.key": .property,
+        "constant.builtin": .constant,
     ]
 
     /// Base component map (first segment before ".").
