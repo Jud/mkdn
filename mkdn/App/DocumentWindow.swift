@@ -128,7 +128,7 @@
         @ViewBuilder
         private var sidebarContent: some View {
             if let directoryState {
-                SidebarView()
+                SidebarView { url in setupDirectoryState(rootURL: url) }
                     .environment(directoryState)
             } else {
                 SidebarPlaceholderView { url in

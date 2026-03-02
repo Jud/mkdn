@@ -9,12 +9,13 @@
     /// are still shown with a disclosure chevron; their children are
     /// lazily loaded when expanded.
     struct SidebarView: View {
+        let onChangeDirectory: (URL) -> Void
         @Environment(DirectoryState.self) private var directoryState
         @Environment(AppSettings.self) private var appSettings
 
         var body: some View {
             VStack(alignment: .leading, spacing: 0) {
-                SidebarHeaderView()
+                SidebarHeaderView(onChangeDirectory: onChangeDirectory)
 
                 if let tree = directoryState.tree, !(tree.children ?? []).isEmpty {
                     ScrollView {
