@@ -9,22 +9,22 @@
     struct SidebarPlaceholderView: View {
         let onDirectorySelected: (URL) -> Void
         @Environment(AppSettings.self) private var appSettings
+        @Environment(DocumentState.self) private var documentState
 
         var body: some View {
-            VStack(spacing: 12) {
-                Image(systemName: "folder.badge.plus")
-                    .font(.title2)
-                    .foregroundStyle(appSettings.theme.colors.foregroundSecondary)
-                Button {
-                    openDirectoryPanel()
-                } label: {
+            Button {
+                openDirectoryPanel()
+            } label: {
+                VStack(spacing: 12) {
+                    Image(systemName: "folder.badge.plus")
+                        .font(.title2)
                     Text("Set Work Directory")
                         .font(.callout)
                 }
-                .buttonStyle(.plain)
                 .foregroundStyle(appSettings.theme.colors.foregroundSecondary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .buttonStyle(.plain)
             .background(appSettings.theme.colors.backgroundSecondary)
         }
 
@@ -34,6 +34,10 @@
             panel.canChooseFiles = false
             panel.canChooseDirectories = true
             panel.allowsMultipleSelection = false
+
+            if let fileURL = documentState.currentFileURL {
+                panel.directoryURL = fileURL.deletingLastPathComponent()
+            }
 
             guard panel.runModal() == .OK, let url = panel.url else { return }
             onDirectorySelected(url)
