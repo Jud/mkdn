@@ -324,7 +324,7 @@
             if isOverEmptyTextArea(point) {
                 NSCursor.arrow.set()
             } else {
-                super.mouseMoved(with: event)
+                NSCursor.iBeam.set()
             }
         }
 
