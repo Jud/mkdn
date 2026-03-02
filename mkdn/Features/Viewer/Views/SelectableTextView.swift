@@ -50,6 +50,9 @@
                     selectedRange: range
                 )
             }
+            coordinator.overlayCoordinator.onLayoutInvalidation = { [weak coordinator] in
+                coordinator?.animator.animateVisibleFragments()
+            }
 
             applyTheme(to: textView, scrollView: scrollView)
             textView.findState = findState

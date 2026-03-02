@@ -59,6 +59,7 @@
         private var isRepositionScheduled = false
         var attachmentIndex: [ObjectIdentifier: NSRange] = [:]
         var tableRangeIndex: [String: NSRange] = [:]
+        var onLayoutInvalidation: (() -> Void)?
 
         deinit {
             if let layoutObserver {
@@ -229,6 +230,8 @@
                 layoutManager.invalidateLayout(for: fullRange)
                 layoutManager.ensureLayout(for: fullRange)
             }
+
+            onLayoutInvalidation?()
         }
 
         // MARK: - Attachment Overlay Lifecycle
@@ -434,11 +437,9 @@
             blockIndex: Int,
             appSettings: AppSettings
         ) -> NSView {
-            let rootView = MermaidBlockView(code: code) { [weak self] _, aspectRatio in
-                guard let self, let textView else { return }
-                let width = textContainerWidth(in: textView)
-                let height = width * aspectRatio
-                updateAttachmentHeight(blockIndex: blockIndex, newHeight: height)
+            let rootView = MermaidBlockView(code: code) { [weak self] height, _ in
+                guard let self else { return }
+                updateAttachmentHeight(blockIndex: blockIndex, newHeight: max(height, 100))
             }
             .environment(appSettings)
             .environment(containerState)
