@@ -310,6 +310,13 @@
                 return
             }
             super.mouseDown(with: event)
+
+            if let mouseLocation = window?.mouseLocationOutsideOfEventStream {
+                let finalPoint = convert(mouseLocation, from: nil)
+                if isOverEmptyTextArea(finalPoint) {
+                    NSCursor.arrow.set()
+                }
+            }
         }
 
         override func mouseMoved(with event: NSEvent) {

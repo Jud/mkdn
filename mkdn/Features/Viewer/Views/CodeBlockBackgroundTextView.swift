@@ -114,46 +114,6 @@
             super.cancelOperation(sender)
         }
 
-        // MARK: - Cursor Rects
-
-        override func resetCursorRects() {
-            super.resetCursorRects()
-            addLinkCursorRects()
-        }
-
-        private func addLinkCursorRects() {
-            guard let textStorage,
-                  let layoutManager = textLayoutManager,
-                  let contentManager = layoutManager.textContentManager
-            else { return }
-
-            let fullRange = NSRange(location: 0, length: textStorage.length)
-            let origin = textContainerOrigin
-
-            textStorage.enumerateAttribute(
-                .link,
-                in: fullRange,
-                options: []
-            ) { value, range, _ in
-                guard value != nil else { return }
-
-                let frames = fragmentFrames(
-                    for: range,
-                    layoutManager: layoutManager,
-                    contentManager: contentManager
-                )
-                for frame in frames {
-                    let cursorRect = CGRect(
-                        x: frame.minX + origin.x,
-                        y: frame.minY + origin.y,
-                        width: frame.width,
-                        height: frame.height
-                    )
-                    addCursorRect(cursorRect, cursor: .pointingHand)
-                }
-            }
-        }
-
         // MARK: - Mouse Tracking
 
         override func updateTrackingAreas() {
@@ -168,6 +128,13 @@
                 return
             }
             super.mouseDown(with: event)
+
+            if let mouseLocation = window?.mouseLocationOutsideOfEventStream {
+                let finalPoint = convert(mouseLocation, from: nil)
+                if isOverEmptyTextArea(finalPoint) {
+                    NSCursor.arrow.set()
+                }
+            }
         }
 
         // MARK: - Real-Time Selection Updates
