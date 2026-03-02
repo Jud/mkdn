@@ -1,6 +1,6 @@
 # mkdn
 
-Native Markdown viewer for macOS. SwiftUI rendering, not a web browser in disguise.
+A native artifact viewer for agentic workflows. AI agents produce markdown — plans, code, diagrams, docs — and mkdn renders all of it beautifully on macOS. SwiftUI + TextKit 2, not a web browser in disguise.
 
 ## Install
 
@@ -29,6 +29,8 @@ Also supports Cmd+O and drag-and-drop.
 
 ## What it renders
 
+Everything agents produce:
+
 - **CommonMark** via [swift-markdown](https://github.com/apple/swift-markdown) — headings, lists, tables, blockquotes, images, inline formatting
 - **Fenced code blocks** with [tree-sitter](https://github.com/ChimeHQ/SwiftTreeSitter) syntax highlighting (Swift, Python, JavaScript, TypeScript, Rust, Go, Bash, JSON, HTML, CSS, C, C++, Ruby, Java, YAML, Kotlin)
 - **LaTeX math** — inline `$...$` and display `$$...$$` via [SwiftMath](https://github.com/mgriebling/SwiftMath)
@@ -56,7 +58,7 @@ Also supports Cmd+O and drag-and-drop.
 | Cmd+R | Reload from disk |
 | Cmd+1 | Preview mode |
 | Cmd+2 | Edit mode |
-| Cmd+T | Cycle theme |
+| Cmd+Shift+T | Cycle theme |
 | Cmd+F | Find in page |
 | Cmd+G | Next match |
 | Cmd+Shift+G | Previous match |
@@ -65,6 +67,7 @@ Also supports Cmd+O and drag-and-drop.
 | Cmd+Minus | Zoom out |
 | Cmd+0 | Reset zoom |
 | Cmd+Shift+L | Toggle sidebar |
+| Cmd+Shift+O | Open directory |
 | Cmd+P | Print |
 
 ## Architecture
