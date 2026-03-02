@@ -51,7 +51,13 @@
                 )
             }
             coordinator.overlayCoordinator.onLayoutInvalidation = { [weak coordinator] in
-                coordinator?.animator.animateVisibleFragments()
+                guard let coordinator, coordinator.animator.isAnimating else { return }
+                coordinator.animator.animateVisibleFragments()
+                coordinator.overlayCoordinator.applyEntranceAnimation(
+                    attachmentDelays: coordinator.animator.attachmentDelays,
+                    tableDelays: coordinator.animator.tableDelays,
+                    fadeInDuration: AnimationConstants.fadeInDuration
+                )
             }
 
             applyTheme(to: textView, scrollView: scrollView)
