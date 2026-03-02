@@ -88,8 +88,8 @@
                 }
                 if let keyWindow = NSApp.keyWindow {
                     keyWindow.close()
-                } else if let frontWindow = NSApp.orderedWindows.first(where: {
-                    $0.isVisible && !($0 is NSPanel)
+                } else if let frontWindow = NSApp.orderedWindows.first(where: { window in
+                    window.isVisible && !(window is NSPanel)
                 }) {
                     frontWindow.close()
                 }

@@ -60,7 +60,7 @@
             return container
         }
 
-        func updateNSView(_ nsView: NSView, context: Context) {
+        func updateNSView(_: NSView, context: Context) {
             let coordinator = context.coordinator
             guard let textView = coordinator.textView,
                   let scrollView = coordinator.scrollView,
@@ -148,6 +148,7 @@
             scrollView.hasVerticalScroller = true
             scrollView.hasHorizontalScroller = true
             scrollView.autohidesScrollers = true
+            scrollView.automaticallyAdjustsContentInsets = false
         }
 
         // MARK: - Gutter
@@ -285,9 +286,9 @@
 
         override func layout() {
             super.layout()
-            let w = gutterWidth
-            gutter.frame = NSRect(x: 0, y: 0, width: w, height: bounds.height)
-            scrollView.frame = NSRect(x: w, y: 0, width: bounds.width - w, height: bounds.height)
+            let gutterW = gutterWidth
+            gutter.frame = NSRect(x: 0, y: 0, width: gutterW, height: bounds.height)
+            scrollView.frame = NSRect(x: gutterW, y: 0, width: bounds.width - gutterW, height: bounds.height)
         }
     }
 

@@ -127,7 +127,7 @@
 
             let charIndex = layoutManager.characterIndexForGlyph(at: glyphIndex)
             let prefix = string.prefix(charIndex)
-            return prefix.count(where: { $0 == "\n" }) + 1
+            return prefix.count { $0 == "\n" } + 1
         }
 
         // MARK: - Width Calculation

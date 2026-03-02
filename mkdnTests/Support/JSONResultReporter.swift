@@ -64,8 +64,8 @@ enum JSONResultReporter {
         let report = TestReport(
             timestamp: Date(),
             totalTests: snapshot.count,
-            passed: snapshot.count(where: { $0.status == .pass }),
-            failed: snapshot.count(where: { $0.status == .fail }),
+            passed: snapshot.count { $0.status == .pass },
+            failed: snapshot.count { $0.status == .fail },
             results: snapshot,
             coverage: coverage
         )
