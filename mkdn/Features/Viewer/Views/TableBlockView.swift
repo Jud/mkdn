@@ -93,7 +93,6 @@
                             width: colIndex < columnWidths.count ? columnWidths[colIndex] : nil,
                             alignment: column.alignment.swiftUIAlignment
                         )
-                        .textSelection(.enabled)
                 }
             }
             .background(colors.backgroundSecondary)
@@ -120,7 +119,6 @@
                                     ? columnWidths[colIndex] : nil,
                                 alignment: alignment
                             )
-                            .textSelection(.enabled)
                     }
                 }
                 .background(

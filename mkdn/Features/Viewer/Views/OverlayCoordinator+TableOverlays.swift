@@ -2,6 +2,14 @@
     import AppKit
     import SwiftUI
 
+    /// An `NSHostingView` subclass that returns `nil` from `hitTest` so mouse
+    /// events pass through to the underlying `NSTextView`.
+    final class PassthroughHostingView<Content: View>: NSHostingView<Content> {
+        override func hitTest(_: NSPoint) -> NSView? {
+            nil
+        }
+    }
+
     /// Table overlay management for ``OverlayCoordinator``.
     ///
     /// Table overlays use text-range-based positioning (via ``TableAttributes/range``
@@ -227,7 +235,7 @@
             }
             .environment(appSettings)
             .environment(containerState)
-            return NSHostingView(rootView: rootView)
+            return PassthroughHostingView(rootView: rootView)
         }
 
         private func updateTablePreferredWidth(blockIndex: Int, width: CGFloat) {
