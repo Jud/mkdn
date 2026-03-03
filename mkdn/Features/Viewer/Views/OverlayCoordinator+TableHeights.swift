@@ -31,16 +31,11 @@
                 )
                 else { continue }
 
-                var corrected = correctedGeometry(
+                let corrected = correctedGeometry(
                     columns: columns,
                     rows: rows,
                     containerWidth: containerWidth,
                     scaleFactor: scaleFactor
-                )
-
-                scaleToVisualHeight(
-                    &corrected.rowHeights,
-                    visualView: entry.view
                 )
 
                 if applyRowHeights(
@@ -73,24 +68,87 @@
             }
         }
 
-        /// Scales computed row heights proportionally so their sum matches the
-        /// visual overlay's intrinsic height. This compensates for the small
-        /// per-row differences between `NSAttributedString.boundingRect` and
-        /// SwiftUI's `Text` layout engine.
-        private func scaleToVisualHeight(
-            _ heights: inout [CGFloat],
-            visualView: NSView
-        ) {
-            visualView.layoutSubtreeIfNeeded()
-            let visualHeight = visualView.fittingSize.height
-            guard visualHeight > 0 else { return }
-            let computedTotal = heights.reduce(0, +)
-            guard computedTotal > 0,
-                  abs(visualHeight - computedTotal) > 1
+        /// Distributes the SwiftUI-reported visual height proportionally across
+        /// rows and writes the result to the text storage paragraph styles.
+        /// A convergence guard (2pt threshold) prevents feedback loops.
+        func applyVisualHeight(blockIndex: Int, height: CGFloat) {
+            guard var entry = entries[blockIndex],
+                  let tableRangeID = entry.tableRangeID,
+                  let cellMap = entry.cellMap,
+                  case let .table(columns, rows) = entry.block
             else { return }
-            let ratio = visualHeight / computedTotal
-            for idx in heights.indices {
-                heights[idx] = ceil(heights[idx] * ratio)
+
+            if let lastHeight = entry.lastAppliedVisualHeight,
+               abs(lastHeight - height) <= 2
+            {
+                return
+            }
+
+            guard let textView,
+                  let textStorage = textView.textStorage
+            else { return }
+
+            guard let tableRange = findTableTextRange(for: tableRangeID)
+            else { return }
+
+            let containerWidth = textContainerWidth(in: textView)
+            let scaleFactor = appSettings?.scaleFactor ?? 1.0
+
+            let corrected = correctedGeometry(
+                columns: columns,
+                rows: rows,
+                containerWidth: containerWidth,
+                scaleFactor: scaleFactor
+            )
+
+            let distributed = distributeHeights(
+                corrected.rowHeights, toTotal: height
+            )
+
+            if applyRowHeights(
+                distributed,
+                columns: columns,
+                columnWidths: corrected.columnWidths,
+                in: textStorage,
+                tableRange: tableRange
+            ) {
+                invalidateTableLayout(tableRange, in: textView)
+            }
+
+            cellMap.columnWidths = corrected.columnWidths
+            cellMap.rowHeights = distributed
+
+            entry.lastAppliedVisualHeight = height
+            entries[blockIndex] = entry
+        }
+
+        private func distributeHeights(
+            _ rowHeights: [CGFloat],
+            toTotal targetHeight: CGFloat
+        ) -> [CGFloat] {
+            let computedTotal = rowHeights.reduce(0, +)
+            guard computedTotal > 0 else { return rowHeights }
+            let ratio = targetHeight / computedTotal
+            var distributed = rowHeights.map { floor($0 * ratio) }
+            let distributedTotal = distributed.reduce(0, +)
+            if !distributed.isEmpty {
+                distributed[distributed.count - 1] += targetHeight - distributedTotal
+            }
+            return distributed
+        }
+
+        private func invalidateTableLayout(
+            _ tableRange: NSRange, in textView: NSTextView
+        ) {
+            guard let layoutManager = textView.textLayoutManager,
+                  let contentManager = layoutManager.textContentManager
+            else { return }
+            let docStart = layoutManager.documentRange.location
+            if let start = contentManager.location(docStart, offsetBy: tableRange.location),
+               let end = contentManager.location(docStart, offsetBy: NSMaxRange(tableRange)),
+               let textRange = NSTextRange(location: start, end: end)
+            {
+                layoutManager.invalidateLayout(for: textRange)
             }
         }
 

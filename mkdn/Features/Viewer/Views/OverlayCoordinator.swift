@@ -19,6 +19,7 @@
             var tableRangeID: String?
             var highlightOverlay: TableHighlightOverlay?
             var cellMap: TableCellMap?
+            var lastAppliedVisualHeight: CGFloat?
 
             init(
                 view: NSView,
@@ -27,7 +28,8 @@
                 preferredWidth: CGFloat? = nil,
                 tableRangeID: String? = nil,
                 highlightOverlay: TableHighlightOverlay? = nil,
-                cellMap: TableCellMap? = nil
+                cellMap: TableCellMap? = nil,
+                lastAppliedVisualHeight: CGFloat? = nil
             ) {
                 self.view = view
                 self.attachment = attachment
@@ -36,6 +38,7 @@
                 self.tableRangeID = tableRangeID
                 self.highlightOverlay = highlightOverlay
                 self.cellMap = cellMap
+                self.lastAppliedVisualHeight = lastAppliedVisualHeight
             }
         }
 
@@ -131,10 +134,9 @@
             else { return }
             let widthChanged = abs(containerState.containerWidth - context.containerWidth) > 1
             containerState.containerWidth = context.containerWidth
-            if widthChanged, let textView {
+            if widthChanged {
                 stickyHeaders.values.forEach { $0.removeFromSuperview() }
                 stickyHeaders.removeAll()
-                adjustTableRowHeights(in: textView)
             }
             let finalContext = widthChanged ? (makeLayoutContext() ?? context) : context
             for (_, entry) in entries {

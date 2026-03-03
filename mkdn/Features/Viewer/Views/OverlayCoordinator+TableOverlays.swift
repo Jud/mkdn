@@ -230,21 +230,36 @@
                 columns: columns,
                 rows: rows,
                 containerWidth: containerWidth
-            ) { [weak self] width, _ in
-                self?.updateTablePreferredWidth(blockIndex: blockIndex, width: width)
+            ) { [weak self] width, height in
+                self?.updateTablePreferredSize(blockIndex: blockIndex, width: width, height: height)
             }
             .environment(appSettings)
             .environment(containerState)
             return PassthroughHostingView(rootView: rootView)
         }
 
-        private func updateTablePreferredWidth(blockIndex: Int, width: CGFloat) {
-            guard var entry = entries[blockIndex],
-                  entry.preferredWidth != width
-            else { return }
-            entry.preferredWidth = width
+        private func updateTablePreferredSize(
+            blockIndex: Int,
+            width: CGFloat,
+            height: CGFloat
+        ) {
+            guard var entry = entries[blockIndex] else { return }
+            var needsReposition = false
+
+            if entry.preferredWidth != width {
+                entry.preferredWidth = width
+                needsReposition = true
+            }
+
             entries[blockIndex] = entry
-            repositionOverlays()
+
+            if height > 0 {
+                applyVisualHeight(blockIndex: blockIndex, height: height)
+            }
+
+            if needsReposition {
+                scheduleReposition()
+            }
         }
 
         // MARK: - Text-Range Positioning
