@@ -21,12 +21,6 @@
     /// the hovered code block. Clicking the button copies the raw code content
     /// (without language label) to the system clipboard.
     final class CodeBlockBackgroundTextView: NSTextView {
-        // MARK: - Window Drag Support
-
-        override var mouseDownCanMoveWindow: Bool {
-            true
-        }
-
         // MARK: - Constants
 
         static let cornerRadius: CGFloat = 6
@@ -130,6 +124,7 @@
         override func mouseDown(with event: NSEvent) {
             let point = convert(event.locationInWindow, from: nil)
             if isOverEmptyTextArea(point) {
+                window?.performDrag(with: event)
                 return
             }
             super.mouseDown(with: event)

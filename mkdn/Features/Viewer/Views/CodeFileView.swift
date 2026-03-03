@@ -298,10 +298,6 @@
     /// matching the behavior of ``CodeBlockBackgroundTextView`` in the
     /// markdown preview. Hit-testing logic is shared via ``NSTextView+DragZone``.
     private final class DraggableCodeTextView: NSTextView {
-        override var mouseDownCanMoveWindow: Bool {
-            true
-        }
-
         override func updateTrackingAreas() {
             super.updateTrackingAreas()
             installFullBoundsTrackingArea()
@@ -310,6 +306,7 @@
         override func mouseDown(with event: NSEvent) {
             let point = convert(event.locationInWindow, from: nil)
             if isOverEmptyTextArea(point) {
+                window?.performDrag(with: event)
                 return
             }
             super.mouseDown(with: event)
