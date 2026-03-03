@@ -124,7 +124,7 @@
         override func mouseDown(with event: NSEvent) {
             let point = convert(event.locationInWindow, from: nil)
             if isOverEmptyTextArea(point) {
-                window?.performDrag(with: event)
+                handleEmptyAreaMouseDown(with: event)
                 return
             }
             super.mouseDown(with: event)

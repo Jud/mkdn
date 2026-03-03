@@ -105,6 +105,40 @@
             return false
         }
 
+        /// Handles a mouse-down on empty text area with a 3pt drag threshold.
+        ///
+        /// Deselects any existing text selection, then enters a tracking loop
+        /// waiting for either a drag gesture (cumulative distance > 3pt from
+        /// the initial click) or a mouse-up. If the threshold is exceeded,
+        /// initiates a window drag; otherwise returns without action.
+        func handleEmptyAreaMouseDown(with event: NSEvent) {
+            setSelectedRange(NSRange(location: 0, length: 0))
+            let threshold: CGFloat = 3
+            let initialLocation = event.locationInWindow
+
+            while true {
+                guard let nextEvent = window?.nextEvent(
+                    matching: [.leftMouseDragged, .leftMouseUp]
+                )
+                else {
+                    return
+                }
+
+                if nextEvent.type == .leftMouseUp {
+                    return
+                }
+
+                let deltaX = nextEvent.locationInWindow.x - initialLocation.x
+                let deltaY = nextEvent.locationInWindow.y - initialLocation.y
+                let distance = sqrt(deltaX * deltaX + deltaY * deltaY)
+
+                if distance > threshold {
+                    window?.performDrag(with: event)
+                    return
+                }
+            }
+        }
+
         /// Installs a full-bounds tracking area for mouse-moved events so
         /// the cursor can switch between arrow (drag zones) and I-beam (text).
         func installFullBoundsTrackingArea() {
