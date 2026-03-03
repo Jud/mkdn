@@ -97,7 +97,12 @@ public enum SyntaxHighlightEngine {
             }
         }
 
-        for (range, entry) in bestCapture {
+        // Sort by patternIndex so lower-priority (earlier) patterns are applied
+        // first and higher-priority (later) patterns overwrite deterministically.
+        // Without sorting, Dictionary iteration order is non-deterministic,
+        // causing color flickering between app launches.
+        let sorted = bestCapture.sorted { $0.value.patternIndex < $1.value.patternIndex }
+        for (range, entry) in sorted {
             let color = PlatformTypeConverter.color(
                 from: entry.tokenType.color(from: syntaxColors)
             )
