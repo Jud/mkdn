@@ -29,6 +29,11 @@
             self.textView = textView
             self.appSettings = appSettings
 
+            let currentWidth = textContainerWidth(in: textView)
+            if currentWidth > 0 {
+                containerState.containerWidth = currentWidth
+            }
+
             if let textStorage = textView.textStorage {
                 buildPositionIndex(from: textStorage)
             }
@@ -255,6 +260,7 @@
 
             if height > 0 {
                 applyVisualHeight(blockIndex: blockIndex, height: height)
+                needsReposition = true
             }
 
             if needsReposition {

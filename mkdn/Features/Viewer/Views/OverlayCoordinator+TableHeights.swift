@@ -67,6 +67,7 @@
                     )
                     if let tailRange {
                         layoutManager.invalidateLayout(for: tailRange)
+                        layoutManager.textViewportLayoutController.layoutViewport()
                     }
                 }
             }
@@ -157,6 +158,7 @@
             )
             if let tailRange {
                 layoutManager.invalidateLayout(for: tailRange)
+                layoutManager.textViewportLayoutController.layoutViewport()
             }
         }
 
