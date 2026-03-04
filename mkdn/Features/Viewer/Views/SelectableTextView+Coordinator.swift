@@ -149,7 +149,7 @@
                 guard !findState.matchRanges.isEmpty else {
                     restoreBackgrounds(in: textStorage)
                     lastHighlightedRanges = []
-                    ensureLayoutAndRepositionOverlays(textView: textView)
+                    overlayCoordinator.scheduleReposition()
                     return
                 }
 
@@ -191,7 +191,7 @@
                 textStorage.endEditing()
 
                 lastHighlightedRanges = findState.matchRanges
-                ensureLayoutAndRepositionOverlays(textView: textView)
+                overlayCoordinator.scheduleReposition()
 
                 if let currentRange =
                     findState.matchRanges[safe: findState.currentMatchIndex]
@@ -218,7 +218,7 @@
                       !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
                 else {
                     restoreBackgrounds(in: textStorage)
-                    ensureLayoutAndRepositionOverlays(textView: textView)
+                    overlayCoordinator.scheduleReposition()
                     return
                 }
 
@@ -244,12 +244,12 @@
                             )
                         }
                         textStorage.endEditing()
-                        self?.ensureLayoutAndRepositionOverlays(textView: textView)
+                        self?.overlayCoordinator.scheduleReposition()
                     }
 
                     guard !Task.isCancelled, let self else { return }
                     restoreBackgrounds(in: textStorage)
-                    ensureLayoutAndRepositionOverlays(textView: textView)
+                    overlayCoordinator.scheduleReposition()
                 }
             }
 
@@ -268,13 +268,6 @@
                     results.append((range: range, color: color))
                 }
                 return results
-            }
-
-            private func ensureLayoutAndRepositionOverlays(textView: NSTextView) {
-                if let layoutManager = textView.textLayoutManager {
-                    layoutManager.ensureLayout(for: layoutManager.documentRange)
-                }
-                overlayCoordinator.repositionOverlays()
             }
 
             // MARK: - Theme Crossfade

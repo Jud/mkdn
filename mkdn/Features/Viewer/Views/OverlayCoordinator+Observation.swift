@@ -38,6 +38,7 @@
             guard let textView,
                   let scrollView = textView.enclosingScrollView
             else { return }
+            repositionOverlays()
             let visibleRect = scrollView.contentView.bounds
             let headerHeight = stickyHeaderHeight()
             for (blockIndex, entry) in entries {

@@ -11,13 +11,68 @@
                   let contentManager = layoutManager.textContentManager
             else { return nil }
 
+            let visibleRange = computeVisibleRange(
+                textView: textView,
+                layoutManager: layoutManager,
+                contentManager: contentManager,
+                textStorage: textStorage
+            )
+
             return LayoutContext(
                 origin: textView.textContainerOrigin,
                 containerWidth: textContainerWidth(in: textView),
                 textStorage: textStorage,
                 contentManager: contentManager,
-                layoutManager: layoutManager
+                layoutManager: layoutManager,
+                visibleRange: visibleRange
             )
+        }
+
+        private func computeVisibleRange(
+            textView: NSTextView,
+            layoutManager: NSTextLayoutManager,
+            contentManager: NSTextContentManager,
+            textStorage: NSTextStorage
+        ) -> NSRange? {
+            guard let scrollView = textView.enclosingScrollView else { return nil }
+            let visibleRect = scrollView.contentView.bounds
+            let margin: CGFloat = 300
+            let expandedRect = visibleRect.insetBy(dx: 0, dy: -margin)
+
+            let docRange = contentManager.documentRange
+            var startOffset: Int?
+            var endOffset: Int?
+
+            layoutManager.enumerateTextLayoutFragments(
+                from: docRange.location,
+                options: [.ensuresExtraLineFragment]
+            ) { fragment in
+                let frame = fragment.layoutFragmentFrame
+                if frame.maxY >= expandedRect.minY, startOffset == nil {
+                    startOffset = contentManager.offset(
+                        from: docRange.location,
+                        to: fragment.rangeInElement.location
+                    )
+                }
+                if frame.minY > expandedRect.maxY {
+                    endOffset = contentManager.offset(
+                        from: docRange.location,
+                        to: fragment.rangeInElement.location
+                    )
+                    return false
+                }
+                if startOffset != nil {
+                    endOffset = contentManager.offset(
+                        from: docRange.location,
+                        to: fragment.rangeInElement.endLocation
+                    )
+                }
+                return true
+            }
+
+            guard let start = startOffset else { return nil }
+            let end = endOffset ?? textStorage.length
+            return NSRange(location: start, length: max(0, end - start))
         }
 
         func positionEntry(

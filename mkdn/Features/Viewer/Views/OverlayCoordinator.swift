@@ -48,6 +48,7 @@
             let textStorage: NSTextStorage
             let contentManager: NSTextContentManager
             let layoutManager: NSTextLayoutManager
+            let visibleRange: NSRange?
         }
 
         // MARK: - Properties
@@ -127,7 +128,9 @@
 
         /// Recalculates all overlay positions from the current layout geometry.
         /// Layout is resolved per-fragment via `.ensuresLayout` enumeration
-        /// rather than an upfront full-document pass.
+        /// rather than an upfront full-document pass. Table overlays outside
+        /// the viewport are skipped since TextKit 2 lazy layout may produce
+        /// stale y-offsets for off-screen content.
         func repositionOverlays() {
             guard let context = makeLayoutContext(),
                   context.containerWidth > 0
@@ -135,13 +138,29 @@
             let widthChanged = abs(containerState.containerWidth - context.containerWidth) > 1
             containerState.containerWidth = context.containerWidth
             if widthChanged {
+                for key in entries.keys {
+                    entries[key]?.lastAppliedVisualHeight = nil
+                }
                 stickyHeaders.values.forEach { $0.removeFromSuperview() }
                 stickyHeaders.removeAll()
             }
             let finalContext = widthChanged ? (makeLayoutContext() ?? context) : context
-            for (_, entry) in entries {
+            for (_, entry) in entries
+                where shouldPositionEntry(entry, context: finalContext)
+            {
                 positionEntry(entry, context: finalContext)
             }
+        }
+
+        private func shouldPositionEntry(
+            _ entry: OverlayEntry,
+            context: LayoutContext
+        ) -> Bool {
+            guard let tableRangeID = entry.tableRangeID else { return true }
+            guard let visibleRange = context.visibleRange,
+                  let tableRange = findTableTextRange(for: tableRangeID)
+            else { return true }
+            return NSIntersectionRange(visibleRange, tableRange).length > 0
         }
 
         /// Removes all hosted overlay views and stops layout observation.
@@ -230,15 +249,27 @@
             let containerWidth = textContainerWidth(in: textView)
             attachment.bounds = CGRect(x: 0, y: 0, width: containerWidth, height: newHeight)
 
-            if let range = attachmentRange(for: attachment) {
-                textStorage.edited(.editedAttributes, range: range, changeInLength: 0)
+            let attachRange = attachmentRange(for: attachment)
+            if let attachRange {
+                textStorage.edited(.editedAttributes, range: attachRange, changeInLength: 0)
                 buildPositionIndex(from: textStorage)
             }
 
-            if let layoutManager = textView.textLayoutManager {
-                let fullRange = layoutManager.documentRange
-                layoutManager.invalidateLayout(for: fullRange)
-                layoutManager.ensureLayout(for: fullRange)
+            if let attachRange,
+               let layoutManager = textView.textLayoutManager,
+               let contentManager = layoutManager.textContentManager,
+               let startLoc = contentManager.location(
+                   contentManager.documentRange.location,
+                   offsetBy: attachRange.location
+               )
+            {
+                let tailRange = NSTextRange(
+                    location: startLoc,
+                    end: contentManager.documentRange.endLocation
+                )
+                if let tailRange {
+                    layoutManager.invalidateLayout(for: tailRange)
+                }
             }
 
             onLayoutInvalidation?()

@@ -56,13 +56,17 @@
                let layoutManager = textView.textLayoutManager,
                let contentManager = layoutManager.textContentManager
             {
-                let docStart = layoutManager.documentRange.location
-                for range in modifiedRanges {
-                    if let start = contentManager.location(docStart, offsetBy: range.location),
-                       let end = contentManager.location(docStart, offsetBy: NSMaxRange(range)),
-                       let textRange = NSTextRange(location: start, end: end)
-                    {
-                        layoutManager.invalidateLayout(for: textRange)
+                let earliestLocation = modifiedRanges.map(\.location).min() ?? 0
+                if let startLoc = contentManager.location(
+                    contentManager.documentRange.location,
+                    offsetBy: earliestLocation
+                ) {
+                    let tailRange = NSTextRange(
+                        location: startLoc,
+                        end: contentManager.documentRange.endLocation
+                    )
+                    if let tailRange {
+                        layoutManager.invalidateLayout(for: tailRange)
                     }
                 }
             }
@@ -141,14 +145,18 @@
             _ tableRange: NSRange, in textView: NSTextView
         ) {
             guard let layoutManager = textView.textLayoutManager,
-                  let contentManager = layoutManager.textContentManager
+                  let contentManager = layoutManager.textContentManager,
+                  let startLoc = contentManager.location(
+                      contentManager.documentRange.location,
+                      offsetBy: tableRange.location
+                  )
             else { return }
-            let docStart = layoutManager.documentRange.location
-            if let start = contentManager.location(docStart, offsetBy: tableRange.location),
-               let end = contentManager.location(docStart, offsetBy: NSMaxRange(tableRange)),
-               let textRange = NSTextRange(location: start, end: end)
-            {
-                layoutManager.invalidateLayout(for: textRange)
+            let tailRange = NSTextRange(
+                location: startLoc,
+                end: contentManager.documentRange.endLocation
+            )
+            if let tailRange {
+                layoutManager.invalidateLayout(for: tailRange)
             }
         }
 
