@@ -253,6 +253,13 @@
 
             // MARK: WKNavigationDelegate
 
+            nonisolated func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+                Task { @MainActor in
+                    self.parent.renderState = .error("WebKit process terminated unexpectedly")
+                    webView.reload()
+                }
+            }
+
             func webView(
                 _: WKWebView,
                 decidePolicyFor navigationAction: WKNavigationAction,

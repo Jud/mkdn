@@ -251,7 +251,9 @@
 
             let attachRange = attachmentRange(for: attachment)
             if let attachRange {
+                textStorage.beginEditing()
                 textStorage.edited(.editedAttributes, range: attachRange, changeInLength: 0)
+                textStorage.endEditing()
                 buildPositionIndex(from: textStorage)
             }
 
@@ -269,6 +271,7 @@
                 )
                 if let tailRange {
                     layoutManager.invalidateLayout(for: tailRange)
+                    layoutManager.textViewportLayoutController.layoutViewport()
                 }
             }
 
