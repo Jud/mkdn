@@ -79,6 +79,30 @@ swift build -c release --arch arm64
 echo "  Binary: ${SPM_BUILD_DIR}/mkdn"
 
 # ---------------------------------------------------------------------------
+# Phase 3.5: Patch SPM resource bundle accessors for .app distribution
+# ---------------------------------------------------------------------------
+info "Patching SPM resource bundle accessors"
+
+# SPM's generated Bundle.module accessor uses Bundle.main.bundleURL which
+# resolves to the .app root — but codesign requires resources inside Contents/.
+# Replace the hardcoded dev-machine build path fallback with a
+# Bundle.main.resourceURL lookup that finds bundles in Contents/Resources/.
+ACCESSOR_COUNT=0
+while IFS= read -r -d '' accessor; do
+    BUNDLE_NAME=$(grep -o '"[^"]*\.bundle"' "$accessor" | head -1 | tr -d '"')
+    if [ -n "${BUNDLE_NAME}" ]; then
+        sed -i '' "s|let buildPath = \"/[^\"]*\"|let buildPath = (Bundle.main.resourceURL?.appendingPathComponent(\"${BUNDLE_NAME}\").path) ?? \"\"|" "$accessor"
+        ACCESSOR_COUNT=$((ACCESSOR_COUNT + 1))
+    fi
+done < <(find "${SPM_BUILD_DIR}" -name "resource_bundle_accessor.swift" -path "*/DerivedSources/*" -print0)
+
+echo "  Patched ${ACCESSOR_COUNT} resource bundle accessors"
+
+info "Rebuilding with patched accessors"
+
+swift build -c release --arch arm64
+
+# ---------------------------------------------------------------------------
 # Phase 4: Revert version injection
 # ---------------------------------------------------------------------------
 info "Reverting version injection"
@@ -99,16 +123,15 @@ mkdir -p "${APP_BUNDLE}/Contents/Resources"
 cp "${SPM_BUILD_DIR}/mkdn" "${APP_BUNDLE}/Contents/MacOS/mkdn"
 echo "  Copied binary to Contents/MacOS/mkdn"
 
-RESOURCE_BUNDLE="${SPM_BUILD_DIR}/mkdn_mkdnLib.bundle"
-if [ -d "${RESOURCE_BUNDLE}" ]; then
-    # SPM's generated Bundle.module accessor looks for the resource bundle at
-    # Bundle.main.bundleURL/mkdn_mkdnLib.bundle — which resolves to the .app
-    # root, NOT Contents/Resources/. Place it where SPM expects it.
-    cp -R "${RESOURCE_BUNDLE}" "${APP_BUNDLE}/mkdn_mkdnLib.bundle"
-    echo "  Copied resource bundle to mkdn.app/mkdn_mkdnLib.bundle"
-else
-    error "SPM resource bundle not found at ${RESOURCE_BUNDLE}"
-fi
+BUNDLE_COUNT=0
+for bundle_dir in "${SPM_BUILD_DIR}"/*.bundle; do
+    [ -d "${bundle_dir}" ] || continue
+    bundle_name=$(basename "${bundle_dir}")
+    cp -R "${bundle_dir}" "${APP_BUNDLE}/Contents/Resources/${bundle_name}"
+    BUNDLE_COUNT=$((BUNDLE_COUNT + 1))
+done
+[ "${BUNDLE_COUNT}" -gt 0 ] || error "No SPM resource bundles found in ${SPM_BUILD_DIR}"
+echo "  Copied ${BUNDLE_COUNT} resource bundles to Contents/Resources/"
 
 INFO_PLIST_SRC="${PROJECT_ROOT}/Resources/Info.plist"
 [ -f "${INFO_PLIST_SRC}" ] || error "Resources/Info.plist not found at ${INFO_PLIST_SRC}"
