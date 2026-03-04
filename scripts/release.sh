@@ -101,8 +101,11 @@ echo "  Copied binary to Contents/MacOS/mkdn"
 
 RESOURCE_BUNDLE="${SPM_BUILD_DIR}/mkdn_mkdnLib.bundle"
 if [ -d "${RESOURCE_BUNDLE}" ]; then
-    cp -R "${RESOURCE_BUNDLE}" "${APP_BUNDLE}/Contents/Resources/mkdn_mkdnLib.bundle"
-    echo "  Copied resource bundle to Contents/Resources/mkdn_mkdnLib.bundle"
+    # SPM's generated Bundle.module accessor looks for the resource bundle at
+    # Bundle.main.bundleURL/mkdn_mkdnLib.bundle — which resolves to the .app
+    # root, NOT Contents/Resources/. Place it where SPM expects it.
+    cp -R "${RESOURCE_BUNDLE}" "${APP_BUNDLE}/mkdn_mkdnLib.bundle"
+    echo "  Copied resource bundle to mkdn.app/mkdn_mkdnLib.bundle"
 else
     error "SPM resource bundle not found at ${RESOURCE_BUNDLE}"
 fi
