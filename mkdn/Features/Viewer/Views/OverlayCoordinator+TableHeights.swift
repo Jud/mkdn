@@ -160,6 +160,7 @@
                 layoutManager.invalidateLayout(for: tailRange)
                 layoutManager.textViewportLayoutController.layoutViewport()
             }
+            onLayoutInvalidation?()
         }
 
         // MARK: - Height Computation
