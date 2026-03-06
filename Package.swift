@@ -26,7 +26,7 @@ let package = Package(
         // Tree-sitter syntax highlighting
         .package(url: "https://github.com/ChimeHQ/SwiftTreeSitter.git", from: "0.25.0"),
 
-        // Tree-sitter grammar packages (16 languages)
+        // Tree-sitter grammar packages (17 languages)
         // Pinned to 0.23.x/0.7.x ranges for consistent ChimeHQ/SwiftTreeSitter references
         // and static source lists in Package.swift (newer versions use FileManager detection
         // which breaks when built as a dependency).
@@ -49,6 +49,7 @@ let package = Package(
         .package(url: "https://github.com/tree-sitter/tree-sitter-java.git", "0.23.0" ..< "0.24.0"),
         .package(url: "https://github.com/tree-sitter-grammars/tree-sitter-yaml.git", exact: "0.7.0"),
         .package(url: "https://github.com/fwcd/tree-sitter-kotlin.git", from: "0.3.0"),
+        .package(url: "https://github.com/tree-sitter-grammars/tree-sitter-toml.git", exact: "0.7.0"),
 
         // LaTeX math rendering
         .package(url: "https://github.com/mgriebling/SwiftMath.git", from: "1.7.0"),
@@ -80,6 +81,7 @@ let package = Package(
                 .product(name: "TreeSitterJava", package: "tree-sitter-java"),
                 .product(name: "TreeSitterYAML", package: "tree-sitter-yaml"),
                 .product(name: "TreeSitterKotlin", package: "tree-sitter-kotlin"),
+                .product(name: "TreeSitterTOML", package: "tree-sitter-toml"),
                 .product(name: "SwiftMath", package: "SwiftMath"),
             ],
             path: "mkdn",

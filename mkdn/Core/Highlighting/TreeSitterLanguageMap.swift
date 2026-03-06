@@ -14,6 +14,7 @@ import TreeSitterRuby
 import TreeSitterRust
 import TreeSitterSwift
 import TreeSitterTypeScript
+import TreeSitterTOML
 import TreeSitterYAML
 
 /// Configuration for a supported tree-sitter language.
@@ -108,6 +109,10 @@ enum TreeSitterLanguageMap {
         configs["kotlin"] = LanguageConfig(
             language: Language(language: tree_sitter_kotlin()),
             highlightQuery: HighlightQueries.kotlin
+        )
+        configs["toml"] = LanguageConfig(
+            language: Language(language: tree_sitter_toml()),
+            highlightQuery: HighlightQueries.toml
         )
         return configs
     }()

@@ -6,11 +6,11 @@ struct TreeSitterLanguageMapTests {
     // MARK: - Canonical Name Resolution
 
     @Test(
-        "All 16 canonical language names resolve to a configuration",
+        "All 17 canonical language names resolve to a configuration",
         arguments: [
             "swift", "python", "javascript", "typescript", "rust", "go",
             "bash", "json", "yaml", "html", "css", "c", "c++", "ruby",
-            "java", "kotlin",
+            "java", "kotlin", "toml",
         ]
     )
     func canonicalNameResolves(language: String) {
@@ -18,10 +18,10 @@ struct TreeSitterLanguageMapTests {
         #expect(config != nil, "Expected configuration for canonical name '\(language)'")
     }
 
-    @Test("supportedLanguages returns all 16 canonical names sorted")
+    @Test("supportedLanguages returns all 17 canonical names sorted")
     func supportedLanguagesCount() {
         let supported = TreeSitterLanguageMap.supportedLanguages
-        #expect(supported.count == 16)
+        #expect(supported.count == 17)
         #expect(supported == supported.sorted())
     }
 

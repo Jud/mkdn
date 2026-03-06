@@ -1972,6 +1972,55 @@ enum HighlightQueries {
     	(interpolated_expression) @variable
     	"}" @punctuation.special)
     """#
+
+    // MARK: - TOML
+
+    static let toml = #"""
+    (bare_key) @type
+
+    (quoted_key) @string
+
+    (pair
+      (bare_key)) @property
+
+    (pair
+      (dotted_key
+        (bare_key) @property))
+
+    (boolean) @boolean
+
+    (comment) @comment
+
+    (string) @string
+
+    [
+      (integer)
+      (float)
+    ] @number
+
+    [
+      (offset_date_time)
+      (local_date_time)
+      (local_date)
+      (local_time)
+    ] @string.special
+
+    "=" @operator
+
+    [
+      "["
+      "]"
+      "[["
+      "]]"
+      "{"
+      "}"
+    ] @punctuation.bracket
+
+    [
+      "."
+      ","
+    ] @punctuation.delimiter
+    """#
 }
 
 // swiftlint:enable file_length type_body_length line_length
