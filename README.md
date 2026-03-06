@@ -1,6 +1,6 @@
 # mkdn
 
-A native artifact viewer for agentic workflows. AI agents produce markdown — plans, code, diagrams, docs — and mkdn renders all of it beautifully on macOS. SwiftUI + TextKit 2, not a web browser in disguise.
+the reading side of the agentic loop. agents produce markdown — plans, code, diagrams, docs — and mkdn renders all of it natively on macOS. SwiftUI + TextKit 2, not a web browser in disguise.
 
 ## Install
 
@@ -32,13 +32,15 @@ Also supports Cmd+O and drag-and-drop.
 Everything agents produce:
 
 - **CommonMark** via [swift-markdown](https://github.com/apple/swift-markdown) — headings, lists, tables, blockquotes, images, inline formatting
-- **Fenced code blocks** with [tree-sitter](https://github.com/ChimeHQ/SwiftTreeSitter) syntax highlighting (Swift, Python, JavaScript, TypeScript, Rust, Go, Bash, JSON, HTML, CSS, C, C++, Ruby, Java, YAML, Kotlin)
+- **Fenced code blocks** with [tree-sitter](https://github.com/ChimeHQ/SwiftTreeSitter) syntax highlighting (Swift, Python, JavaScript, TypeScript, Rust, Go, Bash, JSON, HTML, CSS, C, C++, Ruby, Java, YAML, Kotlin, TOML)
+- **Source code files** — open `.swift`, `.py`, `.rs`, or any text file directly. full syntax highlighting, line numbers, horizontal scrolling
 - **LaTeX math** — inline `$...$` and display `$$...$$` via [SwiftMath](https://github.com/mgriebling/SwiftMath)
 - **Mermaid diagrams** in lightweight embedded WKWebViews (one per diagram, bundled mermaid.js, no network requests)
 
 ## Features
 
 - Solarized Dark / Light themes (auto-follows system, or pinned)
+- Staggered entrance animations — content cascades in on load and file switch
 - Find in page (Cmd+F, Cmd+G / Cmd+Shift+G to navigate)
 - Side-by-side editor with live preview
 - Zoom (Cmd+/-, persists across sessions)
@@ -72,7 +74,7 @@ Everything agents produce:
 
 ## Architecture
 
-Two-target SPM layout: `mkdnLib` (library) and `mkdn` (thin executable entry point). Feature-Based MVVM. Tests use `@testable import mkdnLib` — 634 tests across 57 suites.
+Two-target SPM layout: `mkdnLib` (library) and `mkdn` (thin executable entry point). Feature-Based MVVM. Tests use `@testable import mkdnLib` — 634 tests across 59 suites.
 
 ```
 mkdn/
@@ -117,7 +119,7 @@ mkdnTests/
 | [SwiftMath](https://github.com/mgriebling/SwiftMath) | LaTeX math rendering |
 | [swift-argument-parser](https://github.com/apple/swift-argument-parser) | CLI argument handling |
 
-Plus 16 tree-sitter grammar packages (one per language, pinned for build reproducibility).
+Plus 17 tree-sitter grammar packages (one per language, pinned for build reproducibility).
 
 ## iOS
 
