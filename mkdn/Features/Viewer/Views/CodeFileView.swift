@@ -16,6 +16,7 @@
     struct CodeFileView: NSViewRepresentable {
         @Environment(DocumentState.self) private var documentState
         @Environment(AppSettings.self) private var appSettings
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
         func makeCoordinator() -> Coordinator {
             Coordinator()
@@ -40,10 +41,12 @@
             coordinator.scrollView = scrollView
             coordinator.gutter = gutter
             coordinator.container = container
+            coordinator.animator.textView = textView
 
             applyTheme(to: textView, scrollView: scrollView)
             applyContent(to: textView)
             updateGutter(gutter, textView: textView, container: container)
+            triggerEntrance(coordinator: coordinator)
 
             // Observe scroll changes to keep gutter in sync
             coordinator.scrollObserver = NotificationCenter.default.addObserver(
@@ -86,11 +89,21 @@
                 let preserveScroll = !contentChanged && !kindChanged
                 let savedOrigin = preserveScroll ? scrollView.contentView.bounds.origin : nil
 
+                coordinator.animator.reset()
+
+                if contentChanged || kindChanged {
+                    textView.alphaValue = 0
+                }
+
                 applyContent(to: textView)
 
                 if let origin = savedOrigin {
                     scrollView.contentView.scroll(to: origin)
                     scrollView.reflectScrolledClipView(scrollView.contentView)
+                }
+
+                if contentChanged || kindChanged {
+                    triggerEntrance(coordinator: coordinator)
                 }
             }
 
@@ -113,6 +126,8 @@
         // MARK: - Configuration
 
         private func configureTextView(_ textView: NSTextView) {
+            textView.wantsLayer = true
+            textView.layerContentsRedrawPolicy = .duringViewResize
             textView.isEditable = false
             textView.isSelectable = true
             textView.drawsBackground = true
@@ -167,6 +182,18 @@
             container.gutterWidth = thickness
             container.needsLayout = true
             gutter.needsDisplay = true
+        }
+
+        // MARK: - Entrance Animation
+
+        private func triggerEntrance(coordinator: Coordinator) {
+            coordinator.animator.beginEntrance(reduceMotion: reduceMotion)
+            // Defer fragment enumeration so the view is in the hierarchy and
+            // the layout manager has line fragments to enumerate.
+            DispatchQueue.main.async { [weak coordinator] in
+                coordinator?.animator.animateVisibleFragments()
+                coordinator?.textView?.alphaValue = 1
+            }
         }
 
         // MARK: - Theme
@@ -351,6 +378,7 @@
             var scrollView: NSScrollView?
             var gutter: LineNumberGutterView?
             var container: CodeContainerView?
+            let animator = EntranceAnimator()
             nonisolated(unsafe) var scrollObserver: Any?
             var lastTheme: AppTheme?
             var lastScale: CGFloat?

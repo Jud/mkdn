@@ -128,21 +128,31 @@
             // to avoid compressing delays on long documents.
             let docHeight = max(viewportMaxY, 1)
 
-            let blockGroups = enumerateAndCoverFragments(
-                viewLayer: viewLayer,
-                textView: textView,
-                elapsed: elapsed,
-                docHeight: docHeight,
-                coverLimit: coverLimit
-            )
+            if textView.textLayoutManager != nil {
+                let blockGroups = enumerateAndCoverFragments(
+                    viewLayer: viewLayer,
+                    textView: textView,
+                    elapsed: elapsed,
+                    docHeight: docHeight,
+                    coverLimit: coverLimit
+                )
 
-            processBlockGroups(
-                blockGroups,
-                elapsed: elapsed,
-                staggerHeight: docHeight,
-                in: textView,
-                to: viewLayer
-            )
+                processBlockGroups(
+                    blockGroups,
+                    elapsed: elapsed,
+                    staggerHeight: docHeight,
+                    in: textView,
+                    to: viewLayer
+                )
+            } else {
+                enumerateAndCoverLinesTextKit1(
+                    viewLayer: viewLayer,
+                    textView: textView,
+                    elapsed: elapsed,
+                    docHeight: docHeight,
+                    coverLimit: coverLimit
+                )
+            }
         }
 
         // MARK: - Fragment Enumeration
@@ -195,6 +205,59 @@
             }
 
             return blockGroups
+        }
+
+        // MARK: - TextKit 1 Line Enumeration
+
+        /// Creates cover layers using TextKit 1's `NSLayoutManager` line fragment
+        /// enumeration. Used for text views that don't have a `textLayoutManager`
+        /// (e.g. the code file viewer with horizontal scrolling).
+        private func enumerateAndCoverLinesTextKit1(
+            viewLayer: CALayer,
+            textView: NSTextView,
+            elapsed: CFTimeInterval,
+            docHeight: CGFloat,
+            coverLimit: CGFloat
+        ) {
+            guard let layoutManager = textView.layoutManager,
+                  let textContainer = textView.textContainer
+            else { return }
+
+            let origin = textView.textContainerOrigin
+            let visibleWidth = textView.enclosingScrollView?
+                .contentView.bounds.width ?? textView.bounds.width
+            let glyphRange = layoutManager.glyphRange(for: textContainer)
+
+            layoutManager.enumerateLineFragments(
+                forGlyphRange: glyphRange
+            ) { rect, _, _, _, stop in
+                guard rect.origin.y <= coverLimit else {
+                    stop.pointee = true
+                    return
+                }
+
+                let delay = self.positionDelay(
+                    y: rect.origin.y, documentHeight: docHeight
+                )
+                guard elapsed < delay + AnimationConstants.fadeInDuration
+                else { return }
+
+                let layer = CALayer()
+                layer.frame = CGRect(
+                    x: origin.x,
+                    y: rect.origin.y + origin.y,
+                    width: visibleWidth,
+                    height: rect.height
+                )
+                layer.backgroundColor = textView.backgroundColor.cgColor
+                layer.zPosition = 1
+
+                self.addCoverAnimation(
+                    to: layer, positionDelay: delay, elapsed: elapsed
+                )
+                viewLayer.addSublayer(layer)
+                self.coverLayers.append(layer)
+            }
         }
 
         // MARK: - Block Group Processing
