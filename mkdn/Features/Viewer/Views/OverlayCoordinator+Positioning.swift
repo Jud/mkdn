@@ -28,6 +28,12 @@
             )
         }
 
+        /// Computes the text range visible in the scroll view, expanded by a
+        /// margin so tables just outside the viewport are also positioned.
+        ///
+        /// Uses the viewport layout controller's already-known viewport range as
+        /// a starting point rather than enumerating from the document start,
+        /// then walks backward/forward to cover the margin.
         private func computeVisibleRange(
             textView: NSTextView,
             layoutManager: NSTextLayoutManager,
@@ -38,22 +44,40 @@
             let visibleRect = scrollView.contentView.bounds
             let margin: CGFloat = 300
             let expandedRect = visibleRect.insetBy(dx: 0, dy: -margin)
-
             let docRange = contentManager.documentRange
-            var startOffset: Int?
-            var endOffset: Int?
 
+            // Start from the viewport range (cheap) instead of the document start.
+            let vpRange = layoutManager.textViewportLayoutController.viewportRange
+            let enumerateFrom = vpRange?.location ?? docRange.location
+
+            // Walk backward from the viewport start to find the expanded range start.
+            var startOffset: Int?
             layoutManager.enumerateTextLayoutFragments(
-                from: docRange.location,
-                options: [.ensuresExtraLineFragment]
+                from: enumerateFrom,
+                options: [.reverse]
             ) { fragment in
                 let frame = fragment.layoutFragmentFrame
-                if frame.maxY >= expandedRect.minY, startOffset == nil {
+                if frame.maxY < expandedRect.minY {
                     startOffset = contentManager.offset(
                         from: docRange.location,
-                        to: fragment.rangeInElement.location
+                        to: fragment.rangeInElement.endLocation
                     )
+                    return false
                 }
+                startOffset = contentManager.offset(
+                    from: docRange.location,
+                    to: fragment.rangeInElement.location
+                )
+                return true
+            }
+
+            // Walk forward from the viewport start to find the expanded range end.
+            var endOffset: Int?
+            layoutManager.enumerateTextLayoutFragments(
+                from: enumerateFrom,
+                options: [.ensuresLayout, .ensuresExtraLineFragment]
+            ) { fragment in
+                let frame = fragment.layoutFragmentFrame
                 if frame.minY > expandedRect.maxY {
                     endOffset = contentManager.offset(
                         from: docRange.location,
@@ -61,16 +85,14 @@
                     )
                     return false
                 }
-                if startOffset != nil {
-                    endOffset = contentManager.offset(
-                        from: docRange.location,
-                        to: fragment.rangeInElement.endLocation
-                    )
-                }
+                endOffset = contentManager.offset(
+                    from: docRange.location,
+                    to: fragment.rangeInElement.endLocation
+                )
                 return true
             }
 
-            guard let start = startOffset else { return nil }
+            let start = startOffset ?? 0
             let end = endOffset ?? textStorage.length
             return NSRange(location: start, length: max(0, end - start))
         }

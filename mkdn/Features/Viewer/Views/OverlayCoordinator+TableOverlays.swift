@@ -3,8 +3,22 @@
     import SwiftUI
 
     /// An `NSHostingView` subclass that returns `nil` from `hitTest` so mouse
-    /// events pass through to the underlying `NSTextView`.
+    /// events pass through to the underlying `NSTextView`. Layer-backed with
+    /// `masksToBounds` so SwiftUI content that exceeds the frame (common while
+    /// TextKit 2 reconciles paragraph heights) is clipped rather than
+    /// visually overflowing into adjacent table regions.
     final class PassthroughHostingView<Content: View>: NSHostingView<Content> {
+        required init(rootView: Content) {
+            super.init(rootView: rootView)
+            wantsLayer = true
+            layer?.masksToBounds = true
+        }
+
+        @available(*, unavailable)
+        required init?(coder _: NSCoder) {
+            fatalError("init(coder:) is not supported")
+        }
+
         override func hitTest(_: NSPoint) -> NSView? {
             nil
         }
@@ -28,6 +42,7 @@
         ) {
             self.textView = textView
             self.appSettings = appSettings
+            invalidateReconciliation()
 
             let currentWidth = textContainerWidth(in: textView)
             if currentWidth > 0 {
@@ -50,6 +65,15 @@
             }
 
             adjustTableRowHeights(in: textView)
+
+            // Apply pre-computed SwiftUI heights gathered during overlay creation.
+            // This closes the gap between the computed row heights and the actual
+            // SwiftUI rendering, preventing overlap when tables first enter the viewport.
+            for (blockIndex, height) in pendingVisualHeights {
+                applyVisualHeight(blockIndex: blockIndex, height: height)
+            }
+            pendingVisualHeights.removeAll()
+
             observeLayoutChanges(on: textView)
             observeScrollChanges(on: textView)
             scheduleReposition()
@@ -201,6 +225,11 @@
                 appSettings: appSettings
             )
             visualOverlay.isHidden = true
+            precomputeVisualHeight(
+                visualOverlay,
+                blockIndex: info.blockIndex,
+                in: textView
+            )
             textView.addSubview(visualOverlay)
 
             let highlightOverlay = TableHighlightOverlay()
@@ -241,6 +270,30 @@
             .environment(appSettings)
             .environment(containerState)
             return PassthroughHostingView(rootView: rootView)
+        }
+
+        /// Forces SwiftUI layout on a not-yet-added hosting view and stores
+        /// its actual height so paragraph styles can be corrected before the
+        /// table enters the viewport, preventing overlap.
+        private func precomputeVisualHeight(
+            _ overlay: NSView,
+            blockIndex: Int,
+            in textView: NSTextView
+        ) {
+            let containerWidth = textContainerWidth(in: textView)
+            guard containerWidth > 0 else { return }
+            overlay.frame = CGRect(
+                x: -10_000,
+                y: -10_000,
+                width: containerWidth,
+                height: 10_000
+            )
+            overlay.layoutSubtreeIfNeeded()
+            let precomputedHeight = overlay.fittingSize.height
+            overlay.frame = .zero
+            if precomputedHeight > 0 {
+                pendingVisualHeights[blockIndex] = precomputedHeight
+            }
         }
 
         private func updateTablePreferredSize(

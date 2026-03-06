@@ -52,24 +52,9 @@
                 cellMap.rowHeights = corrected.rowHeights
             }
 
-            if !modifiedRanges.isEmpty,
-               let layoutManager = textView.textLayoutManager,
-               let contentManager = layoutManager.textContentManager
-            {
-                let earliestLocation = modifiedRanges.map(\.location).min() ?? 0
-                if let startLoc = contentManager.location(
-                    contentManager.documentRange.location,
-                    offsetBy: earliestLocation
-                ) {
-                    let tailRange = NSTextRange(
-                        location: startLoc,
-                        end: contentManager.documentRange.endLocation
-                    )
-                    if let tailRange {
-                        layoutManager.invalidateLayout(for: tailRange)
-                        layoutManager.textViewportLayoutController.layoutViewport()
-                    }
-                }
+            if !modifiedRanges.isEmpty {
+                invalidateReconciliation()
+                invalidateLayoutFromEarliestRange(modifiedRanges, in: textView)
             }
         }
 
@@ -117,6 +102,7 @@
                 in: textStorage,
                 tableRange: tableRange
             ) {
+                invalidateReconciliation()
                 invalidateTableLayout(tableRange, in: textView)
             }
 
@@ -161,6 +147,28 @@
                 layoutManager.textViewportLayoutController.layoutViewport()
             }
             onLayoutInvalidation?()
+        }
+
+        private func invalidateLayoutFromEarliestRange(
+            _ ranges: [NSRange],
+            in textView: NSTextView
+        ) {
+            guard let layoutManager = textView.textLayoutManager,
+                  let contentManager = layoutManager.textContentManager
+            else { return }
+            let earliestLocation = ranges.map(\.location).min() ?? 0
+            guard let startLoc = contentManager.location(
+                contentManager.documentRange.location,
+                offsetBy: earliestLocation
+            ) else { return }
+            let tailRange = NSTextRange(
+                location: startLoc,
+                end: contentManager.documentRange.endLocation
+            )
+            if let tailRange {
+                layoutManager.invalidateLayout(for: tailRange)
+                layoutManager.textViewportLayoutController.layoutViewport()
+            }
         }
 
         // MARK: - Height Computation

@@ -66,6 +66,11 @@
         var onLayoutInvalidation: (() -> Void)?
         var onOverlayReady: (() -> Void)?
         var reportedOverlays: Set<Int> = []
+        var pendingVisualHeights: [Int: CGFloat] = [:]
+        /// Highest text offset through which layout has been reconciled via
+        /// `reconcileLayoutThroughViewport`. Reset to 0 when paragraph heights
+        /// change, avoiding redundant full-prefix enumeration on every scroll.
+        private var reconciledThroughOffset: Int = 0
 
         deinit {
             if let layoutObserver {
@@ -127,10 +132,11 @@
         }
 
         /// Recalculates all overlay positions from the current layout geometry.
-        /// Layout is resolved per-fragment via `.ensuresLayout` enumeration
-        /// rather than an upfront full-document pass. Table overlays outside
-        /// the viewport are skipped since TextKit 2 lazy layout may produce
-        /// stale y-offsets for off-screen content.
+        ///
+        /// Before reading fragment positions, forces TextKit 2 to lay out all
+        /// fragments from the document start through the visible area. This
+        /// prevents stale cumulative y-offset estimates (from lazy layout) from
+        /// cascading into wrong positions for table-dense regions.
         func repositionOverlays() {
             guard let context = makeLayoutContext(),
                   context.containerWidth > 0
@@ -138,6 +144,7 @@
             let widthChanged = abs(containerState.containerWidth - context.containerWidth) > 1
             containerState.containerWidth = context.containerWidth
             if widthChanged {
+                invalidateReconciliation()
                 for key in entries.keys {
                     entries[key]?.lastAppliedVisualHeight = nil
                 }
@@ -145,11 +152,55 @@
                 stickyHeaders.removeAll()
             }
             let finalContext = widthChanged ? (makeLayoutContext() ?? context) : context
+            reconcileLayoutThroughViewport(context: finalContext)
             for (_, entry) in entries
                 where shouldPositionEntry(entry, context: finalContext)
             {
                 positionEntry(entry, context: finalContext)
             }
+        }
+
+        /// Forces `.ensuresLayout` enumeration through the visible range so
+        /// cumulative y-offsets are correct before `boundingRect` reads them.
+        ///
+        /// Uses a high-water mark (`reconciledThroughOffset`) to skip content
+        /// that has already been reconciled since the last layout invalidation.
+        /// On a typical scroll, only the newly-revealed delta is enumerated.
+        private func reconcileLayoutThroughViewport(context: LayoutContext) {
+            guard let visibleRange = context.visibleRange,
+                  visibleRange.length > 0
+            else { return }
+
+            let targetEnd = NSMaxRange(visibleRange)
+            guard targetEnd > reconciledThroughOffset else { return }
+
+            let docStart = context.contentManager.documentRange.location
+            let startOffset = max(reconciledThroughOffset, 0)
+
+            guard let startLoc = context.contentManager.location(
+                docStart, offsetBy: startOffset
+            ),
+                let endLoc = context.contentManager.location(
+                    docStart, offsetBy: targetEnd
+                )
+            else { return }
+
+            context.layoutManager.enumerateTextLayoutFragments(
+                from: startLoc,
+                options: [.ensuresLayout]
+            ) { fragment in
+                fragment.rangeInElement.location.compare(endLoc) == .orderedAscending
+            }
+
+            reconciledThroughOffset = targetEnd
+        }
+
+        /// Resets the layout reconciliation high-water mark, forcing the next
+        /// `reconcileLayoutThroughViewport` call to re-enumerate from the
+        /// document start. Call after any mutation that changes paragraph
+        /// heights or attachment sizes.
+        func invalidateReconciliation() {
+            reconciledThroughOffset = 0
         }
 
         private func shouldPositionEntry(
@@ -275,6 +326,7 @@
                 }
             }
 
+            invalidateReconciliation()
             onLayoutInvalidation?()
         }
 
