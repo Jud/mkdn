@@ -83,15 +83,48 @@ echo "  Binary: ${SPM_BUILD_DIR}/mkdn"
 # ---------------------------------------------------------------------------
 info "Patching SPM resource bundle accessors"
 
-# SPM's generated Bundle.module accessor uses Bundle.main.bundleURL which
-# resolves to the .app root — but codesign requires resources inside Contents/.
-# Replace the hardcoded dev-machine build path fallback with a
-# Bundle.main.resourceURL lookup that finds bundles in Contents/Resources/.
+# SPM's generated Bundle.module accessor calls fatalError when the bundle
+# can't be found.  This breaks when the binary is launched via a symlink
+# (e.g. Homebrew's /opt/homebrew/bin/mkdn -> .app/Contents/MacOS/mkdn)
+# because Bundle.main doesn't detect the .app structure from the symlink path.
+# Replace each generated accessor with one that resolves symlinks.
 ACCESSOR_COUNT=0
 while IFS= read -r -d '' accessor; do
     BUNDLE_NAME=$(grep -o '"[^"]*\.bundle"' "$accessor" | head -1 | tr -d '"')
     if [ -n "${BUNDLE_NAME}" ]; then
-        sed -i '' "s|let buildPath = \"/[^\"]*\"|let buildPath = (Bundle.main.resourceURL?.appendingPathComponent(\"${BUNDLE_NAME}\").path) ?? \"\"|" "$accessor"
+        cat > "$accessor" << SWIFT_ACCESSOR
+import Foundation
+
+extension Foundation.Bundle {
+    static let module: Bundle = {
+        let bundleName = "${BUNDLE_NAME}"
+
+        if let url = Bundle.main.resourceURL,
+           let bundle = Bundle(url: url.appendingPathComponent(bundleName)) {
+            return bundle
+        }
+
+        if let bundle = Bundle(url: Bundle.main.bundleURL.appendingPathComponent(bundleName)) {
+            return bundle
+        }
+
+        // Resolve symlinks (Homebrew symlink case)
+        let execURL = (Bundle.main.executableURL
+            ?? URL(fileURLWithPath: ProcessInfo.processInfo.arguments[0]))
+            .resolvingSymlinksInPath()
+        let resourcesURL = execURL
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Resources")
+            .appendingPathComponent(bundleName)
+        if let bundle = Bundle(url: resourcesURL) {
+            return bundle
+        }
+
+        Swift.fatalError("could not load resource bundle: \\\(bundleName)")
+    }()
+}
+SWIFT_ACCESSOR
         ACCESSOR_COUNT=$((ACCESSOR_COUNT + 1))
     fi
 done < <(find "${SPM_BUILD_DIR}" -name "resource_bundle_accessor.swift" -path "*/DerivedSources/*" -print0)

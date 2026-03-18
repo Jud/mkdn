@@ -6,6 +6,59 @@ import Foundation
 /// generation so that both macOS `MermaidWebView` and iOS
 /// `MermaidWebViewiOS` share the same logic without duplication.
 enum MermaidTemplateLoader {
+    /// Safe accessor for the mkdnLib resource bundle.
+    ///
+    /// SPM's generated `Bundle.module` calls `fatalError` when the bundle
+    /// isn't found.  This happens when the binary is launched via a symlink
+    /// (e.g. Homebrew's `/opt/homebrew/bin/mkdn` → `.app/Contents/MacOS/mkdn`)
+    /// because `Bundle.main` doesn't detect the `.app` structure from the
+    /// symlink path.  This accessor follows symlinks and returns `nil`
+    /// instead of crashing.
+    private static let resourceBundle: Bundle? = {
+        let bundleName = "mkdn_mkdnLib.bundle"
+
+        // 1. Bundle.main.resourceURL — works when launched directly from .app
+        if let url = Bundle.main.resourceURL,
+           let bundle = Bundle(url: url.appendingPathComponent(bundleName))
+        {
+            return bundle
+        }
+
+        // 2. Alongside main bundle — SPM build output / dev builds
+        if let bundle = Bundle(
+            url: Bundle.main.bundleURL.appendingPathComponent(bundleName)
+        ) {
+            return bundle
+        }
+
+        // 3. Resolve symlinks and navigate from .app/Contents/MacOS/mkdn
+        //    up to .app/Contents/Resources/
+        let execURL = (Bundle.main.executableURL
+            ?? URL(fileURLWithPath: ProcessInfo.processInfo.arguments[0]))
+            .resolvingSymlinksInPath()
+
+        let resourcesURL = execURL
+            .deletingLastPathComponent()   // MacOS/
+            .deletingLastPathComponent()   // Contents/
+            .appendingPathComponent("Resources")
+            .appendingPathComponent(bundleName)
+        if let bundle = Bundle(url: resourcesURL) {
+            return bundle
+        }
+
+        // 4. Dev build: bundle next to the executable
+        if let bundle = Bundle(
+            url: execURL.deletingLastPathComponent()
+                .appendingPathComponent(bundleName)
+        ) {
+            return bundle
+        }
+
+        // 5. Fall back to SPM's generated Bundle.module (has hardcoded
+        //    build path — always works in dev/test, never reached in
+        //    release because the checks above cover .app and symlink cases).
+        return Bundle.module
+    }()
     /// Result of writing a substituted template to a temporary file.
     struct TemplateFileResult {
         /// URL of the temporary HTML file containing the substituted template.
@@ -24,7 +77,7 @@ enum MermaidTemplateLoader {
     /// - Returns: The fully substituted HTML string, or `nil` if the template
     ///   resource could not be found or read.
     static func loadTemplate(code: String, theme: AppTheme) -> String? {
-        guard let templateURL = Bundle.module.url(
+        guard let templateURL = resourceBundle?.url(
             forResource: "mermaid-template",
             withExtension: "html"
         ),
@@ -101,7 +154,7 @@ enum MermaidTemplateLoader {
             return existing
         }
 
-        guard let mermaidJSURL = Bundle.module.url(
+        guard let mermaidJSURL = resourceBundle?.url(
             forResource: "mermaid.min",
             withExtension: "js"
         )
