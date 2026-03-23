@@ -198,6 +198,62 @@ struct SyntaxHighlightEngineTests {
         #expect(result1?.string == result2?.string)
     }
 
+    // MARK: - Parser Cache
+
+    @Test("Repeated highlights via parser cache produce identical attributed strings")
+    @MainActor func parserCacheProducesConsistentResults() {
+        let code = "def greet(name):\n    return 'hello ' + name"
+        let result1 = SyntaxHighlightEngine.highlight(
+            code: code,
+            language: "python",
+            syntaxColors: syntaxColors
+        )
+        let result2 = SyntaxHighlightEngine.highlight(
+            code: code,
+            language: "python",
+            syntaxColors: syntaxColors
+        )
+
+        guard let attr1 = result1, let attr2 = result2 else {
+            Issue.record("Expected non-nil results for repeated Python highlights")
+            return
+        }
+
+        #expect(attr1.string == attr2.string)
+        #expect(attr1.isEqual(to: attr2))
+    }
+
+    @Test("Different languages use separate cached parsers and produce correct results")
+    @MainActor func separateParserCachesPerLanguage() throws {
+        let swiftCode = "func greet() -> String { return \"hi\" }"
+        let pythonCode = "def greet():\n    return 'hi'"
+
+        let swiftResult = SyntaxHighlightEngine.highlight(
+            code: swiftCode,
+            language: "swift",
+            syntaxColors: syntaxColors
+        )
+        let pythonResult = SyntaxHighlightEngine.highlight(
+            code: pythonCode,
+            language: "python",
+            syntaxColors: syntaxColors
+        )
+
+        #expect(swiftResult != nil)
+        #expect(pythonResult != nil)
+        #expect(swiftResult?.string == swiftCode)
+        #expect(pythonResult?.string == pythonCode)
+
+        let swiftAgain = SyntaxHighlightEngine.highlight(
+            code: swiftCode,
+            language: "swift",
+            syntaxColors: syntaxColors
+        )
+        #expect(swiftAgain != nil)
+        #expect(swiftAgain?.string == swiftCode)
+        #expect(try swiftAgain?.isEqual(to: #require(swiftResult)) == true)
+    }
+
     @Test("Swift string literal receives string color")
     @MainActor func swiftStringGetsStringColor() {
         let code = "let x = \"hello\""

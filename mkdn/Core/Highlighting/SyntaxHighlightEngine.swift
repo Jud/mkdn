@@ -6,10 +6,11 @@
 import SwiftTreeSitter
 
 /// Synchronous syntax highlighting engine using tree-sitter.
-/// Query objects are cached per language to avoid recompilation.
+/// Parser and query objects are cached per language to avoid repeated allocations.
 @MainActor
 public enum SyntaxHighlightEngine {
     private static var queryCache: [String: Query] = [:]
+    private static var parserCache: [String: Parser] = [:]
 
     /// Highlight code for a given language, returning a colored NSMutableAttributedString.
     /// Returns nil if the language is not supported (caller should fall back to plain text).
@@ -22,10 +23,7 @@ public enum SyntaxHighlightEngine {
             return nil
         }
 
-        let parser = Parser()
-        do {
-            try parser.setLanguage(config.language)
-        } catch {
+        guard let parser = cachedParser(for: language, config: config) else {
             return nil
         }
 
@@ -51,6 +49,24 @@ public enum SyntaxHighlightEngine {
         }
 
         return result
+    }
+
+    private static func cachedParser(
+        for language: String,
+        config: LanguageConfig
+    ) -> Parser? {
+        if let cached = parserCache[language] {
+            cached.reset()
+            return cached
+        }
+        let parser = Parser()
+        do {
+            try parser.setLanguage(config.language)
+        } catch {
+            return nil
+        }
+        parserCache[language] = parser
+        return parser
     }
 
     private static func cachedQuery(
