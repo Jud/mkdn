@@ -34,6 +34,7 @@
         public let launchItem: LaunchItem?
         @State private var documentState = DocumentState()
         @State private var findState = FindState()
+        @State private var outlineState = OutlineState()
         @State private var directoryState: DirectoryState?
         @State private var isReady = false
         @State private var overlayGeneration = 0
@@ -101,9 +102,11 @@
             .frame(minWidth: 600, minHeight: 400)
             .environment(documentState)
             .environment(findState)
+            .environment(outlineState)
             .environment(appSettings)
             .focusedSceneValue(\.documentState, documentState)
             .focusedSceneValue(\.findState, findState)
+            .focusedSceneValue(\.outlineState, outlineState)
             .focusedSceneValue(\.directorySetup) { url in
                 setupDirectoryState(rootURL: url)
             }

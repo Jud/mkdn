@@ -10,6 +10,7 @@
         public let appSettings: AppSettings
         @FocusedValue(\.documentState) private var documentState
         @FocusedValue(\.findState) private var findState
+        @FocusedValue(\.outlineState) private var outlineState
         @FocusedValue(\.directorySetup) private var directorySetup
 
         public init(appSettings: AppSettings) {
@@ -174,6 +175,16 @@
                         documentState?.modeOverlayLabel = appSettings.themeMode.displayName
                     }
                     .keyboardShortcut("t", modifiers: [.command, .shift])
+                }
+
+                Section {
+                    Button("Document Outline") {
+                        withAnimation(motionAnimation(.springSettle)) {
+                            outlineState?.toggleHUD()
+                        }
+                    }
+                    .keyboardShortcut("j", modifiers: .command)
+                    .disabled(outlineState?.headingTree.isEmpty ?? true)
                 }
             }
         }

@@ -20,6 +20,7 @@
         @Environment(DocumentState.self) private var documentState
         @Environment(AppSettings.self) private var appSettings
         @Environment(FindState.self) private var findState
+        @Environment(OutlineState.self) private var outlineState
         @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
         @State private var renderedBlocks: [IndexedBlock] = []
@@ -48,6 +49,8 @@
                 findCurrentIndex: findState.currentMatchIndex,
                 findIsVisible: findState.isVisible,
                 findState: findState,
+                outlineState: outlineState,
+                headingOffsets: textStorageResult.headingOffsets,
                 isLoadingGateActive: $docState.isLoadingGateActive
             )
             .background(appSettings.theme.colors.background)
@@ -88,6 +91,7 @@
                 theme: appSettings.theme,
                 scaleFactor: appSettings.scaleFactor
             )
+            outlineState.updateHeadings(from: newBlocks)
         }
     }
 #endif

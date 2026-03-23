@@ -9,6 +9,7 @@
         @Environment(DocumentState.self) private var documentState
         @Environment(AppSettings.self) private var appSettings
         @Environment(FindState.self) private var findState
+        @Environment(OutlineState.self) private var outlineState
         @Environment(\.colorScheme) private var colorScheme
         @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -55,6 +56,10 @@
                 FindBarView()
                     .allowsHitTesting(findState.isVisible)
                     .accessibilityHidden(!findState.isVisible)
+
+                OutlineNavigatorView()
+                    .allowsHitTesting(outlineState.isHUDVisible || outlineState.isBreadcrumbVisible)
+                    .accessibilityHidden(!outlineState.isBreadcrumbVisible && !outlineState.isHUDVisible)
             }
             .animation(motion.resolved(.fadeOut), value: documentState.isLoadingGateActive)
             .frame(minWidth: 600, minHeight: 400)

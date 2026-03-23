@@ -27,6 +27,8 @@
         let findCurrentIndex: Int
         let findIsVisible: Bool
         let findState: FindState
+        let outlineState: OutlineState
+        let headingOffsets: [Int: Int]
         @Binding var isLoadingGateActive: Bool
 
         // MARK: - NSViewRepresentable
@@ -63,6 +65,9 @@
                 )
             }
 
+            coordinator.outlineState = outlineState
+            coordinator.headingOffsets = headingOffsets
+
             applyTheme(to: textView, scrollView: scrollView)
             textView.findState = findState
             textView.printBlocks = blocks
@@ -73,6 +78,7 @@
                 coordinator: coordinator, textView: textView, scrollView: scrollView
             )
             coordinator.lastAppliedText = attributedText
+            coordinator.startScrollSpy(on: scrollView)
             RenderCompletionSignal.shared.signalRenderComplete()
 
             return scrollView
@@ -84,6 +90,10 @@
             }
 
             let coordinator = context.coordinator
+            if coordinator.headingOffsets != headingOffsets {
+                coordinator.headingOffsets = headingOffsets
+                coordinator.invalidateHeadingPositionCache()
+            }
 
             applyTheme(to: textView, scrollView: scrollView)
             textView.findState = findState
@@ -104,6 +114,18 @@
                 theme: theme,
                 isNewContent: isNewContent
             )
+
+            // Consume pending scroll-to-heading target from outline navigation.
+            // Skip if already scrolled to this target to prevent double-scroll.
+            if let targetBlockIndex = outlineState.pendingScrollTarget,
+               targetBlockIndex != coordinator.lastScrolledTarget
+            {
+                coordinator.lastScrolledTarget = targetBlockIndex
+                coordinator.scrollToHeading(blockIndex: targetBlockIndex, in: scrollView)
+                Task { @MainActor in
+                    outlineState.pendingScrollTarget = nil
+                }
+            }
         }
     }
 
@@ -177,6 +199,7 @@
             let textChanged = textView.textStorage?.string != attributedText.string
 
             coordinator.gate.reset()
+            coordinator.lastScrolledTarget = nil
             isLoadingGateActive = false
             scrollView.alphaValue = 1
 

@@ -6,13 +6,33 @@
 
     extension SelectableTextView {
         @MainActor
+        // swiftlint:disable:next type_body_length
         final class Coordinator: NSObject, NSTextViewDelegate {
             weak var textView: NSTextView?
             weak var documentState: DocumentState?
+            weak var outlineState: OutlineState?
             let animator = EntranceAnimator()
             let overlayCoordinator = OverlayCoordinator()
             let gate = EntranceGate()
             var lastAppliedText: NSAttributedString?
+            var headingOffsets: [Int: Int] = [:]
+            var lastScrolledTarget: Int?
+            nonisolated(unsafe) var scrollObserver: NSObjectProtocol?
+            nonisolated(unsafe) var frameObserver: NSObjectProtocol?
+
+            /// Cached heading y-positions for scroll-spy. Maps blockIndex to y-coordinate.
+            /// Invalidated when content changes or view resizes.
+            private var cachedHeadingPositions: [(blockIndex: Int, y: CGFloat)] = []
+            private var headingPositionsCacheValid = false
+
+            deinit {
+                if let scrollObserver {
+                    NotificationCenter.default.removeObserver(scrollObserver)
+                }
+                if let frameObserver {
+                    NotificationCenter.default.removeObserver(frameObserver)
+                }
+            }
 
             // MARK: - Link Navigation
 
@@ -57,6 +77,155 @@
                 }
 
                 return true
+            }
+
+            // MARK: - Scroll-Spy
+
+            func invalidateHeadingPositionCache() {
+                headingPositionsCacheValid = false
+                cachedHeadingPositions = []
+            }
+
+            func startScrollSpy(on scrollView: NSScrollView) {
+                // Remove any existing observers to avoid duplicates.
+                if let existing = scrollObserver {
+                    NotificationCenter.default.removeObserver(existing)
+                    scrollObserver = nil
+                }
+                if let existing = frameObserver {
+                    NotificationCenter.default.removeObserver(existing)
+                    frameObserver = nil
+                }
+
+                let clipView = scrollView.contentView
+                clipView.postsBoundsChangedNotifications = true
+                scrollObserver = NotificationCenter.default.addObserver(
+                    forName: NSView.boundsDidChangeNotification,
+                    object: clipView,
+                    queue: .main
+                ) { [weak self] _ in
+                    Task { @MainActor [weak self] in
+                        self?.handleScrollForSpy()
+                    }
+                }
+
+                // Also observe frame changes for cache invalidation.
+                textView?.postsFrameChangedNotifications = true
+                frameObserver = NotificationCenter.default.addObserver(
+                    forName: NSView.frameDidChangeNotification,
+                    object: textView,
+                    queue: .main
+                ) { [weak self] _ in
+                    Task { @MainActor [weak self] in
+                        self?.headingPositionsCacheValid = false
+                    }
+                }
+            }
+
+            func handleScrollForSpy() {
+                guard let textView,
+                      let scrollView = textView.enclosingScrollView,
+                      let outlineState
+                else { return }
+
+                let viewportTop = scrollView.contentView.bounds.origin.y
+                let flatHeadings = outlineState.flatHeadings
+                guard !flatHeadings.isEmpty else { return }
+
+                // Lazily rebuild cache if invalid.
+                if !headingPositionsCacheValid {
+                    rebuildHeadingPositionCache()
+                }
+
+                guard !cachedHeadingPositions.isEmpty else {
+                    let firstBlockIndex = flatHeadings.first?.blockIndex ?? 0
+                    outlineState.updateScrollPosition(currentBlockIndex: firstBlockIndex - 1)
+                    return
+                }
+
+                // Binary search for the last heading at or above viewportTop.
+                var low = 0
+                var high = cachedHeadingPositions.count - 1
+                var bestIndex = -1
+                while low <= high {
+                    let mid = (low + high) / 2
+                    if cachedHeadingPositions[mid].y <= viewportTop {
+                        bestIndex = mid
+                        low = mid + 1
+                    } else {
+                        high = mid - 1
+                    }
+                }
+
+                if bestIndex >= 0 {
+                    outlineState.updateScrollPosition(
+                        currentBlockIndex: cachedHeadingPositions[bestIndex].blockIndex
+                    )
+                } else {
+                    let firstBlockIndex = flatHeadings.first?.blockIndex ?? 0
+                    outlineState.updateScrollPosition(currentBlockIndex: firstBlockIndex - 1)
+                }
+            }
+
+            private func rebuildHeadingPositionCache() {
+                guard let outlineState else {
+                    cachedHeadingPositions = []
+                    headingPositionsCacheValid = false
+                    return
+                }
+
+                var positions: [(blockIndex: Int, y: CGFloat)] = []
+                for heading in outlineState.flatHeadings {
+                    guard let charOffset = headingOffsets[heading.blockIndex],
+                          let y = yPosition(forCharacterOffset: charOffset)
+                    else { continue }
+                    positions.append((blockIndex: heading.blockIndex, y: y))
+                }
+                // Sort by y ascending for binary search.
+                positions.sort { $0.y < $1.y }
+                cachedHeadingPositions = positions
+                headingPositionsCacheValid = true
+            }
+
+            /// Map a character offset in the text storage to a y-coordinate
+            /// using the text layout manager.
+            private func yPosition(forCharacterOffset offset: Int) -> CGFloat? {
+                guard let textView,
+                      let textContentStorage = textView.textContentStorage,
+                      let textLayoutManager = textView.textLayoutManager
+                else { return nil }
+
+                let stringLength = textView.textStorage?.length ?? 0
+                guard offset < stringLength else { return nil }
+
+                let nsLocation = textContentStorage.location(
+                    textContentStorage.documentRange.location,
+                    offsetBy: offset
+                )
+                guard let nsLocation else { return nil }
+
+                let position = NSTextRange(location: nsLocation)
+
+                var resultY: CGFloat?
+                textLayoutManager.enumerateTextLayoutFragments(
+                    from: position.location,
+                    options: [.ensuresLayout]
+                ) { fragment in
+                    resultY = fragment.layoutFragmentFrame.origin.y
+                    return false // Stop after first fragment.
+                }
+                return resultY
+            }
+
+            /// Scroll the view to position a heading at the viewport top.
+            func scrollToHeading(blockIndex: Int, in scrollView: NSScrollView) {
+                guard let charOffset = headingOffsets[blockIndex],
+                      let headingY = yPosition(forCharacterOffset: charOffset)
+                else { return }
+
+                let clipView = scrollView.contentView
+                clipView.scroll(to: NSPoint(x: 0, y: headingY))
+                scrollView.reflectScrolledClipView(clipView)
             }
 
             // MARK: - Find State Tracking

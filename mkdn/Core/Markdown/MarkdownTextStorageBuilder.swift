@@ -26,14 +26,19 @@ public struct TextStorageResult {
     public let attachments: [AttachmentInfo]
     public let tableOverlays: [TableOverlayInfo]
 
+    /// Maps heading block indices to their character offsets in the attributed string.
+    public let headingOffsets: [Int: Int]
+
     init(
         attributedString: NSAttributedString,
         attachments: [AttachmentInfo],
-        tableOverlays: [TableOverlayInfo] = []
+        tableOverlays: [TableOverlayInfo] = [],
+        headingOffsets: [Int: Int] = [:]
     ) {
         self.attributedString = attributedString
         self.attachments = attachments
         self.tableOverlays = tableOverlays
+        self.headingOffsets = headingOffsets
     }
 }
 
@@ -119,8 +124,14 @@ public enum MarkdownTextStorageBuilder {
         let result = NSMutableAttributedString()
         var attachments: [AttachmentInfo] = []
         var tableOverlays: [TableOverlayInfo] = []
+        var headingOffsets: [Int: Int] = [:]
 
         for (offset, indexedBlock) in blocks.enumerated() {
+            // Record character offset before appending heading blocks.
+            if case .heading = indexedBlock.block {
+                headingOffsets[indexedBlock.index] = result.length
+            }
+
             appendBlock(
                 indexedBlock,
                 to: result,
@@ -151,7 +162,8 @@ public enum MarkdownTextStorageBuilder {
         return TextStorageResult(
             attributedString: result,
             attachments: attachments,
-            tableOverlays: tableOverlays
+            tableOverlays: tableOverlays,
+            headingOffsets: headingOffsets
         )
     }
 
