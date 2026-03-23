@@ -109,6 +109,33 @@ enum AnimationConstants {
         dampingFraction: 0.8
     )
 
+    // MARK: - Primitive: Outline Pop
+
+    // Fast, snappy spring for the outline navigator morph. More bounce than
+    // quickSettle to give the expand/collapse a "poppy" character.
+    // Derived from: quickSettle, shortened and loosened for playful overlay UI.
+
+    /// Snappy spring for the outline navigator breadcrumb-to-HUD morph.
+    ///
+    /// - Visual intent: A quick, poppy expansion that feels alive and responsive.
+    ///   The container morphs with enough bounce to feel physical but not distracting.
+    /// - Design rationale: Response 0.2 is faster than ``quickSettle``; damping 0.75
+    ///   allows a subtle overshoot that gives the morph its "pop" character.
+    /// - Derivation: ``quickSettle`` shortened and loosened for playful overlay UI.
+    ///   Captures the orb's spring quality with more bounce, suited to the outline
+    ///   navigator's expand/collapse morph.
+    static let outlinePop: Animation = .spring(
+        response: 0.2,
+        dampingFraction: 0.75
+    )
+
+    /// Raw scroll-to-heading duration (seconds) for AppKit `NSAnimationContext`.
+    ///
+    /// Used by the outline navigator's scroll-to-heading animation in the
+    /// ``SelectableTextView`` coordinator. Exposed as `CFTimeInterval` for
+    /// AppKit compatibility (same pattern as ``fadeInDuration``).
+    static let scrollToHeadingDuration: CFTimeInterval = 0.35
+
     // MARK: - Primitive: Fade-In
 
     // Smooth appearance. Ease-out curve (decelerates into rest).

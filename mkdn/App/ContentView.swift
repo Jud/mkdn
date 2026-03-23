@@ -60,6 +60,7 @@
                 OutlineNavigatorView()
                     .allowsHitTesting(outlineState.isHUDVisible || outlineState.isBreadcrumbVisible)
                     .accessibilityHidden(!outlineState.isBreadcrumbVisible && !outlineState.isHUDVisible)
+                    .zIndex(outlineState.isHUDVisible ? 1 : 0)
             }
             .animation(motion.resolved(.fadeOut), value: documentState.isLoadingGateActive)
             .frame(minWidth: 600, minHeight: 400)

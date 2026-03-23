@@ -1,0 +1,52 @@
+#!/bin/bash
+set -euo pipefail
+
+APP_NAME="mkdn2"
+APP_DIR="/Applications/${APP_NAME}.app"
+BUILD_DIR=".build/debug"
+
+# Capture open files before killing
+OPEN_FILES=""
+if pgrep -f "$APP_NAME" > /dev/null 2>&1; then
+    OPEN_FILES=$(lsof -c "$APP_NAME" 2>/dev/null | grep -E '\.(md|markdown|txt|swift|rs|py|go|js|ts|rb|c|cpp|h|yaml|yml|toml|json|html|css)$' | awk '{print $NF}' | sort -u || true)
+    echo "Killing running $APP_NAME..."
+    pkill -f "$APP_NAME" || true
+    sleep 0.5
+fi
+
+echo "Building mkdn..."
+swift build
+
+echo "Installing to ${APP_DIR}..."
+rm -rf "$APP_DIR"
+mkdir -p "$APP_DIR/Contents/MacOS"
+
+# Info.plist — patch executable name to match our binary
+cp /Applications/mkdn.app/Contents/Info.plist "$APP_DIR/Contents/"
+plutil -replace CFBundleExecutable -string "$APP_NAME" "$APP_DIR/Contents/Info.plist"
+plutil -replace CFBundleIdentifier -string "com.mkdn.dev" "$APP_DIR/Contents/Info.plist"
+
+# Binary
+cp "$BUILD_DIR/mkdn" "$APP_DIR/Contents/MacOS/$APP_NAME"
+
+# Resource bundles
+cp -R "$BUILD_DIR"/*.bundle "$APP_DIR/Contents/MacOS/"
+
+# Fix permissions and clear quarantine
+chmod -R u+rw "$APP_DIR"
+xattr -cr "$APP_DIR"
+
+# Symlink to /opt/homebrew/bin
+ln -sf "$APP_DIR/Contents/MacOS/$APP_NAME" "/opt/homebrew/bin/$APP_NAME"
+
+# Relaunch with previously open files
+if [ -n "$OPEN_FILES" ]; then
+    echo "Relaunching with open files..."
+    # shellcheck disable=SC2086
+    open -a "$APP_DIR" $OPEN_FILES &
+else
+    echo "Launching $APP_NAME..."
+    open -a "$APP_DIR" &
+fi
+
+echo "Done."

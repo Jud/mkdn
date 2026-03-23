@@ -129,6 +129,13 @@
                 else { return }
 
                 let viewportTop = scrollView.contentView.bounds.origin.y
+
+                // At the very top of the document, hide the breadcrumb.
+                guard viewportTop > 1.0 else {
+                    outlineState.updateScrollPosition(currentBlockIndex: -1)
+                    return
+                }
+
                 let flatHeadings = outlineState.flatHeadings
                 guard !flatHeadings.isEmpty else { return }
 
@@ -217,15 +224,24 @@
                 return resultY
             }
 
-            /// Scroll the view to position a heading at the viewport top.
+            /// Smooth-scroll the view to position a heading at the viewport top.
             func scrollToHeading(blockIndex: Int, in scrollView: NSScrollView) {
                 guard let charOffset = headingOffsets[blockIndex],
                       let headingY = yPosition(forCharacterOffset: charOffset)
                 else { return }
 
                 let clipView = scrollView.contentView
-                clipView.scroll(to: NSPoint(x: 0, y: headingY))
-                scrollView.reflectScrolledClipView(clipView)
+                let destination = NSPoint(x: 0, y: headingY)
+                NSAnimationContext.runAnimationGroup { context in
+                    context.duration = AnimationConstants.scrollToHeadingDuration
+                    context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                    clipView.animator().setBoundsOrigin(destination)
+                } completionHandler: { [weak scrollView, weak clipView] in
+                    guard let scrollView, let clipView else { return }
+                    Task { @MainActor in
+                        scrollView.reflectScrolledClipView(clipView)
+                    }
+                }
             }
 
             // MARK: - Find State Tracking
