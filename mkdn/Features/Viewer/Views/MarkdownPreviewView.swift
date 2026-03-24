@@ -38,7 +38,6 @@
             SelectableTextView(
                 attributedText: textStorageResult.attributedString,
                 attachments: textStorageResult.attachments,
-                tableOverlays: textStorageResult.tableOverlays,
                 blocks: renderedBlocks,
                 theme: appSettings.theme,
                 isFullReload: isFullReload,
@@ -89,7 +88,8 @@
             textStorageResult = MarkdownTextStorageBuilder.build(
                 blocks: newBlocks,
                 theme: appSettings.theme,
-                scaleFactor: appSettings.scaleFactor
+                scaleFactor: appSettings.scaleFactor,
+                appSettings: appSettings
             )
             outlineState.updateHeadings(from: newBlocks)
         }

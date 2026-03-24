@@ -70,7 +70,7 @@
         /// Highest text offset through which layout has been reconciled via
         /// `reconcileLayoutThroughViewport`. Reset to 0 when paragraph heights
         /// change, avoiding redundant full-prefix enumeration on every scroll.
-        private var reconciledThroughOffset: Int = 0
+        private var reconciledThroughOffset = 0
 
         deinit {
             if let layoutObserver {
@@ -334,7 +334,7 @@
 
         private func needsOverlay(_ block: MarkdownBlock) -> Bool {
             switch block {
-            case .mermaidBlock, .image, .thematicBreak, .mathBlock:
+            case .mermaidBlock, .image, .thematicBreak, .mathBlock, .table:
                 true
             default:
                 false
@@ -421,6 +421,13 @@
             case let .mathBlock(code):
                 overlayView = makeMathBlockOverlay(
                     code: code, blockIndex: info.blockIndex, appSettings: appSettings
+                )
+            case let .table(columns, rows):
+                overlayView = makeTableAttachmentOverlay(
+                    columns: columns,
+                    rows: rows,
+                    blockIndex: info.blockIndex,
+                    appSettings: appSettings
                 )
             default:
                 return

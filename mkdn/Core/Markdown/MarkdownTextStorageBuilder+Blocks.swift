@@ -136,6 +136,69 @@ extension MarkdownTextStorageBuilder {
         result.append(terminator(with: spacerStyle))
     }
 
+    #if os(macOS)
+
+        // MARK: - Table Attachment
+
+        // Inserts a TableTextAttachment as a sized placeholder in the attributed
+        // string. The OverlayCoordinator positions a TableAttachmentView overlay
+        // on top of the placeholder, matching the pattern used for Mermaid/image blocks.
+        // swiftlint:disable:next function_parameter_count
+        static func appendTableAttachment(
+            to result: NSMutableAttributedString,
+            blockIndex: Int,
+            block: MarkdownBlock,
+            columns: [TableColumn],
+            rows: [[AttributedString]],
+            attachments: inout [AttachmentInfo],
+            appSettings: AppSettings?
+        ) {
+            let data = TableAttachmentData(
+                columns: columns,
+                rows: rows,
+                blockIndex: blockIndex,
+                tableRangeID: UUID().uuidString
+            )
+            let attachment = TableTextAttachment(tableData: data)
+            attachment.appSettings = appSettings
+
+            // Compute initial bounds at default container width.
+            let font = PlatformTypeConverter.bodyFont()
+            let sizer = TableColumnSizer.computeWidths(
+                columns: columns,
+                rows: rows,
+                containerWidth: defaultEstimationContainerWidth,
+                font: font
+            )
+            let height = TableColumnSizer.estimateTableHeight(
+                columns: columns,
+                rows: rows,
+                columnWidths: sizer.columnWidths,
+                font: font
+            )
+
+            let placeholderImage = PlatformTypeConverter.PlatformImage(
+                size: NSSize(width: 1, height: height)
+            )
+            attachment.image = placeholderImage
+            attachment.bounds = CGRect(x: 0, y: 0, width: 1, height: height)
+
+            let attachmentStr = NSMutableAttributedString(attachment: attachment)
+            let style = makeParagraphStyle(paragraphSpacing: blockSpacing)
+            let range = NSRange(location: 0, length: attachmentStr.length)
+            attachmentStr.addAttribute(.paragraphStyle, value: style, range: range)
+            attachmentStr.append(terminator(with: style))
+
+            attachments.append(AttachmentInfo(
+                blockIndex: blockIndex,
+                block: block,
+                attachment: attachment
+            ))
+
+            result.append(attachmentStr)
+        }
+    #endif
+
     // MARK: - Attachment Block
 
     static func appendAttachmentBlock(

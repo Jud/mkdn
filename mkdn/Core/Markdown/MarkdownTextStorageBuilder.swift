@@ -13,6 +13,9 @@ public struct AttachmentInfo {
 }
 
 /// Information about a table rendered as invisible inline text in the attributed string.
+///
+/// Retained for backward compatibility with ``OverlayCoordinator+TableOverlays``
+/// until T5 deletes the overlay-based table pipeline.
 public struct TableOverlayInfo {
     public let blockIndex: Int
     public let block: MarkdownBlock
@@ -24,7 +27,6 @@ public struct TableOverlayInfo {
 public struct TextStorageResult {
     public let attributedString: NSAttributedString
     public let attachments: [AttachmentInfo]
-    public let tableOverlays: [TableOverlayInfo]
 
     /// Maps heading block indices to their character offsets in the attributed string.
     public let headingOffsets: [Int: Int]
@@ -32,12 +34,10 @@ public struct TextStorageResult {
     init(
         attributedString: NSAttributedString,
         attachments: [AttachmentInfo],
-        tableOverlays: [TableOverlayInfo] = [],
         headingOffsets: [Int: Int] = [:]
     ) {
         self.attributedString = attributedString
         self.attachments = attachments
-        self.tableOverlays = tableOverlays
         self.headingOffsets = headingOffsets
     }
 }
@@ -103,14 +103,16 @@ public enum MarkdownTextStorageBuilder {
         blocks: [IndexedBlock],
         theme: AppTheme,
         scaleFactor: CGFloat = 1.0,
-        isPrint: Bool = false
+        isPrint: Bool = false,
+        appSettings: AppSettings? = nil
     ) -> TextStorageResult {
         build(
             blocks: blocks,
             colors: theme.colors,
             syntaxColors: theme.syntaxColors,
             scaleFactor: scaleFactor,
-            isPrint: isPrint
+            isPrint: isPrint,
+            appSettings: appSettings
         )
     }
 
@@ -119,11 +121,11 @@ public enum MarkdownTextStorageBuilder {
         colors: ThemeColors,
         syntaxColors: SyntaxColors,
         scaleFactor: CGFloat = 1.0,
-        isPrint: Bool = false
+        isPrint: Bool = false,
+        appSettings: AppSettings? = nil
     ) -> TextStorageResult {
         let result = NSMutableAttributedString()
         var attachments: [AttachmentInfo] = []
-        var tableOverlays: [TableOverlayInfo] = []
         var headingOffsets: [Int: Int] = [:]
 
         for (offset, indexedBlock) in blocks.enumerated() {
@@ -139,8 +141,8 @@ public enum MarkdownTextStorageBuilder {
                 syntaxColors: syntaxColors,
                 scaleFactor: scaleFactor,
                 attachments: &attachments,
-                tableOverlays: &tableOverlays,
-                isPrint: isPrint
+                isPrint: isPrint,
+                appSettings: appSettings
             )
 
             // Collapse the first block's top spacing so textContainerInset
@@ -162,7 +164,6 @@ public enum MarkdownTextStorageBuilder {
         return TextStorageResult(
             attributedString: result,
             attachments: attachments,
-            tableOverlays: tableOverlays,
             headingOffsets: headingOffsets
         )
     }
@@ -177,8 +178,8 @@ public enum MarkdownTextStorageBuilder {
         syntaxColors: SyntaxColors,
         scaleFactor: CGFloat,
         attachments: inout [AttachmentInfo],
-        tableOverlays: inout [TableOverlayInfo],
-        isPrint: Bool
+        isPrint: Bool,
+        appSettings: AppSettings?
     ) {
         let sf = scaleFactor
         let block = indexedBlock.block
@@ -242,16 +243,27 @@ public enum MarkdownTextStorageBuilder {
         case .thematicBreak:
             appendAttachmentPlaceholder(indexedBlock, to: result, attachments: &attachments)
         case let .table(columns, rows):
-            appendTableInlineText(
-                to: result,
-                blockIndex: indexedBlock.index,
-                block: block,
-                columns: columns,
-                rows: rows,
-                colors: colors,
-                isPrint: isPrint,
-                tableOverlays: &tableOverlays
-            )
+            if isPrint {
+                appendTableInlineText(
+                    to: result,
+                    blockIndex: indexedBlock.index,
+                    block: block,
+                    columns: columns,
+                    rows: rows,
+                    colors: colors,
+                    isPrint: isPrint
+                )
+            } else {
+                appendTableAttachment(
+                    to: result,
+                    blockIndex: indexedBlock.index,
+                    block: block,
+                    columns: columns,
+                    rows: rows,
+                    attachments: &attachments,
+                    appSettings: appSettings
+                )
+            }
         case let .htmlBlock(content):
             appendHTMLBlock(to: result, content: content, colors: colors, scaleFactor: sf)
         }

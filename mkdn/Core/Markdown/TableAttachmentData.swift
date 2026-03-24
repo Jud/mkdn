@@ -40,9 +40,12 @@ public struct TableAttachmentData: Sendable {
     public class TableTextAttachment: NSTextAttachment {
         public var tableData: TableAttachmentData?
 
+        /// Weak reference to the app-wide settings, injected by the builder
+        /// so the view provider can pass it into the SwiftUI environment.
+        public weak var appSettings: AppSettings?
+
         override public init(data contentData: Data?, ofType uti: String?) {
             super.init(data: contentData, ofType: uti)
-            allowsTextAttachmentView = true
         }
 
         public convenience init(tableData: TableAttachmentData) {

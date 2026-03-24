@@ -2,7 +2,7 @@ import AppKit
 import Testing
 @testable import mkdnLib
 
-@Suite("MarkdownTextStorageBuilder Table Inline Text")
+@Suite("MarkdownTextStorageBuilder Table Attachment")
 struct MarkdownTextStorageBuilderTableTests {
     let theme: AppTheme = .solarizedDark
 
@@ -27,134 +27,112 @@ struct MarkdownTextStorageBuilderTableTests {
         ]
     }
 
-    // MARK: - Inline Text Generation
+    // MARK: - Attachment-Based Table
 
-    @Test("Table generates inline text instead of attachment")
-    @MainActor func tableGeneratesInlineText() {
+    @Test("Table block produces an attachment, not inline text")
+    @MainActor func tableProducesAttachment() {
         let result = buildSingle(.table(columns: tableColumns, rows: tableRows))
-        #expect(result.attachments.isEmpty)
+        #expect(!result.attachments.isEmpty)
+        // The attributed string should NOT contain cell content as visible text.
         let plainText = result.attributedString.string
-        #expect(plainText.contains("Name"))
-        #expect(plainText.contains("Alice"))
-        #expect(plainText.contains("Bob"))
+        #expect(!plainText.contains("Alice"))
+        #expect(!plainText.contains("Bob"))
+        #expect(!plainText.contains("Name"))
     }
 
-    @Test("Table text has clear foreground color for invisible rendering")
-    @MainActor func tableTextClearForeground() {
+    @Test("Table attachment is a TableTextAttachment with correct tableData")
+    @MainActor func tableAttachmentHasData() {
         let result = buildSingle(.table(columns: tableColumns, rows: tableRows))
-        let str = result.attributedString
-        var hasClearForeground = false
-        str.enumerateAttribute(
-            .foregroundColor,
-            in: NSRange(location: 0, length: str.length)
-        ) { value, _, _ in
-            if let color = value as? NSColor, color == .clear {
-                hasClearForeground = true
-            }
-        }
-        #expect(hasClearForeground)
+        #expect(result.attachments.count == 1)
+        let attachment = result.attachments[0].attachment
+        #expect(attachment is TableTextAttachment)
+        let tableAttachment = attachment as? TableTextAttachment
+        #expect(tableAttachment?.tableData != nil)
     }
 
-    @Test("Table text contains tab-separated cell content")
-    @MainActor func tableTextTabSeparated() {
+    @Test("TableAttachmentData columns match input")
+    @MainActor func tableDataColumnsMatch() throws {
         let result = buildSingle(.table(columns: tableColumns, rows: tableRows))
-        let plainText = result.attributedString.string
-        #expect(plainText.contains("Name\tAge"))
-        #expect(plainText.contains("Alice\t30"))
-        #expect(plainText.contains("Bob\t25"))
+        let tableAttachment = result.attachments[0].attachment as? TableTextAttachment
+        let data = tableAttachment?.tableData
+        #expect(data?.columns.count == 2)
+        #expect(try String(#require(data?.columns[0].header.characters)) == "Name")
+        #expect(try String(#require(data?.columns[1].header.characters)) == "Age")
+        #expect(data?.columns[0].alignment == .left)
+        #expect(data?.columns[1].alignment == .right)
     }
 
-    // MARK: - Table Attributes
-
-    @Test("Table text has TableAttributes.range on all table characters")
-    @MainActor func tableTextHasRangeAttribute() {
+    @Test("TableAttachmentData rows match input")
+    @MainActor func tableDataRowsMatch() throws {
         let result = buildSingle(.table(columns: tableColumns, rows: tableRows))
-        let str = result.attributedString
-        var tableCharCount = 0
-        str.enumerateAttribute(
-            TableAttributes.range,
-            in: NSRange(location: 0, length: str.length)
-        ) { value, range, _ in
-            if value is String {
-                tableCharCount += range.length
-            }
-        }
-        #expect(tableCharCount > 0)
+        let tableAttachment = result.attachments[0].attachment as? TableTextAttachment
+        let data = tableAttachment?.tableData
+        #expect(data?.rows.count == 2)
+        #expect(try String(#require(data?.rows[0][0].characters)) == "Alice")
+        #expect(try String(#require(data?.rows[0][1].characters)) == "30")
+        #expect(try String(#require(data?.rows[1][0].characters)) == "Bob")
+        #expect(try String(#require(data?.rows[1][1].characters)) == "25")
     }
 
-    @Test("Table text has TableAttributes.cellMap on all table characters")
-    @MainActor func tableTextHasCellMapAttribute() {
+    @Test("TableAttachmentData blockIndex matches the indexed block")
+    @MainActor func tableDataBlockIndex() {
+        let indexed = IndexedBlock(index: 7, block: .table(columns: tableColumns, rows: tableRows))
+        let result = MarkdownTextStorageBuilder.build(blocks: [indexed], theme: theme)
+        let tableAttachment = result.attachments[0].attachment as? TableTextAttachment
+        #expect(tableAttachment?.tableData?.blockIndex == 7)
+    }
+
+    @Test("TableAttachmentData has non-empty tableRangeID")
+    @MainActor func tableDataHasRangeID() {
         let result = buildSingle(.table(columns: tableColumns, rows: tableRows))
-        let str = result.attributedString
-        var hasCellMap = false
-        str.enumerateAttribute(
-            TableAttributes.cellMap,
-            in: NSRange(location: 0, length: str.length)
-        ) { value, _, _ in
-            if value is TableCellMap {
-                hasCellMap = true
-            }
-        }
-        #expect(hasCellMap)
+        let tableAttachment = result.attachments[0].attachment as? TableTextAttachment
+        #expect(tableAttachment?.tableData?.tableRangeID.isEmpty == false)
     }
 
-    @Test("Table text has TableAttributes.colors on all table characters")
-    @MainActor func tableTextHasColorsAttribute() {
+    @Test("Multiple tables produce separate attachments with distinct range IDs")
+    @MainActor func multipleTablesProduceSeparateAttachments() {
+        let columns = [TableColumn(header: AttributedString("A"), alignment: .left)]
+        let blocks = [
+            IndexedBlock(index: 0, block: .table(columns: columns, rows: [[AttributedString("1")]])),
+            IndexedBlock(index: 1, block: .table(columns: columns, rows: [[AttributedString("2")]])),
+        ]
+        let result = MarkdownTextStorageBuilder.build(blocks: blocks, theme: theme)
+        #expect(result.attachments.count == 2)
+
+        let att0 = result.attachments[0].attachment as? TableTextAttachment
+        let att1 = result.attachments[1].attachment as? TableTextAttachment
+        #expect(att0?.tableData?.tableRangeID != att1?.tableData?.tableRangeID)
+    }
+
+    @Test("Table with no rows produces attachment with empty rows")
+    @MainActor func tableEmptyRowsAttachment() {
+        let columns = [TableColumn(header: AttributedString("Col"), alignment: .left)]
+        let result = buildSingle(.table(columns: columns, rows: []))
+        #expect(result.attachments.count == 1)
+        let tableAttachment = result.attachments[0].attachment as? TableTextAttachment
+        #expect(tableAttachment?.tableData?.rows.isEmpty == true)
+        #expect(tableAttachment?.tableData?.columns.count == 1)
+    }
+
+    @Test("Table attachment has non-zero bounds")
+    @MainActor func tableAttachmentHasBounds() {
         let result = buildSingle(.table(columns: tableColumns, rows: tableRows))
-        let str = result.attributedString
-        var hasColors = false
-        str.enumerateAttribute(
-            TableAttributes.colors,
-            in: NSRange(location: 0, length: str.length)
-        ) { value, _, _ in
-            if value is TableColorInfo {
-                hasColors = true
-            }
-        }
-        #expect(hasColors)
+        let attachment = result.attachments[0].attachment
+        #expect(attachment.bounds.width > 0)
+        #expect(attachment.bounds.height > 0)
     }
 
-    @Test("Table header row has isHeader attribute set to true")
-    @MainActor func tableHeaderHasIsHeaderAttribute() {
+    @Test("TableTextAttachment allowsTextAttachmentView is true")
+    @MainActor func tableAttachmentAllowsView() {
         let result = buildSingle(.table(columns: tableColumns, rows: tableRows))
-        let str = result.attributedString
-        var headerCharCount = 0
-        str.enumerateAttribute(
-            TableAttributes.isHeader,
-            in: NSRange(location: 0, length: str.length)
-        ) { value, range, _ in
-            // swiftlint:disable:next legacy_objc_type
-            if let num = value as? NSNumber, num.boolValue {
-                headerCharCount += range.length
-            }
-        }
-        #expect(headerCharCount > 0)
-    }
-
-    @Test("Table data rows do not have isHeader attribute")
-    @MainActor func tableDataRowsNoIsHeader() {
-        let columns = [TableColumn(header: AttributedString("X"), alignment: .left)]
-        let rows: [[AttributedString]] = [[AttributedString("Data")]]
-        let result = buildSingle(.table(columns: columns, rows: rows))
-        let str = result.attributedString
-        let plainText = str.string
-        guard let dataRange = plainText.range(of: "Data") else {
-            Issue.record("Expected to find 'Data' in table text")
-            return
-        }
-        let nsRange = NSRange(dataRange, in: plainText)
-        let isHeader = str.attribute(
-            TableAttributes.isHeader,
-            at: nsRange.location,
-            effectiveRange: nil
-        )
-        #expect(isHeader == nil)
+        let attachment = result.attachments[0].attachment
+        #expect(attachment.allowsTextAttachmentView == true)
     }
 
     // MARK: - Print Mode
 
-    @Test("Print mode table text has visible foreground")
-    @MainActor func printModeTableVisibleForeground() {
+    @Test("Print mode table uses inline text, not attachment")
+    @MainActor func printModeUsesInlineText() {
         let indexed = IndexedBlock(
             index: 0,
             block: .table(columns: tableColumns, rows: tableRows)
@@ -164,121 +142,14 @@ struct MarkdownTextStorageBuilderTableTests {
             theme: theme,
             isPrint: true
         )
-        let str = result.attributedString
-        var allClear = true
-        str.enumerateAttribute(
-            .foregroundColor,
-            in: NSRange(location: 0, length: str.length)
-        ) { value, _, _ in
-            if let color = value as? NSColor, color != .clear {
-                allClear = false
-            }
+        // Print mode should NOT produce a TableTextAttachment.
+        let hasTableAttachment = result.attachments.contains { info in
+            info.attachment is TableTextAttachment
         }
-        #expect(!allClear)
-    }
-
-    // MARK: - TableOverlayInfo
-
-    @Test("TextStorageResult includes tableOverlays for table blocks")
-    @MainActor func textStorageResultIncludesTableOverlays() {
-        let result = buildSingle(.table(columns: tableColumns, rows: tableRows))
-        #expect(result.tableOverlays.count == 1)
-        #expect(!result.tableOverlays[0].tableRangeID.isEmpty)
-        #expect(result.tableOverlays[0].cellMap.columnCount == 2)
-        #expect(result.tableOverlays[0].cellMap.rowCount == 2)
-        #expect(result.tableOverlays[0].blockIndex == 0)
-    }
-
-    @Test("Multiple tables produce separate tableOverlays entries")
-    @MainActor func multipleTablesProduceSeparateOverlays() {
-        let columns = [TableColumn(header: AttributedString("A"), alignment: .left)]
-        let blocks = [
-            IndexedBlock(index: 0, block: .table(columns: columns, rows: [[AttributedString("1")]])),
-            IndexedBlock(index: 1, block: .table(columns: columns, rows: [[AttributedString("2")]])),
-        ]
-        let result = MarkdownTextStorageBuilder.build(blocks: blocks, theme: theme)
-        #expect(result.tableOverlays.count == 2)
-        #expect(result.tableOverlays[0].tableRangeID != result.tableOverlays[1].tableRangeID)
-    }
-
-    @Test("Table with no rows generates header-only text")
-    @MainActor func tableEmptyRowsGeneratesHeaderOnly() {
-        let columns = [TableColumn(header: AttributedString("Col"), alignment: .left)]
-        let result = buildSingle(.table(columns: columns, rows: []))
+        #expect(!hasTableAttachment)
+        // Print mode should contain visible cell content.
         let plainText = result.attributedString.string
-        #expect(plainText.contains("Col"))
-        #expect(result.tableOverlays.count == 1)
-        #expect(result.tableOverlays[0].cellMap.rowCount == 0)
-    }
-
-    // MARK: - CellMap Accuracy
-
-    @Test("Table cellMap entries have correct cell positions")
-    @MainActor func tableCellMapPositions() {
-        let result = buildSingle(.table(columns: tableColumns, rows: tableRows))
-        let cellMap = result.tableOverlays[0].cellMap
-        let allPositions = Set(cellMap.cells.map(\.position))
-        #expect(allPositions.contains(TableCellMap.CellPosition(row: -1, column: 0)))
-        #expect(allPositions.contains(TableCellMap.CellPosition(row: -1, column: 1)))
-        #expect(allPositions.contains(TableCellMap.CellPosition(row: 0, column: 0)))
-        #expect(allPositions.contains(TableCellMap.CellPosition(row: 0, column: 1)))
-        #expect(allPositions.contains(TableCellMap.CellPosition(row: 1, column: 0)))
-        #expect(allPositions.contains(TableCellMap.CellPosition(row: 1, column: 1)))
-    }
-
-    @Test("Table cellMap entries have correct content strings")
-    @MainActor func tableCellMapContent() {
-        let result = buildSingle(.table(columns: tableColumns, rows: tableRows))
-        let cellMap = result.tableOverlays[0].cellMap
-        let contentByPosition = Dictionary(
-            cellMap.cells.map { ($0.position, $0.content) }
-        ) { first, _ in first }
-        #expect(contentByPosition[TableCellMap.CellPosition(row: -1, column: 0)] == "Name")
-        #expect(contentByPosition[TableCellMap.CellPosition(row: -1, column: 1)] == "Age")
-        #expect(contentByPosition[TableCellMap.CellPosition(row: 0, column: 0)] == "Alice")
-        #expect(contentByPosition[TableCellMap.CellPosition(row: 0, column: 1)] == "30")
-    }
-
-    @Test("Table cellMap ranges correctly identify cell text in attributed string")
-    @MainActor func tableCellMapRangesAccurate() {
-        let result = buildSingle(.table(columns: tableColumns, rows: tableRows))
-        let str = result.attributedString
-        let cellMap = result.tableOverlays[0].cellMap
-
-        var tableStart = 0
-        str.enumerateAttribute(
-            TableAttributes.range,
-            in: NSRange(location: 0, length: str.length)
-        ) { value, range, stop in
-            if value is String {
-                tableStart = range.location
-                stop.pointee = true
-            }
-        }
-
-        for cell in cellMap.cells {
-            let absRange = NSRange(
-                location: tableStart + cell.range.location,
-                length: cell.range.length
-            )
-            // swiftlint:disable:next legacy_objc_type
-            let cellText = (str.string as NSString).substring(with: absRange)
-            #expect(cellText == cell.content)
-        }
-    }
-
-    // MARK: - Paragraph Style
-
-    @Test("Table paragraph style has fixed line heights matching row height estimates")
-    @MainActor func tableParagraphStyleLineHeights() {
-        let result = buildSingle(.table(columns: tableColumns, rows: tableRows))
-        let str = result.attributedString
-        let attrs = str.attributes(at: 0, effectiveRange: nil)
-        guard let style = attrs[.paragraphStyle] as? NSParagraphStyle else {
-            Issue.record("Expected paragraph style on table text")
-            return
-        }
-        #expect(style.minimumLineHeight > 0)
-        #expect(style.minimumLineHeight == style.maximumLineHeight)
+        #expect(plainText.contains("Name"))
+        #expect(plainText.contains("Alice"))
     }
 }

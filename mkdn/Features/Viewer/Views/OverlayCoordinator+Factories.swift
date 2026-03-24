@@ -70,5 +70,30 @@
             .environment(appSettings)
             return NSHostingView(rootView: rootView)
         }
+
+        func makeTableAttachmentOverlay(
+            columns: [TableColumn],
+            rows: [[AttributedString]],
+            blockIndex: Int,
+            appSettings: AppSettings
+        ) -> NSView {
+            let containerWidth = textView.map { textContainerWidth(in: $0) } ?? 600
+            let rootView = TableAttachmentView(
+                columns: columns,
+                rows: rows,
+                blockIndex: blockIndex,
+                containerWidth: containerWidth
+            )
+            .environment(appSettings)
+            .onGeometryChange(for: CGSize.self) { proxy in
+                proxy.size
+            } action: { [weak self] newSize in
+                self?.updateAttachmentHeight(
+                    blockIndex: blockIndex,
+                    newHeight: newSize.height
+                )
+            }
+            return PassthroughHostingView(rootView: rootView)
+        }
     }
 #endif

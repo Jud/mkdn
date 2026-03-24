@@ -29,13 +29,12 @@ extension MarkdownTextStorageBuilder {
     // swiftlint:disable:next function_parameter_count function_body_length
     static func appendTableInlineText(
         to result: NSMutableAttributedString,
-        blockIndex: Int,
-        block: MarkdownBlock,
+        blockIndex _: Int,
+        block _: MarkdownBlock,
         columns: [TableColumn],
         rows: [[AttributedString]],
         colors: ThemeColors,
-        isPrint: Bool,
-        tableOverlays: inout [TableOverlayInfo]
+        isPrint: Bool
     ) {
         let columnCount = columns.count
         guard columnCount > 0 else { return }
@@ -148,13 +147,6 @@ extension MarkdownTextStorageBuilder {
             length: result.length - textStartOffset
         )
         result.addAttribute(TableAttributes.cellMap, value: cellMap, range: tableRange)
-
-        tableOverlays.append(TableOverlayInfo(
-            blockIndex: blockIndex,
-            block: block,
-            tableRangeID: tableID,
-            cellMap: cellMap
-        ))
     }
 
     // MARK: - Table Tab Stops

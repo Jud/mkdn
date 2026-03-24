@@ -5,11 +5,9 @@
     /// Renders a Markdown table inside an NSTextAttachment as a native SwiftUI grid.
     ///
     /// Visually identical to ``TableBlockView`` — same column sizing, header styling,
-    /// zebra striping, and rounded border. This view is designed for use inside an
-    /// ``NSTextAttachmentViewProvider`` (T4) rather than the overlay coordinator.
-    ///
-    /// Selection, find highlighting, and copy support will be added in T4 after
-    /// ``TableSelectionState`` and ``TableClipboardSerializer`` are merged.
+    /// zebra striping, and rounded border. Supports cell selection (click, Cmd+click,
+    /// Shift+click), find highlighting, and copy-to-clipboard via
+    /// ``TableClipboardSerializer``.
     struct TableAttachmentView: View {
         let columns: [TableColumn]
         let rows: [[AttributedString]]
@@ -18,6 +16,7 @@
 
         @Environment(AppSettings.self) private var appSettings
         @State private var sizingCache = SizingCache()
+        @State private var selectionState = TableSelectionState()
 
         private var colors: ThemeColors {
             appSettings.theme.colors
@@ -58,6 +57,18 @@
             let totalWidth = result.totalWidth
 
             tableBody(columnWidths: columnWidths, totalWidth: totalWidth)
+                .onCopyCommand {
+                    let text = TableClipboardSerializer.tabDelimitedText(
+                        selection: selectionState.selection,
+                        columns: columns,
+                        rows: rows
+                    )
+                    guard !text.isEmpty else { return [] }
+                    let pasteboard = NSPasteboard.general
+                    pasteboard.clearContents()
+                    pasteboard.setString(text, forType: .string)
+                    return []
+                }
         }
 
         private func tableBody(columnWidths: [CGFloat], totalWidth: CGFloat) -> some View {
@@ -78,18 +89,15 @@
         private func headerRow(columnWidths: [CGFloat]) -> some View {
             HStack(spacing: 0) {
                 ForEach(Array(columns.enumerated()), id: \.offset) { colIndex, column in
-                    Text(column.header)
-                        .font(scaledBodyFont.bold())
-                        .foregroundColor(colors.headingColor)
-                        .tint(colors.linkColor)
-                        .lineLimit(nil)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.horizontal, 13)
-                        .padding(.vertical, 6)
-                        .frame(
-                            width: colIndex < columnWidths.count ? columnWidths[colIndex] : nil,
-                            alignment: column.alignment.swiftUIAlignment
-                        )
+                    cellContent(
+                        text: Text(column.header)
+                            .font(scaledBodyFont.bold())
+                            .foregroundColor(colors.headingColor),
+                        row: -1,
+                        column: colIndex,
+                        width: colIndex < columnWidths.count ? columnWidths[colIndex] : nil,
+                        alignment: column.alignment.swiftUIAlignment
+                    )
                 }
             }
             .background(colors.backgroundSecondary)
@@ -103,19 +111,16 @@
                         let alignment = colIndex < columns.count
                             ? columns[colIndex].alignment.swiftUIAlignment
                             : .leading
-                        Text(cell)
-                            .font(scaledBodyFont)
-                            .foregroundColor(colors.foreground)
-                            .tint(colors.linkColor)
-                            .lineLimit(nil)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .padding(.horizontal, 13)
-                            .padding(.vertical, 6)
-                            .frame(
-                                width: colIndex < columnWidths.count
-                                    ? columnWidths[colIndex] : nil,
-                                alignment: alignment
-                            )
+                        cellContent(
+                            text: Text(cell)
+                                .font(scaledBodyFont)
+                                .foregroundColor(colors.foreground),
+                            row: rowIndex,
+                            column: colIndex,
+                            width: colIndex < columnWidths.count
+                                ? columnWidths[colIndex] : nil,
+                            alignment: alignment
+                        )
                     }
                 }
                 .background(
@@ -123,6 +128,49 @@
                         ? colors.background
                         : colors.backgroundSecondary.opacity(0.7)
                 )
+            }
+        }
+
+        // MARK: - Cell Content with Selection/Find
+
+        private func cellContent(
+            text: some View,
+            row: Int,
+            column: Int,
+            width: CGFloat?,
+            alignment: Alignment
+        ) -> some View {
+            let position = CellPosition(row: row, column: column)
+
+            return text
+                .tint(colors.linkColor)
+                .lineLimit(nil)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 13)
+                .padding(.vertical, 6)
+                .frame(width: width, alignment: alignment)
+                .background(cellHighlight(row: row, column: column))
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    let flags = NSApp.currentEvent?.modifierFlags ?? []
+                    if flags.contains(.command) {
+                        selectionState.toggleCell(position)
+                    } else if flags.contains(.shift) {
+                        selectionState.extendSelection(to: position)
+                    } else {
+                        selectionState.selectCell(position)
+                    }
+                }
+        }
+
+        @ViewBuilder
+        private func cellHighlight(row: Int, column: Int) -> some View {
+            if selectionState.isCurrentFindMatch(row: row, column: column) {
+                Color.yellow.opacity(0.4)
+            } else if selectionState.isFindMatch(row: row, column: column) {
+                Color.yellow.opacity(0.15)
+            } else if selectionState.isSelected(row: row, column: column) {
+                Color.accentColor.opacity(0.3)
             }
         }
     }

@@ -16,7 +16,6 @@
     struct SelectableTextView: NSViewRepresentable {
         let attributedText: NSAttributedString
         let attachments: [AttachmentInfo]
-        let tableOverlays: [TableOverlayInfo]
         let blocks: [IndexedBlock]
         let theme: AppTheme
         let isFullReload: Bool
@@ -48,11 +47,6 @@
             coordinator.documentState = documentState
             coordinator.animator.textView = textView
             textView.delegate = coordinator
-            textView.selectionDragHandler = { [weak coordinator] range in
-                coordinator?.overlayCoordinator.updateTableSelections(
-                    selectedRange: range
-                )
-            }
             coordinator.overlayCoordinator.onLayoutInvalidation = { [weak coordinator] in
                 guard let coordinator else { return }
                 guard !coordinator.gate.isGateActive else { return }
@@ -248,7 +242,7 @@
                 if coordinator.animator.isAnimating {
                     coordinator.overlayCoordinator.applyEntranceAnimation(
                         attachmentDelays: coordinator.animator.attachmentDelays,
-                        tableDelays: coordinator.animator.tableDelays,
+                        tableDelays: [:],
                         fadeInDuration: AnimationConstants.fadeInDuration
                     )
                 }
@@ -282,7 +276,7 @@
                 if coordinator.animator.isAnimating {
                     coordinator.overlayCoordinator.applyEntranceAnimation(
                         attachmentDelays: coordinator.animator.attachmentDelays,
-                        tableDelays: coordinator.animator.tableDelays,
+                        tableDelays: [:],
                         fadeInDuration: AnimationConstants.fadeInDuration
                     )
                 }
@@ -294,11 +288,6 @@
                 attachments: attachments,
                 appSettings: appSettings,
                 documentState: documentState,
-                in: textView
-            )
-            coordinator.overlayCoordinator.updateTableOverlays(
-                tableOverlays: tableOverlays,
-                appSettings: appSettings,
                 in: textView
             )
         }
