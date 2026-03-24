@@ -281,7 +281,7 @@ struct OutlineStateTests {
         #expect(state.selectedIndex == 0)
     }
 
-    @Test("selectAndNavigate returns correct blockIndex and dismisses HUD")
+    @Test("selectAndNavigate returns correct blockIndex and keeps HUD open")
     @MainActor func selectAndNavigateReturnsBlockIndex() {
         let state = OutlineState()
         state.updateHeadings(from: headingBlocks([
@@ -295,6 +295,8 @@ struct OutlineStateTests {
         let result = state.selectAndNavigate()
 
         #expect(result == 1) // blockIndex of "Second"
-        #expect(state.isHUDVisible == false)
+        #expect(state.isHUDVisible == true) // HUD stays open for browsing
+        #expect(state.pendingScrollTarget == 1) // Scroll target set
+        #expect(state.currentHeadingIndex == 1) // Indicator follows selection
     }
 }
