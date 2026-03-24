@@ -179,9 +179,7 @@
 
                 Section {
                     Button("Document Outline") {
-                        withAnimation(motionAnimation(.springSettle)) {
-                            outlineState?.toggleHUD()
-                        }
+                        NotificationCenter.default.post(name: .outlineToggle, object: nil)
                     }
                     .keyboardShortcut("j", modifiers: .command)
                     .disabled(outlineState?.headingTree.isEmpty ?? true)

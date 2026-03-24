@@ -151,7 +151,7 @@
 
         // MARK: - Navigation
 
-        /// Select the heading at `selectedIndex` and dismiss the HUD.
+        /// Scroll to the heading at `selectedIndex` without closing the HUD.
         ///
         /// - Returns: The `blockIndex` of the selected heading, or `nil`
         ///   if `filteredHeadings` is empty.
@@ -161,7 +161,6 @@
             let clampedIndex = min(selectedIndex, filtered.count - 1)
             let blockIndex = filtered[clampedIndex].blockIndex
             pendingScrollTarget = blockIndex
-            dismissHUD()
             return blockIndex
         }
 

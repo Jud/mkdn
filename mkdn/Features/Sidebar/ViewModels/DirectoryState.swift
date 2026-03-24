@@ -193,13 +193,8 @@
         }
 
         private func startWatching() {
-            let subdirectories = firstLevelSubdirectories()
+            let subdirectories = Array(expandedDirectories)
             directoryWatcher.watch(rootURL: rootURL, subdirectories: subdirectories)
-        }
-
-        private func firstLevelSubdirectories() -> [URL] {
-            guard let tree else { return [] }
-            return (tree.children ?? []).filter(\.isDirectory).map(\.url)
         }
 
         private func startObservingWatcher() {

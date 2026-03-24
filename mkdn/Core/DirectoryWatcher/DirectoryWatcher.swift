@@ -28,11 +28,12 @@
 
         // MARK: - Public API
 
-        /// Start watching a directory and its first-level subdirectories.
+        /// Start watching a directory and additional subdirectories.
         ///
         /// - Parameters:
         ///   - rootURL: The root directory to watch.
-        ///   - subdirectories: First-level subdirectory URLs to watch alongside the root.
+        ///   - subdirectories: Additional directory URLs to watch alongside the root
+        ///     (typically all expanded directories in the sidebar).
         func watch(rootURL: URL, subdirectories: [URL]) {
             stopWatching()
 

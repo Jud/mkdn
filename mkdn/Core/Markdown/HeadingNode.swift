@@ -1,5 +1,5 @@
 /// Tree node representing a heading in the document outline.
-public struct HeadingNode: Identifiable, Sendable {
+public struct HeadingNode: Identifiable, Sendable, Equatable {
     /// Same as `blockIndex` — unique per heading, no UUID allocation needed.
     public let id: Int
     /// Plain text of the heading (stripped from AttributedString).

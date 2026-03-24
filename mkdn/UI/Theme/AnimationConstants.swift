@@ -115,19 +115,39 @@ enum AnimationConstants {
     // quickSettle to give the expand/collapse a "poppy" character.
     // Derived from: quickSettle, shortened and loosened for playful overlay UI.
 
-    /// Snappy spring for the outline navigator breadcrumb-to-HUD morph.
+    /// Bouncy spring for the outline navigator expand morph.
     ///
-    /// - Visual intent: A quick, poppy expansion that feels alive and responsive.
-    ///   The container morphs with enough bounce to feel physical but not distracting.
-    /// - Design rationale: Response 0.2 is faster than ``quickSettle``; damping 0.75
-    ///   allows a subtle overshoot that gives the morph its "pop" character.
-    /// - Derivation: ``quickSettle`` shortened and loosened for playful overlay UI.
-    ///   Captures the orb's spring quality with more bounce, suited to the outline
-    ///   navigator's expand/collapse morph.
+    /// - Visual intent: The container inflates with visible overshoot, like a
+    ///   rubber surface stretching open. Feels alive and physical.
+    /// - Design rationale: Response 0.4 gives the expansion time to breathe;
+    ///   damping 0.65 allows enough overshoot to feel elastic without wobbling.
+    /// - Derivation: ``springSettle`` loosened for playful overlay UI.
     static let outlinePop: Animation = .spring(
-        response: 0.2,
-        dampingFraction: 0.75
+        response: 0.4,
+        dampingFraction: 0.65
     )
+
+    /// Firm easeOut for the outline navigator collapse layout change.
+    ///
+    /// Cannot undershoot — the breadcrumb size is a hard floor. The easeOut
+    /// curve starts fast (releasing the rubber band) and decelerates firmly
+    /// into the resting size.
+    static let outlineClose: Animation = .easeOut(duration: 0.2)
+
+    /// Rubber band pull duration before the collapse releases.
+    static let outlineStretchDuration: TimeInterval = 0.12
+
+    /// Delay before the landing bounce after collapse.
+    static let outlineSettleDelay: TimeInterval = 0.19
+
+    /// Landing bounce spring after collapse — pops up then settles.
+    static let outlineSettlePop: Animation = .spring(response: 0.15, dampingFraction: 0.4)
+
+    /// Return spring after landing bounce.
+    static let outlineSettleReturn: Animation = .spring(response: 0.2, dampingFraction: 0.5)
+
+    /// Delay between landing pop and return.
+    static let outlineSettleReturnDelay: TimeInterval = 0.08
 
     /// Raw scroll-to-heading duration (seconds) for AppKit `NSAnimationContext`.
     ///
