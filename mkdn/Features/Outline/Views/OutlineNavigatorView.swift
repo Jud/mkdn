@@ -33,6 +33,8 @@
         @State private var lastBreadcrumbs: [HeadingNode] = []
         @State private var animationTask: Task<Void, Never>?
         @State private var exitTask: Task<Void, Never>?
+        @State private var escapeMonitor: Any?
+        @State private var clickOutsideMonitor: Any?
         @FocusState private var isFilterFocused: Bool
 
         private var isExpanded: Bool {
@@ -111,43 +113,55 @@
                     .padding(.horizontal, 16)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
-                .onKeyPress(.upArrow, phases: .down) { _ in
-                    guard isExpanded else { return .ignored }
-                    outlineState.moveSelectionUp()
-                    return .handled
+            .onKeyPress(.upArrow, phases: .down) { _ in
+                guard isExpanded else { return .ignored }
+                outlineState.moveSelectionUp()
+                return .handled
+            }
+            .onKeyPress(.downArrow, phases: .down) { _ in
+                guard isExpanded else { return .ignored }
+                outlineState.moveSelectionDown()
+                return .handled
+            }
+            .onKeyPress(.return, phases: .down) { _ in
+                guard isExpanded else { return .ignored }
+                _ = outlineState.selectAndNavigate()
+                return .handled
+            }
+            .onKeyPress(.escape, phases: .down) { _ in
+                guard isExpanded else { return .ignored }
+                toggle()
+                return .handled
+            }
+            .onExitCommand {
+                guard isExpanded else { return }
+                toggle()
+            }
+            .onChange(of: outlineState.filterQuery) { _, _ in
+                outlineState.applyFilter()
+            }
+            .onChange(of: outlineState.breadcrumbPath) { _, newPath in
+                if !newPath.isEmpty {
+                    lastBreadcrumbs = newPath
                 }
-                .onKeyPress(.downArrow, phases: .down) { _ in
-                    guard isExpanded else { return .ignored }
-                    outlineState.moveSelectionDown()
-                    return .handled
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .outlineToggle)) { notification in
+                // Only the window whose OutlineState was targeted should respond.
+                guard let target = notification.object as? OutlineState,
+                      target === outlineState
+                else { return }
+                toggle()
+            }
+            .onChange(of: isExpanded) { _, expanded in
+                if expanded {
+                    installEventMonitors()
+                } else {
+                    removeEventMonitors()
                 }
-                .onKeyPress(.return, phases: .down) { _ in
-                    guard isExpanded else { return .ignored }
-                    _ = outlineState.selectAndNavigate()
-                    return .handled
-                }
-                .onKeyPress(.escape, phases: .down) { _ in
-                    guard isExpanded else { return .ignored }
-                    toggle()
-                    return .handled
-                }
-                .onExitCommand {
-                    guard isExpanded else { return }
-                    toggle()
-                }
-                .onChange(of: outlineState.filterQuery) { _, _ in
-                    outlineState.applyFilter()
-                }
-                .onChange(of: outlineState.breadcrumbPath) { _, newPath in
-                    if !newPath.isEmpty {
-                        lastBreadcrumbs = newPath
-                    }
-                }
-                .onReceive(NotificationCenter.default.publisher(for: .outlineToggle)) { _ in
-                    toggle()
-                }
+            }
         }
 
+        // swiftlint:disable:next function_body_length
         private func morphContainer(maxBreadcrumbWidth: CGFloat) -> some View {
             VStack(alignment: .leading, spacing: 0) {
                 if isExpanded {
@@ -204,6 +218,44 @@
                         lastBreadcrumbs = []
                     }
                 }
+            }
+        }
+
+        // MARK: - Escape Monitor
+
+        private func installEventMonitors() {
+            removeEventMonitors()
+            escapeMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+                if event.keyCode == 53 {
+                    toggle()
+                    return nil
+                }
+                return event
+            }
+            // Close HUD when clicking anywhere outside it.
+            // Use a small delay so the click event can be processed first.
+            clickOutsideMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [self] event in
+                guard outlineState.isHUDVisible else { return event }
+                // Convert click to window coordinates and check against HUD bounds
+                let windowPoint = event.locationInWindow
+                if let hitView = event.window?.contentView?.hitTest(windowPoint) {
+                    // The text view or document area was clicked — close
+                    if hitView is CodeBlockBackgroundTextView || hitView is NSClipView {
+                        DispatchQueue.main.async { toggle() }
+                    }
+                }
+                return event
+            }
+        }
+
+        private func removeEventMonitors() {
+            if let monitor = escapeMonitor {
+                NSEvent.removeMonitor(monitor)
+                escapeMonitor = nil
+            }
+            if let monitor = clickOutsideMonitor {
+                NSEvent.removeMonitor(monitor)
+                clickOutsideMonitor = nil
             }
         }
 
@@ -265,7 +317,6 @@
                     }
                     .buttonStyle(.plain)
                 }
-
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
@@ -335,13 +386,6 @@
                     : Color.clear
             )
             .contentShape(Rectangle())
-            .onHover { hovering in
-                if hovering {
-                    NSCursor.pointingHand.push()
-                } else {
-                    NSCursor.pop()
-                }
-            }
             .onTapGesture {
                 outlineState.selectedIndex = index
                 _ = outlineState.selectAndNavigate()
@@ -367,4 +411,5 @@
             ]
         }
     }
+
 #endif

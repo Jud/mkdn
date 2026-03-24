@@ -179,7 +179,7 @@
 
                 Section {
                     Button("Document Outline") {
-                        NotificationCenter.default.post(name: .outlineToggle, object: nil)
+                        NotificationCenter.default.post(name: .outlineToggle, object: outlineState)
                     }
                     .keyboardShortcut("j", modifiers: .command)
                     .disabled(outlineState?.headingTree.isEmpty ?? true)

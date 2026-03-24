@@ -17,6 +17,8 @@
             var lastAppliedText: NSAttributedString?
             var headingOffsets: [Int: Int] = [:]
             var lastScrolledTarget: Int?
+            private var headingDotView: NSView?
+            private var headingDotFadeTask: Task<Void, Never>?
             nonisolated(unsafe) var scrollObserver: NSObjectProtocol?
             nonisolated(unsafe) var frameObserver: NSObjectProtocol?
 
@@ -122,7 +124,11 @@
                 }
             }
 
+            /// Suppresses scroll-spy during programmatic scroll-to-heading.
+            var isProgrammaticScroll = false
+
             func handleScrollForSpy() {
+                guard !isProgrammaticScroll else { return }
                 guard let textView,
                       let scrollView = textView.enclosingScrollView,
                       let outlineState
@@ -230,16 +236,87 @@
                       let headingY = yPosition(forCharacterOffset: charOffset)
                 else { return }
 
+                isProgrammaticScroll = true
+                showHeadingDot(forCharacterOffset: charOffset)
                 let clipView = scrollView.contentView
                 let destination = NSPoint(x: 0, y: headingY)
                 NSAnimationContext.runAnimationGroup { context in
                     context.duration = AnimationConstants.scrollToHeadingDuration
                     context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
                     clipView.animator().setBoundsOrigin(destination)
-                } completionHandler: { [weak scrollView, weak clipView] in
+                } completionHandler: { [weak self, weak scrollView, weak clipView] in
                     guard let scrollView, let clipView else { return }
                     Task { @MainActor in
+                        self?.isProgrammaticScroll = false
                         scrollView.reflectScrolledClipView(clipView)
+                    }
+                }
+            }
+
+            /// Show a temporary accent dot in the left margin at the navigated heading.
+            // swiftlint:disable:next function_body_length
+            private func showHeadingDot(forCharacterOffset offset: Int) {
+                guard let textView,
+                      let textContentStorage = textView.textContentStorage,
+                      let textLayoutManager = textView.textLayoutManager
+                else { return }
+
+                // Remove existing dot
+                headingDotView?.removeFromSuperview()
+                headingDotFadeTask?.cancel()
+
+                // Get the layout fragment frame (same method as OverlayCoordinator)
+                let stringLength = textView.textStorage?.length ?? 0
+                guard offset < stringLength else { return }
+                guard let nsLocation = textContentStorage.location(
+                    textContentStorage.documentRange.location,
+                    offsetBy: offset
+                ) else { return }
+
+                var fragmentFrame: CGRect?
+                textLayoutManager.enumerateTextLayoutFragments(
+                    from: nsLocation,
+                    options: [.ensuresLayout]
+                ) { fragment in
+                    fragmentFrame = fragment.layoutFragmentFrame
+                    return false
+                }
+                guard let frame = fragmentFrame else { return }
+
+                let dotSize: CGFloat = 6
+                let origin = textView.textContainerOrigin
+                // Position: left margin, vertically centered in the heading's fragment
+                let dot = NSView(frame: NSRect(
+                    x: origin.x - dotSize - 6,
+                    y: frame.origin.y + origin.y + frame.height * 0.6 - dotSize / 2,
+                    width: dotSize,
+                    height: dotSize
+                ))
+                dot.wantsLayer = true
+                dot.layer?.cornerRadius = dotSize / 2
+                dot.layer?.backgroundColor = NSColor.controlAccentColor.cgColor
+                dot.alphaValue = 0
+
+                textView.addSubview(dot)
+                headingDotView = dot
+
+                // Fade in
+                NSAnimationContext.runAnimationGroup { context in
+                    context.duration = 0.2
+                    dot.animator().alphaValue = 1.0
+                }
+
+                // Fade out after 2 seconds
+                headingDotFadeTask = Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(2))
+                    guard !Task.isCancelled else { return }
+                    NSAnimationContext.runAnimationGroup { context in
+                        context.duration = 0.5
+                        dot.animator().alphaValue = 0
+                    } completionHandler: { [weak dot] in
+                        Task { @MainActor in
+                            dot?.removeFromSuperview()
+                        }
                     }
                 }
             }

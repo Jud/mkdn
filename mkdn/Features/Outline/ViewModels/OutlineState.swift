@@ -159,9 +159,17 @@
             let filtered = filteredHeadings
             guard !filtered.isEmpty else { return nil }
             let clampedIndex = min(selectedIndex, filtered.count - 1)
-            let blockIndex = filtered[clampedIndex].blockIndex
-            pendingScrollTarget = blockIndex
-            return blockIndex
+            let heading = filtered[clampedIndex]
+            pendingScrollTarget = heading.blockIndex
+            // Force the current heading indicator to match the selection,
+            // even if the document can't scroll far enough for scroll-spy
+            // to detect this heading at the viewport top.
+            currentHeadingIndex = heading.blockIndex
+            breadcrumbPath = HeadingTreeBuilder.breadcrumbPath(
+                to: heading.blockIndex,
+                in: headingTree
+            )
+            return heading.blockIndex
         }
 
         /// Move selection up, wrapping from first to last.

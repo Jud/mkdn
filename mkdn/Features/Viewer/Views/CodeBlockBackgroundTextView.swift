@@ -151,6 +151,9 @@
         }
 
         override func mouseMoved(with event: NSEvent) {
+            // Don't override cursor when another view (e.g. outline HUD) is on top.
+            if isObscuredAtPoint(event.locationInWindow) { return }
+
             let point = convert(event.locationInWindow, from: nil)
             if isOverEmptyTextArea(point) {
                 NSCursor.arrow.set()
@@ -163,6 +166,8 @@
         }
 
         override func cursorUpdate(with event: NSEvent) {
+            if isObscuredAtPoint(event.locationInWindow) { return }
+
             let point = convert(event.locationInWindow, from: nil)
             if isOverEmptyTextArea(point) {
                 NSCursor.arrow.set()
@@ -171,6 +176,12 @@
             } else {
                 NSCursor.iBeam.set()
             }
+        }
+
+        /// Returns true if another view is on top of this text view at the given window point.
+        private func isObscuredAtPoint(_ windowPoint: NSPoint) -> Bool {
+            guard let hitView = window?.contentView?.hitTest(windowPoint) else { return false }
+            return hitView !== self && !hitView.isDescendant(of: self)
         }
 
         override func mouseExited(with event: NSEvent) {
