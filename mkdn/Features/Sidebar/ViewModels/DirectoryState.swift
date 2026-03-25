@@ -193,8 +193,7 @@
         }
 
         private func startWatching() {
-            let subdirectories = Array(expandedDirectories)
-            directoryWatcher.watch(rootURL: rootURL, subdirectories: subdirectories)
+            directoryWatcher.watch(rootURL: rootURL)
         }
 
         private func startObservingWatcher() {

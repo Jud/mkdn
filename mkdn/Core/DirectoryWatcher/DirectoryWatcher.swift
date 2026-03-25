@@ -1,67 +1,87 @@
 #if os(macOS)
+    import CoreServices
     import Foundation
 
-    /// Monitors a directory and its first-level subdirectories for structural changes.
+    /// Recursively monitors a directory tree for structural changes using FSEvents.
     ///
-    /// Uses `DispatchSource.makeFileSystemObjectSource` for efficient kernel-level
-    /// directory change notifications. Watches the root directory and each first-level
-    /// subdirectory with separate file descriptors. Events are bridged to `@MainActor`
-    /// via `AsyncStream`, following the same concurrency pattern as `FileWatcher`.
+    /// A single `FSEventStream` watches the entire directory tree rooted at
+    /// `rootURL`. Changes at any depth trigger the `hasChanges` flag, which
+    /// `DirectoryState` observes to refresh expanded directories.
     @MainActor
     @Observable
     final class DirectoryWatcher {
         /// Whether the watched directory structure has changed since last acknowledgment.
         private(set) var hasChanges = false
 
-        @ObservationIgnored private nonisolated(unsafe) var sources: [any DispatchSourceFileSystemObject] = []
+        @ObservationIgnored private nonisolated(unsafe) var eventStream: FSEventStreamRef?
         @ObservationIgnored private nonisolated(unsafe) var watchTask: Task<Void, Never>?
         @ObservationIgnored private nonisolated(unsafe) var streamContinuation: AsyncStream<Void>.Continuation?
-        private let queue = DispatchQueue(label: "com.mkdn.directorywatcher", qos: .utility)
+        @ObservationIgnored private nonisolated(unsafe) var continuationBoxPtr: UnsafeMutableRawPointer?
 
         deinit {
+            if let stream = eventStream {
+                FSEventStreamStop(stream)
+                FSEventStreamInvalidate(stream)
+                FSEventStreamRelease(stream)
+            }
+            if let ptr = continuationBoxPtr {
+                Unmanaged<ContinuationBox>.fromOpaque(ptr).release()
+            }
             watchTask?.cancel()
             streamContinuation?.finish()
-            for source in sources {
-                source.cancel()
-            }
         }
 
         // MARK: - Public API
 
-        /// Start watching a directory and additional subdirectories.
+        /// Start recursively watching a directory tree.
         ///
-        /// - Parameters:
-        ///   - rootURL: The root directory to watch.
-        ///   - subdirectories: Additional directory URLs to watch alongside the root
-        ///     (typically all expanded directories in the sidebar).
-        func watch(rootURL: URL, subdirectories: [URL]) {
+        /// Monitors all subdirectories at any depth. The `subdirectories` parameter
+        /// is accepted for API compatibility but ignored — FSEvents watches the
+        /// entire tree from `rootURL`.
+        func watch(rootURL: URL, subdirectories _: [URL] = []) {
             stopWatching()
 
-            let allURLs = [rootURL] + subdirectories
+            let path = rootURL.path(percentEncoded: false)
             let (stream, continuation) = AsyncStream.makeStream(of: Void.self)
             streamContinuation = continuation
 
-            for url in allURLs {
-                let path = url.path(percentEncoded: false)
-                let fileDescriptor = open(path, O_EVTONLY)
-                guard fileDescriptor >= 0 else { continue }
+            var context = FSEventStreamContext()
+            let ptr = Unmanaged.passRetained(
+                ContinuationBox(continuation)
+            ).toOpaque()
+            continuationBoxPtr = ptr
+            context.info = ptr
 
-                let source = DispatchSource.makeFileSystemObjectSource(
-                    fileDescriptor: fileDescriptor,
-                    eventMask: [.write, .rename, .delete, .link],
-                    queue: queue
-                )
-
-                Self.installHandlers(on: source, fd: fileDescriptor, continuation: continuation)
-                source.resume()
-                sources.append(source)
+            let callback: FSEventStreamCallback = { _, info, _, _, _, _ in
+                guard let info else { return }
+                let box = Unmanaged<ContinuationBox>.fromOpaque(info)
+                    .takeUnretainedValue()
+                box.continuation.yield()
             }
 
-            guard !sources.isEmpty else {
+            guard let fsStream = FSEventStreamCreate(
+                nil,
+                callback,
+                &context,
+                [path] as CFArray,
+                FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
+                0.3, // 300ms latency (debounce at the OS level)
+                UInt32(
+                    kFSEventStreamCreateFlagUseCFTypes
+                        | kFSEventStreamCreateFlagNoDefer
+                        | kFSEventStreamCreateFlagFileEvents
+                )
+            ) else {
+                Unmanaged<ContinuationBox>.fromOpaque(ptr).release()
+                continuationBoxPtr = nil
                 continuation.finish()
                 streamContinuation = nil
                 return
             }
+
+            eventStream = fsStream
+            FSEventStreamSetDispatchQueue(fsStream, DispatchQueue.global(qos: .utility))
+            FSEventStreamStart(fsStream)
 
             watchTask = Task {
                 for await _ in stream {
@@ -71,16 +91,24 @@
             }
         }
 
-        /// Stop all directory watching and release resources.
+        /// Stop watching and release all resources.
         func stopWatching() {
+            if let stream = eventStream {
+                FSEventStreamStop(stream)
+                FSEventStreamInvalidate(stream)
+                FSEventStreamRelease(stream)
+                eventStream = nil
+            }
+            if let ptr = continuationBoxPtr {
+                Unmanaged<ContinuationBox>.fromOpaque(ptr).release()
+                continuationBoxPtr = nil
+            }
             watchTask?.cancel()
             watchTask = nil
-            streamContinuation?.finish()
-            streamContinuation = nil
-            for source in sources {
-                source.cancel()
+            if let continuation = streamContinuation {
+                continuation.finish()
+                streamContinuation = nil
             }
-            sources.removeAll()
             hasChanges = false
         }
 
@@ -91,25 +119,11 @@
 
         // MARK: - Private
 
-        /// Installs event and cancel handlers on a dispatch source.
-        ///
-        /// Must be `nonisolated` so that the handler closures do not
-        /// inherit `@MainActor` isolation. DispatchSource fires handlers
-        /// on its target queue (utility), and Swift 6 strict concurrency
-        /// would otherwise insert a runtime MainActor assertion that
-        /// crashes when the handler executes off the main thread.
-        private nonisolated static func installHandlers(
-            on source: any DispatchSourceFileSystemObject,
-            fd: Int32,
-            continuation: AsyncStream<Void>.Continuation
-        ) {
-            source.setEventHandler {
-                continuation.yield()
-            }
-            source.setCancelHandler {
-                if fd >= 0 {
-                    close(fd)
-                }
+        /// Box to bridge the `AsyncStream.Continuation` into the C callback context.
+        private final class ContinuationBox: @unchecked Sendable {
+            let continuation: AsyncStream<Void>.Continuation
+            init(_ continuation: AsyncStream<Void>.Continuation) {
+                self.continuation = continuation
             }
         }
     }
