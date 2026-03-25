@@ -99,6 +99,7 @@
                 RoundedRectangle(cornerRadius: 6)
                     .stroke(colors.border.opacity(0.5), lineWidth: 1)
             )
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
 
         private func headerRow(columnWidths: [CGFloat]) -> some View {
