@@ -75,7 +75,8 @@
             columns: [TableColumn],
             rows: [[AttributedString]],
             blockIndex: Int,
-            appSettings: AppSettings
+            appSettings: AppSettings,
+            findState: FindState?
         ) -> NSView {
             let containerWidth = textView.map { textContainerWidth(in: $0) } ?? 600
             let rootView = TableAttachmentView(
@@ -96,6 +97,9 @@
             // Use NSHostingView (not PassthroughHostingView) so mouse events
             // reach the TableAttachmentView's gesture handlers for cell
             // selection and onCopyCommand.
+            if let findState {
+                return NSHostingView(rootView: rootView.environment(findState))
+            }
             return NSHostingView(rootView: rootView)
         }
     }

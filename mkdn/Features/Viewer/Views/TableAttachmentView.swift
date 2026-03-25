@@ -16,6 +16,7 @@
         var containerWidth: CGFloat = 600
 
         @Environment(AppSettings.self) private var appSettings
+        @Environment(FindState.self) private var findState: FindState?
         @State private var sizingCache = SizingCache()
         @State private var selectionState = TableSelectionState()
 
@@ -58,6 +59,18 @@
             let totalWidth = result.totalWidth
 
             tableBody(columnWidths: columnWidths, totalWidth: totalWidth)
+                .onChange(of: findState?.query) { _, newQuery in
+                    updateFindHighlights(query: newQuery ?? "")
+                }
+                .onChange(of: findState?.currentMatchIndex) { _, _ in
+                    updateFindCurrentMatch()
+                }
+                .onChange(of: findState?.isVisible) { _, isVisible in
+                    if isVisible != true {
+                        selectionState.findMatches = []
+                        selectionState.currentFindMatch = nil
+                    }
+                }
                 .onCopyCommand {
                     let text = TableClipboardSerializer.tabDelimitedText(
                         selection: selectionState.selection,
@@ -174,6 +187,35 @@
             } else if selectionState.isSelected(row: row, column: column) {
                 Color.accentColor.opacity(0.3)
             }
+        }
+
+        // MARK: - Find Integration
+
+        private func updateFindHighlights(query: String) {
+            guard let findState, findState.isVisible else {
+                selectionState.findMatches = []
+                selectionState.currentFindMatch = nil
+                return
+            }
+            let matches = TableFindAdapter.findMatches(
+                query: query,
+                columns: columns,
+                rows: rows
+            )
+            selectionState.findMatches = Set(matches)
+            updateFindCurrentMatch()
+        }
+
+        private func updateFindCurrentMatch() {
+            guard let findState, findState.isVisible else {
+                selectionState.currentFindMatch = nil
+                return
+            }
+            // The current match index is global (across the whole document).
+            // Table cells don't participate in the global match index — they
+            // just highlight all matches. Set currentFindMatch to nil (no
+            // "current" concept for table cells, just passive highlighting).
+            selectionState.currentFindMatch = nil
         }
     }
 

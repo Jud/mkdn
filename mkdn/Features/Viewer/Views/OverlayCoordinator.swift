@@ -43,6 +43,7 @@
         var entries: [Int: OverlayEntry] = [:]
         nonisolated(unsafe) var layoutObserver: NSObjectProtocol?
         var appSettings: AppSettings?
+        weak var findState: FindState?
         nonisolated(unsafe) var scrollObserver: NSObjectProtocol?
         let containerState = OverlayContainerState()
         private var isRepositionScheduled = false
@@ -324,7 +325,8 @@
                     columns: columns,
                     rows: rows,
                     blockIndex: info.blockIndex,
-                    appSettings: appSettings
+                    appSettings: appSettings,
+                    findState: findState
                 )
             default:
                 return

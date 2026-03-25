@@ -281,6 +281,7 @@
         }
 
         private func refreshOverlays(coordinator: Coordinator, in textView: NSTextView) {
+            coordinator.overlayCoordinator.findState = findState
             coordinator.overlayCoordinator.updateOverlays(
                 attachments: attachments,
                 appSettings: appSettings,
