@@ -160,7 +160,8 @@
             guard let startLoc = contentManager.location(
                 contentManager.documentRange.location,
                 offsetBy: earliestLocation
-            ) else { return }
+            )
+            else { return }
             let tailRange = NSTextRange(
                 location: startLoc,
                 end: contentManager.documentRange.endLocation

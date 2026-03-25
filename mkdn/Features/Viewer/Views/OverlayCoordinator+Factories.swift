@@ -93,7 +93,10 @@
                     newHeight: newSize.height
                 )
             }
-            return PassthroughHostingView(rootView: rootView)
+            // Use NSHostingView (not PassthroughHostingView) so mouse events
+            // reach the TableAttachmentView's gesture handlers for cell
+            // selection and onCopyCommand.
+            return NSHostingView(rootView: rootView)
         }
     }
 #endif

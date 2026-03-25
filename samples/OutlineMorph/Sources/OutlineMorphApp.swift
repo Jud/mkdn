@@ -41,15 +41,19 @@ struct ContentView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("# Architecture Overview")
                         .font(.title).bold()
-                    ForEach(0..<8) { i in
-                        Text("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Paragraph \(i + 1) of the document content that sits behind the overlay.")
-                            .font(.body)
+                    ForEach(0 ..< 8) { i in
+                        Text(
+                            "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Paragraph \(i + 1) of the document content that sits behind the overlay."
+                        )
+                        .font(.body)
                     }
                     Text("## Component Design")
                         .font(.title2).bold()
-                    ForEach(0..<8) { i in
-                        Text("Implementation details for component \(i + 1). The rendering engine processes markdown blocks sequentially.")
-                            .font(.body)
+                    ForEach(0 ..< 8) { i in
+                        Text(
+                            "Implementation details for component \(i + 1). The rendering engine processes markdown blocks sequentially."
+                        )
+                        .font(.body)
                     }
                 }
                 .padding(40)

@@ -271,7 +271,8 @@
                 guard let nsLocation = textContentStorage.location(
                     textContentStorage.documentRange.location,
                     offsetBy: offset
-                ) else { return }
+                )
+                else { return }
 
                 var fragmentFrame: CGRect?
                 textLayoutManager.enumerateTextLayoutFragments(

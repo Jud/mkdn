@@ -32,20 +32,24 @@ public struct TableAttachmentData: Sendable {
 
 #if os(macOS)
 
-    /// NSTextAttachment subclass that carries table data for view-based rendering.
+    /// NSTextAttachment subclass that carries table data for attachment-based
+    /// rendering via the ``OverlayCoordinator``.
     ///
-    /// When inserted into an `NSAttributedString`, the text layout system calls
-    /// `NSTextAttachmentViewProvider.loadView()` to obtain a SwiftUI-hosted table
-    /// view. The `allowsTextAttachmentView` flag enables this provider-based path.
+    /// When inserted into an `NSAttributedString`, the overlay coordinator
+    /// creates a ``TableAttachmentView`` hosted in an `NSHostingView` and
+    /// positions it over the attachment placeholder. The
+    /// `allowsTextAttachmentView` flag is set defensively for forward
+    /// compatibility with `NSTextAttachmentViewProvider`.
     public class TableTextAttachment: NSTextAttachment {
         public var tableData: TableAttachmentData?
 
         /// Weak reference to the app-wide settings, injected by the builder
-        /// so the view provider can pass it into the SwiftUI environment.
+        /// so the overlay factory can pass it into the SwiftUI environment.
         public weak var appSettings: AppSettings?
 
         override public init(data contentData: Data?, ofType uti: String?) {
             super.init(data: contentData, ofType: uti)
+            allowsTextAttachmentView = true
         }
 
         public convenience init(tableData: TableAttachmentData) {

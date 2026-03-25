@@ -1,6 +1,7 @@
 #if os(macOS)
     import AppKit
     import SwiftUI
+    import UniformTypeIdentifiers
 
     /// Renders a Markdown table inside an NSTextAttachment as a native SwiftUI grid.
     ///
@@ -64,10 +65,11 @@
                         rows: rows
                     )
                     guard !text.isEmpty else { return [] }
-                    let pasteboard = NSPasteboard.general
-                    pasteboard.clearContents()
-                    pasteboard.setString(text, forType: .string)
-                    return []
+                    let provider = NSItemProvider(
+                        item: text as NSString, // swiftlint:disable:this legacy_objc_type
+                        typeIdentifier: UTType.utf8PlainText.identifier
+                    )
+                    return [provider]
                 }
         }
 

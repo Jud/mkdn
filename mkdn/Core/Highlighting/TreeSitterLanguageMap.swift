@@ -13,8 +13,8 @@ import TreeSitterPython
 import TreeSitterRuby
 import TreeSitterRust
 import TreeSitterSwift
-import TreeSitterTypeScript
 import TreeSitterTOML
+import TreeSitterTypeScript
 import TreeSitterYAML
 
 /// Configuration for a supported tree-sitter language.

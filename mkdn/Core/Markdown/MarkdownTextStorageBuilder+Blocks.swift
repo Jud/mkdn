@@ -142,7 +142,9 @@ extension MarkdownTextStorageBuilder {
 
         // Inserts a TableTextAttachment as a sized placeholder in the attributed
         // string. The OverlayCoordinator positions a TableAttachmentView overlay
-        // on top of the placeholder, matching the pattern used for Mermaid/image blocks.
+        // on top of the placeholder, matching the pattern used for Mermaid/image
+        // blocks. The overlay uses NSHostingView (not PassthroughHostingView) so
+        // mouse events reach the SwiftUI gesture handlers for cell selection.
         // swiftlint:disable:next function_parameter_count
         static func appendTableAttachment(
             to result: NSMutableAttributedString,

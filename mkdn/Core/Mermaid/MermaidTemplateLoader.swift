@@ -38,8 +38,8 @@ enum MermaidTemplateLoader {
             .resolvingSymlinksInPath()
 
         let resourcesURL = execURL
-            .deletingLastPathComponent()   // MacOS/
-            .deletingLastPathComponent()   // Contents/
+            .deletingLastPathComponent() // MacOS/
+            .deletingLastPathComponent() // Contents/
             .appendingPathComponent("Resources")
             .appendingPathComponent(bundleName)
         if let bundle = Bundle(url: resourcesURL) {
@@ -59,6 +59,7 @@ enum MermaidTemplateLoader {
         //    release because the checks above cover .app and symlink cases).
         return Bundle.module
     }()
+
     /// Result of writing a substituted template to a temporary file.
     struct TemplateFileResult {
         /// URL of the temporary HTML file containing the substituted template.
