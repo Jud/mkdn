@@ -182,4 +182,14 @@
         var lastScaleFactor: CGFloat = -1
         var result: TableColumnSizer.Result?
     }
+
+    extension TableColumnAlignment {
+        var swiftUIAlignment: Alignment {
+            switch self {
+            case .left: .leading
+            case .center: .center
+            case .right: .trailing
+            }
+        }
+    }
 #endif

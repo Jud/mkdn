@@ -101,9 +101,7 @@
             _ entry: OverlayEntry,
             context: LayoutContext
         ) {
-            if entry.tableRangeID != nil {
-                positionTextRangeEntry(entry, context: context)
-            } else if entry.attachment != nil {
+            if entry.attachment != nil {
                 positionAttachmentEntry(entry, context: context)
             } else {
                 entry.view.isHidden = true

@@ -12,17 +12,6 @@ public struct AttachmentInfo {
     public let attachment: NSTextAttachment
 }
 
-/// Information about a table rendered as invisible inline text in the attributed string.
-///
-/// Retained for backward compatibility with ``OverlayCoordinator+TableOverlays``
-/// until T5 deletes the overlay-based table pipeline.
-public struct TableOverlayInfo {
-    public let blockIndex: Int
-    public let block: MarkdownBlock
-    public let tableRangeID: String
-    public let cellMap: TableCellMap
-}
-
 /// Result of converting `[IndexedBlock]` to an `NSAttributedString`.
 public struct TextStorageResult {
     public let attributedString: NSAttributedString
@@ -244,14 +233,12 @@ public enum MarkdownTextStorageBuilder {
             appendAttachmentPlaceholder(indexedBlock, to: result, attachments: &attachments)
         case let .table(columns, rows):
             if isPrint {
-                appendTableInlineText(
+                appendTablePrintText(
                     to: result,
-                    blockIndex: indexedBlock.index,
-                    block: block,
                     columns: columns,
                     rows: rows,
                     colors: colors,
-                    isPrint: isPrint
+                    scaleFactor: sf
                 )
             } else {
                 appendTableAttachment(

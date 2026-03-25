@@ -369,10 +369,6 @@
                             performSearch: false
                         )
                     }
-                    overlayCoordinator.updateTableFindHighlights(
-                        matchRanges: findState.matchRanges,
-                        currentIndex: findState.currentMatchIndex
-                    )
                 } else if lastFindVisible {
                     clearFindHighlights(textView: textView)
                     DispatchQueue.main.async {
@@ -464,11 +460,6 @@
             }
 
             private func clearFindHighlights(textView: NSTextView) {
-                overlayCoordinator.updateTableFindHighlights(
-                    matchRanges: [],
-                    currentIndex: 0
-                )
-
                 guard let textStorage = textView.textStorage,
                       !lastHighlightedRanges.isEmpty
                 else { return }

@@ -2,11 +2,9 @@
     import AppKit
     import SwiftUI
 
-    /// Manages overlay views (Mermaid, images, tables) positioned within an
-    /// `NSTextView`. Attachment-based overlays are positioned via their
-    /// `NSTextAttachment` placeholder. Table overlays use text-range-based
-    /// positioning via `TableAttributes.range` in the text storage. Includes
-    /// sticky header positioning for long tables.
+    /// Manages overlay views (Mermaid, images, tables, math, thematic breaks)
+    /// positioned within an `NSTextView`. All overlays use attachment-based
+    /// positioning via their `NSTextAttachment` placeholder in the text storage.
     @MainActor
     final class OverlayCoordinator {
         // MARK: - Types
@@ -16,29 +14,17 @@
             let attachment: NSTextAttachment?
             let block: MarkdownBlock
             var preferredWidth: CGFloat?
-            var tableRangeID: String?
-            var highlightOverlay: TableHighlightOverlay?
-            var cellMap: TableCellMap?
-            var lastAppliedVisualHeight: CGFloat?
 
             init(
                 view: NSView,
                 block: MarkdownBlock,
                 attachment: NSTextAttachment? = nil,
-                preferredWidth: CGFloat? = nil,
-                tableRangeID: String? = nil,
-                highlightOverlay: TableHighlightOverlay? = nil,
-                cellMap: TableCellMap? = nil,
-                lastAppliedVisualHeight: CGFloat? = nil
+                preferredWidth: CGFloat? = nil
             ) {
                 self.view = view
                 self.attachment = attachment
                 self.block = block
                 self.preferredWidth = preferredWidth
-                self.tableRangeID = tableRangeID
-                self.highlightOverlay = highlightOverlay
-                self.cellMap = cellMap
-                self.lastAppliedVisualHeight = lastAppliedVisualHeight
             }
         }
 
@@ -57,20 +43,13 @@
         var entries: [Int: OverlayEntry] = [:]
         nonisolated(unsafe) var layoutObserver: NSObjectProtocol?
         var appSettings: AppSettings?
-        var stickyHeaders: [Int: NSView] = [:]
         nonisolated(unsafe) var scrollObserver: NSObjectProtocol?
         let containerState = OverlayContainerState()
         private var isRepositionScheduled = false
         var attachmentIndex: [ObjectIdentifier: NSRange] = [:]
-        var tableRangeIndex: [String: NSRange] = [:]
         var onLayoutInvalidation: (() -> Void)?
         var onOverlayReady: (() -> Void)?
         var reportedOverlays: Set<Int> = []
-        var pendingVisualHeights: [Int: CGFloat] = [:]
-        /// Highest text offset through which layout has been reconciled via
-        /// `reconcileLayoutThroughViewport`. Reset to 0 when paragraph heights
-        /// change, avoiding redundant full-prefix enumeration on every scroll.
-        private var reconciledThroughOffset = 0
 
         deinit {
             if let layoutObserver {
@@ -124,106 +103,29 @@
         func hideAllOverlays() {
             for (_, entry) in entries {
                 entry.view.isHidden = true
-                entry.highlightOverlay?.isHidden = true
-            }
-            for (_, header) in stickyHeaders {
-                header.isHidden = true
             }
         }
 
         /// Recalculates all overlay positions from the current layout geometry.
-        ///
-        /// Before reading fragment positions, forces TextKit 2 to lay out all
-        /// fragments from the document start through the visible area. This
-        /// prevents stale cumulative y-offset estimates (from lazy layout) from
-        /// cascading into wrong positions for table-dense regions.
         func repositionOverlays() {
             guard let context = makeLayoutContext(),
                   context.containerWidth > 0
             else { return }
             let widthChanged = abs(containerState.containerWidth - context.containerWidth) > 1
             containerState.containerWidth = context.containerWidth
-            if widthChanged {
-                invalidateReconciliation()
-                for key in entries.keys {
-                    entries[key]?.lastAppliedVisualHeight = nil
-                }
-                stickyHeaders.values.forEach { $0.removeFromSuperview() }
-                stickyHeaders.removeAll()
-            }
             let finalContext = widthChanged ? (makeLayoutContext() ?? context) : context
-            reconcileLayoutThroughViewport(context: finalContext)
-            for (_, entry) in entries
-                where shouldPositionEntry(entry, context: finalContext)
-            {
+            for (_, entry) in entries {
                 positionEntry(entry, context: finalContext)
             }
-        }
-
-        /// Forces `.ensuresLayout` enumeration through the visible range so
-        /// cumulative y-offsets are correct before `boundingRect` reads them.
-        ///
-        /// Uses a high-water mark (`reconciledThroughOffset`) to skip content
-        /// that has already been reconciled since the last layout invalidation.
-        /// On a typical scroll, only the newly-revealed delta is enumerated.
-        private func reconcileLayoutThroughViewport(context: LayoutContext) {
-            guard let visibleRange = context.visibleRange,
-                  visibleRange.length > 0
-            else { return }
-
-            let targetEnd = NSMaxRange(visibleRange)
-            guard targetEnd > reconciledThroughOffset else { return }
-
-            let docStart = context.contentManager.documentRange.location
-            let startOffset = max(reconciledThroughOffset, 0)
-
-            guard let startLoc = context.contentManager.location(
-                docStart, offsetBy: startOffset
-            ),
-                let endLoc = context.contentManager.location(
-                    docStart, offsetBy: targetEnd
-                )
-            else { return }
-
-            context.layoutManager.enumerateTextLayoutFragments(
-                from: startLoc,
-                options: [.ensuresLayout]
-            ) { fragment in
-                fragment.rangeInElement.location.compare(endLoc) == .orderedAscending
-            }
-
-            reconciledThroughOffset = targetEnd
-        }
-
-        /// Resets the layout reconciliation high-water mark, forcing the next
-        /// `reconcileLayoutThroughViewport` call to re-enumerate from the
-        /// document start. Call after any mutation that changes paragraph
-        /// heights or attachment sizes.
-        func invalidateReconciliation() {
-            reconciledThroughOffset = 0
-        }
-
-        private func shouldPositionEntry(
-            _ entry: OverlayEntry,
-            context: LayoutContext
-        ) -> Bool {
-            guard let tableRangeID = entry.tableRangeID else { return true }
-            guard let visibleRange = context.visibleRange,
-                  let tableRange = findTableTextRange(for: tableRangeID)
-            else { return true }
-            return NSIntersectionRange(visibleRange, tableRange).length > 0
         }
 
         /// Removes all hosted overlay views and stops layout observation.
         func removeAllOverlays() {
             for (_, entry) in entries {
                 entry.view.removeFromSuperview()
-                entry.highlightOverlay?.removeFromSuperview()
             }
             entries.removeAll()
             reportedOverlays.removeAll()
-            stickyHeaders.values.forEach { $0.removeFromSuperview() }
-            stickyHeaders.removeAll()
             removeObservers()
         }
 
@@ -326,7 +228,6 @@
                 }
             }
 
-            invalidateReconciliation()
             onLayoutInvalidation?()
         }
 
@@ -376,7 +277,6 @@
             }
 
             entries[info.blockIndex]?.view.removeFromSuperview()
-            entries[info.blockIndex]?.highlightOverlay?.removeFromSuperview()
             createAttachmentOverlay(
                 for: info,
                 appSettings: appSettings,
@@ -387,11 +287,8 @@
 
         private func removeStaleAttachmentOverlays(keeping validIndices: Set<Int>) {
             for (index, entry) in entries where !validIndices.contains(index) {
-                guard entry.tableRangeID == nil else { continue }
                 entry.view.removeFromSuperview()
                 entries.removeValue(forKey: index)
-                stickyHeaders[index]?.removeFromSuperview()
-                stickyHeaders.removeValue(forKey: index)
             }
         }
 

@@ -52,11 +52,6 @@
         var cachedCodeBlocks: [CodeBlockInfo] = []
         var isCodeBlockCacheValid = false
 
-        // MARK: - Table Range Cache
-
-        var cachedTableRanges: [String: NSRange] = [:]
-        var isTableRangeCacheValid = false
-
         // MARK: - Copy Button State
 
         var hoveredBlockID: String?
@@ -67,22 +62,10 @@
 
         weak var findState: FindState?
 
-        // MARK: - Selection Drag Callback
-
-        /// Called on every mouseDragged event during a text selection drag,
-        /// allowing real-time table cell highlight updates.
-        var selectionDragHandler: ((NSRange) -> Void)?
-
         // MARK: - Print Support
 
         /// Current indexed blocks retained for print-time attributed string rebuild.
         var printBlocks: [IndexedBlock] = []
-
-        // MARK: - Table-Aware Copy
-
-        override func copy(_ sender: Any?) {
-            if !handleTableCopy() { super.copy(sender) }
-        }
 
         // MARK: - Live Resize
 
@@ -101,7 +84,6 @@
 
         func invalidateCodeBlockCache() {
             isCodeBlockCacheValid = false
-            isTableRangeCacheValid = false
         }
 
         // MARK: - Escape to Dismiss Find
@@ -134,19 +116,6 @@
                 if isOverEmptyTextArea(finalPoint) {
                     NSCursor.arrow.set()
                 }
-            }
-        }
-
-        // MARK: - Real-Time Selection Updates
-
-        override func setSelectedRanges(
-            _ ranges: [NSValue],
-            affinity: NSSelectionAffinity,
-            stillSelecting: Bool
-        ) {
-            super.setSelectedRanges(ranges, affinity: affinity, stillSelecting: stillSelecting)
-            if let range = ranges.first {
-                selectionDragHandler?(range.rangeValue)
             }
         }
 
@@ -191,16 +160,9 @@
 
         // MARK: - Drawing
 
-        /// Required for print rendering and table selection highlight suppression.
-        override func draw(_ dirtyRect: NSRect) {
-            super.draw(dirtyRect)
-            eraseTableSelectionHighlights(in: dirtyRect)
-        }
-
         override func drawBackground(in rect: NSRect) {
             super.drawBackground(in: rect)
             drawCodeBlockContainers(in: rect)
-            drawTableContainers(in: rect)
         }
 
         // MARK: - Print

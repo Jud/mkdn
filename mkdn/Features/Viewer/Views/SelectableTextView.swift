@@ -54,7 +54,6 @@
                 coordinator.animator.animateVisibleFragments()
                 coordinator.overlayCoordinator.applyEntranceAnimation(
                     attachmentDelays: coordinator.animator.attachmentDelays,
-                    tableDelays: coordinator.animator.tableDelays,
                     fadeInDuration: AnimationConstants.fadeInDuration
                 )
             }
@@ -242,7 +241,6 @@
                 if coordinator.animator.isAnimating {
                     coordinator.overlayCoordinator.applyEntranceAnimation(
                         attachmentDelays: coordinator.animator.attachmentDelays,
-                        tableDelays: [:],
                         fadeInDuration: AnimationConstants.fadeInDuration
                     )
                 }
@@ -276,7 +274,6 @@
                 if coordinator.animator.isAnimating {
                     coordinator.overlayCoordinator.applyEntranceAnimation(
                         attachmentDelays: coordinator.animator.attachmentDelays,
-                        tableDelays: [:],
                         fadeInDuration: AnimationConstants.fadeInDuration
                     )
                 }

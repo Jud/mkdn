@@ -10,9 +10,9 @@
     /// the text view content drifts upward from a slight offset to its final
     /// position.
     ///
-    /// Code block and table fragments are grouped by block ID and share a single
+    /// Code block fragments are grouped by block ID and share a single
     /// full-width cover layer that hides both the container (background + border)
-    /// and text, so each code block or table fades in as a unit.
+    /// and text, so each code block fades in as a unit.
     ///
     /// The animation is **position-based and idempotent**: calling
     /// ``animateVisibleFragments()`` after a layout shift (e.g. overlay height
@@ -29,7 +29,6 @@
         var isAnimating = false
         weak var textView: NSTextView?
         private(set) var attachmentDelays: [ObjectIdentifier: CFTimeInterval] = [:]
-        private(set) var tableDelays: [String: CFTimeInterval] = [:]
 
         // MARK: - Private State
 
@@ -61,7 +60,6 @@
             removeViewDriftAnimation()
 
             attachmentDelays.removeAll()
-            tableDelays.removeAll()
             self.reduceMotion = reduceMotion
 
             if reduceMotion {
@@ -82,7 +80,6 @@
             removeViewDriftAnimation()
 
             attachmentDelays.removeAll()
-            tableDelays.removeAll()
             isAnimating = false
         }
 
@@ -107,7 +104,6 @@
 
             removeCoverLayers()
             attachmentDelays.removeAll()
-            tableDelays.removeAll()
 
             let elapsed = CACurrentMediaTime() - entranceStartTime
             let totalRevealTime = AnimationConstants.staggerCap
@@ -271,31 +267,15 @@
         ) {
             let docHeight = staggerHeight
 
-            for (groupID, group) in groups {
-                if groupID.hasPrefix("table-") {
-                    let positionDelay = positionDelay(
-                        y: group.minY, documentHeight: docHeight
-                    )
-                    let tableRangeID = String(groupID.dropFirst("table-".count))
-                    tableDelays[tableRangeID] = max(positionDelay - elapsed, 0)
-                    let coverLayer = makeBlockGroupCoverLayer(
-                        frames: group.frames, in: textView
-                    )
-                    addCoverAnimation(
-                        to: coverLayer, positionDelay: positionDelay, elapsed: elapsed
-                    )
-                    viewLayer.addSublayer(coverLayer)
-                    coverLayers.append(coverLayer)
-                } else {
-                    // Code blocks: per-line covers for line-by-line cascade.
-                    addCodeBlockLineCoverLayers(
-                        group: group,
-                        elapsed: elapsed,
-                        docHeight: docHeight,
-                        in: textView,
-                        to: viewLayer
-                    )
-                }
+            for (_, group) in groups {
+                // Code blocks: per-line covers for line-by-line cascade.
+                addCodeBlockLineCoverLayers(
+                    group: group,
+                    elapsed: elapsed,
+                    docHeight: docHeight,
+                    in: textView,
+                    to: viewLayer
+                )
             }
         }
 
@@ -402,14 +382,6 @@
                 effectiveRange: nil
             ) as? String {
                 return "code-\(codeBlockID)"
-            }
-
-            if let tableID = textStorage.attribute(
-                TableAttributes.range,
-                at: charOffset,
-                effectiveRange: nil
-            ) as? String {
-                return "table-\(tableID)"
             }
 
             return nil
