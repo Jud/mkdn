@@ -66,6 +66,16 @@ scripts/mkdn-ctl theme solarizedDark              # set theme
 scripts/mkdn-ctl info                             # window state
 ```
 
+### Releasing
+
+To release, read the header comment in `scripts/release.sh` for the full workflow. The short version:
+
+1. Read `.style` for voice/tone guidance.
+2. Find the previous tag (`git tag --sort=-version:refname`) and collect commits since then.
+3. Read the actual diff — commit messages are developer-facing and often wrong about what changed. The code is the source of truth.
+4. Write release notes for end users to `build/release-notes.md`. See the script header for formatting rules.
+5. Run `scripts/release.sh --notes-file build/release-notes.md`.
+
 ### Visual Verification After UI Changes
 
 **Always visually verify** after implementing UI features or modifying rendering. Do not rely solely on unit tests for visual correctness. The workflow:

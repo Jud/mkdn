@@ -64,3 +64,6 @@ Pods/
 
 # Claude Code configuration
 .claude/
+
+# Local writing style (personal voice profile)
+.style

@@ -1,8 +1,45 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Release script for mkdn.
+#
+# Usage: release.sh --notes-file <path>
+#
+# The --notes-file flag is required. Before running this script, generate
+# release notes by hand or write them as follows:
+#
+#   1. Read .style in the project root for voice/tone guidance.
+#   2. Find the previous release tag and collect the commits since then.
+#   3. Read the actual code changes (not just commit subjects) to understand
+#      what changed for the user. Commit messages are developer-facing and
+#      often misleading -- the diff is the source of truth.
+#   4. Write a short changelog for end users. Group by what changed, not by
+#      commit. Use bold lowercase headings (**tables rebuilt.**, **fixed.**).
+#      Be honest about bug fixes. No marketing language. No commit hashes.
+#      Skip internal refactors, test changes, and code cleanup.
+#   5. Save to build/release-notes.md and pass via --notes-file.
+#
+# Set SKIP_CHANGELOG=1 to bypass and use raw commit subjects instead.
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+# Parse flags
+NOTES_FILE_ARG=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --notes-file)
+            NOTES_FILE_ARG="$2"
+            [ -f "${NOTES_FILE_ARG}" ] || { echo "ERROR: notes file not found: ${NOTES_FILE_ARG}" >&2; exit 1; }
+            shift 2
+            ;;
+        *)
+            echo "ERROR: unknown flag: $1" >&2
+            echo "Usage: release.sh [--notes-file <path>]" >&2
+            exit 1
+            ;;
+    esac
+done
 
 BUILD_DIR="${PROJECT_ROOT}/build"
 APP_BUNDLE="${BUILD_DIR}/mkdn.app"
@@ -235,8 +272,46 @@ echo "  Archive: ${ARCHIVE_PATH}"
 echo "  SHA256: ${SHA256}"
 
 # ---------------------------------------------------------------------------
-# Phase 8: Publish GitHub Release
+# Phase 8: Generate changelog & publish GitHub Release
 # ---------------------------------------------------------------------------
+info "Preparing release notes"
+
+PREV_TAG=$(git tag --sort=-version:refname | grep -A1 "^${TAG}$" | tail -1)
+
+if [ -n "${NOTES_FILE_ARG}" ]; then
+    NOTES_FILE="${NOTES_FILE_ARG}"
+    NOTES_FILE_OWNED=false
+    echo "  Using provided notes file: ${NOTES_FILE}"
+    sed 's/^/    /' "${NOTES_FILE}"
+else
+    NOTES_FILE=$(mktemp)
+    NOTES_FILE_OWNED=true
+    trap "rm -f '${NOTES_FILE}'; rm -rf '${TAP_DIR:-}'; cleanup" EXIT
+
+    if [ -z "${PREV_TAG}" ] || [ "${PREV_TAG}" = "${TAG}" ]; then
+        COMMIT_LOG=$(git log --oneline "${TAG}")
+    else
+        COMMIT_LOG=$(git log --oneline "${PREV_TAG}..${TAG}")
+    fi
+
+    echo "  No --notes-file provided. Generate notes first:"
+    echo ""
+    echo "    ./scripts/generate-changelog.sh"
+    echo "    ./scripts/release.sh --notes-file build/release-notes.md"
+    echo ""
+    echo "  Or to skip and use raw commit log, set SKIP_CHANGELOG=1"
+
+    if [ "${SKIP_CHANGELOG:-}" = "1" ]; then
+        echo "## What's Changed" > "${NOTES_FILE}"
+        echo "" >> "${NOTES_FILE}"
+        echo "${COMMIT_LOG}" | sed 's/^[a-f0-9]* /- /' >> "${NOTES_FILE}"
+        echo "" >> "${NOTES_FILE}"
+        echo "**Full Changelog**: https://github.com/Jud/mkdn/compare/${PREV_TAG:-v0.0.0}...${TAG}" >> "${NOTES_FILE}"
+    else
+        exit 1
+    fi
+fi
+
 info "Publishing GitHub Release"
 
 if gh release view "${TAG}" > /dev/null 2>&1; then
@@ -244,9 +319,11 @@ if gh release view "${TAG}" > /dev/null 2>&1; then
 else
     gh release create "${TAG}" "${ARCHIVE_PATH}" \
         --title "mkdn ${TAG}" \
-        --generate-notes
+        --notes-file "${NOTES_FILE}"
     echo "  Created release: ${TAG}"
 fi
+
+[ "${NOTES_FILE_OWNED}" = true ] && rm -f "${NOTES_FILE}"
 
 # ---------------------------------------------------------------------------
 # Phase 9: Update Homebrew tap
