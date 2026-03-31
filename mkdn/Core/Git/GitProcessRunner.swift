@@ -14,11 +14,42 @@
             case notGitRepository
         }
 
+        // MARK: - Git Discovery
+
+        /// Resolved path to the git executable, or nil if git is not installed.
+        /// Checks `/usr/bin/git` (macOS CLT shim) and Homebrew paths.
+        private static let gitExecutable: URL? = {
+            let candidates = [
+                "/usr/bin/git",
+                "/opt/homebrew/bin/git",
+                "/usr/local/bin/git",
+            ]
+            for path in candidates {
+                let url = URL(fileURLWithPath: path)
+                guard FileManager.default.isExecutableFile(atPath: path) else { continue }
+                // Verify it actually works (macOS shim without CLT pops a dialog)
+                let process = Process()
+                process.executableURL = url
+                process.arguments = ["--version"]
+                process.standardOutput = FileHandle.nullDevice
+                process.standardError = FileHandle.nullDevice
+                do {
+                    try process.run()
+                    process.waitUntilExit()
+                    if process.terminationStatus == 0 { return url }
+                } catch {
+                    continue
+                }
+            }
+            return nil
+        }()
+
         // MARK: - High-Level Commands
 
         /// Returns the root of the git repository containing `directory`, or `nil`
-        /// if the path is not inside a git repo.
+        /// if the path is not inside a git repo or git is not installed.
         public static func repoRoot(for directory: URL) async -> URL? {
+            guard gitExecutable != nil else { return nil }
             guard let output = try? await run(
                 arguments: ["rev-parse", "--show-toplevel"],
                 in: directory
@@ -163,7 +194,7 @@
             let output = PipeOutput()
 
             init(directory: URL, arguments: [String]) {
-                process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+                process.executableURL = gitExecutable
                 process.arguments = arguments
                 process.currentDirectoryURL = directory
                 process.standardOutput = stdoutPipe
