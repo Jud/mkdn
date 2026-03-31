@@ -41,6 +41,10 @@
         /// Maximum depth for recursive directory scanning.
         static let maxScanDepth = 10
 
+        // MARK: - Git Status
+
+        let gitStatusProvider = GitStatusProvider()
+
         // MARK: - Directory Watcher
 
         let directoryWatcher = DirectoryWatcher()
@@ -53,6 +57,7 @@
         // MARK: - Private
 
         @ObservationIgnored private nonisolated(unsafe) var observationTask: Task<Void, Never>?
+        @ObservationIgnored private nonisolated(unsafe) var refreshTask: Task<Void, Never>?
 
         // MARK: - Init
 
@@ -62,6 +67,7 @@
 
         deinit {
             observationTask?.cancel()
+            refreshTask?.cancel()
         }
 
         // MARK: - Public API
@@ -88,32 +94,43 @@
                     expandFirstLevelDirectories()
                     startWatching()
                     startObservingWatcher()
+                    gitStatusProvider.configure(sidebarRoot: url)
                 }
             }
         }
 
         /// Refresh expanded directories from disk, preserving expansion and selection state.
-        ///
-        /// Rescans only the root level and currently expanded directories rather
-        /// than rebuilding the entire tree. If the previously selected file has
-        /// been deleted, the selection is cleared.
-        public func refresh() {
-            let previousExpanded = expandedDirectories
+        public func refresh() { // swiftlint:disable:this function_body_length
+            refreshTask?.cancel()
+            gitStatusProvider.refresh()
+
+            let snapshotExpanded = expandedDirectories
             let previousSelected = selectedFileURL
             let url = rootURL
+            var dirsToScan = snapshotExpanded
 
-            Task.detached {
+            // Filter mode: also scan directories with changed descendants
+            if gitStatusProvider.showOnlyChanged {
+                for path in gitStatusProvider.directoriesWithChanges {
+                    dirsToScan.insert(URL(fileURLWithPath: path, isDirectory: true))
+                }
+            }
+
+            refreshTask = Task.detached {
                 let topLevelChildren = DirectoryScanner.scanSingleLevel(url: url, depth: 0)
 
                 var expandedResults: [(URL, Int, [FileTreeNode])] = []
-                for dirURL in previousExpanded {
+                for dirURL in dirsToScan {
+                    guard !Task.isCancelled else { return }
                     let depth = self.depthForURL(dirURL, rootURL: url)
                     let children = DirectoryScanner.scanSingleLevel(url: dirURL, depth: depth)
                     expandedResults.append((dirURL, depth, children))
                 }
 
+                guard !Task.isCancelled else { return }
+
                 await MainActor.run { [weak self] in
-                    guard let self else { return }
+                    guard let self, !Task.isCancelled else { return }
 
                     tree = FileTreeNode(
                         name: url.lastPathComponent,
@@ -123,13 +140,17 @@
                         children: topLevelChildren
                     )
 
-                    for (dirURL, _, children) in expandedResults {
+                    // Parents before children so updateNode can find deeper nodes
+                    let sorted = expandedResults.sorted { $0.1 < $1.1 }
+                    for (dirURL, _, children) in sorted {
                         updateNode(at: dirURL) { node in
                             node.children = children
                         }
                     }
 
-                    expandedDirectories = previousExpanded
+                    for dirURL in expandedDirectories where !snapshotExpanded.contains(dirURL) {
+                        loadChildrenIfNeeded(for: dirURL)
+                    }
 
                     if let selected = previousSelected {
                         if FileManager.default.fileExists(atPath: selected.path) {
@@ -142,7 +163,6 @@
                     }
 
                     directoryWatcher.acknowledge()
-                    startWatching()
                 }
             }
         }
@@ -172,6 +192,38 @@
                         node.children = children
                     }
                     loadingDirectories.remove(url)
+                }
+            }
+        }
+
+        /// Scan changed directories in the background. Returns results to apply later
+        /// so the caller can batch the tree update with a state toggle inside `withAnimation`.
+        public func scanChangedDirectories() async -> [(URL, Int, [FileTreeNode])] {
+            let changedDirs = gitStatusProvider.directoriesWithChanges
+            let root = rootURL
+
+            return await Task.detached {
+                var results: [(URL, Int, [FileTreeNode])] = []
+                for path in changedDirs {
+                    let url = URL(fileURLWithPath: path, isDirectory: true)
+                    var isDir: ObjCBool = false
+                    guard FileManager.default.fileExists(atPath: path, isDirectory: &isDir),
+                          isDir.boolValue
+                    else { continue }
+                    let depth = self.depthForURL(url, rootURL: root)
+                    let children = DirectoryScanner.scanSingleLevel(url: url, depth: depth)
+                    results.append((url, depth, children))
+                }
+                results.sort { $0.1 < $1.1 }
+                return results
+            }.value
+        }
+
+        /// Apply pre-scanned directory results to the tree.
+        public func applyScannedDirectories(_ results: [(URL, Int, [FileTreeNode])]) {
+            for (url, _, children) in results {
+                updateNode(at: url) { node in
+                    node.children = children
                 }
             }
         }

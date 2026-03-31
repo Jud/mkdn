@@ -18,13 +18,19 @@
                 SidebarHeaderView(onChangeDirectory: onChangeDirectory)
 
                 if let tree = directoryState.tree, !(tree.children ?? []).isEmpty {
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 0) {
-                            ForEach(flattenVisibleNodes(tree)) { node in
-                                SidebarRowView(node: node)
+                    let nodes = flattenVisibleNodes(tree)
+                    if nodes.isEmpty, directoryState.gitStatusProvider.showOnlyChanged {
+                        filterEmptyState
+                    } else {
+                        ScrollView {
+                            LazyVStack(alignment: .leading, spacing: 0) {
+                                ForEach(nodes) { node in
+                                    SidebarRowView(node: node)
+                                        .transition(.move(edge: .leading))
+                                }
                             }
+                            .padding(.vertical, 4)
                         }
-                        .padding(.vertical, 4)
                     }
                 } else {
                     SidebarEmptyView()
@@ -33,19 +39,36 @@
             .background(appSettings.theme.colors.backgroundSecondary)
         }
 
+        // MARK: - Filter Empty State
+
+        private var filterEmptyState: some View {
+            VStack(spacing: 8) {
+                Image(systemName: "checkmark.circle")
+                    .font(.title2)
+                    .foregroundStyle(appSettings.theme.colors.foregroundSecondary)
+                Text("No changed files")
+                    .font(.callout)
+                    .foregroundStyle(appSettings.theme.colors.foregroundSecondary)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+
         // MARK: - Tree Flattening
 
         /// Converts a recursive ``FileTreeNode`` tree into a flat list of
         /// visible nodes, respecting directory expansion state.
         ///
-        /// Only the root's children are walked (the root itself is
-        /// represented by the header). Directories that are collapsed
-        /// hide their children from the output. Directories with `nil`
-        /// children (not yet loaded) appear in the list but have no
-        /// children to expand.
+        /// In filter mode (``GitStatusProvider/showOnlyChanged``), only files
+        /// with git status and their ancestor directories are shown. Directories
+        /// are auto-expanded. The original ``expandedDirectories`` set is preserved
+        /// for when the filter is toggled off.
         private func flattenVisibleNodes(_ root: FileTreeNode) -> [FileTreeNode] {
             var result: [FileTreeNode] = []
-            flattenChildren(of: root, into: &result)
+            if directoryState.gitStatusProvider.showOnlyChanged {
+                flattenChangedNodes(of: root, into: &result)
+            } else {
+                flattenChildren(of: root, into: &result)
+            }
             return result
         }
 
@@ -54,6 +77,22 @@
                 result.append(child)
                 if child.isDirectory, directoryState.expandedDirectories.contains(child.url) {
                     flattenChildren(of: child, into: &result)
+                }
+            }
+        }
+
+        private func flattenChangedNodes(of parent: FileTreeNode, into result: inout [FileTreeNode]) {
+            let provider = directoryState.gitStatusProvider
+            for child in parent.children ?? [] {
+                if child.isDirectory {
+                    if provider.hasChangedDescendants(under: child.url) {
+                        result.append(child)
+                        if child.isLoaded {
+                            flattenChangedNodes(of: child, into: &result)
+                        }
+                    }
+                } else if provider.status(for: child.url) != nil {
+                    result.append(child)
                 }
             }
         }

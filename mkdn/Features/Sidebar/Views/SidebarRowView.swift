@@ -17,6 +17,7 @@
 
         private var isExpanded: Bool {
             directoryState.expandedDirectories.contains(node.url)
+                || directoryState.gitStatusProvider.showOnlyChanged
         }
 
         var body: some View {
@@ -46,6 +47,15 @@
                     .foregroundStyle(appSettings.theme.colors.foreground)
                     .lineLimit(1)
                     .truncationMode(.middle)
+
+                if !isExpanded,
+                   directoryState.gitStatusProvider.hasChangedDescendants(under: node.url)
+                {
+                    Circle()
+                        .fill(appSettings.theme.colors.accent.opacity(0.6))
+                        .frame(width: 6, height: 6)
+                        .accessibilityLabel("Contains changes")
+                }
             }
             .padding(.leading, CGFloat(node.depth - 1) * 16 + 12)
             .padding(.trailing, 8)
@@ -53,7 +63,10 @@
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
             .onTapGesture {
-                if isExpanded {
+                // In filter mode directories are force-expanded; ignore collapse taps
+                guard !directoryState.gitStatusProvider.showOnlyChanged else { return }
+
+                if directoryState.expandedDirectories.contains(node.url) {
                     directoryState.expandedDirectories.remove(node.url)
                 } else {
                     directoryState.loadChildrenIfNeeded(for: node.url)
@@ -87,6 +100,16 @@
                     .foregroundStyle(appSettings.theme.colors.foreground)
                     .lineLimit(1)
                     .truncationMode(.middle)
+
+                Spacer()
+
+                if let status = directoryState.gitStatusProvider.status(for: node.url) {
+                    Text(GitColors.badge(for: status))
+                        .font(.caption.monospaced())
+                        .foregroundStyle(GitColors.color(for: status))
+                        .frame(width: 16)
+                        .accessibilityLabel(status.rawValue.capitalized)
+                }
             }
             .padding(.leading, CGFloat(node.depth - 1) * 16 + 12)
             .padding(.trailing, 8)

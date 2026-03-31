@@ -71,7 +71,8 @@
                         | kFSEventStreamCreateFlagNoDefer
                         | kFSEventStreamCreateFlagFileEvents
                 )
-            ) else {
+            )
+            else {
                 Unmanaged<ContinuationBox>.fromOpaque(ptr).release()
                 continuationBoxPtr = nil
                 continuation.finish()
