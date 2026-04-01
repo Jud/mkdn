@@ -19,8 +19,8 @@ let package = Package(
         ),
     ],
     dependencies: [
-        // Markdown parsing (Apple's official parser)
-        .package(url: "https://github.com/apple/swift-markdown.git", from: "0.5.0"),
+        // Markdown parsing (fork of Apple's parser with footnote support)
+        .package(url: "https://github.com/Jud/swift-markdown.git", branch: "footnotes"),
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.5.0"),
 
         // Tree-sitter syntax highlighting
