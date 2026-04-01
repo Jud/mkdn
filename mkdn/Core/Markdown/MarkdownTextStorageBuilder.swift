@@ -333,6 +333,15 @@ public enum MarkdownTextStorageBuilder {
                 attributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue
             }
 
+            #if os(macOS)
+                if run.appKit.superscript != nil {
+                    let smallerSize = font.pointSize * 0.7
+                    attributes[.font] = NSFont.systemFont(ofSize: smallerSize, weight: .medium)
+                    attributes[.foregroundColor] = linkColor
+                    attributes.removeValue(forKey: .underlineStyle)
+                }
+            #endif
+
             result.append(NSAttributedString(string: text, attributes: attributes))
         }
 

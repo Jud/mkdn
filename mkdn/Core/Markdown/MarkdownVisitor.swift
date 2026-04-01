@@ -4,10 +4,54 @@ import SwiftUI
 /// Walks a swift-markdown `Document` and produces `MarkdownBlock` elements.
 struct MarkdownVisitor {
     let theme: AppTheme
+    private var footnoteIndices: [String: Int] = [:]
+    private var footnoteDefinitions: [(label: String, blocks: [MarkdownBlock])] = []
+
+    init(theme: AppTheme) {
+        self.theme = theme
+    }
 
     /// Visit the document and return all top-level blocks.
-    func visitDocument(_ document: Document) -> [MarkdownBlock] {
-        document.children.compactMap { convertBlock($0) }
+    mutating func visitDocument(_ document: Document) -> [MarkdownBlock] {
+        // First pass: collect footnote definitions and assign indices.
+        // cmark assigns numeric IDs to references (e.g. [^note] → footnoteID "2"),
+        // so we index by both the original label and the 1-based order.
+        var definitionOrder = 0
+        for child in document.children {
+            if let def = child as? FootnoteDefinition {
+                definitionOrder += 1
+                footnoteIndices[def.footnoteID] = definitionOrder
+                footnoteIndices["\(definitionOrder)"] = definitionOrder
+                let defBlocks = def.children.compactMap { convertBlock($0) }
+                footnoteDefinitions.append((label: def.footnoteID, blocks: defBlocks))
+            }
+        }
+
+        // Second pass: convert all non-definition blocks
+        var result = document.children.compactMap { child -> MarkdownBlock? in
+            if child is FootnoteDefinition { return nil }
+            return convertBlock(child)
+        }
+
+        // Append footnote section at the end
+        if !footnoteDefinitions.isEmpty {
+            result.append(.thematicBreak)
+            let items = footnoteDefinitions.enumerated().map { offset, def in
+                let index = offset + 1
+                var blocks = def.blocks
+                // Prepend back-link to first paragraph in each definition
+                if case var .paragraph(text) = blocks.first {
+                    var backLink = AttributedString(" ↩")
+                    backLink.link = URL(string: "mkdn-footnote:ref-\(index)")
+                    text.append(backLink)
+                    blocks[0] = .paragraph(text: text)
+                }
+                return ListItem(blocks: blocks)
+            }
+            result.append(.orderedList(items: items))
+        }
+
+        return result
     }
 
     // MARK: - Block Conversion
@@ -170,6 +214,15 @@ struct MarkdownVisitor {
         case let image as Markdown.Image:
             let alt = plainText(from: image)
             return AttributedString(alt)
+
+        case let footnoteRef as FootnoteReference:
+            let index = footnoteIndices[footnoteRef.footnoteID] ?? 0
+            var result = AttributedString("[\(index)]")
+            result.link = URL(string: "mkdn-footnote:def-\(index)")
+            #if os(macOS)
+                result.appKit.superscript = 1
+            #endif
+            return result
 
         case is SoftBreak:
             return AttributedString(" ")

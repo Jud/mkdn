@@ -54,6 +54,12 @@
                     return false
                 }
 
+                // Footnote navigation: mkdn-footnote:def-N or mkdn-footnote:ref-N
+                if url.scheme == "mkdn-footnote" {
+                    handleFootnoteLink(url)
+                    return true
+                }
+
                 if url.scheme == nil, url.path.isEmpty {
                     return true
                 }
@@ -79,6 +85,120 @@
                 }
 
                 return true
+            }
+
+            // MARK: - Footnote Navigation
+
+            private func handleFootnoteLink(_ url: URL) {
+                guard let textView,
+                      let scrollView = textView.enclosingScrollView,
+                      let storage = textView.textStorage
+                else { return }
+
+                let target = url.absoluteString
+                    .replacingOccurrences(of: "mkdn-footnote:", with: "")
+
+                // Find the target link in the attributed string.
+                // "def-N" → find the back-link "ref-N" at the definition (scroll down)
+                // "ref-N" → find the forward-link "def-N" at the reference (scroll up)
+                let searchURL: String
+                if target.hasPrefix("def-") {
+                    let index = String(target.dropFirst(4))
+                    searchURL = "mkdn-footnote:ref-\(index)"
+                } else {
+                    let index = String(target.dropFirst(4))
+                    searchURL = "mkdn-footnote:def-\(index)"
+                }
+
+                // Scan the attributed string for the matching link
+                var targetOffset: Int?
+                var targetRange = NSRange(location: 0, length: 0)
+                storage.enumerateAttribute(.link, in: NSRange(
+                    location: 0,
+                    length: storage.length
+                )) { value, range, stop in
+                    if let linkURL = value as? URL, linkURL.absoluteString == searchURL {
+                        targetOffset = range.location
+                        targetRange = range
+                        stop.pointee = true
+                    }
+                }
+
+                guard let offset = targetOffset,
+                      let targetY = yPosition(forCharacterOffset: offset)
+                else { return }
+
+                isProgrammaticScroll = true
+                pulseHighlight(atCharacterOffset: offset, linkRange: targetRange)
+
+                let clipView = scrollView.contentView
+                let destination = NSPoint(x: 0, y: targetY)
+                NSAnimationContext.runAnimationGroup { context in
+                    context.duration = AnimationConstants.scrollToHeadingDuration
+                    context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                    clipView.animator().setBoundsOrigin(destination)
+                } completionHandler: { [weak self, weak scrollView, weak clipView] in
+                    guard let scrollView, let clipView else { return }
+                    Task { @MainActor in
+                        self?.isProgrammaticScroll = false
+                        scrollView.reflectScrolledClipView(clipView)
+                        self?.handleScrollForSpy()
+                    }
+                }
+            }
+
+            private var footnotePulseTask: Task<Void, Never>?
+            private var footnotePulseRange: NSRange?
+
+            /// Briefly highlight the text at a footnote target using a background attribute.
+            private func pulseHighlight(atCharacterOffset offset: Int, linkRange: NSRange) {
+                guard let textView,
+                      let storage = textView.textStorage,
+                      linkRange.location + linkRange.length <= storage.length
+                else { return }
+
+                // Cancel previous highlight and clear it immediately
+                footnotePulseTask?.cancel()
+                if let prev = footnotePulseRange {
+                    storage.removeAttribute(.backgroundColor, range: prev)
+                }
+
+                let paraRange = (storage.string as NSString)
+                    .paragraphRange(for: linkRange)
+
+                // Skip past the list marker prefix (e.g. "\t1.\t")
+                let nsString = storage.string as NSString
+                var contentStart = paraRange.location
+                let paraEnd = paraRange.location + paraRange.length
+                while contentStart < paraEnd {
+                    let ch = nsString.character(at: contentStart)
+                    if ch == 0x09 || ch == 0x20 || (ch >= 0x30 && ch <= 0x39) || ch == 0x2E {
+                        contentStart += 1
+                    } else {
+                        break
+                    }
+                }
+                let contentRange = NSRange(location: contentStart, length: paraEnd - contentStart)
+                footnotePulseRange = contentRange
+
+                let highlightColor = NSColor.controlAccentColor.withAlphaComponent(0.2)
+                storage.addAttribute(.backgroundColor, value: highlightColor, range: contentRange)
+
+                footnotePulseTask = Task { @MainActor [weak self, weak textView] in
+                    try? await Task.sleep(for: .milliseconds(800))
+                    for alpha in [0.12, 0.06, 0.0] as [CGFloat] {
+                        guard !Task.isCancelled else { return }
+                        try? await Task.sleep(for: .milliseconds(100))
+                        guard let storage = textView?.textStorage else { return }
+                        if alpha == 0 {
+                            storage.removeAttribute(.backgroundColor, range: contentRange)
+                        } else {
+                            let fade = NSColor.controlAccentColor.withAlphaComponent(alpha)
+                            storage.addAttribute(.backgroundColor, value: fade, range: contentRange)
+                        }
+                    }
+                    self?.footnotePulseRange = nil
+                }
             }
 
             // MARK: - Scroll-Spy
@@ -249,6 +369,7 @@
                     Task { @MainActor in
                         self?.isProgrammaticScroll = false
                         scrollView.reflectScrolledClipView(clipView)
+                        self?.handleScrollForSpy()
                     }
                 }
             }

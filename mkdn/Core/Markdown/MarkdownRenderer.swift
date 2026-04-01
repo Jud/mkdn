@@ -17,7 +17,7 @@ public enum MarkdownRenderer {
         theme: AppTheme,
         generation: UInt64 = 0
     ) -> [IndexedBlock] {
-        let visitor = MarkdownVisitor(theme: theme)
+        var visitor = MarkdownVisitor(theme: theme)
         let blocks = visitor.visitDocument(document)
         return blocks.enumerated().map { offset, element in
             IndexedBlock(index: offset, block: element, generation: generation)

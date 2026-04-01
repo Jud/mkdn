@@ -66,7 +66,7 @@
             )
 
             // TextKit 2 path
-            if let textLayoutManager {
+            if let textLayoutManager, let textContentStorage {
                 guard let fragment = textLayoutManager.textLayoutFragment(
                     for: containerPoint
                 )
@@ -83,7 +83,14 @@
                           fragmentPoint.y < lineBounds.maxY
                     else { continue }
                     let charIndex = lineFragment.characterIndex(for: fragmentPoint)
-                    let docOffset = lineFragment.characterRange.location + charIndex
+
+                    // Convert line-fragment-relative index to document offset
+                    let lineStartInFragment = lineFragment.characterRange.location
+                    let fragmentStartInDoc = textContentStorage.offset(
+                        from: textContentStorage.documentRange.location,
+                        to: fragment.rangeInElement.location
+                    )
+                    let docOffset = fragmentStartInDoc + lineStartInFragment + charIndex
                     guard docOffset >= 0, docOffset < textStorage.length else { return false }
                     return textStorage.attribute(.link, at: docOffset, effectiveRange: nil) != nil
                 }
