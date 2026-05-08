@@ -12,8 +12,10 @@
                 queue: .main
             ) { [weak self] _ in
                 Task { @MainActor [weak self] in
-                    // Invalidate before reposition so any reentrant work that
-                    // reads heading geometry sees fresh state.
+                    // During live resize the LiveResizeScrollView calls
+                    // repositionOverlays synchronously from tile(); skip the
+                    // async path to avoid double-positioning per frame.
+                    if self?.textView?.inLiveResize == true { return }
                     self?.onFrameChange?()
                     self?.repositionOverlays()
                 }

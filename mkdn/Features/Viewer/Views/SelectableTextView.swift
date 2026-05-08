@@ -61,6 +61,8 @@
                     fadeInDuration: AnimationConstants.fadeInDuration
                 )
             }
+            (scrollView as? LiveResizeScrollView)?.overlayCoordinator =
+                coordinator.overlayCoordinator
 
             coordinator.outlineState = outlineState
             coordinator.headingOffsets = headingOffsets
@@ -328,6 +330,7 @@
     /// controller defers text layout for newly-exposed areas until resize ends,
     /// causing blank regions while dragging.
     private final class LiveResizeScrollView: NSScrollView {
+        weak var overlayCoordinator: OverlayCoordinator?
         private var liveResizeBoundsOrigin: NSPoint?
 
         override var preservesContentDuringLiveResize: Bool { true }
@@ -338,6 +341,9 @@
                   let textView = documentView as? NSTextView
             else { return }
             textView.textLayoutManager?.textViewportLayoutController.layoutViewport()
+            // Reposition overlays in the same frame as the text repaints,
+            // not on the next runloop turn via the frame-change observer.
+            overlayCoordinator?.repositionOverlays()
             liveResizeBoundsOrigin = contentView.bounds.origin
         }
 
@@ -345,6 +351,7 @@
             super.viewDidEndLiveResize()
             guard let textView = documentView as? NSTextView else { return }
             textView.textLayoutManager?.textViewportLayoutController.layoutViewport()
+            overlayCoordinator?.repositionOverlays()
 
             if let savedOrigin = liveResizeBoundsOrigin {
                 contentView.setBoundsOrigin(savedOrigin)
