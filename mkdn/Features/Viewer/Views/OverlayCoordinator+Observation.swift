@@ -12,11 +12,12 @@
                 queue: .main
             ) { [weak self] _ in
                 Task { @MainActor [weak self] in
-                    // During live resize the LiveResizeScrollView calls
-                    // repositionOverlays synchronously from tile(); skip the
-                    // async path to avoid double-positioning per frame.
-                    if self?.textView?.inLiveResize == true { return }
                     self?.onFrameChange?()
+                    // LiveResizeScrollView already repositioned overlays
+                    // synchronously from tile(); skip the duplicate pass
+                    // but keep onFrameChange so scroll-spy heading cache
+                    // still invalidates on width changes.
+                    guard self?.textView?.inLiveResize != true else { return }
                     self?.repositionOverlays()
                 }
             }
