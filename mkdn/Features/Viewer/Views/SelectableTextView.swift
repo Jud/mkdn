@@ -342,6 +342,13 @@
 
         override func tile() {
             super.tile()
+            // Backstop: viewDidEndLiveResize doesn't always fire (focus loss,
+            // window close mid-drag). If the flag drifted out of sync, drain
+            // here so deferred heights don't pile up forever.
+            if !inLiveResize, let oc = overlayCoordinator, oc.isInLiveResize {
+                oc.isInLiveResize = false
+                oc.applyDeferredAttachmentHeights()
+            }
             guard inLiveResize,
                   let textView = documentView as? NSTextView
             else { return }

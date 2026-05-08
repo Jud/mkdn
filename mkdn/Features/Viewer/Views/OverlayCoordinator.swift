@@ -147,7 +147,7 @@
                   let textStorage = textView.textStorage
             else { return }
 
-            guard abs(attachment.bounds.height - newHeight) > 1 else { return }
+            guard abs(effectiveHeight(for: attachment) - newHeight) > 1 else { return }
             invalidateAttachmentHeight(
                 attachment, newHeight: newHeight, textView: textView, textStorage: textStorage
             )
@@ -175,7 +175,7 @@
                 widthChanged = true
             }
 
-            let heightChanged = abs(attachment.bounds.height - newHeight) > 1
+            let heightChanged = abs(effectiveHeight(for: attachment) - newHeight) > 1
             if heightChanged {
                 invalidateAttachmentHeight(
                     attachment, newHeight: newHeight, textView: textView, textStorage: textStorage
@@ -218,28 +218,68 @@
 
         // MARK: - Attachment Height
 
-        /// Drains heights queued during live resize, applying each via the
-        /// normal invalidation path. Called from LiveResizeScrollView at end
-        /// of drag, before the final layoutViewport pass.
+        /// Returns the height that callers should compare against when
+        /// deciding whether a new height is meaningfully different. During
+        /// live resize, `attachment.bounds.height` stays at the pre-resize
+        /// value; the queued height represents the most recent intent.
+        private func effectiveHeight(for attachment: NSTextAttachment) -> CGFloat {
+            deferredAttachmentHeights[ObjectIdentifier(attachment)]
+                ?? attachment.bounds.height
+        }
+
+        /// Drains heights queued during live resize. All bounds updates and
+        /// edited() calls happen inside a single beginEditing/endEditing
+        /// block, with one invalidateLayout pass over the union range so a
+        /// document with many overlays doesn't trigger N layout passes on
+        /// mouse-up.
         func applyDeferredAttachmentHeights() {
-            guard let textView, let textStorage = textView.textStorage else {
+            guard let textView, let textStorage = textView.textStorage,
+                  !deferredAttachmentHeights.isEmpty
+            else {
                 deferredAttachmentHeights.removeAll()
                 return
             }
             let pending = deferredAttachmentHeights
             deferredAttachmentHeights.removeAll()
+
+            let containerWidth = textContainerWidth(in: textView)
+            var earliestLocation = Int.max
+
+            textStorage.beginEditing()
             for (attachmentID, height) in pending {
                 guard let attachment = entries.values
                     .compactMap(\.attachment)
                     .first(where: { ObjectIdentifier($0) == attachmentID })
                 else { continue }
-                invalidateAttachmentHeight(
-                    attachment,
-                    newHeight: height,
-                    textView: textView,
-                    textStorage: textStorage
+                attachment.bounds = CGRect(
+                    x: 0, y: 0, width: containerWidth, height: height
                 )
+                if let attachRange = attachmentRange(for: attachment) {
+                    textStorage.edited(
+                        .editedAttributes, range: attachRange, changeInLength: 0
+                    )
+                    earliestLocation = min(earliestLocation, attachRange.location)
+                }
             }
+            textStorage.endEditing()
+            buildPositionIndex(from: textStorage)
+
+            guard earliestLocation != Int.max,
+                  let layoutManager = textView.textLayoutManager,
+                  let contentManager = layoutManager.textContentManager,
+                  let startLoc = contentManager.location(
+                      contentManager.documentRange.location,
+                      offsetBy: earliestLocation
+                  ),
+                  let tailRange = NSTextRange(
+                      location: startLoc,
+                      end: contentManager.documentRange.endLocation
+                  )
+            else { return }
+
+            layoutManager.invalidateLayout(for: tailRange)
+            layoutManager.textViewportLayoutController.layoutViewport()
+            onLayoutInvalidation?()
         }
 
         private func invalidateAttachmentHeight(
