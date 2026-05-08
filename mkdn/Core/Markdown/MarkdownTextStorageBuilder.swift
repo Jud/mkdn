@@ -69,7 +69,10 @@ public enum MarkdownTextStorageBuilder {
     // MARK: - Constants
 
     static let blockSpacing: CGFloat = 16
-    static let paragraphSpacing: CGFloat = 10
+    static let paragraphBottomMargin: CGFloat = 10
+    /// GitHub's CSS uses uniform 1.5rem (24px) top-margin for h1-h6;
+    /// per-level prominence comes from font size alone.
+    static let headingTopMargin: CGFloat = 24
     static let codeBlockPadding: CGFloat = 12
     static let codeBlockTopPaddingWithLabel: CGFloat = 8
     static let codeLabelSpacing: CGFloat = 4

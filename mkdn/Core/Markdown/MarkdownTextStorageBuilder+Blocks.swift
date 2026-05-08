@@ -19,9 +19,6 @@ extension MarkdownTextStorageBuilder {
         let font = PlatformTypeConverter.headingFont(level: level, scaleFactor: scaleFactor)
         let foreground = PlatformTypeConverter.color(from: colors.headingColor)
         let linkColor = PlatformTypeConverter.color(from: colors.linkColor)
-        // GitHub's CSS uses uniform 1.5rem (24px) top-margin for h1-h6;
-        // per-level prominence comes from font size alone.
-        let spacingBefore: CGFloat = 24
 
         let content = convertInlineContent(
             text,
@@ -32,7 +29,7 @@ extension MarkdownTextStorageBuilder {
         )
         let style = makeParagraphStyle(
             paragraphSpacing: blockSpacing,
-            paragraphSpacingBefore: spacingBefore
+            paragraphSpacingBefore: headingTopMargin
         )
         let range = NSRange(location: 0, length: content.length)
         content.addAttribute(.paragraphStyle, value: style, range: range)
@@ -59,7 +56,7 @@ extension MarkdownTextStorageBuilder {
             linkColor: linkColor,
             scaleFactor: scaleFactor
         )
-        let style = makeParagraphStyle(paragraphSpacing: paragraphSpacing)
+        let style = makeParagraphStyle(paragraphSpacing: paragraphBottomMargin)
         let range = NSRange(location: 0, length: content.length)
         content.addAttribute(.paragraphStyle, value: style, range: range)
         content.append(terminator(with: style))
