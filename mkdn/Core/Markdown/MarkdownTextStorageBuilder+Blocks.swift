@@ -19,11 +19,9 @@ extension MarkdownTextStorageBuilder {
         let font = PlatformTypeConverter.headingFont(level: level, scaleFactor: scaleFactor)
         let foreground = PlatformTypeConverter.color(from: colors.headingColor)
         let linkColor = PlatformTypeConverter.color(from: colors.linkColor)
-        let spacingBefore: CGFloat = switch level {
-        case 1: 48
-        case 2: 20
-        default: 14
-        }
+        // GitHub's CSS uses uniform 1.5rem (24px) top-margin for h1-h6;
+        // per-level prominence comes from font size alone.
+        let spacingBefore: CGFloat = 24
 
         let content = convertInlineContent(
             text,
