@@ -12,8 +12,10 @@
                 queue: .main
             ) { [weak self] _ in
                 Task { @MainActor [weak self] in
-                    self?.repositionOverlays()
+                    // Invalidate before reposition so any reentrant work that
+                    // reads heading geometry sees fresh state.
                     self?.onFrameChange?()
+                    self?.repositionOverlays()
                 }
             }
         }
@@ -29,8 +31,8 @@
                 queue: .main
             ) { [weak self] _ in
                 Task { @MainActor [weak self] in
-                    self?.repositionOverlays()
                     self?.onScrollChange?()
+                    self?.repositionOverlays()
                 }
             }
         }
