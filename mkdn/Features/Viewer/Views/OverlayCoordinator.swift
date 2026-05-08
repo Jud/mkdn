@@ -117,9 +117,12 @@
                 containerState.containerWidth = context.containerWidth
             }
             let finalContext = widthChanged ? (makeLayoutContext() ?? context) : context
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
             for (_, entry) in entries {
                 positionEntry(entry, context: finalContext)
             }
+            CATransaction.commit()
         }
 
         /// Removes all hosted overlay views and stops layout observation.
