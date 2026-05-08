@@ -59,7 +59,7 @@ extension MarkdownTextStorageBuilder {
             linkColor: linkColor,
             scaleFactor: scaleFactor
         )
-        let style = makeParagraphStyle(paragraphSpacing: blockSpacing)
+        let style = makeParagraphStyle(paragraphSpacing: paragraphSpacing)
         let range = NSRange(location: 0, length: content.length)
         content.addAttribute(.paragraphStyle, value: style, range: range)
         content.append(terminator(with: style))
