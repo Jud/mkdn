@@ -16,7 +16,10 @@
             }
             .environment(appSettings)
             .environment(containerState)
-            return NSHostingView(rootView: rootView)
+            let host = NSHostingView(rootView: rootView)
+            host.wantsLayer = true
+            host.layerContentsRedrawPolicy = .onSetNeedsDisplay
+            return host
         }
 
         func makeImageOverlay(
@@ -43,7 +46,10 @@
             .environment(appSettings)
             .environment(documentState)
             .environment(containerState)
-            return NSHostingView(rootView: rootView)
+            let host = NSHostingView(rootView: rootView)
+            host.wantsLayer = true
+            host.layerContentsRedrawPolicy = .onSetNeedsDisplay
+            return host
         }
 
         func makeThematicBreakOverlay(
@@ -53,7 +59,10 @@
             let rootView = borderColor
                 .frame(height: 1)
                 .padding(.vertical, 8)
-            return NSHostingView(rootView: rootView)
+            let host = NSHostingView(rootView: rootView)
+            host.wantsLayer = true
+            host.layerContentsRedrawPolicy = .onSetNeedsDisplay
+            return host
         }
 
         func makeMathBlockOverlay(
@@ -68,7 +77,10 @@
                 )
             }
             .environment(appSettings)
-            return NSHostingView(rootView: rootView)
+            let host = NSHostingView(rootView: rootView)
+            host.wantsLayer = true
+            host.layerContentsRedrawPolicy = .onSetNeedsDisplay
+            return host
         }
 
         func makeTableAttachmentOverlay(
@@ -97,10 +109,14 @@
             // Use NSHostingView (not PassthroughHostingView) so mouse events
             // reach the TableAttachmentView's gesture handlers for cell
             // selection and onCopyCommand.
-            if let findState {
-                return NSHostingView(rootView: rootView.environment(findState))
+            let host: NSView = if let findState {
+                NSHostingView(rootView: rootView.environment(findState))
+            } else {
+                NSHostingView(rootView: rootView)
             }
-            return NSHostingView(rootView: rootView)
+            host.wantsLayer = true
+            host.layerContentsRedrawPolicy = .onSetNeedsDisplay
+            return host
         }
     }
 #endif
