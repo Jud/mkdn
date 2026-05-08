@@ -51,6 +51,7 @@
 
         var cachedCodeBlocks: [CodeBlockInfo] = []
         var isCodeBlockCacheValid = false
+        var areBlockRectsValid = false
 
         // MARK: - Copy Button State
 
@@ -84,6 +85,8 @@
 
         func invalidateCodeBlockCache() {
             isCodeBlockCacheValid = false
+            areBlockRectsValid = false
+            cachedBlockRects = []
         }
 
         // MARK: - Escape to Dismiss Find
@@ -159,6 +162,15 @@
         }
 
         // MARK: - Drawing
+
+        /// Pre-draw cache refresh: enumerating layout fragments inside
+        /// drawBackground forces TextKit 2 layout during the draw pass,
+        /// causing visible flicker on resize. viewWillDraw fires after
+        /// layout has settled but before drawing begins.
+        override func viewWillDraw() {
+            super.viewWillDraw()
+            refreshCachedBlockRects()
+        }
 
         override func drawBackground(in rect: NSRect) {
             super.drawBackground(in: rect)

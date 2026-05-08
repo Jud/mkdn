@@ -10,38 +10,10 @@
         // MARK: - Code Block Container Drawing
 
         func drawCodeBlockContainers(in dirtyRect: NSRect) {
-            guard let textStorage,
-                  let layoutManager = textLayoutManager,
-                  let contentManager = layoutManager.textContentManager
-            else { return }
-
-            let blocks = collectCodeBlocks(from: textStorage)
-            guard !blocks.isEmpty else { return }
-
-            let origin = textContainerOrigin
-            let containerWidth = textContainer?.size.width ?? bounds.width
-            let borderInset = Self.borderWidth / 2
-
-            for block in blocks {
-                let frames = fragmentFrames(
-                    for: block.range,
-                    layoutManager: layoutManager,
-                    contentManager: contentManager
-                )
-                guard !frames.isEmpty else { continue }
-
-                let bounding = frames.reduce(frames[0]) { $0.union($1) }
-                let drawRect = CGRect(
-                    x: origin.x + borderInset,
-                    y: bounding.minY + origin.y,
-                    width: containerWidth - 2 * borderInset,
-                    height: bounding.height + Self.bottomPadding
-                )
-                guard drawRect.intersects(dirtyRect) else { continue }
-
+            for entry in cachedBlockRects where entry.rect.intersects(dirtyRect) {
                 drawRoundedContainer(
-                    in: drawRect,
-                    colorInfo: block.colorInfo
+                    in: entry.rect,
+                    colorInfo: entry.colorInfo
                 )
             }
         }

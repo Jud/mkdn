@@ -97,18 +97,21 @@
 
         // MARK: - Block Rect Cache
 
-        private func refreshCachedBlockRects() {
+        func refreshCachedBlockRects() {
+            if areBlockRectsValid { return }
             guard let textStorage,
                   let layoutManager = textLayoutManager,
                   let contentManager = layoutManager.textContentManager
             else {
                 cachedBlockRects = []
+                areBlockRectsValid = true
                 return
             }
 
             let blocks = collectCodeBlocks(from: textStorage)
             guard !blocks.isEmpty else {
                 cachedBlockRects = []
+                areBlockRectsValid = true
                 return
             }
 
@@ -138,6 +141,7 @@
                     colorInfo: block.colorInfo
                 )
             }
+            areBlockRectsValid = true
         }
     }
 #endif
