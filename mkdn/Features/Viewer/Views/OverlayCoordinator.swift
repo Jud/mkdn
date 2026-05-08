@@ -50,6 +50,8 @@
         var attachmentIndex: [ObjectIdentifier: NSRange] = [:]
         var onLayoutInvalidation: (() -> Void)?
         var onOverlayReady: (() -> Void)?
+        var onFrameChange: (() -> Void)?
+        var onScrollChange: (() -> Void)?
         var reportedOverlays: Set<Int> = []
 
         deinit {

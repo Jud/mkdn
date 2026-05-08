@@ -19,22 +19,10 @@
             var lastScrolledTarget: Int?
             private var headingDotView: NSView?
             private var headingDotFadeTask: Task<Void, Never>?
-            nonisolated(unsafe) var scrollObserver: NSObjectProtocol?
-            nonisolated(unsafe) var frameObserver: NSObjectProtocol?
-
             /// Cached heading y-positions for scroll-spy. Maps blockIndex to y-coordinate.
             /// Invalidated when content changes or view resizes.
             private var cachedHeadingPositions: [(blockIndex: Int, y: CGFloat)] = []
             private var headingPositionsCacheValid = false
-
-            deinit {
-                if let scrollObserver {
-                    NotificationCenter.default.removeObserver(scrollObserver)
-                }
-                if let frameObserver {
-                    NotificationCenter.default.removeObserver(frameObserver)
-                }
-            }
 
             // MARK: - Link Navigation
 
@@ -208,39 +196,14 @@
                 cachedHeadingPositions = []
             }
 
-            func startScrollSpy(on scrollView: NSScrollView) {
-                // Remove any existing observers to avoid duplicates.
-                if let existing = scrollObserver {
-                    NotificationCenter.default.removeObserver(existing)
-                    scrollObserver = nil
+            func startScrollSpy(on _: NSScrollView) {
+                // Piggyback on OverlayCoordinator's frame/scroll observers
+                // rather than registering duplicates on the same notifications.
+                overlayCoordinator.onScrollChange = { [weak self] in
+                    self?.handleScrollForSpy()
                 }
-                if let existing = frameObserver {
-                    NotificationCenter.default.removeObserver(existing)
-                    frameObserver = nil
-                }
-
-                let clipView = scrollView.contentView
-                clipView.postsBoundsChangedNotifications = true
-                scrollObserver = NotificationCenter.default.addObserver(
-                    forName: NSView.boundsDidChangeNotification,
-                    object: clipView,
-                    queue: .main
-                ) { [weak self] _ in
-                    Task { @MainActor [weak self] in
-                        self?.handleScrollForSpy()
-                    }
-                }
-
-                // Also observe frame changes for cache invalidation.
-                textView?.postsFrameChangedNotifications = true
-                frameObserver = NotificationCenter.default.addObserver(
-                    forName: NSView.frameDidChangeNotification,
-                    object: textView,
-                    queue: .main
-                ) { [weak self] _ in
-                    Task { @MainActor [weak self] in
-                        self?.headingPositionsCacheValid = false
-                    }
+                overlayCoordinator.onFrameChange = { [weak self] in
+                    self?.headingPositionsCacheValid = false
                 }
             }
 

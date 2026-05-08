@@ -13,6 +13,7 @@
             ) { [weak self] _ in
                 Task { @MainActor [weak self] in
                     self?.repositionOverlays()
+                    self?.onFrameChange?()
                 }
             }
         }
@@ -29,6 +30,7 @@
             ) { [weak self] _ in
                 Task { @MainActor [weak self] in
                     self?.repositionOverlays()
+                    self?.onScrollChange?()
                 }
             }
         }
