@@ -113,7 +113,9 @@
                   context.containerWidth > 0
             else { return }
             let widthChanged = abs(containerState.containerWidth - context.containerWidth) > 1
-            containerState.containerWidth = context.containerWidth
+            if widthChanged {
+                containerState.containerWidth = context.containerWidth
+            }
             let finalContext = widthChanged ? (makeLayoutContext() ?? context) : context
             for (_, entry) in entries {
                 positionEntry(entry, context: finalContext)
