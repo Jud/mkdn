@@ -337,7 +337,7 @@
 
         override func viewWillStartLiveResize() {
             super.viewWillStartLiveResize()
-            overlayCoordinator?.isInLiveResize = true
+            overlayCoordinator?.enterLiveResize()
         }
 
         override func tile() {
@@ -345,9 +345,8 @@
             // Backstop: viewDidEndLiveResize doesn't always fire (focus loss,
             // window close mid-drag). If the flag drifted out of sync, drain
             // here so deferred heights don't pile up forever.
-            if !inLiveResize, let oc = overlayCoordinator, oc.isInLiveResize {
-                oc.isInLiveResize = false
-                oc.applyDeferredAttachmentHeights()
+            if !inLiveResize {
+                overlayCoordinator?.exitLiveResize()
             }
             guard inLiveResize,
                   let textView = documentView as? NSTextView
@@ -362,11 +361,10 @@
         override func viewDidEndLiveResize() {
             super.viewDidEndLiveResize()
             guard let textView = documentView as? NSTextView else { return }
-            // Apply any heights queued by Mermaid/image resize reports during
-            // the drag, then run the final layout pass so the document height
-            // reflects them before the scroll-origin restore below.
-            overlayCoordinator?.isInLiveResize = false
-            overlayCoordinator?.applyDeferredAttachmentHeights()
+            // Drain queued heights and run the final layout pass so the
+            // document height reflects them before the scroll-origin restore
+            // below.
+            overlayCoordinator?.exitLiveResize()
             textView.textLayoutManager?.textViewportLayoutController.layoutViewport()
             overlayCoordinator?.repositionOverlays()
 

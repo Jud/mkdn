@@ -53,8 +53,8 @@
         var onFrameChange: (() -> Void)?
         var onScrollChange: (() -> Void)?
         var reportedOverlays: Set<Int> = []
-        var isInLiveResize = false
-        private var deferredAttachmentHeights: [ObjectIdentifier: CGFloat] = [:]
+        private(set) var isInLiveResize = false
+        private var deferredAttachmentHeights: [Int: CGFloat] = [:]
 
         deinit {
             if let layoutObserver {
@@ -147,9 +147,14 @@
                   let textStorage = textView.textStorage
             else { return }
 
-            guard abs(effectiveHeight(for: attachment) - newHeight) > 1 else { return }
+            guard abs(effectiveHeight(for: blockIndex, attachment: attachment) - newHeight) > 1
+            else { return }
             invalidateAttachmentHeight(
-                attachment, newHeight: newHeight, textView: textView, textStorage: textStorage
+                attachment,
+                blockIndex: blockIndex,
+                newHeight: newHeight,
+                textView: textView,
+                textStorage: textStorage
             )
             reportedOverlays.insert(blockIndex)
             onOverlayReady?()
@@ -175,10 +180,15 @@
                 widthChanged = true
             }
 
-            let heightChanged = abs(effectiveHeight(for: attachment) - newHeight) > 1
+            let heightChanged =
+                abs(effectiveHeight(for: blockIndex, attachment: attachment) - newHeight) > 1
             if heightChanged {
                 invalidateAttachmentHeight(
-                    attachment, newHeight: newHeight, textView: textView, textStorage: textStorage
+                    attachment,
+                    blockIndex: blockIndex,
+                    newHeight: newHeight,
+                    textView: textView,
+                    textStorage: textStorage
                 )
             }
 
@@ -218,13 +228,28 @@
 
         // MARK: - Attachment Height
 
+        func enterLiveResize() {
+            isInLiveResize = true
+        }
+
+        /// Idempotent counterpart to `enterLiveResize`. Always paired with a
+        /// drain so callers can't forget — the queue and the flag move
+        /// together.
+        func exitLiveResize() {
+            guard isInLiveResize else { return }
+            isInLiveResize = false
+            applyDeferredAttachmentHeights()
+        }
+
         /// Returns the height that callers should compare against when
         /// deciding whether a new height is meaningfully different. During
         /// live resize, `attachment.bounds.height` stays at the pre-resize
         /// value; the queued height represents the most recent intent.
-        private func effectiveHeight(for attachment: NSTextAttachment) -> CGFloat {
-            deferredAttachmentHeights[ObjectIdentifier(attachment)]
-                ?? attachment.bounds.height
+        private func effectiveHeight(
+            for blockIndex: Int,
+            attachment: NSTextAttachment
+        ) -> CGFloat {
+            deferredAttachmentHeights[blockIndex] ?? attachment.bounds.height
         }
 
         /// Drains heights queued during live resize. All bounds updates and
@@ -233,12 +258,11 @@
         /// document with many overlays doesn't trigger N layout passes on
         /// mouse-up.
         func applyDeferredAttachmentHeights() {
-            guard let textView, let textStorage = textView.textStorage,
-                  !deferredAttachmentHeights.isEmpty
-            else {
+            guard let textView, let textStorage = textView.textStorage else {
                 deferredAttachmentHeights.removeAll()
                 return
             }
+            guard !deferredAttachmentHeights.isEmpty else { return }
             let pending = deferredAttachmentHeights
             deferredAttachmentHeights.removeAll()
 
@@ -246,11 +270,8 @@
             var earliestLocation = Int.max
 
             textStorage.beginEditing()
-            for (attachmentID, height) in pending {
-                guard let attachment = entries.values
-                    .compactMap(\.attachment)
-                    .first(where: { ObjectIdentifier($0) == attachmentID })
-                else { continue }
+            for (blockIndex, height) in pending {
+                guard let attachment = entries[blockIndex]?.attachment else { continue }
                 attachment.bounds = CGRect(
                     x: 0, y: 0, width: containerWidth, height: height
                 )
@@ -262,7 +283,6 @@
                 }
             }
             textStorage.endEditing()
-            buildPositionIndex(from: textStorage)
 
             guard earliestLocation != Int.max,
                   let layoutManager = textView.textLayoutManager,
@@ -284,12 +304,13 @@
 
         private func invalidateAttachmentHeight(
             _ attachment: NSTextAttachment,
+            blockIndex: Int,
             newHeight: CGFloat,
             textView: NSTextView,
             textStorage: NSTextStorage
         ) {
             if isInLiveResize {
-                deferredAttachmentHeights[ObjectIdentifier(attachment)] = newHeight
+                deferredAttachmentHeights[blockIndex] = newHeight
                 return
             }
             let containerWidth = textContainerWidth(in: textView)
@@ -354,6 +375,7 @@
                 if knownHeight > 1, let textStorage = textView.textStorage {
                     invalidateAttachmentHeight(
                         info.attachment,
+                        blockIndex: info.blockIndex,
                         newHeight: knownHeight,
                         textView: textView,
                         textStorage: textStorage

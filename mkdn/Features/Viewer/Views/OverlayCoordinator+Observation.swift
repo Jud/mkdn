@@ -17,7 +17,7 @@
                     // synchronously from tile(); skip the duplicate pass
                     // but keep onFrameChange so scroll-spy heading cache
                     // still invalidates on width changes.
-                    guard self?.textView?.inLiveResize != true else { return }
+                    guard self?.isInLiveResize != true else { return }
                     self?.repositionOverlays()
                 }
             }
