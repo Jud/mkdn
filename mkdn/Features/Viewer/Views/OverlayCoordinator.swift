@@ -300,6 +300,11 @@
             layoutManager.invalidateLayout(for: tailRange)
             layoutManager.textViewportLayoutController.layoutViewport()
             onLayoutInvalidation?()
+            // Apply the new layout to overlay frames so callers (notably the
+            // tile() backstop, which doesn't reposition itself) end with
+            // overlays sitting on the drained fragments rather than the
+            // pre-drain positions.
+            repositionOverlays()
         }
 
         private func invalidateAttachmentHeight(
