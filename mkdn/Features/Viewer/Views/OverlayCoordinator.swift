@@ -199,6 +199,21 @@
             }
         }
 
+        /// Returns true if any of `ranges` overlaps an attachment placeholder.
+        /// Used by find-highlight code paths to skip needless repositioning when
+        /// the edited ranges are pure body text.
+        func hasAttachments(intersecting ranges: [NSRange]) -> Bool {
+            guard !ranges.isEmpty, !attachmentIndex.isEmpty else { return false }
+            for range in ranges {
+                for attachmentRange in attachmentIndex.values
+                    where NSIntersectionRange(range, attachmentRange).length > 0
+                {
+                    return true
+                }
+            }
+            return false
+        }
+
         // MARK: - Attachment Height
 
         private func invalidateAttachmentHeight(

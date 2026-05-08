@@ -490,9 +490,12 @@
                 }
 
                 guard !findState.matchRanges.isEmpty else {
+                    let clearedRanges = lastHighlightedRanges
                     restoreBackgrounds(in: textStorage)
                     lastHighlightedRanges = []
-                    overlayCoordinator.scheduleReposition()
+                    if overlayCoordinator.hasAttachments(intersecting: clearedRanges) {
+                        overlayCoordinator.scheduleReposition()
+                    }
                     return
                 }
 
@@ -533,8 +536,13 @@
 
                 textStorage.endEditing()
 
+                let priorRanges = lastHighlightedRanges
                 lastHighlightedRanges = findState.matchRanges
-                overlayCoordinator.scheduleReposition()
+                if overlayCoordinator.hasAttachments(
+                    intersecting: priorRanges + findState.matchRanges
+                ) {
+                    overlayCoordinator.scheduleReposition()
+                }
 
                 if let currentRange =
                     findState.matchRanges[safe: findState.currentMatchIndex]
@@ -555,15 +563,21 @@
                 guard !rangeColors.isEmpty,
                       !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
                 else {
+                    let clearedRanges = rangeColors.map(\.range)
                     restoreBackgrounds(in: textStorage)
-                    overlayCoordinator.scheduleReposition()
+                    if overlayCoordinator.hasAttachments(intersecting: clearedRanges) {
+                        overlayCoordinator.scheduleReposition()
+                    }
                     return
                 }
 
                 let fadeSteps = 4
                 let stepNanos: UInt64 = 40_000_000 // 40ms per step = 160ms total
 
+                let fadedRanges = rangeColors.map(\.range)
                 highlightFadeTask = Task { @MainActor [weak self] in
+                    let touchesAttachments = self?.overlayCoordinator
+                        .hasAttachments(intersecting: fadedRanges) ?? false
                     for step in 1 ... fadeSteps {
                         try? await Task.sleep(nanoseconds: stepNanos)
                         guard !Task.isCancelled else { return }
@@ -582,12 +596,16 @@
                             )
                         }
                         textStorage.endEditing()
-                        self?.overlayCoordinator.scheduleReposition()
+                        if touchesAttachments {
+                            self?.overlayCoordinator.scheduleReposition()
+                        }
                     }
 
                     guard !Task.isCancelled, let self else { return }
                     restoreBackgrounds(in: textStorage)
-                    overlayCoordinator.scheduleReposition()
+                    if touchesAttachments {
+                        overlayCoordinator.scheduleReposition()
+                    }
                 }
             }
 
