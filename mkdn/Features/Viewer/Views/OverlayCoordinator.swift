@@ -53,6 +53,8 @@
         var onFrameChange: (() -> Void)?
         var onScrollChange: (() -> Void)?
         var reportedOverlays: Set<Int> = []
+        var isInLiveResize = false
+        private var deferredAttachmentHeights: [ObjectIdentifier: CGFloat] = [:]
 
         deinit {
             if let layoutObserver {
@@ -216,12 +218,40 @@
 
         // MARK: - Attachment Height
 
+        /// Drains heights queued during live resize, applying each via the
+        /// normal invalidation path. Called from LiveResizeScrollView at end
+        /// of drag, before the final layoutViewport pass.
+        func applyDeferredAttachmentHeights() {
+            guard let textView, let textStorage = textView.textStorage else {
+                deferredAttachmentHeights.removeAll()
+                return
+            }
+            let pending = deferredAttachmentHeights
+            deferredAttachmentHeights.removeAll()
+            for (attachmentID, height) in pending {
+                guard let attachment = entries.values
+                    .compactMap(\.attachment)
+                    .first(where: { ObjectIdentifier($0) == attachmentID })
+                else { continue }
+                invalidateAttachmentHeight(
+                    attachment,
+                    newHeight: height,
+                    textView: textView,
+                    textStorage: textStorage
+                )
+            }
+        }
+
         private func invalidateAttachmentHeight(
             _ attachment: NSTextAttachment,
             newHeight: CGFloat,
             textView: NSTextView,
             textStorage: NSTextStorage
         ) {
+            if isInLiveResize {
+                deferredAttachmentHeights[ObjectIdentifier(attachment)] = newHeight
+                return
+            }
             let containerWidth = textContainerWidth(in: textView)
             attachment.bounds = CGRect(x: 0, y: 0, width: containerWidth, height: newHeight)
 

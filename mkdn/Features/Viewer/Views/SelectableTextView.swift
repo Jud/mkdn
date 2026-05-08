@@ -335,6 +335,11 @@
 
         override var preservesContentDuringLiveResize: Bool { true }
 
+        override func viewWillStartLiveResize() {
+            super.viewWillStartLiveResize()
+            overlayCoordinator?.isInLiveResize = true
+        }
+
         override func tile() {
             super.tile()
             guard inLiveResize,
@@ -350,6 +355,11 @@
         override func viewDidEndLiveResize() {
             super.viewDidEndLiveResize()
             guard let textView = documentView as? NSTextView else { return }
+            // Apply any heights queued by Mermaid/image resize reports during
+            // the drag, then run the final layout pass so the document height
+            // reflects them before the scroll-origin restore below.
+            overlayCoordinator?.isInLiveResize = false
+            overlayCoordinator?.applyDeferredAttachmentHeights()
             textView.textLayoutManager?.textViewportLayoutController.layoutViewport()
             overlayCoordinator?.repositionOverlays()
 
