@@ -326,6 +326,8 @@
     private final class LiveResizeScrollView: NSScrollView {
         private var liveResizeBoundsOrigin: NSPoint?
 
+        override var preservesContentDuringLiveResize: Bool { true }
+
         override func tile() {
             super.tile()
             guard inLiveResize,
