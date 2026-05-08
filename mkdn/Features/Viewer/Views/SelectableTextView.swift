@@ -77,7 +77,7 @@
                 coordinator: coordinator, textView: textView, scrollView: scrollView
             )
             coordinator.lastAppliedText = attributedText
-            coordinator.startScrollSpy(on: scrollView)
+            coordinator.wireScrollSpy()
             RenderCompletionSignal.shared.signalRenderComplete()
 
             return scrollView
@@ -360,13 +360,10 @@
 
         override func viewDidEndLiveResize() {
             super.viewDidEndLiveResize()
-            guard let textView = documentView as? NSTextView else { return }
-            // Drain queued heights and run the final layout pass so the
-            // document height reflects them before the scroll-origin restore
-            // below.
+            // exitLiveResize drains any queued heights and runs a final
+            // layoutViewport + repositionOverlays so overlays sit on the
+            // settled fragments before the scroll-origin restore below.
             overlayCoordinator?.exitLiveResize()
-            textView.textLayoutManager?.textViewportLayoutController.layoutViewport()
-            overlayCoordinator?.repositionOverlays()
 
             if let savedOrigin = liveResizeBoundsOrigin {
                 contentView.setBoundsOrigin(savedOrigin)

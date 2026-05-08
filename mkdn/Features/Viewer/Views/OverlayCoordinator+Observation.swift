@@ -11,14 +11,15 @@
                 object: textView,
                 queue: .main
             ) { [weak self] _ in
-                Task { @MainActor [weak self] in
-                    self?.onFrameChange?()
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    self.onFrameChange?()
                     // LiveResizeScrollView already repositioned overlays
                     // synchronously from tile(); skip the duplicate pass
                     // but keep onFrameChange so scroll-spy heading cache
                     // still invalidates on width changes.
-                    guard self?.isInLiveResize != true else { return }
-                    self?.repositionOverlays()
+                    guard !self.isInLiveResize else { return }
+                    self.repositionOverlays()
                 }
             }
         }
@@ -33,9 +34,10 @@
                 object: clipView,
                 queue: .main
             ) { [weak self] _ in
-                Task { @MainActor [weak self] in
-                    self?.onScrollChange?()
-                    self?.repositionOverlays()
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    self.onScrollChange?()
+                    self.repositionOverlays()
                 }
             }
         }

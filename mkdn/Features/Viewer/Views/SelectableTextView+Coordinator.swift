@@ -196,7 +196,7 @@
                 cachedHeadingPositions = []
             }
 
-            func startScrollSpy(on _: NSScrollView) {
+            func wireScrollSpy() {
                 // Piggyback on OverlayCoordinator's frame/scroll observers
                 // rather than registering duplicates on the same notifications.
                 overlayCoordinator.onScrollChange = { [weak self] in

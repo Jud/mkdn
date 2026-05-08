@@ -34,7 +34,6 @@
             let textStorage: NSTextStorage
             let contentManager: NSTextContentManager
             let layoutManager: NSTextLayoutManager
-            let visibleRange: NSRange?
         }
 
         // MARK: - Properties
@@ -116,15 +115,13 @@
             guard let context = makeLayoutContext(),
                   context.containerWidth > 0
             else { return }
-            let widthChanged = abs(containerState.containerWidth - context.containerWidth) > 1
-            if widthChanged {
+            if abs(containerState.containerWidth - context.containerWidth) > 1 {
                 containerState.containerWidth = context.containerWidth
             }
-            let finalContext = widthChanged ? (makeLayoutContext() ?? context) : context
             CATransaction.begin()
             CATransaction.setDisableActions(true)
             for (_, entry) in entries {
-                positionEntry(entry, context: finalContext)
+                positionEntry(entry, context: context)
             }
             CATransaction.commit()
         }
@@ -257,7 +254,7 @@
         /// block, with one invalidateLayout pass over the union range so a
         /// document with many overlays doesn't trigger N layout passes on
         /// mouse-up.
-        func applyDeferredAttachmentHeights() {
+        private func applyDeferredAttachmentHeights() {
             guard let textView, let textStorage = textView.textStorage else {
                 deferredAttachmentHeights.removeAll()
                 return
