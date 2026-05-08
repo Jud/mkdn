@@ -22,6 +22,7 @@
         @State private var renderState: MermaidRenderState = .loading
         @State private var overlayDismissed = false
         @State private var isCursorPushed = false
+        @State private var lastReportedWidth: CGFloat = 0
 
         private var colors: ThemeColors {
             appSettings.theme.colors
@@ -60,8 +61,10 @@
                 .onChange(of: renderedAspectRatio) {
                     onSizeChange?(renderedHeight, renderedAspectRatio)
                 }
-                .onChange(of: containerState.containerWidth) {
+                .onChange(of: containerState.containerWidth) { _, newWidth in
                     guard renderedAspectRatio > 0 else { return }
+                    guard abs(newWidth - lastReportedWidth) > 1 else { return }
+                    lastReportedWidth = newWidth
                     onSizeChange?(renderedHeight, renderedAspectRatio)
                 }
                 .onChange(of: renderState) { _, newValue in
