@@ -86,7 +86,6 @@
         func invalidateCodeBlockCache() {
             isCodeBlockCacheValid = false
             areBlockRectsValid = false
-            cachedBlockRects = []
         }
 
         // MARK: - Escape to Dismiss Find

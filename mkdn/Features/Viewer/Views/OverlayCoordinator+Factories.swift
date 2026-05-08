@@ -5,6 +5,13 @@
     // MARK: - Attachment Overlay Factories
 
     extension OverlayCoordinator {
+        private func makeLayerBackedHost<V: View>(_ rootView: V) -> NSHostingView<V> {
+            let host = NSHostingView(rootView: rootView)
+            host.wantsLayer = true
+            host.layerContentsRedrawPolicy = .onSetNeedsDisplay
+            return host
+        }
+
         func makeMermaidOverlay(
             code: String,
             blockIndex: Int,
@@ -16,10 +23,7 @@
             }
             .environment(appSettings)
             .environment(containerState)
-            let host = NSHostingView(rootView: rootView)
-            host.wantsLayer = true
-            host.layerContentsRedrawPolicy = .onSetNeedsDisplay
-            return host
+            return makeLayerBackedHost(rootView)
         }
 
         func makeImageOverlay(
@@ -46,10 +50,7 @@
             .environment(appSettings)
             .environment(documentState)
             .environment(containerState)
-            let host = NSHostingView(rootView: rootView)
-            host.wantsLayer = true
-            host.layerContentsRedrawPolicy = .onSetNeedsDisplay
-            return host
+            return makeLayerBackedHost(rootView)
         }
 
         func makeThematicBreakOverlay(
@@ -59,10 +60,7 @@
             let rootView = borderColor
                 .frame(height: 1)
                 .padding(.vertical, 8)
-            let host = NSHostingView(rootView: rootView)
-            host.wantsLayer = true
-            host.layerContentsRedrawPolicy = .onSetNeedsDisplay
-            return host
+            return makeLayerBackedHost(rootView)
         }
 
         func makeMathBlockOverlay(
@@ -77,10 +75,7 @@
                 )
             }
             .environment(appSettings)
-            let host = NSHostingView(rootView: rootView)
-            host.wantsLayer = true
-            host.layerContentsRedrawPolicy = .onSetNeedsDisplay
-            return host
+            return makeLayerBackedHost(rootView)
         }
 
         func makeTableAttachmentOverlay(
@@ -109,14 +104,10 @@
             // Use NSHostingView (not PassthroughHostingView) so mouse events
             // reach the TableAttachmentView's gesture handlers for cell
             // selection and onCopyCommand.
-            let host: NSView = if let findState {
-                NSHostingView(rootView: rootView.environment(findState))
-            } else {
-                NSHostingView(rootView: rootView)
+            if let findState {
+                return makeLayerBackedHost(rootView.environment(findState))
             }
-            host.wantsLayer = true
-            host.layerContentsRedrawPolicy = .onSetNeedsDisplay
-            return host
+            return makeLayerBackedHost(rootView)
         }
     }
 #endif

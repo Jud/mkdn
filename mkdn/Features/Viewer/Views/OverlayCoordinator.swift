@@ -200,8 +200,8 @@
         }
 
         /// Returns true if any of `ranges` overlaps an attachment placeholder.
-        /// Used by find-highlight code paths to skip needless repositioning when
-        /// the edited ranges are pure body text.
+        /// Body-text-only edits cannot move attachments, so callers can skip
+        /// repositioning when this returns false.
         func hasAttachments(intersecting ranges: [NSRange]) -> Bool {
             guard !ranges.isEmpty, !attachmentIndex.isEmpty else { return false }
             for range in ranges {

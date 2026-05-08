@@ -538,9 +538,9 @@
 
                 let priorRanges = lastHighlightedRanges
                 lastHighlightedRanges = findState.matchRanges
-                if overlayCoordinator.hasAttachments(
-                    intersecting: priorRanges + findState.matchRanges
-                ) {
+                if overlayCoordinator.hasAttachments(intersecting: priorRanges)
+                    || overlayCoordinator.hasAttachments(intersecting: findState.matchRanges)
+                {
                     overlayCoordinator.scheduleReposition()
                 }
 
