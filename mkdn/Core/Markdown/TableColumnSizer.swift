@@ -166,13 +166,12 @@ enum TableColumnSizer {
     ) -> CGFloat {
         let plainText = String(content.characters)
         guard !plainText.isEmpty else { return 0 }
-        // Cells with `**bold**` markup render with a bold font that has wider
-        // per-glyph metrics than regular. Measuring such cells with the
-        // regular font undersizes the column; the rendered bold text then
-        // wraps. Pick the bold font whenever any run signals strong emphasis.
-        let measurementFont: PlatformTypeConverter.PlatformFont = content.runs.contains {
-            content[$0.range].inlinePresentationIntent?.contains(.stronglyEmphasized) == true
+        // Bold glyphs have wider per-glyph metrics; measuring a bold cell
+        // with the regular font undersizes the column and forces wrapping.
+        let hasBold = content.runs.contains {
+            $0.inlinePresentationIntent?.contains(.stronglyEmphasized) == true
         }
+        let measurementFont = hasBold
             ? PlatformTypeConverter.convertFont(font, toHaveTrait: .bold)
             : font
         let nsAttrString = NSAttributedString(
