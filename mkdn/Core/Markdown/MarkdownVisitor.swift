@@ -250,8 +250,14 @@ struct MarkdownVisitor {
     /// The UTF-16 offset into `source` of a text node's first character, but
     /// only when the node's rendered string is a verbatim copy of its source
     /// substring. Returns nil otherwise (escapes, entities — not 1:1 mappable).
+    ///
+    /// Text containing `$` is also skipped: `postProcessMathDelimiters` may later
+    /// replace an inline `$…$` span, which would leave a stale offset on the
+    /// text after it. Dropping the whole run keeps the mapping correct at the
+    /// cost of not being able to comment on `$`-bearing prose (a safe v1 trade).
     private func sourceUTF16Offset(for text: Markdown.Text) -> Int? {
         guard let source, let converter,
+              !text.string.contains("$"),
               let sourceRange = text.range,
               let resolved = converter.range(for: sourceRange),
               source[resolved] == text.string

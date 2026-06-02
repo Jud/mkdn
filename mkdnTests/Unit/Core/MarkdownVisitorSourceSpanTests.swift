@@ -57,6 +57,20 @@ struct MarkdownVisitorSourceSpanTests {
         #expect(!unspanned.isEmpty)
     }
 
+    @Test("Text around inline math is not spanned (no stale offsets)")
+    func inlineMathNeighboursNotSpanned() {
+        // postProcessMathDelimiters replaces "$x$", which would otherwise leave
+        // a stale offset on the trailing " b". The whole "$"-bearing run is
+        // dropped, so no run may carry a (wrong) span.
+        let text = paragraph("a $x$ b")
+        for run in text.runs where run.sourceSpan != nil {
+            let runText = String(text[run.range].characters)
+            let offset = run.sourceSpan!
+            // Any span that survives must still be exactly 1:1 with the source.
+            #expect(sourceText("a $x$ b", utf16Offset: offset, utf16Length: runText.utf16.count) == runText)
+        }
+    }
+
     @Test("No source means no spans (rendering unchanged)")
     func noSourceNoSpans() {
         let document = MarkdownRenderer.parse("hello world")
