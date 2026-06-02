@@ -102,6 +102,48 @@
             lastSavedContent = markdownContent
         }
 
+        // MARK: - Comments
+
+        /// Wrap a raw-source range as a CriticMarkup comment and persist.
+        /// `rawRange` must index the current `markdownContent`. Returns false if
+        /// the span can't be safely commented (reject-first).
+        @discardableResult
+        public func addComment(in rawRange: Range<String.Index>, body: String) -> Bool {
+            guard let updated = CriticMarkup.wrapComment(in: markdownContent, range: rawRange, body: body)
+            else {
+                return false
+            }
+            markdownContent = updated
+            try? saveFile()
+            return true
+        }
+
+        /// Rewrite a comment's body, looked up by id in the *current* content so
+        /// the source ranges are never stale. Returns false if not found or the
+        /// new body is unsafe.
+        @discardableResult
+        public func editComment(id: String, newBody: String) -> Bool {
+            guard let comment = CriticMarkup.preprocess(markdownContent).commentsByID[id],
+                  let updated = CriticMarkup.editComment(in: markdownContent, comment: comment, newBody: newBody)
+            else {
+                return false
+            }
+            markdownContent = updated
+            try? saveFile()
+            return true
+        }
+
+        /// Remove a comment (resolve), looked up by id in the current content.
+        @discardableResult
+        public func deleteComment(id: String) -> Bool {
+            guard let comment = CriticMarkup.preprocess(markdownContent).commentsByID[id] else {
+                return false
+            }
+            markdownContent = CriticMarkup.deleteComment(in: markdownContent, comment: comment)
+            try? saveFile()
+            return true
+        }
+
         /// Reload the file from disk.
         public func reloadFile() throws {
             guard let url = currentFileURL else { return }
