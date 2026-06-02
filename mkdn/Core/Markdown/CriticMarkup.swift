@@ -29,6 +29,12 @@ struct CriticMarkupDocument {
     let transformedSource: String
     let comments: [CriticComment]
 
+    /// Comments keyed by id, for hit-test/edit/delete lookups (so callers don't
+    /// rediscover metadata from the attributed string).
+    var commentsByID: [String: CriticComment] {
+        Dictionary(comments.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+    }
+
     /// Contiguous spans of text copied verbatim from raw into transformed.
     /// `transformed` offsets are Character counts from the transformed start.
     fileprivate struct Segment {
