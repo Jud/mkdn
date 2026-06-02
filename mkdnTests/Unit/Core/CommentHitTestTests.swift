@@ -20,8 +20,9 @@
             )
 
             let view = NSTextView(frame: NSRect(x: 0, y: 0, width: 600, height: 400))
-            view.textContainerInset = .zero
-            view.textContainer?.lineFragmentPadding = 0
+            // Non-zero inset + default padding so the container↔view coordinate
+            // transform (textContainerOrigin) is actually exercised.
+            view.textContainerInset = NSSize(width: 16, height: 16)
             view.textStorage?.setAttributedString(mutable)
             view.layoutManager?.ensureLayout(for: view.textContainer!)
             return view
@@ -29,8 +30,7 @@
 
         private func centerPoint(of substring: String, in view: NSTextView) -> CGPoint {
             let nsRange = (view.string as NSString).range(of: substring)
-            let glyphRange = view.layoutManager!.glyphRange(forCharacterRange: nsRange, actualCharacterRange: nil)
-            let rect = view.layoutManager!.boundingRect(forGlyphRange: glyphRange, in: view.textContainer!)
+            let rect = view.boundingRect(forCharacterRange: nsRange)!
             return CGPoint(x: rect.midX, y: rect.midY)
         }
 

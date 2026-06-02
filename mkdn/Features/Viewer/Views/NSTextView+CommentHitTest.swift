@@ -8,10 +8,11 @@
         func characterIndex(at point: CGPoint) -> Int? {
             guard let textStorage, textStorage.length > 0 else { return nil }
 
-            let containerPoint = CGPoint(
-                x: point.x - textContainerInset.width,
-                y: point.y - textContainerInset.height
-            )
+            // textContainerOrigin is the AppKit-correct container↔view offset
+            // (it accounts for inset and any centering), matching boundingRect's
+            // inverse and the codebase's overlay positioning.
+            let origin = textContainerOrigin
+            let containerPoint = CGPoint(x: point.x - origin.x, y: point.y - origin.y)
 
             if let textLayoutManager, let textContentStorage {
                 guard let fragment = textLayoutManager.textLayoutFragment(for: containerPoint) else {
@@ -90,8 +91,9 @@
                     return true
                 }
                 guard var rect = union else { return nil }
-                rect.origin.x += textContainerInset.width
-                rect.origin.y += textContainerInset.height
+                let origin = textContainerOrigin
+                rect.origin.x += origin.x
+                rect.origin.y += origin.y
                 return rect
             }
 
@@ -100,8 +102,9 @@
                     forCharacterRange: range, actualCharacterRange: nil
                 )
                 var rect = layoutManager.boundingRect(forGlyphRange: glyphRange, in: textContainer)
-                rect.origin.x += textContainerInset.width
-                rect.origin.y += textContainerInset.height
+                let origin = textContainerOrigin
+                rect.origin.x += origin.x
+                rect.origin.y += origin.y
                 return rect
             }
 
