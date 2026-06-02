@@ -7,7 +7,7 @@
         /// different comment replaces it.
         func showCommentPopover(id: String, range: NSRange) {
             guard window != nil, // NSPopover needs a hosting window to anchor
-                  let comment = commentsByID[id],
+                  let comment = criticDocument?.commentsByID[id],
                   let theme = commentTheme,
                   let rect = boundingRect(forCharacterRange: range)
             else {

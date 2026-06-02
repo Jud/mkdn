@@ -65,7 +65,9 @@
 
         // MARK: - Comment State
 
-        var commentsByID: [String: CriticComment] = [:]
+        var criticDocument: CriticMarkupDocument?
+        var commentSourceMap: SourceMap?
+        weak var documentState: DocumentState?
         var commentTheme: AppTheme?
         var commentPopover: NSPopover?
 

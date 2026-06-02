@@ -53,7 +53,8 @@
                 findState: findState,
                 outlineState: outlineState,
                 headingOffsets: textStorageResult.headingOffsets,
-                comments: criticDocument?.commentsByID ?? [:],
+                criticDocument: criticDocument,
+                commentSourceMap: textStorageResult.sourceMap,
                 isLoadingGateActive: $docState.isLoadingGateActive
             )
             .background(appSettings.theme.colors.background)

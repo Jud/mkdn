@@ -28,7 +28,8 @@
         let findState: FindState
         let outlineState: OutlineState
         let headingOffsets: [Int: Int]
-        let comments: [String: CriticComment]
+        let criticDocument: CriticMarkupDocument?
+        let commentSourceMap: SourceMap
         @Binding var isLoadingGateActive: Bool
 
         // MARK: - NSViewRepresentable
@@ -71,7 +72,9 @@
             applyTheme(to: textView, scrollView: scrollView)
             textView.findState = findState
             textView.printBlocks = blocks
-            textView.commentsByID = comments
+            textView.criticDocument = criticDocument
+            textView.commentSourceMap = commentSourceMap
+            textView.documentState = documentState
             textView.commentTheme = theme
 
             textView.textStorage?.setAttributedString(attributedText)
@@ -100,7 +103,9 @@
             applyTheme(to: textView, scrollView: scrollView)
             textView.findState = findState
             textView.printBlocks = blocks
-            textView.commentsByID = comments
+            textView.criticDocument = criticDocument
+            textView.commentSourceMap = commentSourceMap
+            textView.documentState = documentState
             textView.commentTheme = theme
 
             let isNewContent = coordinator.lastAppliedText !== attributedText

@@ -19,7 +19,7 @@
 
             let view = CodeBlockBackgroundTextView(frame: NSRect(x: 0, y: 0, width: 600, height: 400))
             view.textContainerInset = NSSize(width: 16, height: 16)
-            view.commentsByID = document.commentsByID
+            view.criticDocument = document
             view.commentTheme = .solarizedDark
             view.textStorage?.setAttributedString(mutable)
             view.layoutManager?.ensureLayout(for: view.textContainer!)
