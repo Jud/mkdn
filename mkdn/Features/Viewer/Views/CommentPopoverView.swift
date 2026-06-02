@@ -57,8 +57,10 @@
                     Button("Cancel") { isEditing = false }
                     Spacer()
                     Button("Save") {
-                        documentState?.editComment(id: commentID, of: source, newBody: trimmedDraft)
-                        onClose()
+                        // Keep the editor open (and the draft) if the edit is rejected.
+                        if documentState?.editComment(id: commentID, of: source, newBody: trimmedDraft) == true {
+                            onClose()
+                        }
                     }
                     .keyboardShortcut(.return, modifiers: [.command])
                     .disabled(trimmedDraft.isEmpty)
@@ -74,8 +76,9 @@
                 }
                 Spacer()
                 Button("Delete", role: .destructive) {
-                    documentState.deleteComment(id: commentID, of: source)
-                    onClose()
+                    if documentState.deleteComment(id: commentID, of: source) {
+                        onClose()
+                    }
                 }
             }
         }

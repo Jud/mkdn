@@ -78,8 +78,10 @@
             popover.delegate = self
             popover.contentViewController = NSHostingController(
                 rootView: CommentInputView(theme: theme) { [weak self] body in
-                    documentState.addComment(in: rawRange, of: source, body: body)
-                    self?.commentPopover?.close()
+                    // Keep the popover (and the typed text) on a rejected wrap.
+                    if documentState.addComment(in: rawRange, of: source, body: body) {
+                        self?.commentPopover?.close()
+                    }
                 }
             )
             commentPopover = popover
