@@ -32,6 +32,9 @@
             attachments: []
         )
         @State private var isFullReload = false
+        /// The CriticMarkup parse of the current content, cached so theme/scale
+        /// re-renders can re-apply comment highlights without re-preprocessing.
+        @State private var criticDocument: CriticMarkupDocument?
 
         var body: some View {
             @Bindable var docState = documentState
@@ -61,8 +64,12 @@
                     guard !Task.isCancelled else { return }
                 }
 
+                // Strip CriticMarkup before rendering so comment delimiters never
+                // reach the screen; the parse is cached for highlight application.
+                let document = CriticMarkup.preprocess(documentState.markdownContent)
+                criticDocument = document
                 let newBlocks = MarkdownRenderer.render(
-                    text: documentState.markdownContent,
+                    text: document.transformedSource,
                     theme: appSettings.theme,
                     generation: documentState.loadGeneration
                 )
@@ -85,13 +92,33 @@
             renderedBlocks = newBlocks
             knownBlockIDs = Set(newBlocks.map(\.id))
             isFullReload = animate
-            textStorageResult = MarkdownTextStorageBuilder.build(
+            let result = MarkdownTextStorageBuilder.build(
                 blocks: newBlocks,
                 theme: appSettings.theme,
                 scaleFactor: appSettings.scaleFactor,
                 appSettings: appSettings
             )
+            textStorageResult = applyingCommentHighlights(to: result)
             outlineState.updateHeadings(from: newBlocks)
+        }
+
+        /// Paint comment highlights onto a freshly built result, if the current
+        /// content has any comments. Returns the result unchanged otherwise.
+        private func applyingCommentHighlights(to result: TextStorageResult) -> TextStorageResult {
+            guard let document = criticDocument, !document.comments.isEmpty else { return result }
+            let mutable = NSMutableAttributedString(attributedString: result.attributedString)
+            MarkdownTextStorageBuilder.applyCommentHighlights(
+                to: mutable,
+                document: document,
+                sourceMap: result.sourceMap,
+                color: PlatformTypeConverter.color(from: appSettings.theme.colors.commentHighlight)
+            )
+            return TextStorageResult(
+                attributedString: mutable,
+                attachments: result.attachments,
+                headingOffsets: result.headingOffsets,
+                sourceMap: result.sourceMap
+            )
         }
     }
 #endif
