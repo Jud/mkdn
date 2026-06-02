@@ -185,7 +185,44 @@ enum CriticMarkup {
         let converter = SourceLocationConverter(source: raw)
         var ranges: [Range<String.Index>] = []
         collectProtectedRanges(in: document, converter: converter, into: &ranges)
+        ranges.append(contentsOf: referenceDefinitionRanges(in: raw))
         return ranges
+    }
+
+    /// Raw-source ranges of link/image *reference definition* lines
+    /// (`[label]: destination`). swift-markdown resolves these onto use-site
+    /// `Link` nodes and exposes no node for the definition line itself, so the
+    /// AST walk cannot shield them; CriticMarkup in a definition URL would
+    /// otherwise be silently stripped. Detected by a minimal line scan: up to
+    /// three leading spaces, `[label]:`, protected through end of line.
+    private static func referenceDefinitionRanges(in raw: String) -> [Range<String.Index>] {
+        var ranges: [Range<String.Index>] = []
+        var lineStart = raw.startIndex
+        while lineStart < raw.endIndex {
+            let lineEnd = raw[lineStart...].firstIndex(of: "\n") ?? raw.endIndex
+            if isReferenceDefinition(in: raw, lineStart: lineStart, lineEnd: lineEnd) {
+                ranges.append(lineStart ..< lineEnd)
+            }
+            lineStart = lineEnd < raw.endIndex ? raw.index(after: lineEnd) : raw.endIndex
+        }
+        return ranges
+    }
+
+    private static func isReferenceDefinition(
+        in raw: String,
+        lineStart: String.Index,
+        lineEnd: String.Index
+    ) -> Bool {
+        var index = lineStart
+        var leadingSpaces = 0
+        while index < lineEnd, raw[index] == " ", leadingSpaces < 3 {
+            index = raw.index(after: index)
+            leadingSpaces += 1
+        }
+        guard index < lineEnd, raw[index] == "[" else { return false }
+        guard let labelEnd = raw[index ..< lineEnd].firstIndex(of: "]") else { return false }
+        let afterLabel = raw.index(after: labelEnd)
+        return afterLabel < lineEnd && raw[afterLabel] == ":"
     }
 
     /// Shields code (fenced/indented `CodeBlock`, `InlineCode`), HTML

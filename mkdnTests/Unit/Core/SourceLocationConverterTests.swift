@@ -69,6 +69,24 @@ struct SourceLocationConverterTests {
         #expect(source[secondLine...] == "b")
     }
 
+    @Test("An over-large column does not spill into the next line")
+    func columnDoesNotSpill() {
+        let source = "abc\ndef"
+        let converter = SourceLocationConverter(source: source)
+        // Line 1 has 3 characters; columns past the line (col 5+) must be nil,
+        // never the next line's content.
+        #expect(converter.index(line: 1, column: 5) == nil)
+        #expect(converter.index(line: 1, column: 7) == nil)
+    }
+
+    @Test("A lone CR starts a new line (classic Mac endings)")
+    func loneCarriageReturn() {
+        let source = "a\rb"
+        let converter = SourceLocationConverter(source: source)
+        let secondLine = try! #require(converter.index(line: 2, column: 1))
+        #expect(source[secondLine...] == "b")
+    }
+
     @Test("Out-of-bounds line or column returns nil")
     func outOfBounds() {
         let source = "abc"

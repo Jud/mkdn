@@ -148,6 +148,26 @@ struct CriticMarkupTests {
         #expect(doc.transformedSource.contains("{==p==}{>>c<<}"))
     }
 
+    @Test("Does not transform CriticMarkup inside a link reference definition")
+    func referenceDefinitionProtected() {
+        let source = """
+        See [the docs][id].
+
+        [id]: https://example.com/{==p==}{>>c<<}
+        """
+        let doc = CriticMarkup.preprocess(source)
+        #expect(doc.comments.isEmpty)
+        #expect(doc.transformedSource.contains("{==p==}{>>c<<}"))
+    }
+
+    @Test("Does not transform CriticMarkup inside a tab-indented code block")
+    func tabIndentedCodeProtected() {
+        let source = "paragraph\n\n\tlet x = {==y==}{>>n<<}\n\nend"
+        let doc = CriticMarkup.preprocess(source)
+        #expect(doc.comments.isEmpty)
+        #expect(doc.transformedSource.contains("{==y==}{>>n<<}"))
+    }
+
     @Test("Adversarial opener spam terminates and leaves source intact")
     func adversarialOpeners() {
         // Many "{==" with no terminators must not hang or crash.

@@ -22,8 +22,11 @@ struct SourceLocationConverter {
         var starts: [String.UTF8View.Index] = [utf8.startIndex]
         var index = utf8.startIndex
         while index != utf8.endIndex {
+            let byte = utf8[index]
             let next = utf8.index(after: index)
-            if utf8[index] == 0x0A { // "\n" — CRLF's "\r" stays at the end of the prior line
+            // CommonMark treats "\n", "\r\n", and a lone "\r" as line endings.
+            // The "\r" of a "\r\n" is skipped here so the line starts after "\n".
+            if byte == 0x0A || (byte == 0x0D && (next == utf8.endIndex || utf8[next] != 0x0A)) {
                 starts.append(next)
             }
             index = next
@@ -39,11 +42,16 @@ struct SourceLocationConverter {
         guard line >= 1, line <= lineStartsUTF8.count, column >= 1 else { return nil }
         let utf8 = source.utf8
         let lineStart = lineStartsUTF8[line - 1]
-        guard let target = utf8.index(
-            lineStart, offsetBy: column - 1, limitedBy: utf8.endIndex
-        ) else {
+        let isLastLine = line == lineStartsUTF8.count
+        // Confine the advance to this line so an over-large column fails rather
+        // than spilling into the next line. The final line ends at endIndex.
+        let lineEnd = isLastLine ? utf8.endIndex : lineStartsUTF8[line]
+        guard let target = utf8.index(lineStart, offsetBy: column - 1, limitedBy: lineEnd) else {
             return nil
         }
+        // Reaching the next line's start (non-final line) means the column ran
+        // past this line's content; only the final line may resolve to endIndex.
+        if !isLastLine, target == lineEnd { return nil }
         return target.samePosition(in: source)
     }
 
