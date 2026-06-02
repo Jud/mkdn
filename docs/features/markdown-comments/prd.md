@@ -120,6 +120,22 @@ The load-bearing piece (FR-9/FR-10). The on-screen `NSAttributedString` is **not
 4. **Inline click hit-test → popover** — new attribute hit-test in `SelectableTextView` (separate from `BlockInteractionContext`); popover shows body with Edit/Delete. → verify: manual run.
 5. **Authoring UI** — selection → reject-first gating (FR-9a) → "Comment" action → popover → wrap/save/re-render. → verify: end-to-end round-trip in the running app, both themes.
 
+## Known v1 limitations (preprocessor)
+
+Surfaced during Codex review and accepted for the gate (all are *safe* —
+conservative over-rejection or rare hand-authored input, never data loss in the
+authoring flow, which only ever wraps rendered-text selections):
+
+- Comments that **overlap a link/image** (e.g. a highlight enclosing linked
+  prose, or on link display text) are left literal. The precise rule — strip
+  only when CriticMarkup delimiters land in non-rendered URL/title syntax — is
+  deferred to the rendered-text mapping (Units 4–5), which makes it fall out
+  naturally.
+- **Reference-definition** shielding is a single-line scan: multi-line
+  definitions (destination/title on following lines) and escaped-label forms
+  are not fully covered. CriticMarkup hand-authored into such a span could be
+  stripped. Rare; revisit with the rendered-text mapping.
+
 ## Open Questions
 
 1. **Orphan comments** (`{>>…<<}` with no preceding highlight): leave literal (v1 default), or render as a standalone margin note?

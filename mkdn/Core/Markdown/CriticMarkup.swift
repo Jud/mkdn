@@ -199,7 +199,7 @@ enum CriticMarkup {
         var ranges: [Range<String.Index>] = []
         var lineStart = raw.startIndex
         while lineStart < raw.endIndex {
-            let lineEnd = raw[lineStart...].firstIndex(of: "\n") ?? raw.endIndex
+            let lineEnd = raw[lineStart...].firstIndex { $0 == "\n" || $0 == "\r" } ?? raw.endIndex
             if isReferenceDefinition(in: raw, lineStart: lineStart, lineEnd: lineEnd) {
                 ranges.append(lineStart ..< lineEnd)
             }
@@ -220,7 +220,12 @@ enum CriticMarkup {
             leadingSpaces += 1
         }
         guard index < lineEnd, raw[index] == "[" else { return false }
-        guard let labelEnd = raw[index ..< lineEnd].firstIndex(of: "]") else { return false }
+        let labelStart = raw.index(after: index)
+        guard let labelEnd = raw[labelStart ..< lineEnd].firstIndex(of: "]"),
+              labelEnd > labelStart // a non-empty label
+        else {
+            return false
+        }
         let afterLabel = raw.index(after: labelEnd)
         return afterLabel < lineEnd && raw[afterLabel] == ":"
     }
@@ -229,6 +234,10 @@ enum CriticMarkup {
     /// (`HTMLBlock`/`InlineHTML`, rendered as raw text), and link/image syntax.
     /// CriticMarkup inside a link destination would silently rewrite the URL
     /// with no visible comment, so the whole node is treated as non-commentable.
+    /// v1 limitation: this conservatively rejects comments that merely overlap a
+    /// link (e.g. a highlight enclosing linked prose), not only those inside the
+    /// destination. The precise rule — block only delimiters that land in
+    /// non-rendered syntax — belongs with the rendered-text mapping (later phase).
     private static func collectProtectedRanges(
         in markup: any Markup,
         converter: SourceLocationConverter,

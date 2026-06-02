@@ -160,6 +160,15 @@ struct CriticMarkupTests {
         #expect(doc.transformedSource.contains("{==p==}{>>c<<}"))
     }
 
+    @Test("v1: a comment overlapping a link is conservatively left literal")
+    func commentOverlappingLinkLeftLiteral() {
+        // Documents the gate's conservative behavior: a highlight enclosing a
+        // link overlaps the protected link node, so it is not transformed.
+        let doc = CriticMarkup.preprocess("{==see [docs](https://x) now==}{>>c<<}")
+        #expect(doc.comments.isEmpty)
+        #expect(doc.transformedSource.contains("{==see"))
+    }
+
     @Test("Does not transform CriticMarkup inside a tab-indented code block")
     func tabIndentedCodeProtected() {
         let source = "paragraph\n\n\tlet x = {==y==}{>>n<<}\n\nend"
