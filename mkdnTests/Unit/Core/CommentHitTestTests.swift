@@ -56,5 +56,15 @@
             let view = textView("short")
             #expect(view.commentInfo(at: CGPoint(x: 590, y: 380)) == nil)
         }
+
+        @Test("boundingRect of a comment range round-trips back to the comment")
+        func boundingRectRoundTrip() {
+            let view = textView("foo {==bar==}{>>note<<} baz")
+            let range = (view.string as NSString).range(of: "bar")
+            let rect = try! #require(view.boundingRect(forCharacterRange: range))
+            #expect(rect.width > 0 && rect.height > 0)
+            // A point at the rect's center must hit the same comment.
+            #expect(view.commentInfo(at: CGPoint(x: rect.midX, y: rect.midY))?.id == "c1")
+        }
     }
 #endif

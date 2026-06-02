@@ -67,5 +67,45 @@
             }
             return (id, range)
         }
+
+        /// The bounding rect (view coordinates) of a character range, for
+        /// anchoring a popover. Unions the per-line text segments. Returns nil if
+        /// the range has no laid-out geometry.
+        func boundingRect(forCharacterRange range: NSRange) -> CGRect? {
+            if let textLayoutManager, let textContentStorage {
+                guard let start = textContentStorage.location(
+                    textContentStorage.documentRange.location, offsetBy: range.location
+                ),
+                    let end = textContentStorage.location(start, offsetBy: range.length),
+                    let textRange = NSTextRange(location: start, end: end)
+                else {
+                    return nil
+                }
+                textLayoutManager.ensureLayout(for: textRange)
+                var union: CGRect?
+                textLayoutManager.enumerateTextSegments(
+                    in: textRange, type: .standard, options: .rangeNotRequired
+                ) { _, segmentFrame, _, _ in
+                    union = union.map { $0.union(segmentFrame) } ?? segmentFrame
+                    return true
+                }
+                guard var rect = union else { return nil }
+                rect.origin.x += textContainerInset.width
+                rect.origin.y += textContainerInset.height
+                return rect
+            }
+
+            if let layoutManager, let textContainer {
+                let glyphRange = layoutManager.glyphRange(
+                    forCharacterRange: range, actualCharacterRange: nil
+                )
+                var rect = layoutManager.boundingRect(forGlyphRange: glyphRange, in: textContainer)
+                rect.origin.x += textContainerInset.width
+                rect.origin.y += textContainerInset.height
+                return rect
+            }
+
+            return nil
+        }
     }
 #endif
