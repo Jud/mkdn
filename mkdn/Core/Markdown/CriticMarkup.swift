@@ -1,36 +1,37 @@
 import Foundation
-import Markdown
 
-/// A single CriticMarkup annotation: a highlighted span `{==…==}` immediately
-/// followed by a comment `{>>…<<}`. All ranges index the *raw* source string,
-/// which is the comment's durable on-disk identity.
+/// A single comment: a span of rendered text bracketed in the raw source by an
+/// invisible paired anchor — `<!--mkc s=ID-->…<!--mkc e=ID-->` — whose body and
+/// re-anchoring data live in the document's `CommentSidecar` block, keyed by the
+/// same `ID`. Anchors are HTML comments, so they are invisible in every markdown
+/// renderer and survive round-trips; mkdn strips them before parsing.
 struct CriticComment: Equatable {
-    /// Deterministic, document-order id (`c1`, `c2`, …). Stable per parse.
+    /// The anchor id (`s=ID`/`e=ID`), this comment's durable on-disk identity.
     let id: String
+    /// The comment text, from the sidecar entry.
     let body: String
-    /// The entire `{==…==}{>>…<<}` span in the raw source.
+    /// The whole `<!--mkc s=ID-->…<!--mkc e=ID-->` region in the raw source,
+    /// anchors included.
     let rawFullRange: Range<String.Index>
-    /// The highlight's inner text in the raw source (the part kept on screen).
+    /// The commented text between the anchors in the raw source. With nesting,
+    /// this can itself contain other comments' anchors.
     let rawHighlightRange: Range<String.Index>
-    /// The comment body's text in the raw source.
-    let rawBodyRange: Range<String.Index>
-    /// The highlight inner text's location in the *transformed* source — the
-    /// bridge rendering uses to attach the highlight attribute.
+    /// The commented text's location in the *transformed* source (anchors and
+    /// sidecar stripped) — the bridge rendering uses to attach the highlight.
     let transformedHighlightRange: Range<String.Index>
 }
 
-/// The result of stripping CriticMarkup out of a raw markdown source before it
-/// reaches swift-markdown. `transformedSource` is ordinary markdown (delimiters
-/// and comment bodies removed, highlight inner text retained) and is what gets
-/// parsed/rendered; the preserved-text segments let callers map a position in
-/// the transformed source back to the raw source for editing.
+/// The result of stripping comment anchors and the sidecar block out of a raw
+/// markdown source before it reaches swift-markdown. `transformedSource` is
+/// ordinary markdown (anchors and sidecar removed, commented text retained) and
+/// is what gets parsed/rendered; the preserved-text segments let callers map a
+/// position in the transformed source back to the raw source for editing.
 struct CriticMarkupDocument {
     let rawSource: String
     let transformedSource: String
     let comments: [CriticComment]
 
-    /// Comments keyed by id, for hit-test/edit/delete lookups (so callers don't
-    /// rediscover metadata from the attributed string).
+    /// Comments keyed by id, for hit-test/edit/delete lookups.
     var commentsByID: [String: CriticComment] {
         Dictionary(comments.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
     }
@@ -60,10 +61,10 @@ struct CriticMarkupDocument {
     /// Map a non-empty range in the transformed source back to the raw source.
     ///
     /// Returns `nil` when the range is empty or spans more than one preserved
-    /// segment. Distinct segments always have a CriticMarkup deletion between
-    /// them in the raw source, so a cross-segment transformed range has no
-    /// contiguous raw counterpart — this is the reject-first contract that
-    /// keeps a selection touching an existing comment from being editable.
+    /// segment. Distinct segments always have a stripped anchor (or the sidecar)
+    /// between them in the raw source, so a cross-segment transformed range has
+    /// no contiguous raw counterpart — the reject-first contract that keeps a
+    /// selection touching an existing anchor from being editable.
     func rawRange(forTransformed range: Range<String.Index>) -> Range<String.Index>? {
         let lo = transformedSource.distance(from: transformedSource.startIndex, to: range.lowerBound)
         let hi = transformedSource.distance(from: transformedSource.startIndex, to: range.upperBound)
@@ -79,15 +80,22 @@ struct CriticMarkupDocument {
 }
 
 enum CriticMarkup {
-    /// Strip CriticMarkup highlight+comment pairs out of `raw`, leaving ordinary
-    /// markdown plus the metadata needed to render and edit the comments.
-    ///
-    /// CriticMarkup-looking text inside regions that are not plain rendered
-    /// prose — code (fenced/indented/inline), HTML, and link/image syntax — is
-    /// left untouched, so it is never silently mutated.
+    // MARK: - Parsing
+
+    /// Strip comment anchors and the sidecar block out of `raw`, leaving ordinary
+    /// markdown plus the metadata needed to render and edit the comments. A
+    /// comment is active only when its id has exactly one start anchor, one end
+    /// anchor (start before end), and a sidecar entry; everything else (orphaned
+    /// anchors, half-pairs, duplicate ids, anchor-only ids) yields no comment but
+    /// its anchors are still stripped so they never render.
     static func preprocess(_ raw: String) -> CriticMarkupDocument {
-        // No opener means nothing to strip; skip the protective parse entirely.
-        guard raw.contains("{==") else {
+        let sidecar = CommentSidecar.decode(from: raw)
+        let sidecarRange = sidecar?.blockRange
+
+        let allAnchors = anchors(in: raw, excluding: sidecarRange)
+
+        // No anchors and no sidecar: the whole document is preserved verbatim.
+        guard !allAnchors.isEmpty || sidecarRange != nil else {
             let wholeSegment: [CriticMarkupDocument.Segment] = raw.isEmpty ? [] : [.init(
                 transformedStart: 0,
                 transformedEnd: raw.count,
@@ -101,13 +109,21 @@ enum CriticMarkup {
             )
         }
 
-        let protected = protectedRanges(in: raw)
+        // Cuts: regions removed from the transformed output, in source order.
+        var cuts: [(range: Range<String.Index>, anchorIndex: Int?)] =
+            allAnchors.enumerated().map { ($1.range, $0) }
+        if let sidecarRange {
+            // The sidecar is appended metadata; absorb the blank lines around it
+            // so stripping it doesn't leave dangling newlines in the rendered text.
+            cuts.append((absorbingSurroundingNewlines(of: sidecarRange, in: raw), nil))
+        }
+        cuts.sort { $0.range.lowerBound < $1.range.lowerBound }
 
         var transformed = ""
         var transformedCount = 0
         var segments: [CriticMarkupDocument.Segment] = []
-        var comments: [CriticComment] = []
-        var commentCounter = 0
+        var anchorTransformedOffset = [Int](repeating: 0, count: allAnchors.count)
+        var cursor = raw.startIndex
 
         func appendPreserved(_ rawRange: Range<String.Index>) {
             guard !rawRange.isEmpty else { return }
@@ -121,70 +137,21 @@ enum CriticMarkup {
             transformedCount += length
         }
 
-        var runStart = raw.startIndex
-        var searchStart = raw.startIndex
-        // Opener-driven scan: jump to each "{==" via range(of:) and never
-        // re-scan earlier text, so adversarial opener spam stays linear.
-        while let openRange = raw.range(of: "{==", range: searchStart ..< raw.endIndex) {
-            let open = openRange.lowerBound
-            let highlightStart = openRange.upperBound
-            guard let closeRange = raw.range(of: "==}", range: highlightStart ..< raw.endIndex) else {
-                break // no highlight terminator remains anywhere ahead
+        for cut in cuts {
+            appendPreserved(cursor ..< cut.range.lowerBound)
+            if let anchorIndex = cut.anchorIndex {
+                anchorTransformedOffset[anchorIndex] = transformedCount
             }
-            let highlightEnd = closeRange.lowerBound
-            let afterHighlight = closeRange.upperBound
-
-            // This is the first "==}" after `open`, so every opener up to here
-            // shares it and fails the same check — resume past it, don't retry each.
-            guard highlightStart < highlightEnd, raw[afterHighlight...].hasPrefix("{>>") else {
-                searchStart = afterHighlight
-                continue
-            }
-            let bodyStart = raw.index(afterHighlight, offsetBy: 3)
-            guard let bodyCloseRange = raw.range(of: "<<}", range: bodyStart ..< raw.endIndex) else {
-                break // no comment terminator remains anywhere ahead
-            }
-            let fullRange = open ..< bodyCloseRange.upperBound
-
-            // Reject a comment overlapping protected (code/HTML/link) syntax —
-            // but exempt protected ranges that sit wholly inside the body, since
-            // the body is stripped on render: a comment whose *body* merely
-            // contains `code`/[link] markdown is legitimate.
-            let bodyInterior = bodyStart ..< bodyCloseRange.lowerBound
-            let overlapsProtected = protected.contains { range in
-                guard range.lowerBound < fullRange.upperBound, fullRange.lowerBound < range.upperBound
-                else {
-                    return false
-                }
-                let insideBody = range.lowerBound >= bodyInterior.lowerBound
-                    && range.upperBound <= bodyInterior.upperBound
-                return !insideBody
-            }
-            guard !overlapsProtected else {
-                searchStart = afterHighlight
-                continue
-            }
-
-            appendPreserved(runStart ..< open)
-            let highlightStartCount = transformedCount
-            appendPreserved(highlightStart ..< highlightEnd)
-            let transformedHighlight =
-                transformed.index(transformed.startIndex, offsetBy: highlightStartCount)
-                ..< transformed.index(transformed.startIndex, offsetBy: transformedCount)
-
-            commentCounter += 1
-            comments.append(CriticComment(
-                id: "c\(commentCounter)",
-                body: String(raw[bodyStart ..< bodyCloseRange.lowerBound]),
-                rawFullRange: fullRange,
-                rawHighlightRange: highlightStart ..< highlightEnd,
-                rawBodyRange: bodyStart ..< bodyCloseRange.lowerBound,
-                transformedHighlightRange: transformedHighlight
-            ))
-            searchStart = fullRange.upperBound
-            runStart = searchStart
+            cursor = cut.range.upperBound
         }
-        appendPreserved(runStart ..< raw.endIndex)
+        appendPreserved(cursor ..< raw.endIndex)
+
+        let comments = pairComments(
+            anchors: allAnchors,
+            transformedOffsets: anchorTransformedOffset,
+            transformed: transformed,
+            sidecarEntries: sidecar?.entries ?? []
+        )
 
         return CriticMarkupDocument(
             rawSource: raw,
@@ -194,132 +161,251 @@ enum CriticMarkup {
         )
     }
 
+    /// Match start/end anchors by id into comments. Crossing pairs are accepted
+    /// (matched by id, not stack-nesting), so overlapping comments are
+    /// representable. Document order is by transformed start offset.
+    private static func pairComments(
+        anchors: [Anchor],
+        transformedOffsets: [Int],
+        transformed: String,
+        sidecarEntries: [CommentSidecar.Entry]
+    ) -> [CriticComment] {
+        var startIndices: [String: [Int]] = [:]
+        var endIndices: [String: [Int]] = [:]
+        for (i, anchor) in anchors.enumerated() {
+            switch anchor.kind {
+            case .start: startIndices[anchor.id, default: []].append(i)
+            case .end: endIndices[anchor.id, default: []].append(i)
+            }
+        }
+
+        var comments: [CriticComment] = []
+        for entry in sidecarEntries {
+            guard let starts = startIndices[entry.id], starts.count == 1,
+                  let ends = endIndices[entry.id], ends.count == 1
+            else {
+                continue
+            }
+            let startAnchor = anchors[starts[0]]
+            let endAnchor = anchors[ends[0]]
+            // The commented text must be non-empty: the start anchor must close
+            // before the end anchor opens, with at least one character between.
+            guard startAnchor.range.upperBound < endAnchor.range.lowerBound,
+                  transformedOffsets[starts[0]] < transformedOffsets[ends[0]]
+            else {
+                continue
+            }
+            let tStart = transformed.index(transformed.startIndex, offsetBy: transformedOffsets[starts[0]])
+            let tEnd = transformed.index(transformed.startIndex, offsetBy: transformedOffsets[ends[0]])
+            comments.append(CriticComment(
+                id: entry.id,
+                body: entry.body,
+                rawFullRange: startAnchor.range.lowerBound ..< endAnchor.range.upperBound,
+                rawHighlightRange: startAnchor.range.upperBound ..< endAnchor.range.lowerBound,
+                transformedHighlightRange: tStart ..< tEnd
+            ))
+        }
+        comments.sort { $0.transformedHighlightRange.lowerBound < $1.transformedHighlightRange.lowerBound }
+        return comments
+    }
+
+    /// Extend a range to swallow newlines immediately before and after it.
+    private static func absorbingSurroundingNewlines(
+        of range: Range<String.Index>,
+        in raw: String
+    ) -> Range<String.Index> {
+        var lower = range.lowerBound
+        while lower > raw.startIndex {
+            let previous = raw.index(before: lower)
+            guard raw[previous] == "\n" else { break }
+            lower = previous
+        }
+        var upper = range.upperBound
+        while upper < raw.endIndex, raw[upper] == "\n" {
+            upper = raw.index(after: upper)
+        }
+        return lower ..< upper
+    }
+
+    // MARK: - Anchors
+
+    private struct Anchor {
+        enum Kind { case start, end }
+        let kind: Kind
+        let id: String
+        /// The full `<!--mkc s=ID-->` token range in the raw source.
+        let range: Range<String.Index>
+    }
+
+    private static let anchorMarker = "<!--mkc "
+
+    /// Locate every well-formed `<!--mkc s=ID-->` / `<!--mkc e=ID-->` token in
+    /// `raw`, skipping any that fall inside the sidecar block. IDs are
+    /// `[A-Za-z0-9]+`; malformed candidates are ignored.
+    private static func anchors(in raw: String, excluding sidecar: Range<String.Index>?) -> [Anchor] {
+        var result: [Anchor] = []
+        var search = raw.startIndex
+        while let markerRange = raw.range(of: anchorMarker, range: search ..< raw.endIndex) {
+            search = markerRange.upperBound
+            var index = markerRange.upperBound
+            guard index < raw.endIndex else { break }
+            let kind: Anchor.Kind
+            switch raw[index] {
+            case "s": kind = .start
+            case "e": kind = .end
+            default: continue
+            }
+            index = raw.index(after: index)
+            guard index < raw.endIndex, raw[index] == "=" else { continue }
+            index = raw.index(after: index)
+            let idStart = index
+            while index < raw.endIndex, raw[index].isLetter || raw[index].isNumber {
+                index = raw.index(after: index)
+            }
+            guard index > idStart, raw[index...].hasPrefix("-->") else { continue }
+            let tokenEnd = raw.index(index, offsetBy: 3)
+            let tokenRange = markerRange.lowerBound ..< tokenEnd
+            if let sidecar, tokenRange.overlaps(sidecar) {
+                search = tokenEnd
+                continue
+            }
+            result.append(Anchor(kind: kind, id: String(raw[idStart ..< index]), range: tokenRange))
+            search = tokenEnd
+        }
+        return result
+    }
+
     // MARK: - Authoring
 
-    /// Wrap a raw-source span as `{==span==}{>>body<<}`, returning the edited
-    /// source. Returns nil when the span is empty, the span contains `==}` (would
-    /// truncate the highlight), or the body contains `<<}` (would truncate the
-    /// comment) — the FR-2b reject-rather-than-escape rule.
-    static func wrapComment(in raw: String, range: Range<String.Index>, body: String) -> String? {
+    /// Wrap a raw-source span as a commented anchor pair, adding its body to the
+    /// sidecar block. Returns the edited source, or nil when the span is empty or
+    /// the result fails to re-parse as the intended comment.
+    static func wrapComment(
+        in raw: String,
+        range: Range<String.Index>,
+        body: String,
+        idGenerator: () -> String = randomID
+    ) -> String? {
         guard !range.isEmpty else { return nil }
-        let span = String(raw[range])
-        guard !span.contains("==}"), !body.contains("<<}") else { return nil }
-        let candidate = String(raw[..<range.lowerBound])
-            + "{==" + span + "==}{>>" + body + "<<}"
+
+        let id = uniqueID(in: raw, idGenerator: idGenerator)
+        let quote = String(raw[range])
+        let prefix = context(in: raw, before: range.lowerBound)
+        let suffix = context(in: raw, after: range.upperBound)
+
+        var candidate = String(raw[..<range.lowerBound])
+            + "\(anchorMarker)s=\(id)-->" + quote + "\(anchorMarker)e=\(id)-->"
             + String(raw[range.upperBound...])
 
-        // Verify the new comment re-parses exactly as intended at the insertion
-        // point — a dangling "{==" in the surrounding text could otherwise
-        // capture the inserted delimiters and yield a different span (FR-2b:
-        // reject rather than silently mis-wrap). The prefix is copied verbatim,
-        // so the insertion offset is identical in raw and candidate.
-        let insertionOffset = raw.distance(from: raw.startIndex, to: range.lowerBound)
+        let entry = CommentSidecar.Entry(id: id, body: body, quote: quote, prefix: prefix, suffix: suffix)
+        candidate = upsertSidecar(in: candidate, entry: entry)
+
+        // Verify the new comment re-parses with the intended id and body, so a
+        // malformed selection (e.g. text that itself looks like an anchor) can't
+        // silently produce a different comment.
         let parsed = preprocess(candidate)
-        let inserted = parsed.comments.first {
-            candidate.distance(from: candidate.startIndex, to: $0.rawFullRange.lowerBound) == insertionOffset
-        }
-        guard let inserted,
-              candidate[inserted.rawHighlightRange] == span,
-              inserted.body == body,
-              // The wrap must be purely additive — exactly one new comment, with
-              // no existing comment disturbed by the inserted delimiters.
-              parsed.comments.count == preprocess(raw).comments.count + 1
-        else {
-            return nil
-        }
+        guard let inserted = parsed.commentsByID[id], inserted.body == body else { return nil }
         return candidate
     }
 
-    /// Replace a comment's body text, returning the edited source, or nil if the
-    /// new body contains `<<}`. `comment` must come from parsing `raw`.
-    static func editComment(in raw: String, comment: CriticComment, newBody: String) -> String? {
-        guard !newBody.contains("<<}") else { return nil }
-        return raw.replacingCharacters(in: comment.rawBodyRange, with: newBody)
-    }
-
-    /// Remove a comment's markup, leaving its highlighted text behind (resolve).
-    /// `comment` must come from parsing `raw`. Non-optional: deletion takes no
-    /// user-supplied delimiter text, so it cannot produce malformed markup.
-    static func deleteComment(in raw: String, comment: CriticComment) -> String {
-        raw.replacingCharacters(in: comment.rawFullRange, with: String(raw[comment.rawHighlightRange]))
-    }
-
-    /// Raw-source ranges that are not plain rendered prose and must be shielded
-    /// from the CriticMarkup scan. Reuses swift-markdown's own detection rather
-    /// than re-deriving CommonMark rules.
-    private static func protectedRanges(in raw: String) -> [Range<String.Index>] {
-        let document = Document(parsing: raw, options: [])
-        let converter = SourceLocationConverter(source: raw)
-        var ranges: [Range<String.Index>] = []
-        collectProtectedRanges(in: document, converter: converter, into: &ranges)
-        ranges.append(contentsOf: referenceDefinitionRanges(in: raw))
-        return ranges
-    }
-
-    /// Raw-source ranges of link/image *reference definition* lines
-    /// (`[label]: destination`). swift-markdown resolves these onto use-site
-    /// `Link` nodes and exposes no node for the definition line itself, so the
-    /// AST walk cannot shield them; CriticMarkup in a definition URL would
-    /// otherwise be silently stripped. Detected by a minimal line scan: up to
-    /// three leading spaces, `[label]:`, protected through end of line.
-    private static func referenceDefinitionRanges(in raw: String) -> [Range<String.Index>] {
-        var ranges: [Range<String.Index>] = []
-        var lineStart = raw.startIndex
-        while lineStart < raw.endIndex {
-            let lineEnd = raw[lineStart...].firstIndex { $0 == "\n" || $0 == "\r" } ?? raw.endIndex
-            if isReferenceDefinition(in: raw, lineStart: lineStart, lineEnd: lineEnd) {
-                ranges.append(lineStart ..< lineEnd)
-            }
-            lineStart = lineEnd < raw.endIndex ? raw.index(after: lineEnd) : raw.endIndex
-        }
-        return ranges
-    }
-
-    private static func isReferenceDefinition(
-        in raw: String,
-        lineStart: String.Index,
-        lineEnd: String.Index
-    ) -> Bool {
-        var index = lineStart
-        var leadingSpaces = 0
-        while index < lineEnd, raw[index] == " ", leadingSpaces < 3 {
-            index = raw.index(after: index)
-            leadingSpaces += 1
-        }
-        guard index < lineEnd, raw[index] == "[" else { return false }
-        let labelStart = raw.index(after: index)
-        guard let labelEnd = raw[labelStart ..< lineEnd].firstIndex(of: "]"),
-              labelEnd > labelStart // a non-empty label
+    /// Rewrite a comment's body in the sidecar, returning the edited source, or
+    /// nil if no sidecar entry has that id.
+    static func editComment(in raw: String, id: String, newBody: String) -> String? {
+        guard let decoded = CommentSidecar.decode(from: raw),
+              decoded.entries.contains(where: { $0.id == id })
         else {
-            return false
+            return nil
         }
-        let afterLabel = raw.index(after: labelEnd)
-        return afterLabel < lineEnd && raw[afterLabel] == ":"
+        var entries = decoded.entries
+        for index in entries.indices where entries[index].id == id {
+            entries[index].body = newBody
+        }
+        var result = raw
+        result.replaceSubrange(decoded.blockRange, with: CommentSidecar.encode(entries))
+        return result
     }
 
-    /// Shields code (fenced/indented `CodeBlock`, `InlineCode`), HTML
-    /// (`HTMLBlock`/`InlineHTML`, rendered as raw text), and link/image syntax.
-    /// CriticMarkup inside a link destination would silently rewrite the URL
-    /// with no visible comment, so the whole node is treated as non-commentable.
-    /// v1 limitation: this conservatively rejects comments that merely overlap a
-    /// link (e.g. a highlight enclosing linked prose), not only those inside the
-    /// destination. The precise rule — block only delimiters that land in
-    /// non-rendered syntax — belongs with the rendered-text mapping (later phase).
-    private static func collectProtectedRanges(
-        in markup: any Markup,
-        converter: SourceLocationConverter,
-        into ranges: inout [Range<String.Index>]
-    ) {
-        switch markup {
-        case is CodeBlock, is InlineCode, is HTMLBlock, is InlineHTML, is Markdown.Link, is Markdown.Image:
-            if let sourceRange = markup.range, let resolved = converter.range(for: sourceRange) {
-                ranges.append(resolved)
+    /// Remove a comment (resolve), leaving its commented text behind: strip the
+    /// id's anchor pair and its sidecar entry. Returns the source unchanged if
+    /// the id has neither.
+    static func deleteComment(in raw: String, id: String) -> String {
+        var result = raw
+
+        if let decoded = CommentSidecar.decode(from: result) {
+            let remaining = decoded.entries.filter { $0.id != id }
+            if remaining.count != decoded.entries.count {
+                result = writeSidecar(in: result, blockRange: decoded.blockRange, entries: remaining)
             }
-        default:
-            break
         }
-        for child in markup.children {
-            collectProtectedRanges(in: child, converter: converter, into: &ranges)
+
+        let sidecarRange = CommentSidecar.decode(from: result)?.blockRange
+        let toRemove = anchors(in: result, excluding: sidecarRange)
+            .filter { $0.id == id }
+            .map(\.range)
+            .sorted { $0.lowerBound > $1.lowerBound } // back-to-front keeps indices valid
+        for range in toRemove {
+            result.removeSubrange(range)
         }
+        return result
+    }
+
+    // MARK: - Authoring helpers
+
+    /// A short random base-36 id, unique within a document at insertion time.
+    static func randomID() -> String {
+        let alphabet = Array("abcdefghijklmnopqrstuvwxyz0123456789")
+        return String((0 ..< 5).map { _ in alphabet.randomElement()! })
+    }
+
+    private static func uniqueID(in raw: String, idGenerator: () -> String) -> String {
+        var used = Set(anchors(in: raw, excluding: CommentSidecar.decode(from: raw)?.blockRange).map(\.id))
+        used.formUnion(CommentSidecar.decode(from: raw)?.entries.map(\.id) ?? [])
+        var id = idGenerator()
+        while used.contains(id) { id = idGenerator() }
+        return id
+    }
+
+    /// Up to 32 characters of context immediately before `index`, for TextQuote
+    /// re-anchoring.
+    private static func context(in raw: String, before index: String.Index) -> String {
+        let start = raw.index(index, offsetBy: -32, limitedBy: raw.startIndex) ?? raw.startIndex
+        return String(raw[start ..< index])
+    }
+
+    private static func context(in raw: String, after index: String.Index) -> String {
+        let end = raw.index(index, offsetBy: 32, limitedBy: raw.endIndex) ?? raw.endIndex
+        return String(raw[index ..< end])
+    }
+
+    /// Insert or update `entry` in the document's sidecar block, creating the
+    /// block at the end of the document if none exists yet.
+    private static func upsertSidecar(in raw: String, entry: CommentSidecar.Entry) -> String {
+        if let decoded = CommentSidecar.decode(from: raw) {
+            var entries = decoded.entries.filter { $0.id != entry.id }
+            entries.append(entry)
+            return writeSidecar(in: raw, blockRange: decoded.blockRange, entries: entries)
+        }
+        var trimmed = raw
+        while let last = trimmed.last, last == "\n" { trimmed.removeLast() }
+        let separator = trimmed.isEmpty ? "" : "\n\n"
+        return trimmed + separator + CommentSidecar.encode([entry]) + "\n"
+    }
+
+    /// Replace the sidecar block, or remove it (and its trailing blank line) when
+    /// no entries remain.
+    private static func writeSidecar(
+        in raw: String,
+        blockRange: Range<String.Index>,
+        entries: [CommentSidecar.Entry]
+    ) -> String {
+        var result = raw
+        guard !entries.isEmpty else {
+            result.removeSubrange(blockRange)
+            while let last = result.last, last == "\n" || last == " " { result.removeLast() }
+            if !result.isEmpty { result.append("\n") }
+            return result
+        }
+        result.replaceSubrange(blockRange, with: CommentSidecar.encode(entries))
+        return result
     }
 }

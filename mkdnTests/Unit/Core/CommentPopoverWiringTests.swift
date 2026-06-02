@@ -35,7 +35,7 @@
 
         @Test("Presents a popover for a known comment id")
         func presentsForKnownComment() {
-            let (view, _) = makeView("foo {==bar==}{>>note<<} baz")
+            let (view, _) = makeView(CommentFixture.doc("foo bar baz", comment: "bar"))
             let range = (view.string as NSString).range(of: "bar")
             view.showCommentPopover(id: "c1", range: range)
             #expect(view.commentPopover != nil)
@@ -74,7 +74,7 @@
 
         @Test("Does nothing for an unknown comment id")
         func ignoresUnknownComment() {
-            let (view, _) = makeView("foo {==bar==}{>>note<<} baz")
+            let (view, _) = makeView(CommentFixture.doc("foo bar baz", comment: "bar"))
             let range = (view.string as NSString).range(of: "bar")
             view.showCommentPopover(id: "does-not-exist", range: range)
             #expect(view.commentPopover == nil)

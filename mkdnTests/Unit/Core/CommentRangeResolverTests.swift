@@ -84,7 +84,7 @@ struct CommentRangeResolverTests {
 
     @Test("Rejects a selection inside an existing comment's highlight")
     func rejectsInsideExistingComment() {
-        let raw = "foo {==bar==}{>>old<<} baz"
+        let raw = CommentFixture.doc("foo bar baz", comment: "bar", body: "old")
         let (document, result) = pipeline(raw)
         // Transformed source is "foo bar baz"; "bar" lands inside the existing
         // comment, so re-commenting it must be rejected.
@@ -103,7 +103,8 @@ struct CommentRangeResolverTests {
 
     @Test("commentsByID exposes parsed comments keyed by id")
     func commentsByID() {
-        let document = CriticMarkup.preprocess("{==a==}{>>one<<} and {==b==}{>>two<<}")
+        let raw = CommentFixture.doc("a and b", comments: [("a", "c1", "one"), ("b", "c2", "two")])
+        let document = CriticMarkup.preprocess(raw)
         #expect(document.commentsByID["c1"]?.body == "one")
         #expect(document.commentsByID["c2"]?.body == "two")
         #expect(document.commentsByID.count == 2)

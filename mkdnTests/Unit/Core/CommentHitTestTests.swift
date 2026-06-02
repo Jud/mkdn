@@ -36,7 +36,7 @@
 
         @Test("Returns the comment id and full range over a highlighted span")
         func hitOnComment() {
-            let view = textView("foo {==bar==}{>>note<<} baz")
+            let view = textView(CommentFixture.doc("foo bar baz", comment: "bar"))
             let info = view.commentInfo(at: centerPoint(of: "bar", in: view))
             #expect(info?.id == "c1")
             if let info {
@@ -46,7 +46,7 @@
 
         @Test("Returns nil over text that is not commented")
         func missOnPlainText() {
-            let view = textView("foo {==bar==}{>>note<<} baz")
+            let view = textView(CommentFixture.doc("foo bar baz", comment: "bar"))
             #expect(view.commentInfo(at: centerPoint(of: "foo", in: view)) == nil)
             #expect(view.commentInfo(at: centerPoint(of: "baz", in: view)) == nil)
         }
@@ -59,7 +59,7 @@
 
         @Test("boundingRect of a comment range round-trips back to the comment")
         func boundingRectRoundTrip() {
-            let view = textView("foo {==bar==}{>>note<<} baz")
+            let view = textView(CommentFixture.doc("foo bar baz", comment: "bar"))
             let range = (view.string as NSString).range(of: "bar")
             let rect = try! #require(view.boundingRect(forCharacterRange: range))
             #expect(rect.width > 0 && rect.height > 0)

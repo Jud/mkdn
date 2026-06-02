@@ -33,22 +33,22 @@ struct CommentHighlightTests {
 
     @Test("Highlights the commented span and tags it with the comment id")
     func highlightsCommentedSpan() {
-        let string = highlighted("foo {==bar==}{>>note<<} baz")
-        #expect(string.string == "foo bar baz\n") // raw braces hidden
+        let string = highlighted(CommentFixture.doc("foo bar baz", comment: "bar"))
+        #expect(string.string == "foo bar baz\n") // anchors hidden
         #expect(commentID(string, at: "bar") == "c1")
         #expect(hasBackground(string, at: "bar"))
     }
 
     @Test("Leaves text outside the comment unhighlighted")
     func leavesSurroundingTextAlone() {
-        let string = highlighted("foo {==bar==}{>>note<<} baz")
+        let string = highlighted(CommentFixture.doc("foo bar baz", comment: "bar"))
         #expect(!hasBackground(string, at: "foo"))
         #expect(!hasBackground(string, at: "baz"))
     }
 
     @Test("Highlights a span containing styled text across runs")
     func highlightsStyledSpan() {
-        let string = highlighted("x {==**b** y==}{>>c<<} z")
+        let string = highlighted(CommentFixture.doc("x **b** y z", comment: "**b** y"))
         #expect(commentID(string, at: "b") == "c1")
         #expect(commentID(string, at: "y") == "c1")
         #expect(!hasBackground(string, at: "z"))

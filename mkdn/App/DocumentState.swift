@@ -128,8 +128,7 @@
         @discardableResult
         public func editComment(id: String, of source: String, newBody: String) -> Bool {
             guard source.utf8.elementsEqual(markdownContent.utf8), // exact, not canonical, equality
-                  let comment = CriticMarkup.preprocess(markdownContent).commentsByID[id],
-                  let updated = CriticMarkup.editComment(in: markdownContent, comment: comment, newBody: newBody)
+                  let updated = CriticMarkup.editComment(in: markdownContent, id: id, newBody: newBody)
             else {
                 return false
             }
@@ -142,11 +141,11 @@
         @discardableResult
         public func deleteComment(id: String, of source: String) -> Bool {
             guard source.utf8.elementsEqual(markdownContent.utf8), // exact, not canonical, equality
-                  let comment = CriticMarkup.preprocess(markdownContent).commentsByID[id]
+                  CriticMarkup.preprocess(markdownContent).commentsByID[id] != nil
             else {
                 return false
             }
-            markdownContent = CriticMarkup.deleteComment(in: markdownContent, comment: comment)
+            markdownContent = CriticMarkup.deleteComment(in: markdownContent, id: id)
             return true
         }
 

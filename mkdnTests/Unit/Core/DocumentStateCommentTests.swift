@@ -12,17 +12,22 @@ struct DocumentStateCommentTests {
         let source = state.markdownContent
         let range = source.range(of: "quick")!
         #expect(state.addComment(in: range, of: source, body: "note"))
-        #expect(state.markdownContent == "The {==quick==}{>>note<<} brown fox")
+
+        let doc = CriticMarkup.preprocess(state.markdownContent)
+        #expect(doc.comments.count == 1)
+        #expect(doc.comments[0].body == "note")
+        #expect(doc.transformedSource[doc.comments[0].transformedHighlightRange] == "quick")
+        #expect(doc.transformedSource == "The quick brown fox")
     }
 
-    @Test("addComment rejects an uncommentable span and leaves content unchanged")
+    @Test("addComment rejects an empty selection and leaves content unchanged")
     func addRejects() {
         let state = DocumentState()
-        state.markdownContent = "a ==} b"
+        state.markdownContent = "a b"
         let source = state.markdownContent
-        let range = source.range(of: "==}")!
-        #expect(!state.addComment(in: range, of: source, body: "x"))
-        #expect(state.markdownContent == "a ==} b")
+        let empty = source.startIndex ..< source.startIndex
+        #expect(!state.addComment(in: empty, of: source, body: "x"))
+        #expect(state.markdownContent == "a b")
     }
 
     @Test("addComment rejects a range from stale content (content changed)")
@@ -38,25 +43,27 @@ struct DocumentStateCommentTests {
     @Test("editComment by id rewrites the body; unknown id is a no-op")
     func editById() {
         let state = DocumentState()
-        state.markdownContent = "a {==b==}{>>old<<} c"
+        state.markdownContent = CommentFixture.doc("a b c", comment: "b", id: "c1", body: "old")
         let source = state.markdownContent
         #expect(state.editComment(id: "c1", of: source, newBody: "new"))
-        #expect(state.markdownContent == "a {==b==}{>>new<<} c")
+        #expect(CriticMarkup.preprocess(state.markdownContent).commentsByID["c1"]?.body == "new")
         #expect(!state.editComment(id: "missing", of: state.markdownContent, newBody: "x"))
     }
 
     @Test("deleteComment by id removes the markup, keeping the text")
     func deleteById() {
         let state = DocumentState()
-        state.markdownContent = "a {==b==}{>>note<<} c"
+        state.markdownContent = CommentFixture.doc("a b c", comment: "b", id: "c1", body: "note")
         #expect(state.deleteComment(id: "c1", of: state.markdownContent))
-        #expect(state.markdownContent == "a b c")
+        let doc = CriticMarkup.preprocess(state.markdownContent)
+        #expect(doc.comments.isEmpty)
+        #expect(doc.transformedSource == "a b c\n") // sidecar removed, EOF newline kept
     }
 
     @Test("edit/delete reject when the source no longer matches current content")
     func editDeleteRejectStaleSource() {
         let state = DocumentState()
-        let stale = "a {==b==}{>>old<<} c"
+        let stale = CommentFixture.doc("a b c", comment: "b", id: "c1", body: "old")
         state.markdownContent = "different content"
         #expect(!state.editComment(id: "c1", of: stale, newBody: "new"))
         #expect(!state.deleteComment(id: "c1", of: stale))
