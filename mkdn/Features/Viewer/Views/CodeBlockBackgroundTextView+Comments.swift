@@ -6,7 +6,8 @@
         /// A `.transient` popover dismisses on the next outside click; clicking a
         /// different comment replaces it.
         func showCommentPopover(id: String, range: NSRange) {
-            guard let comment = commentsByID[id],
+            guard window != nil, // NSPopover needs a hosting window to anchor
+                  let comment = commentsByID[id],
                   let theme = commentTheme,
                   let rect = boundingRect(forCharacterRange: range)
             else {

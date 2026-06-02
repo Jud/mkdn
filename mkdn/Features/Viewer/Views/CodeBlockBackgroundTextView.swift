@@ -113,10 +113,6 @@
 
         override func mouseDown(with event: NSEvent) {
             let point = convert(event.locationInWindow, from: nil)
-            if let comment = commentInfo(at: point) {
-                showCommentPopover(id: comment.id, range: comment.range)
-                return // consume the click so it opens the comment instead of selecting
-            }
             if isOverEmptyTextArea(point) {
                 handleEmptyAreaMouseDown(with: event)
                 return
@@ -131,6 +127,21 @@
             }
         }
 
+        override func mouseUp(with event: NSEvent) {
+            super.mouseUp(with: event)
+            // Open a comment only on a plain click that placed a caret (no
+            // selection drag, no modifiers) and isn't a link — so selection,
+            // double-click, shift/cmd-click, and link-following all still work.
+            guard event.modifierFlags.intersection([.shift, .command, .option, .control]).isEmpty,
+                  selectedRange().length == 0
+            else {
+                return
+            }
+            let point = convert(event.locationInWindow, from: nil)
+            guard !isOverLink(at: point), let comment = commentInfo(at: point) else { return }
+            showCommentPopover(id: comment.id, range: comment.range)
+        }
+
         override func mouseMoved(with event: NSEvent) {
             // Don't override cursor when another view (e.g. outline HUD) is on top.
             if isObscuredAtPoint(event.locationInWindow) { return }
@@ -138,7 +149,7 @@
             let point = convert(event.locationInWindow, from: nil)
             if isOverEmptyTextArea(point) {
                 NSCursor.arrow.set()
-            } else if isOverLink(at: point) {
+            } else if isOverLink(at: point) || commentInfo(at: point) != nil {
                 NSCursor.pointingHand.set()
             } else {
                 NSCursor.iBeam.set()
@@ -152,7 +163,7 @@
             let point = convert(event.locationInWindow, from: nil)
             if isOverEmptyTextArea(point) {
                 NSCursor.arrow.set()
-            } else if isOverLink(at: point) {
+            } else if isOverLink(at: point) || commentInfo(at: point) != nil {
                 NSCursor.pointingHand.set()
             } else {
                 NSCursor.iBeam.set()
