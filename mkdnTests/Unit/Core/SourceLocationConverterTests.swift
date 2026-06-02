@@ -98,7 +98,6 @@ struct SourceLocationConverterTests {
 }
 
 private extension Markup {
-    /// Depth-first collection of inline code descendants, for tests.
     func inlineCodeNodes() -> [InlineCode] {
         var result: [InlineCode] = []
         if let code = self as? InlineCode { result.append(code) }
