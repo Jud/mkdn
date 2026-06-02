@@ -183,6 +183,34 @@ enum CriticMarkup {
         )
     }
 
+    // MARK: - Authoring
+
+    /// Wrap a raw-source span as `{==span==}{>>body<<}`, returning the edited
+    /// source. Returns nil when the span is empty, the span contains `==}` (would
+    /// truncate the highlight), or the body contains `<<}` (would truncate the
+    /// comment) — the FR-2b reject-rather-than-escape rule.
+    static func wrapComment(in raw: String, range: Range<String.Index>, body: String) -> String? {
+        guard !range.isEmpty else { return nil }
+        let span = raw[range]
+        guard !span.contains("==}"), !body.contains("<<}") else { return nil }
+        return String(raw[..<range.lowerBound])
+            + "{==" + span + "==}{>>" + body + "<<}"
+            + String(raw[range.upperBound...])
+    }
+
+    /// Replace a comment's body text, returning the edited source, or nil if the
+    /// new body contains `<<}`. `comment` must come from parsing `raw`.
+    static func editComment(in raw: String, comment: CriticComment, newBody: String) -> String? {
+        guard !newBody.contains("<<}") else { return nil }
+        return raw.replacingCharacters(in: comment.rawBodyRange, with: newBody)
+    }
+
+    /// Remove a comment's markup, leaving its highlighted text behind (resolve).
+    /// `comment` must come from parsing `raw`.
+    static func deleteComment(in raw: String, comment: CriticComment) -> String {
+        raw.replacingCharacters(in: comment.rawFullRange, with: String(raw[comment.rawHighlightRange]))
+    }
+
     /// Raw-source ranges that are not plain rendered prose and must be shielded
     /// from the CriticMarkup scan. Reuses swift-markdown's own detection rather
     /// than re-deriving CommonMark rules.
