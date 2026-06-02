@@ -149,6 +149,21 @@
             showCommentPopover(id: comment.id, range: comment.range)
         }
 
+        override func menu(for event: NSEvent) -> NSMenu? {
+            let menu = super.menu(for: event) ?? NSMenu()
+            if commentableSelectionRange() != nil {
+                let item = NSMenuItem(
+                    title: "Add Comment…",
+                    action: #selector(addCommentToSelection(_:)),
+                    keyEquivalent: ""
+                )
+                item.target = self
+                menu.insertItem(item, at: 0)
+                menu.insertItem(.separator(), at: 1)
+            }
+            return menu
+        }
+
         override func mouseMoved(with event: NSEvent) {
             // Don't override cursor when another view (e.g. outline HUD) is on top.
             if isObscuredAtPoint(event.locationInWindow) { return }

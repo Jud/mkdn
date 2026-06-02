@@ -20,6 +20,7 @@
             let view = CodeBlockBackgroundTextView(frame: NSRect(x: 0, y: 0, width: 600, height: 400))
             view.textContainerInset = NSSize(width: 16, height: 16)
             view.criticDocument = document
+            view.commentSourceMap = result.sourceMap
             view.commentTheme = .solarizedDark
             view.textStorage?.setAttributedString(mutable)
             view.layoutManager?.ensureLayout(for: view.textContainer!)
@@ -39,6 +40,34 @@
             view.showCommentPopover(id: "c1", range: range)
             #expect(view.commentPopover != nil)
             #expect(view.commentPopover?.contentViewController is NSHostingController<CommentPopoverView>)
+        }
+
+        @Test("commentableSelectionRange maps a selection to its raw span")
+        func resolvesSelection() {
+            let (view, document) = makeView("The quick brown fox")
+            view.setSelectedRange((view.string as NSString).range(of: "quick"))
+            let raw = try! #require(view.commentableSelectionRange())
+            #expect(document.rawSource[raw] == "quick")
+        }
+
+        @Test("commentableSelectionRange is nil for an empty selection")
+        func emptySelectionNoRange() {
+            let (view, _) = makeView("The quick brown fox")
+            view.setSelectedRange(NSRange(location: 2, length: 0))
+            #expect(view.commentableSelectionRange() == nil)
+        }
+
+        @Test("addCommentToSelection presents the input popover for a valid selection")
+        func presentsAddPopover() {
+            let (view, _) = makeView("The quick brown fox")
+            let state = DocumentState() // documentState is weak; hold it strongly
+            view.documentState = state
+            view.setSelectedRange((view.string as NSString).range(of: "quick"))
+            withExtendedLifetime(state) {
+                view.addCommentToSelection(nil)
+                #expect(view.commentPopover != nil)
+                #expect(view.commentPopover?.contentViewController is NSHostingController<CommentInputView>)
+            }
         }
 
         @Test("Does nothing for an unknown comment id")
