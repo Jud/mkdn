@@ -3,9 +3,8 @@
     import SwiftUI
 
     extension CodeBlockBackgroundTextView {
-        /// Present a transient popover with the comment's body, anchored to the
-        /// highlighted span. A `.transient` popover dismisses on the next outside
-        /// click; clicking a different comment replaces it.
+        /// A `.transient` popover dismisses on the next outside click; clicking a
+        /// different comment replaces it.
         func showCommentPopover(id: String, range: NSRange) {
             guard let comment = commentsByID[id],
                   let theme = commentTheme,
