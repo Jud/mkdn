@@ -7,8 +7,16 @@ struct MarkdownVisitor {
     private var footnoteIndices: [String: Int] = [:]
     private var footnoteDefinitions: [(label: String, blocks: [MarkdownBlock])] = []
 
-    init(theme: AppTheme) {
+    /// The exact source that was parsed, used to attach `SourceSpanAttribute` to
+    /// verbatim text runs. When nil (callers that don't need source mapping),
+    /// no spans are attached and rendering is unchanged.
+    private let source: String?
+    private let converter: SourceLocationConverter?
+
+    init(theme: AppTheme, source: String? = nil) {
         self.theme = theme
+        self.source = source
+        converter = source.map(SourceLocationConverter.init)
     }
 
     /// Visit the document and return all top-level blocks.
@@ -175,7 +183,11 @@ struct MarkdownVisitor {
     private func convertInline(_ markup: any Markup) -> AttributedString {
         switch markup {
         case let text as Markdown.Text:
-            return AttributedString(text.string)
+            var result = AttributedString(text.string)
+            if let offset = sourceUTF16Offset(for: text) {
+                result.sourceSpan = offset
+            }
+            return result
 
         case let emphasis as Emphasis:
             var result = inlineText(from: emphasis)
@@ -233,6 +245,20 @@ struct MarkdownVisitor {
         default:
             return inlineText(from: markup)
         }
+    }
+
+    /// The UTF-16 offset into `source` of a text node's first character, but
+    /// only when the node's rendered string is a verbatim copy of its source
+    /// substring. Returns nil otherwise (escapes, entities — not 1:1 mappable).
+    private func sourceUTF16Offset(for text: Markdown.Text) -> Int? {
+        guard let source, let converter,
+              let sourceRange = text.range,
+              let resolved = converter.range(for: sourceRange),
+              source[resolved] == text.string
+        else {
+            return nil
+        }
+        return source.utf16.distance(from: source.utf16.startIndex, to: resolved.lowerBound)
     }
 
     // MARK: - Checkbox Extraction
