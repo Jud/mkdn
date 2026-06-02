@@ -91,6 +91,29 @@ struct CriticMarkupAuthoringTests {
         #expect(CriticMarkup.wrapComment(in: raw, range: range(of: "bar", in: raw), body: "x") == nil)
     }
 
+    @Test("Allows a body containing inline-code markdown (stripped, so harmless)")
+    func wrapBodyWithInlineCode() {
+        let raw = "hello world"
+        let edited = try! #require(
+            CriticMarkup.wrapComment(in: raw, range: range(of: "world", in: raw), body: "use `foo()` here")
+        )
+        let doc = CriticMarkup.preprocess(edited)
+        #expect(doc.comments.count == 1)
+        #expect(doc.comments[0].body == "use `foo()` here")
+        #expect(doc.transformedSource == raw)
+    }
+
+    @Test("Editing a body to contain inline code keeps the comment intact")
+    func editBodyToInlineCode() {
+        let raw = "a {==b==}{>>old<<} c"
+        let comment = CriticMarkup.preprocess(raw).comments[0]
+        let edited = try! #require(CriticMarkup.editComment(in: raw, comment: comment, newBody: "see `x` and [y](z)"))
+        let doc = CriticMarkup.preprocess(edited)
+        #expect(doc.comments.count == 1)
+        #expect(doc.comments[0].body == "see `x` and [y](z)")
+        #expect(doc.transformedSource == "a b c")
+    }
+
     // MARK: - editComment / deleteComment
 
     @Test("Edits a comment body in place")

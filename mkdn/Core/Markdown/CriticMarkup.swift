@@ -146,8 +146,19 @@ enum CriticMarkup {
             }
             let fullRange = open ..< bodyCloseRange.upperBound
 
-            let overlapsProtected = protected.contains {
-                $0.lowerBound < fullRange.upperBound && fullRange.lowerBound < $0.upperBound
+            // Reject a comment overlapping protected (code/HTML/link) syntax —
+            // but exempt protected ranges that sit wholly inside the body, since
+            // the body is stripped on render: a comment whose *body* merely
+            // contains `code`/[link] markdown is legitimate.
+            let bodyInterior = bodyStart ..< bodyCloseRange.lowerBound
+            let overlapsProtected = protected.contains { range in
+                guard range.lowerBound < fullRange.upperBound, fullRange.lowerBound < range.upperBound
+                else {
+                    return false
+                }
+                let insideBody = range.lowerBound >= bodyInterior.lowerBound
+                    && range.upperBound <= bodyInterior.upperBound
+                return !insideBody
             }
             guard !overlapsProtected else {
                 searchStart = afterHighlight
