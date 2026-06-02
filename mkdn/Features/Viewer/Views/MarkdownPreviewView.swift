@@ -102,8 +102,6 @@
             outlineState.updateHeadings(from: newBlocks)
         }
 
-        /// Paint comment highlights onto a freshly built result, if the current
-        /// content has any comments. Returns the result unchanged otherwise.
         private func applyingCommentHighlights(to result: TextStorageResult) -> TextStorageResult {
             guard let document = criticDocument, !document.comments.isEmpty else { return result }
             let mutable = NSMutableAttributedString(attributedString: result.attributedString)
