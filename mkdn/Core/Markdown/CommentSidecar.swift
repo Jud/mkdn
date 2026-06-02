@@ -11,9 +11,11 @@ import Foundation
 ///
 /// The block is an HTML comment so it stays invisible in every markdown
 /// renderer and survives round-trips. Bodies/quotes are arbitrary text, so the
-/// JSON is escaped to guarantee it can never contain `-->` (or even `--`), which
-/// would otherwise terminate the comment early or violate CommonMark's
-/// comment-content rule. Agents read comments by grepping `mkdn-comments`.
+/// JSON is escaped to guarantee it can never contain `-->` — which would
+/// terminate the comment early. We also escape bare `--`, which CommonMark
+/// ≥0.30 permits but older CommonMark and strict HTML/XML parsers forbid inside
+/// comment content; the cost is nil and the portability is worth it. Agents
+/// read comments by grepping `mkdn-comments`.
 enum CommentSidecar {
     /// One comment's durable data, keyed to its anchor pair by `id`.
     struct Entry: Equatable, Codable {
@@ -95,7 +97,8 @@ enum CommentSidecar {
     // MARK: - `-->`-safe escaping
 
     /// Replace every `>` and `-` with their JSON `\uXXXX` escapes so the encoded
-    /// text can never form `-->` or `--`. The decoder restores them transparently.
+    /// text can never form `-->` (hard requirement) or bare `--` (defensive).
+    /// JSONDecoder restores them transparently, so no inverse step is needed.
     private static func escape(_ json: String) -> String {
         json
             .replacingOccurrences(of: ">", with: "\\u003e")
