@@ -215,6 +215,10 @@
             // Stop any in-flight footnote pulse before swapping storage; its
             // delayed fade would otherwise write stale ranges into new content.
             coordinator.cancelFootnotePulse()
+            // Dismiss an open comment popover; its anchor rect points into the
+            // old layout and its body may no longer match the new content.
+            textView.commentPopover?.close()
+            textView.commentPopover = nil
             textView.textStorage?.setAttributedString(attributedText)
             textView.window?.invalidateCursorRects(for: textView)
 
