@@ -209,7 +209,10 @@ enum CriticMarkup {
         }
         guard let inserted,
               candidate[inserted.rawHighlightRange] == span,
-              inserted.body == body
+              inserted.body == body,
+              // The wrap must be purely additive — exactly one new comment, with
+              // no existing comment disturbed by the inserted delimiters.
+              parsed.comments.count == preprocess(raw).comments.count + 1
         else {
             return nil
         }
@@ -224,7 +227,8 @@ enum CriticMarkup {
     }
 
     /// Remove a comment's markup, leaving its highlighted text behind (resolve).
-    /// `comment` must come from parsing `raw`.
+    /// `comment` must come from parsing `raw`. Non-optional: deletion takes no
+    /// user-supplied delimiter text, so it cannot produce malformed markup.
     static func deleteComment(in raw: String, comment: CriticComment) -> String {
         raw.replacingCharacters(in: comment.rawFullRange, with: String(raw[comment.rawHighlightRange]))
     }

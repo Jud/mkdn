@@ -64,6 +64,33 @@ struct CriticMarkupAuthoringTests {
         )
     }
 
+    @Test("Round-trips a span containing an emoji")
+    func wrapEmojiSpan() {
+        let raw = "say 😀 hi"
+        let edited = try! #require(
+            CriticMarkup.wrapComment(in: raw, range: range(of: "😀 hi", in: raw), body: "note")
+        )
+        let doc = CriticMarkup.preprocess(edited)
+        #expect(doc.rawSource[doc.comments[0].rawHighlightRange] == "😀 hi")
+        #expect(doc.transformedSource == raw)
+    }
+
+    @Test("Allows a body containing the highlight terminator (only <<} is unsafe)")
+    func wrapBodyWithHighlightTerminator() {
+        let raw = "hello world"
+        let edited = try! #require(
+            CriticMarkup.wrapComment(in: raw, range: range(of: "world", in: raw), body: "see ==} sign")
+        )
+        #expect(CriticMarkup.preprocess(edited).comments[0].body == "see ==} sign")
+    }
+
+    @Test("Rejects wrapping a span already inside an existing comment")
+    func wrapRejectsInsideExistingComment() {
+        let raw = "a {==bar==}{>>note<<} b"
+        // "bar" is the highlight of an existing comment; re-wrapping it would nest.
+        #expect(CriticMarkup.wrapComment(in: raw, range: range(of: "bar", in: raw), body: "x") == nil)
+    }
+
     // MARK: - editComment / deleteComment
 
     @Test("Edits a comment body in place")
