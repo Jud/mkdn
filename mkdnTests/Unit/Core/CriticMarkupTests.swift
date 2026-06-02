@@ -92,6 +92,22 @@ struct CriticMarkupTests {
         #expect(doc.transformedSource.contains("{==y==}{>>note<<}"))
     }
 
+    @Test("Does not transform CriticMarkup inside a tilde-fenced code block")
+    func tildeFencedCodeProtected() {
+        let source = """
+        before
+
+        ~~~
+        let x = {==y==}{>>note<<}
+        ~~~
+
+        after
+        """
+        let doc = CriticMarkup.preprocess(source)
+        #expect(doc.comments.isEmpty)
+        #expect(doc.transformedSource.contains("{==y==}{>>note<<}"))
+    }
+
     @Test("Does not transform CriticMarkup inside an inline code span")
     func inlineCodeProtected() {
         let doc = CriticMarkup.preprocess("use `{==y==}{>>n<<}` literally")

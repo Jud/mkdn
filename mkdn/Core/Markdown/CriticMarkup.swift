@@ -175,7 +175,13 @@ enum CriticMarkup {
     /// Reuses swift-markdown's own code detection rather than re-deriving the
     /// CommonMark rules for fences and indentation.
     private static func protectedCodeRanges(in raw: String) -> [Range<String.Index>] {
-        guard raw.contains("`") || raw.contains("    ") || raw.contains("\t") else { return [] }
+        // Any code region implies one of these in the source: a backtick (inline
+        // or ``` fence), a tilde (~~~ fence), or a tab / 4-space run (indented
+        // block). Absent all of them there is no code to shield.
+        guard raw.contains("`") || raw.contains("~") || raw.contains("    ") || raw.contains("\t")
+        else {
+            return []
+        }
         let document = Document(parsing: raw, options: [])
         let converter = SourceLocationConverter(source: raw)
         var ranges: [Range<String.Index>] = []
