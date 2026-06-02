@@ -2,7 +2,6 @@
     import SwiftUI
 
     /// The content shown in the popover when a reader clicks a commented span.
-    /// v1 shows the comment body only; edit/delete arrive with authoring.
     struct CommentPopoverView: View {
         let commentBody: String
         let theme: AppTheme
