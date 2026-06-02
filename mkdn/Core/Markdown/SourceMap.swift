@@ -30,7 +30,9 @@ struct SourceMap {
     /// Build a map from the `mkdnSourceSpan` runs of a finished attributed
     /// string. The default enumeration coalesces to the longest effective range,
     /// re-merging fragments that a later attribute (font, color) split apart but
-    /// that share one source span.
+    /// that share one source span. This relies on the invariant that distinct
+    /// source text nodes always carry distinct offsets, so genuinely different
+    /// runs never coalesce into one (mis-mapping) segment.
     init(attributedString: NSAttributedString) {
         var segments: [Segment] = []
         let full = NSRange(location: 0, length: attributedString.length)

@@ -55,6 +55,24 @@ struct CommentRangeResolverTests {
         #expect(resolver.rawRange(forBuilderRange: nsRange) == nil)
     }
 
+    @Test("Rejects a selection on link text (protected by the preprocessor)")
+    func rejectsLinkText() {
+        let raw = "see [docs](https://example.com) now"
+        let (document, result) = pipeline(raw)
+        let resolver = CommentRangeResolver(document: document, sourceMap: result.sourceMap)
+        let nsRange = builderRange(of: "docs", in: result)
+        #expect(resolver.rawRange(forBuilderRange: nsRange) == nil)
+    }
+
+    @Test("Rejects a selection on inline code (protected by the preprocessor)")
+    func rejectsInlineCode() {
+        let raw = "run `swift build` now"
+        let (document, result) = pipeline(raw)
+        let resolver = CommentRangeResolver(document: document, sourceMap: result.sourceMap)
+        let nsRange = builderRange(of: "swift", in: result)
+        #expect(resolver.rawRange(forBuilderRange: nsRange) == nil)
+    }
+
     @Test("Rejects an empty selection")
     func rejectsEmpty() {
         let raw = "hello world"
