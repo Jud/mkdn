@@ -213,6 +213,12 @@ enum CriticMarkup {
         return comments
     }
 
+    /// "\r\n" is a single grapheme-cluster Character in Swift, distinct from a
+    /// lone "\r" or "\n"; all three are newlines.
+    private static func isNewline(_ character: Character) -> Bool {
+        character == "\n" || character == "\r" || character == "\r\n"
+    }
+
     /// Extend a range to swallow newlines after it, and (only when the block
     /// trails the document) before it. Leading newlines are absorbed only for a
     /// trailing block so a hand-placed mid-document sidecar can't merge the
@@ -221,11 +227,6 @@ enum CriticMarkup {
         of range: Range<String.Index>,
         in raw: String
     ) -> Range<String.Index> {
-        // "\r\n" is a single grapheme-cluster Character in Swift, distinct from
-        // a lone "\r" or "\n".
-        func isNewline(_ character: Character) -> Bool {
-            character == "\n" || character == "\r" || character == "\r\n"
-        }
         var upper = range.upperBound
         while upper < raw.endIndex, isNewline(raw[upper]) {
             upper = raw.index(after: upper)
@@ -302,12 +303,14 @@ enum CriticMarkup {
     ) -> String? {
         guard !range.isEmpty else { return nil }
 
-        let quote = String(raw[range])
-        // A selection that swallows the sidecar block would pull it inside the
-        // new highlight and corrupt it; reject. (Selections containing other
+        // A selection overlapping the sidecar block would pull it inside the new
+        // highlight and corrupt it; reject. (Selections containing other
         // comments' anchors are fine — that is legitimate nesting.)
-        guard !quote.contains(CommentSidecar.blockOpen) else { return nil }
+        if let sidecar = CommentSidecar.decode(from: raw)?.blockRange, range.overlaps(sidecar) {
+            return nil
+        }
 
+        let quote = String(raw[range])
         let id = uniqueID(in: raw, idGenerator: idGenerator)
         let prefix = context(in: raw, before: range.lowerBound)
         let suffix = context(in: raw, after: range.upperBound)
@@ -405,7 +408,7 @@ enum CriticMarkup {
             return writeSidecar(in: raw, blockRange: decoded.blockRange, entries: entries)
         }
         var trimmed = raw
-        while let last = trimmed.last, last == "\n" { trimmed.removeLast() }
+        while let last = trimmed.last, isNewline(last) { trimmed.removeLast() }
         let separator = trimmed.isEmpty ? "" : "\n\n"
         return trimmed + separator + CommentSidecar.encode([entry]) + "\n"
     }
@@ -422,7 +425,7 @@ enum CriticMarkup {
             result.removeSubrange(blockRange)
             // Trim only the trailing newlines (the separator we appended), never
             // spaces — trailing spaces can be a significant hard-break.
-            while let last = result.last, last == "\n" { result.removeLast() }
+            while let last = result.last, isNewline(last) { result.removeLast() }
             if !result.isEmpty { result.append("\n") }
             return result
         }

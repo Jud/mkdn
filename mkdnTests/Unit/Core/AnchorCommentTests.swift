@@ -216,6 +216,24 @@ struct AnchorCommentAuthoringTests {
         #expect(CriticMarkup.wrapComment(in: raw, range: whole, body: "x") == nil)
     }
 
+    @Test("wrapComment rejects a selection overlapping the sidecar's JSON payload")
+    func wrapRejectsSidecarPayloadSelection() {
+        let raw = CommentFixture.doc("a b c", comment: "b", id: "c1", body: "note")
+        let block = CommentSidecar.decode(from: raw)!.blockRange
+        // A range strictly inside the sidecar payload — past the marker, so a
+        // substring check on the marker would miss it; range-overlap catches it.
+        let inside = raw.index(block.lowerBound, offsetBy: 20) ..< raw.index(before: block.upperBound)
+        #expect(CriticMarkup.wrapComment(in: raw, range: inside, body: "x") == nil)
+    }
+
+    @Test("CRLF document survives an add/delete round-trip without doubled newlines")
+    func crlfRoundTrip() {
+        let withComment = CommentFixture.doc("text\r\n", comment: "text", id: "c1", body: "n")
+        let afterDelete = CriticMarkup.deleteComment(in: withComment, id: "c1")
+        #expect(!afterDelete.hasSuffix("\n\n"))
+        #expect(CriticMarkup.preprocess(afterDelete).transformedSource == "text\n")
+    }
+
     @Test("Deleting the last comment preserves significant trailing spaces")
     func deletePreservesHardBreakSpaces() {
         let withComment = CommentFixture.doc("see this  ", comment: "this", id: "c1", body: "n")
