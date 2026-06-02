@@ -207,6 +207,9 @@
             }
 
             coordinator.overlayCoordinator.hideAllOverlays()
+            // Stop any in-flight footnote pulse before swapping storage; its
+            // delayed fade would otherwise write stale ranges into new content.
+            coordinator.cancelFootnotePulse()
             textView.textStorage?.setAttributedString(attributedText)
             textView.window?.invalidateCursorRects(for: textView)
 

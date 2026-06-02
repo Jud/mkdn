@@ -141,9 +141,22 @@
             /// paints over, restored when the pulse fades so they aren't erased.
             private var footnotePulseSavedBackgrounds: [(range: NSRange, color: NSColor)] = []
 
+            /// Cancel an in-flight footnote pulse and forget its saved state.
+            /// Called before the text storage is replaced so the delayed fade
+            /// can't write stale ranges into freshly rebuilt content.
+            func cancelFootnotePulse() {
+                footnotePulseTask?.cancel()
+                footnotePulseTask = nil
+                footnotePulseRange = nil
+                footnotePulseSavedBackgrounds = []
+            }
+
             private func clearFootnotePulse(_ storage: NSTextStorage, range: NSRange) {
-                storage.removeAttribute(.backgroundColor, range: range)
-                for saved in footnotePulseSavedBackgrounds {
+                let length = storage.length
+                if NSMaxRange(range) <= length {
+                    storage.removeAttribute(.backgroundColor, range: range)
+                }
+                for saved in footnotePulseSavedBackgrounds where NSMaxRange(saved.range) <= length {
                     storage.addAttribute(.backgroundColor, value: saved.color, range: saved.range)
                 }
                 footnotePulseSavedBackgrounds = []
@@ -198,6 +211,7 @@
                         guard !Task.isCancelled else { return }
                         try? await Task.sleep(for: .milliseconds(100))
                         guard let storage = textView?.textStorage else { return }
+                        guard NSMaxRange(contentRange) <= storage.length else { return }
                         if alpha == 0 {
                             self?.clearFootnotePulse(storage, range: contentRange)
                         } else {
