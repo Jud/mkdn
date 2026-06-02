@@ -221,15 +221,20 @@ enum CriticMarkup {
         of range: Range<String.Index>,
         in raw: String
     ) -> Range<String.Index> {
+        // "\r\n" is a single grapheme-cluster Character in Swift, distinct from
+        // a lone "\r" or "\n".
+        func isNewline(_ character: Character) -> Bool {
+            character == "\n" || character == "\r" || character == "\r\n"
+        }
         var upper = range.upperBound
-        while upper < raw.endIndex, raw[upper] == "\n" {
+        while upper < raw.endIndex, isNewline(raw[upper]) {
             upper = raw.index(after: upper)
         }
         var lower = range.lowerBound
         if upper == raw.endIndex {
             while lower > raw.startIndex {
                 let previous = raw.index(before: lower)
-                guard raw[previous] == "\n" else { break }
+                guard isNewline(raw[previous]) else { break }
                 lower = previous
             }
         }
@@ -297,8 +302,13 @@ enum CriticMarkup {
     ) -> String? {
         guard !range.isEmpty else { return nil }
 
-        let id = uniqueID(in: raw, idGenerator: idGenerator)
         let quote = String(raw[range])
+        // A selection that swallows the sidecar block would pull it inside the
+        // new highlight and corrupt it; reject. (Selections containing other
+        // comments' anchors are fine — that is legitimate nesting.)
+        guard !quote.contains(CommentSidecar.blockOpen) else { return nil }
+
+        let id = uniqueID(in: raw, idGenerator: idGenerator)
         let prefix = context(in: raw, before: range.lowerBound)
         let suffix = context(in: raw, after: range.upperBound)
 
@@ -410,7 +420,9 @@ enum CriticMarkup {
         var result = raw
         guard !entries.isEmpty else {
             result.removeSubrange(blockRange)
-            while let last = result.last, last == "\n" || last == " " { result.removeLast() }
+            // Trim only the trailing newlines (the separator we appended), never
+            // spaces — trailing spaces can be a significant hard-break.
+            while let last = result.last, last == "\n" { result.removeLast() }
             if !result.isEmpty { result.append("\n") }
             return result
         }

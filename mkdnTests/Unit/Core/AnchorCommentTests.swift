@@ -143,6 +143,13 @@ struct AnchorCommentParserTests {
         #expect(doc.transformedSource == "para one\n\npara two")
     }
 
+    @Test("CRLF separators around a trailing sidecar are absorbed")
+    func crlfSidecarAbsorption() {
+        let sidecar = CommentSidecar.encode([.init(id: "m", body: "x")])
+        let doc = CriticMarkup.preprocess("para\r\n\r\n\(sidecar)")
+        #expect(doc.transformedSource == "para")
+    }
+
     @Test("A plain document with no anchors round-trips unchanged")
     func plainDocument() {
         let doc = CriticMarkup.preprocess("# Title\n\nJust prose.")
@@ -200,6 +207,20 @@ struct AnchorCommentAuthoringTests {
         let doc = CriticMarkup.preprocess(second)
         #expect(doc.comments.count == 2)
         #expect(Set(doc.comments.map(\.id)) == ["c1", "zz9"])
+    }
+
+    @Test("wrapComment rejects a selection that swallows the sidecar block")
+    func wrapRejectsSidecarSelection() {
+        let raw = CommentFixture.doc("a b c", comment: "b", id: "c1", body: "note")
+        let whole = raw.startIndex ..< raw.endIndex // spans the sidecar block too
+        #expect(CriticMarkup.wrapComment(in: raw, range: whole, body: "x") == nil)
+    }
+
+    @Test("Deleting the last comment preserves significant trailing spaces")
+    func deletePreservesHardBreakSpaces() {
+        let withComment = CommentFixture.doc("see this  ", comment: "this", id: "c1", body: "n")
+        let afterDelete = CriticMarkup.deleteComment(in: withComment, id: "c1")
+        #expect(afterDelete.contains("this  ")) // hard-break spaces survive
     }
 
     @Test("editComment rewrites the body; unknown id returns nil")
