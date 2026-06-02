@@ -2,26 +2,79 @@
     import SwiftUI
 
     /// The content shown in the popover when a reader clicks a commented span.
+    /// Edit/Delete appear only when a `documentState` is available to persist
+    /// them; mutations are keyed by comment id so they resolve against the
+    /// current content (never a stale range).
     struct CommentPopoverView: View {
+        let commentID: String
         let commentBody: String
         let theme: AppTheme
+        let documentState: DocumentState?
+        let onClose: () -> Void
+
+        @State private var isEditing = false
+        @State private var draft = ""
+
+        private var trimmedDraft: String {
+            draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
 
         var body: some View {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text("Comment")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(theme.colors.foregroundSecondary)
-                Text(commentBody)
-                    .font(.body)
-                    .foregroundStyle(theme.colors.foreground)
-                    .textSelection(.enabled)
-                    // Wrap long bodies and grow vertically instead of truncating
-                    // (a fixed width is needed because the popover sizes to fit).
-                    .fixedSize(horizontal: false, vertical: true)
+
+                if isEditing {
+                    editor
+                } else {
+                    Text(commentBody)
+                        .font(.body)
+                        .foregroundStyle(theme.colors.foreground)
+                        .textSelection(.enabled)
+                    if let documentState {
+                        actions(documentState)
+                    }
+                }
             }
             .padding(12)
             .frame(width: 300, alignment: .leading)
             .background(theme.colors.background)
+        }
+
+        private var editor: some View {
+            VStack(alignment: .leading, spacing: 8) {
+                TextEditor(text: $draft)
+                    .font(.body)
+                    .frame(height: 72)
+                    .scrollContentBackground(.hidden)
+                    .padding(4)
+                    .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(theme.colors.border))
+                HStack {
+                    Button("Cancel") { isEditing = false }
+                    Spacer()
+                    Button("Save") {
+                        documentState?.editComment(id: commentID, newBody: trimmedDraft)
+                        onClose()
+                    }
+                    .keyboardShortcut(.return, modifiers: [.command])
+                    .disabled(trimmedDraft.isEmpty)
+                }
+            }
+        }
+
+        private func actions(_ documentState: DocumentState) -> some View {
+            HStack {
+                Button("Edit") {
+                    draft = commentBody
+                    isEditing = true
+                }
+                Spacer()
+                Button("Delete", role: .destructive) {
+                    documentState.deleteComment(id: commentID)
+                    onClose()
+                }
+            }
         }
     }
 #endif

@@ -20,7 +20,13 @@
             popover.behavior = .transient
             popover.delegate = self
             popover.contentViewController = NSHostingController(
-                rootView: CommentPopoverView(commentBody: comment.body, theme: theme)
+                rootView: CommentPopoverView(
+                    commentID: id,
+                    commentBody: comment.body,
+                    theme: theme,
+                    documentState: documentState,
+                    onClose: { [weak self] in self?.commentPopover?.close() }
+                )
             )
             commentPopover = popover
             popover.show(relativeTo: rect, of: self, preferredEdge: .maxY)
