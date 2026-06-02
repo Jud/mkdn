@@ -15,9 +15,12 @@
                     .font(.body)
                     .foregroundStyle(theme.colors.foreground)
                     .textSelection(.enabled)
+                    // Wrap long bodies and grow vertically instead of truncating
+                    // (a fixed width is needed because the popover sizes to fit).
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(12)
-            .frame(maxWidth: 320, alignment: .leading)
+            .frame(width: 300, alignment: .leading)
             .background(theme.colors.background)
         }
     }
