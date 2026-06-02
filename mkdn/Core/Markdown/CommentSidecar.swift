@@ -73,11 +73,15 @@ enum CommentSidecar {
         return "\(blockOpen)\n\(json)\n\(blockClose)"
     }
 
-    /// Find and decode the first sidecar block in `raw`, returning the parsed
-    /// entries and the block's raw range (so the parser can strip it). Returns
-    /// nil when there is no block or its JSON is unreadable.
+    /// Find and decode the sidecar block in `raw`, returning the parsed entries
+    /// and the block's raw range (so the parser can strip it). Returns nil when
+    /// there is no block or its JSON is unreadable.
+    ///
+    /// The sidecar is always appended at the end of the document, so we match the
+    /// LAST `<!--mkdn-comments` — earlier prose or code that merely mentions the
+    /// marker can't shadow the real trailing block.
     static func decode(from raw: String) -> (entries: [Entry], blockRange: Range<String.Index>)? {
-        guard let openRange = raw.range(of: blockOpen) else { return nil }
+        guard let openRange = raw.range(of: blockOpen, options: .backwards) else { return nil }
         // Escaped JSON never contains "-->", so the first close after the marker
         // is the true terminator.
         guard let closeRange = raw.range(of: blockClose, range: openRange.upperBound ..< raw.endIndex) else {

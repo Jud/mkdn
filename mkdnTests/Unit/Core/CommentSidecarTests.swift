@@ -56,6 +56,14 @@ struct CommentSidecarTests {
         #expect(decoded.entries == [CommentSidecar.Entry(id: "a", body: "b")])
     }
 
+    @Test("Earlier prose mentioning the marker does not shadow the real trailing sidecar")
+    func trailingBlockWins() throws {
+        let entry = CommentSidecar.Entry(id: "real", body: "actual")
+        let raw = "Docs: write `<!--mkdn-comments` to start a block. -->\n\n\(CommentSidecar.encode([entry]))"
+        let decoded = try #require(CommentSidecar.decode(from: raw))
+        #expect(decoded.entries == [entry])
+    }
+
     @Test("Returns nil when there is no sidecar block")
     func noBlock() {
         #expect(CommentSidecar.decode(from: "# Just a heading\n\ntext") == nil)
