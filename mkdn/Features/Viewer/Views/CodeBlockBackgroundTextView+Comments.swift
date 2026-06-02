@@ -2,7 +2,7 @@
     import AppKit
     import SwiftUI
 
-    extension CodeBlockBackgroundTextView {
+    extension CodeBlockBackgroundTextView: NSPopoverDelegate {
         /// A `.transient` popover dismisses on the next outside click; clicking a
         /// different comment replaces it.
         func showCommentPopover(id: String, range: NSRange) {
@@ -18,11 +18,20 @@
 
             let popover = NSPopover()
             popover.behavior = .transient
+            popover.delegate = self
             popover.contentViewController = NSHostingController(
                 rootView: CommentPopoverView(commentBody: comment.body, theme: theme)
             )
             commentPopover = popover
             popover.show(relativeTo: rect, of: self, preferredEdge: .maxY)
+        }
+
+        /// Release the closed popover (and its hosted SwiftUI content) on the
+        /// transient outside-click dismissal, not just when replaced/rebuilt.
+        public func popoverDidClose(_ notification: Notification) {
+            if (notification.object as? NSPopover) === commentPopover {
+                commentPopover = nil
+            }
         }
     }
 #endif

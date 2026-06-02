@@ -132,7 +132,8 @@
             // Open a comment only on a plain click that placed a caret (no
             // selection drag, no modifiers) and isn't a link — so selection,
             // double-click, shift/cmd-click, and link-following all still work.
-            guard event.modifierFlags.intersection([.shift, .command, .option, .control]).isEmpty,
+            guard event.clickCount == 1,
+                  event.modifierFlags.intersection([.shift, .command, .option, .control]).isEmpty,
                   selectedRange().length == 0
             else {
                 return
