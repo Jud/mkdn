@@ -15,6 +15,9 @@ public struct ThemeColors: Sendable {
     public let blockquoteBorder: Color
     public let blockquoteBackground: Color
     public let findHighlight: Color
+    /// Background tint for CriticMarkup comment highlights (persistent, unlike
+    /// the transient `findHighlight`).
+    public let commentHighlight: Color
 
     public init(
         background: Color,
@@ -29,7 +32,8 @@ public struct ThemeColors: Sendable {
         headingColor: Color,
         blockquoteBorder: Color,
         blockquoteBackground: Color,
-        findHighlight: Color
+        findHighlight: Color,
+        commentHighlight: Color
     ) {
         self.background = background
         self.backgroundSecondary = backgroundSecondary
@@ -44,6 +48,7 @@ public struct ThemeColors: Sendable {
         self.blockquoteBorder = blockquoteBorder
         self.blockquoteBackground = blockquoteBackground
         self.findHighlight = findHighlight
+        self.commentHighlight = commentHighlight
     }
 }
 

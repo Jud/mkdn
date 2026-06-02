@@ -60,4 +60,24 @@ struct SourceMap {
         let hi = segment.sourceStart + (range.upperBound - segment.builderStart)
         return lo ..< hi
     }
+
+    /// The builder UTF-16 ranges covering a source UTF-16 range — the reverse of
+    /// `sourceUTF16Range`, used to place comment highlights. A source range may
+    /// map to several builder ranges (e.g. a highlight containing styled text
+    /// whose runs are separate segments).
+    func builderUTF16Ranges(forSource sourceRange: Range<Int>) -> [Range<Int>] {
+        guard sourceRange.lowerBound < sourceRange.upperBound else { return [] }
+        var result: [Range<Int>] = []
+        for segment in segments {
+            let segmentSourceEnd = segment.sourceStart + (segment.builderEnd - segment.builderStart)
+            let lo = max(sourceRange.lowerBound, segment.sourceStart)
+            let hi = min(sourceRange.upperBound, segmentSourceEnd)
+            guard lo < hi else { continue }
+            result.append(
+                segment.builderStart + (lo - segment.sourceStart)
+                    ..< segment.builderStart + (hi - segment.sourceStart)
+            )
+        }
+        return result
+    }
 }
