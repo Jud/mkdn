@@ -125,20 +125,24 @@
                     NSCursor.arrow.set()
                 }
             }
+
+            openCommentPopoverIfNeeded(for: event, at: point)
         }
 
-        override func mouseUp(with event: NSEvent) {
-            super.mouseUp(with: event)
-            // Open a comment only on a plain click that placed a caret (no
-            // selection drag, no modifiers) and isn't a link — so selection,
-            // double-click, shift/cmd-click, and link-following all still work.
+        /// NSTextView completes selection tracking inside `mouseDown` and consumes
+        /// the matching mouse-up, so the trigger runs here — after `super` has
+        /// finished the gesture and `selectedRange()` is settled — not in a
+        /// `mouseUp` override (which never fires for normal text clicks). Opens a
+        /// comment only on a plain single click that placed a caret (no selection,
+        /// no modifiers) and isn't a link, preserving selection, double-click,
+        /// modifier-click, and link-following.
+        private func openCommentPopoverIfNeeded(for event: NSEvent, at point: CGPoint) {
             guard event.clickCount == 1,
                   event.modifierFlags.intersection([.shift, .command, .option, .control]).isEmpty,
                   selectedRange().length == 0
             else {
                 return
             }
-            let point = convert(event.locationInWindow, from: nil)
             guard !isOverLink(at: point), let comment = commentInfo(at: point) else { return }
             showCommentPopover(id: comment.id, range: comment.range)
         }
