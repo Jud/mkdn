@@ -315,17 +315,14 @@ public enum MarkdownTextStorageBuilder {
             let text = String(content[run.range].characters)
             var attributes: [NSAttributedString.Key: Any] = [:]
 
-            let intent = run.inlinePresentationIntent ?? []
-
-            // Carry the source span only for plain, commentable text. Links and
-            // inline code are shielded by the CriticMarkup preprocessor, so a
-            // selection there must not resolve to a writable source range — drop
-            // the span to keep the resolver's reject-first contract aligned with
-            // what the preprocessor will actually accept.
-            if let sourceSpan = run.sourceSpan, run.link == nil, !intent.contains(.code) {
+            // The visitor only tags commentable text (not links/images), so
+            // carrying the span through verbatim keeps the resolver aligned with
+            // what the preprocessor accepts.
+            if let sourceSpan = run.sourceSpan {
                 attributes[.mkdnSourceSpan] = sourceSpan
             }
 
+            let intent = run.inlinePresentationIntent ?? []
             var font = baseFont
 
             if intent.contains(.code) {

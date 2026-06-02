@@ -172,25 +172,29 @@ struct MarkdownVisitor {
 
     // MARK: - Inline Text
 
-    private func inlineText(from markup: any Markup) -> AttributedString {
+    private func inlineText(from markup: any Markup, protected: Bool = false) -> AttributedString {
         var result = AttributedString()
         for child in markup.children {
-            result.append(convertInline(child))
+            result.append(convertInline(child, protected: protected))
         }
         return postProcessMathDelimiters(result)
     }
 
-    private func convertInline(_ markup: any Markup) -> AttributedString {
+    /// - Parameter protected: true when inside a node the CriticMarkup
+    ///   preprocessor shields (a link/image), so descendant text must not be
+    ///   tagged with a `SourceSpanAttribute` — a selection there is not
+    ///   commentable and tagging it would let a wrap corrupt the node.
+    private func convertInline(_ markup: any Markup, protected: Bool = false) -> AttributedString {
         switch markup {
         case let text as Markdown.Text:
             var result = AttributedString(text.string)
-            if let offset = sourceUTF16Offset(for: text) {
+            if !protected, let offset = sourceUTF16Offset(for: text) {
                 result.sourceSpan = offset
             }
             return result
 
         case let emphasis as Emphasis:
-            var result = inlineText(from: emphasis)
+            var result = inlineText(from: emphasis, protected: protected)
             for run in result.runs {
                 let existing = result[run.range].inlinePresentationIntent ?? []
                 result[run.range].inlinePresentationIntent = existing.union(.emphasized)
@@ -198,7 +202,7 @@ struct MarkdownVisitor {
             return result
 
         case let strong as Strong:
-            var result = inlineText(from: strong)
+            var result = inlineText(from: strong, protected: protected)
             for run in result.runs {
                 let existing = result[run.range].inlinePresentationIntent ?? []
                 result[run.range].inlinePresentationIntent = existing.union(.stronglyEmphasized)
@@ -206,7 +210,7 @@ struct MarkdownVisitor {
             return result
 
         case let strikethrough as Strikethrough:
-            var result = inlineText(from: strikethrough)
+            var result = inlineText(from: strikethrough, protected: protected)
             result.strikethroughStyle = .single
             return result
 
@@ -216,7 +220,9 @@ struct MarkdownVisitor {
             return result
 
         case let link as Markdown.Link:
-            var result = inlineText(from: link)
+            // Links are preprocessor-protected regardless of whether the URL
+            // resolves, so suppress spans on the whole subtree.
+            var result = inlineText(from: link, protected: true)
             if let destination = link.destination, let url = URL(string: destination) {
                 result.link = url
                 result.underlineStyle = .single
@@ -243,7 +249,7 @@ struct MarkdownVisitor {
             return AttributedString("\n")
 
         default:
-            return inlineText(from: markup)
+            return inlineText(from: markup, protected: protected)
         }
     }
 

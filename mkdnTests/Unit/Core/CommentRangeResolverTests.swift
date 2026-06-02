@@ -73,6 +73,26 @@ struct CommentRangeResolverTests {
         #expect(resolver.rawRange(forBuilderRange: nsRange) == nil)
     }
 
+    @Test("Rejects link text even when the URL is empty/unresolvable")
+    func rejectsEmptyUrlLink() {
+        let raw = "see [docs]() now"
+        let (document, result) = pipeline(raw)
+        let resolver = CommentRangeResolver(document: document, sourceMap: result.sourceMap)
+        let nsRange = builderRange(of: "docs", in: result)
+        #expect(resolver.rawRange(forBuilderRange: nsRange) == nil)
+    }
+
+    @Test("Rejects a selection inside an existing comment's highlight")
+    func rejectsInsideExistingComment() {
+        let raw = "foo {==bar==}{>>old<<} baz"
+        let (document, result) = pipeline(raw)
+        // Transformed source is "foo bar baz"; "bar" lands inside the existing
+        // comment, so re-commenting it must be rejected.
+        let resolver = CommentRangeResolver(document: document, sourceMap: result.sourceMap)
+        let nsRange = builderRange(of: "bar", in: result)
+        #expect(resolver.rawRange(forBuilderRange: nsRange) == nil)
+    }
+
     @Test("Rejects an empty selection")
     func rejectsEmpty() {
         let raw = "hello world"

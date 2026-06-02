@@ -29,6 +29,15 @@ struct CommentRangeResolver {
             return nil
         }
 
-        return document.rawRange(forTransformed: lower ..< upper)
+        guard let rawRange = document.rawRange(forTransformed: lower ..< upper) else {
+            return nil
+        }
+
+        // Reject text inside an existing comment: re-commenting there would nest
+        // CriticMarkup and corrupt the existing annotation (v1 has no threading).
+        if document.comments.contains(where: { rawRange.overlaps($0.rawFullRange) }) {
+            return nil
+        }
+        return rawRange
     }
 }
