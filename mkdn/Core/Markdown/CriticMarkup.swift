@@ -76,10 +76,26 @@ enum CriticMarkup {
     /// Strip CriticMarkup highlight+comment pairs out of `raw`, leaving ordinary
     /// markdown plus the metadata needed to render and edit the comments.
     ///
-    /// CriticMarkup-looking text inside code (fenced, indented, or inline) is
-    /// left untouched, so code samples containing `{==…==}` are never mutated.
+    /// CriticMarkup-looking text inside regions that are not plain rendered
+    /// prose — code (fenced/indented/inline), HTML, and link/image syntax — is
+    /// left untouched, so it is never silently mutated.
     static func preprocess(_ raw: String) -> CriticMarkupDocument {
-        let protected = protectedCodeRanges(in: raw)
+        // No opener means nothing to strip; skip the protective parse entirely.
+        guard raw.contains("{==") else {
+            let wholeSegment: [CriticMarkupDocument.Segment] = raw.isEmpty ? [] : [.init(
+                transformedStart: 0,
+                transformedEnd: raw.count,
+                raw: raw.startIndex ..< raw.endIndex
+            )]
+            return CriticMarkupDocument(
+                rawSource: raw,
+                transformedSource: raw,
+                comments: [],
+                segments: wholeSegment
+            )
+        }
+
+        let protected = protectedRanges(in: raw)
 
         var transformed = ""
         var transformedCount = 0
@@ -99,66 +115,57 @@ enum CriticMarkup {
             transformedCount += length
         }
 
-        // Raw-source facts for one parsed pair; transformed-side ranges are
-        // computed by the caller once the highlight has been appended.
-        struct ParsedComment {
-            let full: Range<String.Index>
-            let highlight: Range<String.Index>
-            let body: Range<String.Index>
-        }
-
-        func parseComment(at start: String.Index) -> ParsedComment? {
-            guard raw[start...].hasPrefix("{==") else { return nil }
-            let highlightStart = raw.index(start, offsetBy: 3)
-            guard let hlEnd = raw.range(of: "==}", range: highlightStart ..< raw.endIndex)?.lowerBound
-            else {
-                return nil
+        var runStart = raw.startIndex
+        var searchStart = raw.startIndex
+        // Opener-driven scan: jump to each "{==" via range(of:) and never
+        // re-scan earlier text, so adversarial opener spam stays linear.
+        while let openRange = raw.range(of: "{==", range: searchStart ..< raw.endIndex) {
+            let open = openRange.lowerBound
+            let highlightStart = openRange.upperBound
+            guard let closeRange = raw.range(of: "==}", range: highlightStart ..< raw.endIndex) else {
+                break // no highlight terminator remains anywhere ahead
             }
-            let highlightRange = highlightStart ..< hlEnd
-            guard !highlightRange.isEmpty else { return nil }
+            let highlightEnd = closeRange.lowerBound
+            let afterHighlight = closeRange.upperBound
 
-            let afterHighlight = raw.index(hlEnd, offsetBy: 3)
-            guard raw[afterHighlight...].hasPrefix("{>>") else { return nil }
+            // This is the first "==}" after `open`, so every opener up to here
+            // shares it and fails the same check — resume past it, don't retry each.
+            guard highlightStart < highlightEnd, raw[afterHighlight...].hasPrefix("{>>") else {
+                searchStart = afterHighlight
+                continue
+            }
             let bodyStart = raw.index(afterHighlight, offsetBy: 3)
-            guard let bodyEnd = raw.range(of: "<<}", range: bodyStart ..< raw.endIndex)?.lowerBound
-            else {
-                return nil
+            guard let bodyCloseRange = raw.range(of: "<<}", range: bodyStart ..< raw.endIndex) else {
+                break // no comment terminator remains anywhere ahead
             }
-            let fullRange = start ..< raw.index(bodyEnd, offsetBy: 3)
+            let fullRange = open ..< bodyCloseRange.upperBound
 
-            let overlapsCode = protected.contains {
+            let overlapsProtected = protected.contains {
                 $0.lowerBound < fullRange.upperBound && fullRange.lowerBound < $0.upperBound
             }
-            guard !overlapsCode else { return nil }
-
-            return ParsedComment(full: fullRange, highlight: highlightRange, body: bodyStart ..< bodyEnd)
-        }
-
-        var runStart = raw.startIndex
-        var cursor = raw.startIndex
-        while cursor < raw.endIndex {
-            if let parsed = parseComment(at: cursor) {
-                appendPreserved(runStart ..< cursor)
-                let highlightStartCount = transformedCount
-                appendPreserved(parsed.highlight)
-                let transformedHighlight =
-                    transformed.index(transformed.startIndex, offsetBy: highlightStartCount)
-                    ..< transformed.index(transformed.startIndex, offsetBy: transformedCount)
-
-                commentCounter += 1
-                comments.append(CriticComment(
-                    id: "c\(commentCounter)",
-                    body: String(raw[parsed.body]),
-                    rawFullRange: parsed.full,
-                    rawHighlightRange: parsed.highlight,
-                    rawBodyRange: parsed.body,
-                    transformedHighlightRange: transformedHighlight
-                ))
-                cursor = parsed.full.upperBound
-                runStart = cursor
-            } else {
-                cursor = raw.index(after: cursor)
+            guard !overlapsProtected else {
+                searchStart = afterHighlight
+                continue
             }
+
+            appendPreserved(runStart ..< open)
+            let highlightStartCount = transformedCount
+            appendPreserved(highlightStart ..< highlightEnd)
+            let transformedHighlight =
+                transformed.index(transformed.startIndex, offsetBy: highlightStartCount)
+                ..< transformed.index(transformed.startIndex, offsetBy: transformedCount)
+
+            commentCounter += 1
+            comments.append(CriticComment(
+                id: "c\(commentCounter)",
+                body: String(raw[bodyStart ..< bodyCloseRange.lowerBound]),
+                rawFullRange: fullRange,
+                rawHighlightRange: highlightStart ..< highlightEnd,
+                rawBodyRange: bodyStart ..< bodyCloseRange.lowerBound,
+                transformedHighlightRange: transformedHighlight
+            ))
+            searchStart = fullRange.upperBound
+            runStart = searchStart
         }
         appendPreserved(runStart ..< raw.endIndex)
 
@@ -170,36 +177,36 @@ enum CriticMarkup {
         )
     }
 
-    /// Raw-source ranges of every code region (fenced/indented `CodeBlock` and
-    /// `InlineCode`), used to shield code samples from the CriticMarkup scan.
-    /// Reuses swift-markdown's own code detection rather than re-deriving the
-    /// CommonMark rules for fences and indentation.
-    private static func protectedCodeRanges(in raw: String) -> [Range<String.Index>] {
-        // Any code region implies one of these in the source: a backtick (inline
-        // or ``` fence), a tilde (~~~ fence), or a tab / 4-space run (indented
-        // block). Absent all of them there is no code to shield.
-        guard raw.contains("`") || raw.contains("~") || raw.contains("    ") || raw.contains("\t")
-        else {
-            return []
-        }
+    /// Raw-source ranges that are not plain rendered prose and must be shielded
+    /// from the CriticMarkup scan. Reuses swift-markdown's own detection rather
+    /// than re-deriving CommonMark rules.
+    private static func protectedRanges(in raw: String) -> [Range<String.Index>] {
         let document = Document(parsing: raw, options: [])
         let converter = SourceLocationConverter(source: raw)
         var ranges: [Range<String.Index>] = []
-        collectCodeRanges(in: document, converter: converter, into: &ranges)
+        collectProtectedRanges(in: document, converter: converter, into: &ranges)
         return ranges
     }
 
-    private static func collectCodeRanges(
+    /// Shields code (fenced/indented `CodeBlock`, `InlineCode`), HTML
+    /// (`HTMLBlock`/`InlineHTML`, rendered as raw text), and link/image syntax.
+    /// CriticMarkup inside a link destination would silently rewrite the URL
+    /// with no visible comment, so the whole node is treated as non-commentable.
+    private static func collectProtectedRanges(
         in markup: any Markup,
         converter: SourceLocationConverter,
         into ranges: inout [Range<String.Index>]
     ) {
-        if markup is CodeBlock || markup is InlineCode, let sourceRange = markup.range,
-           let resolved = converter.range(for: sourceRange) {
-            ranges.append(resolved)
+        switch markup {
+        case is CodeBlock, is InlineCode, is HTMLBlock, is InlineHTML, is Markdown.Link, is Markdown.Image:
+            if let sourceRange = markup.range, let resolved = converter.range(for: sourceRange) {
+                ranges.append(resolved)
+            }
+        default:
+            break
         }
         for child in markup.children {
-            collectCodeRanges(in: child, converter: converter, into: &ranges)
+            collectProtectedRanges(in: child, converter: converter, into: &ranges)
         }
     }
 }

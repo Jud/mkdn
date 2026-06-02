@@ -129,6 +129,34 @@ struct CriticMarkupTests {
         #expect(doc.transformedSource.contains("{==y==}{>>n<<}"))
     }
 
+    @Test("Does not transform CriticMarkup inside an HTML block")
+    func htmlBlockProtected() {
+        let source = """
+        <div>
+        {==y==}{>>note<<}
+        </div>
+        """
+        let doc = CriticMarkup.preprocess(source)
+        #expect(doc.comments.isEmpty)
+        #expect(doc.transformedSource.contains("{==y==}{>>note<<}"))
+    }
+
+    @Test("Does not transform CriticMarkup inside a link destination")
+    func linkDestinationProtected() {
+        let doc = CriticMarkup.preprocess("see [the docs](https://a/{==p==}{>>c<<}) here")
+        #expect(doc.comments.isEmpty)
+        #expect(doc.transformedSource.contains("{==p==}{>>c<<}"))
+    }
+
+    @Test("Adversarial opener spam terminates and leaves source intact")
+    func adversarialOpeners() {
+        // Many "{==" with no terminators must not hang or crash.
+        let source = String(repeating: "{==", count: 5000)
+        let doc = CriticMarkup.preprocess(source)
+        #expect(doc.comments.isEmpty)
+        #expect(doc.transformedSource == source)
+    }
+
     @Test("Transforms a real comment even when an unrelated code block exists")
     func mixedCodeAndComment() {
         let source = """
