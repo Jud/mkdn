@@ -28,6 +28,7 @@
         let findState: FindState
         let outlineState: OutlineState
         let headingOffsets: [Int: Int]
+        let comments: [String: CriticComment]
         @Binding var isLoadingGateActive: Bool
 
         // MARK: - NSViewRepresentable
@@ -70,6 +71,8 @@
             applyTheme(to: textView, scrollView: scrollView)
             textView.findState = findState
             textView.printBlocks = blocks
+            textView.commentsByID = comments
+            textView.commentTheme = theme
 
             textView.textStorage?.setAttributedString(attributedText)
             textView.window?.invalidateCursorRects(for: textView)
@@ -97,6 +100,8 @@
             applyTheme(to: textView, scrollView: scrollView)
             textView.findState = findState
             textView.printBlocks = blocks
+            textView.commentsByID = comments
+            textView.commentTheme = theme
 
             let isNewContent = coordinator.lastAppliedText !== attributedText
             if isNewContent {

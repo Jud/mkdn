@@ -63,6 +63,12 @@
 
         weak var findState: FindState?
 
+        // MARK: - Comment State
+
+        var commentsByID: [String: CriticComment] = [:]
+        var commentTheme: AppTheme?
+        var commentPopover: NSPopover?
+
         // MARK: - Print Support
 
         /// Current indexed blocks retained for print-time attributed string rebuild.
@@ -107,6 +113,10 @@
 
         override func mouseDown(with event: NSEvent) {
             let point = convert(event.locationInWindow, from: nil)
+            if let comment = commentInfo(at: point) {
+                showCommentPopover(id: comment.id, range: comment.range)
+                return // consume the click so it opens the comment instead of selecting
+            }
             if isOverEmptyTextArea(point) {
                 handleEmptyAreaMouseDown(with: event)
                 return
