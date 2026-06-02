@@ -105,11 +105,14 @@
         // MARK: - Comments
 
         /// Wrap a raw-source range as a CriticMarkup comment and persist.
-        /// `rawRange` must index the current `markdownContent`. Returns false if
-        /// the span can't be safely commented (reject-first).
+        /// `rawRange` indexes `source` — the content it was resolved against;
+        /// the wrap is rejected if `source` no longer equals `markdownContent`
+        /// (e.g. a reload changed it between selection and submit), since the
+        /// index would then be foreign. Returns false on any reject.
         @discardableResult
-        public func addComment(in rawRange: Range<String.Index>, body: String) -> Bool {
-            guard let updated = CriticMarkup.wrapComment(in: markdownContent, range: rawRange, body: body)
+        public func addComment(in rawRange: Range<String.Index>, of source: String, body: String) -> Bool {
+            guard source == markdownContent,
+                  let updated = CriticMarkup.wrapComment(in: markdownContent, range: rawRange, body: body)
             else {
                 return false
             }

@@ -56,6 +56,7 @@
         /// it's applied to the live content via DocumentState.
         @objc func addCommentToSelection(_: Any?) {
             guard let rawRange = commentableSelectionRange(),
+                  let source = criticDocument?.rawSource,
                   let theme = commentTheme,
                   let documentState,
                   let rect = boundingRect(forCharacterRange: selectedRange())
@@ -69,7 +70,7 @@
             popover.delegate = self
             popover.contentViewController = NSHostingController(
                 rootView: CommentInputView(theme: theme) { [weak self] body in
-                    documentState.addComment(in: rawRange, body: body)
+                    documentState.addComment(in: rawRange, of: source, body: body)
                     self?.commentPopover?.close()
                 }
             )

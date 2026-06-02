@@ -9,8 +9,9 @@ struct DocumentStateCommentTests {
     func addComment() {
         let state = DocumentState()
         state.markdownContent = "The quick brown fox"
-        let range = state.markdownContent.range(of: "quick")!
-        #expect(state.addComment(in: range, body: "note"))
+        let source = state.markdownContent
+        let range = source.range(of: "quick")!
+        #expect(state.addComment(in: range, of: source, body: "note"))
         #expect(state.markdownContent == "The {==quick==}{>>note<<} brown fox")
     }
 
@@ -18,9 +19,20 @@ struct DocumentStateCommentTests {
     func addRejects() {
         let state = DocumentState()
         state.markdownContent = "a ==} b"
-        let range = state.markdownContent.range(of: "==}")!
-        #expect(!state.addComment(in: range, body: "x"))
+        let source = state.markdownContent
+        let range = source.range(of: "==}")!
+        #expect(!state.addComment(in: range, of: source, body: "x"))
         #expect(state.markdownContent == "a ==} b")
+    }
+
+    @Test("addComment rejects a range from stale content (content changed)")
+    func addRejectsStaleSource() {
+        let state = DocumentState()
+        let staleSource = "The quick brown fox"
+        let range = staleSource.range(of: "quick")!
+        state.markdownContent = "Totally different content now"
+        #expect(!state.addComment(in: range, of: staleSource, body: "note"))
+        #expect(state.markdownContent == "Totally different content now")
     }
 
     @Test("editComment by id rewrites the body; unknown id is a no-op")

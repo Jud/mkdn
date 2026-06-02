@@ -40,6 +40,7 @@
             view.showCommentPopover(id: "c1", range: range)
             #expect(view.commentPopover != nil)
             #expect(view.commentPopover?.contentViewController is NSHostingController<CommentPopoverView>)
+            view.commentPopover?.close() // avoid an open popover at process teardown
         }
 
         @Test("commentableSelectionRange maps a selection to its raw span")
@@ -67,6 +68,7 @@
                 view.addCommentToSelection(nil)
                 #expect(view.commentPopover != nil)
                 #expect(view.commentPopover?.contentViewController is NSHostingController<CommentInputView>)
+                view.commentPopover?.close() // avoid an open popover at process teardown
             }
         }
 
