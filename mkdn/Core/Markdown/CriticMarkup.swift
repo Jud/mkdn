@@ -179,8 +179,12 @@ enum CriticMarkup {
             }
         }
 
+        // Duplicate ids are malformed; keep the first, matching `commentsByID`.
+        var seenIDs = Set<String>()
+        let uniqueEntries = sidecarEntries.filter { seenIDs.insert($0.id).inserted }
+
         var comments: [CriticComment] = []
-        for entry in sidecarEntries {
+        for entry in uniqueEntries {
             guard let starts = startIndices[entry.id], starts.count == 1,
                   let ends = endIndices[entry.id], ends.count == 1
             else {
@@ -209,20 +213,25 @@ enum CriticMarkup {
         return comments
     }
 
-    /// Extend a range to swallow newlines immediately before and after it.
+    /// Extend a range to swallow newlines after it, and (only when the block
+    /// trails the document) before it. Leading newlines are absorbed only for a
+    /// trailing block so a hand-placed mid-document sidecar can't merge the
+    /// paragraphs around it.
     private static func absorbingSurroundingNewlines(
         of range: Range<String.Index>,
         in raw: String
     ) -> Range<String.Index> {
-        var lower = range.lowerBound
-        while lower > raw.startIndex {
-            let previous = raw.index(before: lower)
-            guard raw[previous] == "\n" else { break }
-            lower = previous
-        }
         var upper = range.upperBound
         while upper < raw.endIndex, raw[upper] == "\n" {
             upper = raw.index(after: upper)
+        }
+        var lower = range.lowerBound
+        if upper == raw.endIndex {
+            while lower > raw.startIndex {
+                let previous = raw.index(before: lower)
+                guard raw[previous] == "\n" else { break }
+                lower = previous
+            }
         }
         return lower ..< upper
     }

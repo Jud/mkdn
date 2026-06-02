@@ -123,6 +123,26 @@ struct AnchorCommentParserTests {
         #expect(doc.comments.isEmpty)
     }
 
+    @Test("Duplicate sidecar entries for one id yield a single comment")
+    func duplicateSidecarEntry() {
+        let entries = [
+            CommentSidecar.Entry(id: "d", body: "one"),
+            CommentSidecar.Entry(id: "d", body: "two"),
+        ]
+        let raw = "<!--mkc s=d-->X<!--mkc e=d-->\n\n" + CommentSidecar.encode(entries)
+        let doc = CriticMarkup.preprocess(raw)
+        #expect(doc.comments.count == 1)
+        #expect(doc.comments[0].body == "one")
+    }
+
+    @Test("A mid-document sidecar is stripped without merging the paragraphs around it")
+    func midDocumentSidecar() {
+        let sidecar = CommentSidecar.encode([.init(id: "m", body: "x")])
+        let raw = "para one\n\n\(sidecar)\n\npara two"
+        let doc = CriticMarkup.preprocess(raw)
+        #expect(doc.transformedSource == "para one\n\npara two")
+    }
+
     @Test("A plain document with no anchors round-trips unchanged")
     func plainDocument() {
         let doc = CriticMarkup.preprocess("# Title\n\nJust prose.")
