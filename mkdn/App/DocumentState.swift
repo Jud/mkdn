@@ -104,11 +104,13 @@
 
         // MARK: - Comments
 
-        /// Wrap a raw-source range as a CriticMarkup comment and persist.
-        /// `rawRange` indexes `source` — the content it was resolved against;
-        /// the wrap is rejected if `source` no longer equals `markdownContent`
-        /// (e.g. a reload changed it between selection and submit), since the
-        /// index would then be foreign. Returns false on any reject.
+        /// Wrap a raw-source range as a CriticMarkup comment. `rawRange` indexes
+        /// `source`; the wrap is rejected if `source` no longer equals
+        /// `markdownContent` (a reload/edit changed it between selection and
+        /// submit), since the index would then be foreign. Updates the content
+        /// (re-renders, marks dirty); persistence is the normal save flow — it is
+        /// NOT auto-saved, so it never commits unrelated editor edits. Returns
+        /// false on any reject.
         @discardableResult
         public func addComment(in rawRange: Range<String.Index>, of source: String, body: String) -> Bool {
             guard source == markdownContent,
@@ -117,33 +119,34 @@
                 return false
             }
             markdownContent = updated
-            try? saveFile()
             return true
         }
 
-        /// Rewrite a comment's body, looked up by id in the *current* content so
-        /// the source ranges are never stale. Returns false if not found or the
-        /// new body is unsafe.
+        /// Rewrite a comment's body, looked up by id. `source` is the content the
+        /// id was resolved against; rejected if it no longer equals
+        /// `markdownContent` so a re-keyed id can't edit the wrong comment.
         @discardableResult
-        public func editComment(id: String, newBody: String) -> Bool {
-            guard let comment = CriticMarkup.preprocess(markdownContent).commentsByID[id],
+        public func editComment(id: String, of source: String, newBody: String) -> Bool {
+            guard source == markdownContent,
+                  let comment = CriticMarkup.preprocess(markdownContent).commentsByID[id],
                   let updated = CriticMarkup.editComment(in: markdownContent, comment: comment, newBody: newBody)
             else {
                 return false
             }
             markdownContent = updated
-            try? saveFile()
             return true
         }
 
-        /// Remove a comment (resolve), looked up by id in the current content.
+        /// Remove a comment (resolve), looked up by id. `source` guards against a
+        /// re-keyed id deleting the wrong comment (see `editComment`).
         @discardableResult
-        public func deleteComment(id: String) -> Bool {
-            guard let comment = CriticMarkup.preprocess(markdownContent).commentsByID[id] else {
+        public func deleteComment(id: String, of source: String) -> Bool {
+            guard source == markdownContent,
+                  let comment = CriticMarkup.preprocess(markdownContent).commentsByID[id]
+            else {
                 return false
             }
             markdownContent = CriticMarkup.deleteComment(in: markdownContent, comment: comment)
-            try? saveFile()
             return true
         }
 

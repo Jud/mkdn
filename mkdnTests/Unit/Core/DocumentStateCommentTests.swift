@@ -39,16 +39,27 @@ struct DocumentStateCommentTests {
     func editById() {
         let state = DocumentState()
         state.markdownContent = "a {==b==}{>>old<<} c"
-        #expect(state.editComment(id: "c1", newBody: "new"))
+        let source = state.markdownContent
+        #expect(state.editComment(id: "c1", of: source, newBody: "new"))
         #expect(state.markdownContent == "a {==b==}{>>new<<} c")
-        #expect(!state.editComment(id: "missing", newBody: "x"))
+        #expect(!state.editComment(id: "missing", of: state.markdownContent, newBody: "x"))
     }
 
     @Test("deleteComment by id removes the markup, keeping the text")
     func deleteById() {
         let state = DocumentState()
         state.markdownContent = "a {==b==}{>>note<<} c"
-        #expect(state.deleteComment(id: "c1"))
+        #expect(state.deleteComment(id: "c1", of: state.markdownContent))
         #expect(state.markdownContent == "a b c")
+    }
+
+    @Test("edit/delete reject when the source no longer matches current content")
+    func editDeleteRejectStaleSource() {
+        let state = DocumentState()
+        let stale = "a {==b==}{>>old<<} c"
+        state.markdownContent = "different content"
+        #expect(!state.editComment(id: "c1", of: stale, newBody: "new"))
+        #expect(!state.deleteComment(id: "c1", of: stale))
+        #expect(state.markdownContent == "different content")
     }
 }

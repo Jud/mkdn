@@ -8,6 +8,9 @@
     struct CommentPopoverView: View {
         let commentID: String
         let commentBody: String
+        /// The content the id was resolved against; edit/delete reject if it no
+        /// longer matches, so a re-keyed id can't mutate the wrong comment.
+        let source: String
         let theme: AppTheme
         let documentState: DocumentState?
         let onClose: () -> Void
@@ -54,7 +57,7 @@
                     Button("Cancel") { isEditing = false }
                     Spacer()
                     Button("Save") {
-                        documentState?.editComment(id: commentID, newBody: trimmedDraft)
+                        documentState?.editComment(id: commentID, of: source, newBody: trimmedDraft)
                         onClose()
                     }
                     .keyboardShortcut(.return, modifiers: [.command])
@@ -71,7 +74,7 @@
                 }
                 Spacer()
                 Button("Delete", role: .destructive) {
-                    documentState.deleteComment(id: commentID)
+                    documentState.deleteComment(id: commentID, of: source)
                     onClose()
                 }
             }
