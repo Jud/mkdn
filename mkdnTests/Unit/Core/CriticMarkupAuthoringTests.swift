@@ -38,6 +38,24 @@ struct CriticMarkupAuthoringTests {
         #expect(CriticMarkup.wrapComment(in: raw, range: range(of: "==}", in: raw), body: "x") == nil)
     }
 
+    @Test("Rejects when a dangling open delimiter in the prefix would capture the wrap")
+    func wrapRejectsPrefixCapture() {
+        // The unmatched "{==" before the span would swallow the inserted "==}".
+        let raw = "foo {== bar"
+        #expect(CriticMarkup.wrapComment(in: raw, range: range(of: "bar", in: raw), body: "note") == nil)
+    }
+
+    @Test("Wraps correctly when the document already has a well-formed comment")
+    func wrapAlongsideExistingComment() {
+        let raw = "{==a==}{>>1<<} and second"
+        let edited = try! #require(
+            CriticMarkup.wrapComment(in: raw, range: range(of: "second", in: raw), body: "2")
+        )
+        let doc = CriticMarkup.preprocess(edited)
+        #expect(doc.comments.map(\.body) == ["1", "2"])
+        #expect(doc.transformedSource == "a and second")
+    }
+
     @Test("Rejects a body containing the comment terminator")
     func wrapRejectsTerminatorInBody() {
         let raw = "hello world"

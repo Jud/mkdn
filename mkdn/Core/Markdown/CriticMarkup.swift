@@ -191,11 +191,29 @@ enum CriticMarkup {
     /// comment) — the FR-2b reject-rather-than-escape rule.
     static func wrapComment(in raw: String, range: Range<String.Index>, body: String) -> String? {
         guard !range.isEmpty else { return nil }
-        let span = raw[range]
+        let span = String(raw[range])
         guard !span.contains("==}"), !body.contains("<<}") else { return nil }
-        return String(raw[..<range.lowerBound])
+        let candidate = String(raw[..<range.lowerBound])
             + "{==" + span + "==}{>>" + body + "<<}"
             + String(raw[range.upperBound...])
+
+        // Verify the new comment re-parses exactly as intended at the insertion
+        // point — a dangling "{==" in the surrounding text could otherwise
+        // capture the inserted delimiters and yield a different span (FR-2b:
+        // reject rather than silently mis-wrap). The prefix is copied verbatim,
+        // so the insertion offset is identical in raw and candidate.
+        let insertionOffset = raw.distance(from: raw.startIndex, to: range.lowerBound)
+        let parsed = preprocess(candidate)
+        let inserted = parsed.comments.first {
+            candidate.distance(from: candidate.startIndex, to: $0.rawFullRange.lowerBound) == insertionOffset
+        }
+        guard let inserted,
+              candidate[inserted.rawHighlightRange] == span,
+              inserted.body == body
+        else {
+            return nil
+        }
+        return candidate
     }
 
     /// Replace a comment's body text, returning the edited source, or nil if the
