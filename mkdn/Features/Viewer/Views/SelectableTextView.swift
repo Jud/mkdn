@@ -28,6 +28,8 @@
         let findState: FindState
         let outlineState: OutlineState
         let headingOffsets: [Int: Int]
+        let criticDocument: CriticMarkupDocument?
+        let commentSourceMap: SourceMap
         @Binding var isLoadingGateActive: Bool
 
         // MARK: - NSViewRepresentable
@@ -70,6 +72,10 @@
             applyTheme(to: textView, scrollView: scrollView)
             textView.findState = findState
             textView.printBlocks = blocks
+            textView.criticDocument = criticDocument
+            textView.commentSourceMap = commentSourceMap
+            textView.documentState = documentState
+            textView.commentTheme = theme
 
             textView.textStorage?.setAttributedString(attributedText)
             textView.window?.invalidateCursorRects(for: textView)
@@ -97,6 +103,10 @@
             applyTheme(to: textView, scrollView: scrollView)
             textView.findState = findState
             textView.printBlocks = blocks
+            textView.criticDocument = criticDocument
+            textView.commentSourceMap = commentSourceMap
+            textView.documentState = documentState
+            textView.commentTheme = theme
 
             let isNewContent = coordinator.lastAppliedText !== attributedText
             if isNewContent {
@@ -207,6 +217,21 @@
             }
 
             coordinator.overlayCoordinator.hideAllOverlays()
+            // Stop any in-flight footnote pulse before swapping storage; its
+            // delayed fade would otherwise write stale ranges into new content.
+            coordinator.cancelFootnotePulse()
+            // Dismiss an open comment overlay; its position points into the old
+            // layout and its body may no longer match the new content. A body edit
+            // from the popover only changed the sidecar (layout unchanged), so it
+            // asks to keep the overlay through that one rebuild.
+            if textView.keepCommentOverlayThroughRebuild {
+                textView.keepCommentOverlayThroughRebuild = false
+                // Clear any row-hover emphasis before the storage swap; otherwise
+                // the stale hovered id paints onto the rebuilt content.
+                textView.setHoveredComment(nil)
+            } else {
+                textView.dismissCommentOverlay()
+            }
             textView.textStorage?.setAttributedString(attributedText)
             textView.window?.invalidateCursorRects(for: textView)
 

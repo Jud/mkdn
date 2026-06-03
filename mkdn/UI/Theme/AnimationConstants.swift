@@ -127,12 +127,16 @@ enum AnimationConstants {
         dampingFraction: 0.65
     )
 
+    /// Duration of the outline/overlay collapse, shared so dependents (e.g. the
+    /// comment overlay's removal delay) can derive from it rather than echo it.
+    static let outlineCloseDuration: TimeInterval = 0.2
+
     /// Firm easeOut for the outline navigator collapse layout change.
     ///
     /// Cannot undershoot — the breadcrumb size is a hard floor. The easeOut
     /// curve starts fast (releasing the rubber band) and decelerates firmly
     /// into the resting size.
-    static let outlineClose: Animation = .easeOut(duration: 0.2)
+    static let outlineClose: Animation = .easeOut(duration: outlineCloseDuration)
 
     /// Rubber band pull duration before the collapse releases.
     static let outlineStretchDuration: TimeInterval = 0.12

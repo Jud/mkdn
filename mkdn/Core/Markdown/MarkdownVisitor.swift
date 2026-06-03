@@ -7,8 +7,16 @@ struct MarkdownVisitor {
     private var footnoteIndices: [String: Int] = [:]
     private var footnoteDefinitions: [(label: String, blocks: [MarkdownBlock])] = []
 
-    init(theme: AppTheme) {
+    /// The exact source that was parsed, used to attach `SourceSpanAttribute` to
+    /// verbatim text runs. When nil (callers that don't need source mapping),
+    /// no spans are attached and rendering is unchanged.
+    private let source: String?
+    private let converter: SourceLocationConverter?
+
+    init(theme: AppTheme, source: String? = nil) {
         self.theme = theme
+        self.source = source
+        converter = source.map(SourceLocationConverter.init)
     }
 
     /// Visit the document and return all top-level blocks.
@@ -164,21 +172,29 @@ struct MarkdownVisitor {
 
     // MARK: - Inline Text
 
-    private func inlineText(from markup: any Markup) -> AttributedString {
+    private func inlineText(from markup: any Markup, protected: Bool = false) -> AttributedString {
         var result = AttributedString()
         for child in markup.children {
-            result.append(convertInline(child))
+            result.append(convertInline(child, protected: protected))
         }
         return postProcessMathDelimiters(result)
     }
 
-    private func convertInline(_ markup: any Markup) -> AttributedString {
+    /// - Parameter protected: true when inside a node the CriticMarkup
+    ///   preprocessor shields (a link/image), so descendant text must not be
+    ///   tagged with a `SourceSpanAttribute` — a selection there is not
+    ///   commentable and tagging it would let a wrap corrupt the node.
+    private func convertInline(_ markup: any Markup, protected: Bool = false) -> AttributedString {
         switch markup {
         case let text as Markdown.Text:
-            return AttributedString(text.string)
+            var result = AttributedString(text.string)
+            if !protected, let span = linearSpan(for: text) {
+                result.sourceSpan = span
+            }
+            return result
 
         case let emphasis as Emphasis:
-            var result = inlineText(from: emphasis)
+            var result = inlineText(from: emphasis, protected: protected)
             for run in result.runs {
                 let existing = result[run.range].inlinePresentationIntent ?? []
                 result[run.range].inlinePresentationIntent = existing.union(.emphasized)
@@ -186,7 +202,7 @@ struct MarkdownVisitor {
             return result
 
         case let strong as Strong:
-            var result = inlineText(from: strong)
+            var result = inlineText(from: strong, protected: protected)
             for run in result.runs {
                 let existing = result[run.range].inlinePresentationIntent ?? []
                 result[run.range].inlinePresentationIntent = existing.union(.stronglyEmphasized)
@@ -194,20 +210,35 @@ struct MarkdownVisitor {
             return result
 
         case let strikethrough as Strikethrough:
-            var result = inlineText(from: strikethrough)
+            var result = inlineText(from: strikethrough, protected: protected)
             result.strikethroughStyle = .single
             return result
 
         case let code as InlineCode:
             var result = AttributedString(code.code)
             result.inlinePresentationIntent = .code
+            // The whole span is atomic: a comment can't anchor inside a verbatim
+            // code span — a standard CommonMark renderer shows anchors there as
+            // literal code text, so the authoring portability check
+            // (`rendersUnchanged`) rejects it. A selection inside snaps to the
+            // full `` `code` `` token and a comment highlights the whole code.
+            if !protected, let span = atomicSpan(for: code) {
+                result.sourceSpan = span
+            }
             return result
 
         case let link as Markdown.Link:
-            var result = inlineText(from: link)
+            // Suppress per-node spans on the subtree, then tag the whole label as
+            // one atomic token covering the full `[text](url)` source — so a
+            // selection on link text snaps to the link and a comment over it
+            // highlights the whole label.
+            var result = inlineText(from: link, protected: true)
             if let destination = link.destination, let url = URL(string: destination) {
                 result.link = url
                 result.underlineStyle = .single
+            }
+            if !protected, let span = atomicSpan(for: link) {
+                result.sourceSpan = span
             }
             return result
 
@@ -231,8 +262,45 @@ struct MarkdownVisitor {
             return AttributedString("\n")
 
         default:
-            return inlineText(from: markup)
+            return inlineText(from: markup, protected: protected)
         }
+    }
+
+    /// A 1:1 `SourceSpan` for a text node whose rendered string is a verbatim
+    /// copy of its source substring. Returns nil otherwise (escapes, entities —
+    /// not 1:1 mappable).
+    ///
+    /// Text containing `$` is also skipped: `postProcessMathDelimiters` may later
+    /// replace an inline `$…$` span, which would leave a stale offset on the
+    /// text after it. Dropping the whole run keeps the mapping correct at the
+    /// cost of not being able to comment on `$`-bearing prose (a safe v1 trade).
+    private func linearSpan(for text: Markdown.Text) -> SourceSpan? {
+        guard let source, let converter,
+              !text.string.contains("$"),
+              let sourceRange = text.range,
+              let resolved = converter.range(for: sourceRange),
+              source[resolved] == text.string
+        else {
+            return nil
+        }
+        return span(for: resolved, in: source)
+    }
+
+    /// An atomic `SourceSpan` covering a whole token's source (e.g. a link or
+    /// inline code), so a selection inside snaps to the full token.
+    private func atomicSpan(for markup: any Markup) -> SourceSpan? {
+        guard let source, let converter,
+              let sourceRange = markup.range,
+              let resolved = converter.range(for: sourceRange)
+        else {
+            return nil
+        }
+        return span(for: resolved, in: source)
+    }
+
+    private func span(for resolved: Range<String.Index>, in source: String) -> SourceSpan {
+        let nsRange = NSRange(resolved, in: source)
+        return SourceSpan(start: nsRange.location, end: nsRange.location + nsRange.length)
     }
 
     // MARK: - Checkbox Extraction

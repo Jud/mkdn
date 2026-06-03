@@ -20,14 +20,20 @@ public struct TextStorageResult {
     /// Maps heading block indices to their character offsets in the attributed string.
     public let headingOffsets: [Int: Int]
 
+    /// Maps built attributed-string ranges back to source offsets, for resolving
+    /// editor selections to source (see `CommentRangeResolver`).
+    let sourceMap: SourceMap
+
     init(
         attributedString: NSAttributedString,
         attachments: [AttachmentInfo],
-        headingOffsets: [Int: Int] = [:]
+        headingOffsets: [Int: Int] = [:],
+        sourceMap: SourceMap = SourceMap(segments: [])
     ) {
         self.attributedString = attributedString
         self.attachments = attachments
         self.headingOffsets = headingOffsets
+        self.sourceMap = sourceMap
     }
 }
 
@@ -157,7 +163,8 @@ public enum MarkdownTextStorageBuilder {
         return TextStorageResult(
             attributedString: result,
             attachments: attachments,
-            headingOffsets: headingOffsets
+            headingOffsets: headingOffsets,
+            sourceMap: SourceMap(attributedString: result)
         )
     }
 
@@ -307,6 +314,10 @@ public enum MarkdownTextStorageBuilder {
 
             let text = String(content[run.range].characters)
             var attributes: [NSAttributedString.Key: Any] = [:]
+
+            if let sourceSpan = run.sourceSpan {
+                attributes[.mkdnSourceSpan] = sourceSpan.attributeArray
+            }
 
             let intent = run.inlinePresentationIntent ?? []
             var font = baseFont

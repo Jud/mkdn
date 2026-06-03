@@ -27,10 +27,18 @@
             // MARK: - Link Navigation
 
             func textView(
-                _: NSTextView,
+                _ textView: NSTextView,
                 clickedOnLink link: Any,
-                at _: Int
+                at charIndex: Int
             ) -> Bool {
+                // A commented link opens its comment (in openCommentPopoverIfNeeded,
+                // after super.mouseDown) rather than navigating — suppress the
+                // navigation here so the two don't both fire on one click.
+                if let storage = textView.textStorage, charIndex < storage.length,
+                   storage.attribute(.mkdnCommentID, at: charIndex, effectiveRange: nil) != nil {
+                    return true
+                }
+
                 let url: URL
                 if let linkURL = link as? URL {
                     url = linkURL
@@ -137,6 +145,30 @@
 
             private var footnotePulseTask: Task<Void, Never>?
             private var footnotePulseRange: NSRange?
+            /// Background colors (e.g. comment highlights) the pulse temporarily
+            /// paints over, restored when the pulse fades so they aren't erased.
+            private var footnotePulseSavedBackgrounds: [(range: NSRange, color: NSColor)] = []
+
+            /// Cancel an in-flight footnote pulse and forget its saved state.
+            /// Called before the text storage is replaced so the delayed fade
+            /// can't write stale ranges into freshly rebuilt content.
+            func cancelFootnotePulse() {
+                footnotePulseTask?.cancel()
+                footnotePulseTask = nil
+                footnotePulseRange = nil
+                footnotePulseSavedBackgrounds = []
+            }
+
+            private func clearFootnotePulse(_ storage: NSTextStorage, range: NSRange) {
+                let length = storage.length
+                if NSMaxRange(range) <= length {
+                    storage.removeAttribute(.backgroundColor, range: range)
+                }
+                for saved in footnotePulseSavedBackgrounds where NSMaxRange(saved.range) <= length {
+                    storage.addAttribute(.backgroundColor, value: saved.color, range: saved.range)
+                }
+                footnotePulseSavedBackgrounds = []
+            }
 
             /// Briefly highlight the text at a footnote target using a background attribute.
             private func pulseHighlight(atCharacterOffset offset: Int, linkRange: NSRange) {
@@ -148,7 +180,7 @@
                 // Cancel previous highlight and clear it immediately
                 footnotePulseTask?.cancel()
                 if let prev = footnotePulseRange {
-                    storage.removeAttribute(.backgroundColor, range: prev)
+                    clearFootnotePulse(storage, range: prev)
                 }
 
                 let paraRange = (storage.string as NSString)
@@ -169,6 +201,15 @@
                 let contentRange = NSRange(location: contentStart, length: paraEnd - contentStart)
                 footnotePulseRange = contentRange
 
+                // Remember any existing backgrounds (comment highlights) so the
+                // pulse fade restores rather than erases them.
+                footnotePulseSavedBackgrounds = []
+                storage.enumerateAttribute(.backgroundColor, in: contentRange, options: []) { value, range, _ in
+                    if let color = value as? NSColor {
+                        footnotePulseSavedBackgrounds.append((range, color))
+                    }
+                }
+
                 let highlightColor = NSColor.controlAccentColor.withAlphaComponent(0.2)
                 storage.addAttribute(.backgroundColor, value: highlightColor, range: contentRange)
 
@@ -178,8 +219,9 @@
                         guard !Task.isCancelled else { return }
                         try? await Task.sleep(for: .milliseconds(100))
                         guard let storage = textView?.textStorage else { return }
+                        guard NSMaxRange(contentRange) <= storage.length else { return }
                         if alpha == 0 {
-                            storage.removeAttribute(.backgroundColor, range: contentRange)
+                            self?.clearFootnotePulse(storage, range: contentRange)
                         } else {
                             let fade = NSColor.controlAccentColor.withAlphaComponent(alpha)
                             storage.addAttribute(.backgroundColor, value: fade, range: contentRange)

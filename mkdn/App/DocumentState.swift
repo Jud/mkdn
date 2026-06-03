@@ -102,6 +102,53 @@
             lastSavedContent = markdownContent
         }
 
+        // MARK: - Comments
+
+        /// Wrap a raw-source range as a CriticMarkup comment. `rawRange` indexes
+        /// `source`; the wrap is rejected if `source` no longer equals
+        /// `markdownContent` (a reload/edit changed it between selection and
+        /// submit), since the index would then be foreign. Updates the content
+        /// (re-renders, marks dirty); persistence is the normal save flow — it is
+        /// NOT auto-saved, so it never commits unrelated editor edits. Returns the
+        /// new comment's id (so the caller can reveal it), or nil on any reject.
+        @discardableResult
+        public func addComment(in rawRange: Range<String.Index>, of source: String, body: String) -> String? {
+            guard source.utf8.elementsEqual(markdownContent.utf8) else { return nil } // exact, not canonical
+            guard let wrapped = CriticMarkup.wrapComment(in: markdownContent, range: rawRange, body: body)
+            else {
+                return nil
+            }
+            markdownContent = wrapped.source
+            return wrapped.id
+        }
+
+        /// Rewrite a comment's body, looked up by id. `source` is the content the
+        /// id was resolved against; rejected if it no longer equals
+        /// `markdownContent` so a re-keyed id can't edit the wrong comment.
+        @discardableResult
+        public func editComment(id: String, of source: String, newBody: String) -> Bool {
+            guard source.utf8.elementsEqual(markdownContent.utf8), // exact, not canonical, equality
+                  let updated = CriticMarkup.editComment(in: markdownContent, id: id, newBody: newBody)
+            else {
+                return false
+            }
+            markdownContent = updated
+            return true
+        }
+
+        /// Remove a comment (resolve), looked up by id. `source` guards against a
+        /// re-keyed id deleting the wrong comment (see `editComment`).
+        @discardableResult
+        public func deleteComment(id: String, of source: String) -> Bool {
+            guard source.utf8.elementsEqual(markdownContent.utf8), // exact, not canonical, equality
+                  CriticMarkup.preprocess(markdownContent).commentsByID[id] != nil
+            else {
+                return false
+            }
+            markdownContent = CriticMarkup.deleteComment(in: markdownContent, id: id)
+            return true
+        }
+
         /// Reload the file from disk.
         public func reloadFile() throws {
             guard let url = currentFileURL else { return }

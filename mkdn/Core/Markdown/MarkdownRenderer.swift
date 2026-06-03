@@ -12,12 +12,16 @@ public enum MarkdownRenderer {
     }
 
     /// Render a Markdown document into an array of indexed block-level elements.
+    /// - Parameter source: the exact text that was parsed. When provided, text
+    ///   runs are tagged with `SourceSpanAttribute` for selection-to-source
+    ///   mapping; when nil, rendering is unchanged.
     public static func render(
         document: Document,
         theme: AppTheme,
-        generation: UInt64 = 0
+        generation: UInt64 = 0,
+        source: String? = nil
     ) -> [IndexedBlock] {
-        var visitor = MarkdownVisitor(theme: theme)
+        var visitor = MarkdownVisitor(theme: theme, source: source)
         let blocks = visitor.visitDocument(document)
         return blocks.enumerated().map { offset, element in
             IndexedBlock(index: offset, block: element, generation: generation)
@@ -31,6 +35,6 @@ public enum MarkdownRenderer {
         generation: UInt64 = 0
     ) -> [IndexedBlock] {
         let document = parse(text)
-        return render(document: document, theme: theme, generation: generation)
+        return render(document: document, theme: theme, generation: generation, source: text)
     }
 }

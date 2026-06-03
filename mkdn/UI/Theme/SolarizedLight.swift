@@ -33,7 +33,8 @@ enum SolarizedLight {
         headingColor: base01,
         blockquoteBorder: cyan,
         blockquoteBackground: base2,
-        findHighlight: yellow
+        findHighlight: yellow,
+        commentHighlight: yellow.opacity(0.30)
     )
 
     static let syntaxColors = SyntaxColors(
