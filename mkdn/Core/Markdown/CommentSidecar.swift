@@ -87,11 +87,12 @@ enum CommentSidecar {
         guard let closeRange = raw.range(of: blockClose, range: openRange.upperBound ..< raw.endIndex) else {
             return nil
         }
-        // The sidecar is appended metadata: recognize it only as the document's
-        // TRAILING block (nothing but whitespace after its close). A
-        // `<!--mkdn-comments…-->` inside a code fence or mid-document is then left
-        // as ordinary user content, never stripped.
-        guard raw[closeRange.upperBound...].allSatisfy(\.isWhitespace) else { return nil }
+        // The sidecar is appended metadata: recognize it only when nothing but
+        // trailing metadata (whitespace and the user's own HTML comments, e.g. a
+        // license or TODO note) follows its close. A `<!--mkdn-comments…-->`
+        // embedded in prose or a code fence — where real content follows — is
+        // then left as ordinary user content, never stripped.
+        guard isTrailingMetadata(raw[closeRange.upperBound...]) else { return nil }
         // The extracted text still holds the `>`/`-` escapes; JSONDecoder
         // restores them to `>`/`-` natively, so no inverse step is needed.
         let jsonText = String(raw[openRange.upperBound ..< closeRange.lowerBound])
@@ -101,6 +102,21 @@ enum CommentSidecar {
             return nil
         }
         return (wrapper.comments, openRange.lowerBound ..< closeRange.upperBound)
+    }
+
+    /// Whether everything after the sidecar's close is "trailing metadata" — only
+    /// whitespace and complete HTML comments. Lets a user keep their own trailing
+    /// `<!-- … -->` after the sidecar without detaching their comments, while
+    /// still rejecting a marker block followed by real prose or a fence close.
+    private static func isTrailingMetadata(_ tail: Substring) -> Bool {
+        var rest = tail
+        while true {
+            rest = rest.drop(while: \.isWhitespace)
+            guard !rest.isEmpty else { return true }
+            // HTML comments can't contain "-->", so the first one closes this tag.
+            guard rest.hasPrefix("<!--"), let close = rest.range(of: "-->") else { return false }
+            rest = rest[close.upperBound...]
+        }
     }
 
     // MARK: - `-->`-safe escaping

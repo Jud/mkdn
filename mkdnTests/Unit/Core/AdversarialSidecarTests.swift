@@ -60,6 +60,18 @@ struct AdversarialSidecarTests {
         #expect(padded.comments.count == 1)
     }
 
+    @Test("A user's trailing HTML comment after the sidecar doesn't detach comments")
+    func trailingHTMLCommentAfterSidecar() {
+        // Common case: comments authored by mkdn (sidecar at EOF) plus the user's
+        // own footer comment. The sidecar must still be recognized + stripped and
+        // the comment stay active — not orphaned with raw JSON shown.
+        let raw = CommentFixture.doc("comment this text", comment: "comment this") + "\n\n<!-- license: MIT -->\n"
+        let doc = CriticMarkup.preprocess(raw)
+        #expect(doc.comments.count == 1)
+        #expect(!doc.transformedSource.contains("mkdn-comments"))
+        #expect(doc.transformedSource.contains("<!-- license: MIT -->")) // user's note survives
+    }
+
     @Test("Only the trailing block is decoded when several marker blocks exist")
     func lastBlockWins() {
         let raw = "earlier <!--mkdn-comments not really --> mention\n\n"

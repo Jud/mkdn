@@ -9,8 +9,8 @@ import Testing
 /// suites.
 @Suite("Comment adversarial corpus")
 struct AdversarialCorpusTests {
-    private static func st(_ id: String) -> String { CriticMarkup.anchorToken(id: id, edge: .start) }
-    private static func en(_ id: String) -> String { CriticMarkup.anchorToken(id: id, edge: .end) }
+    private static func st(_ id: String) -> String { CommentFixture.start(id) }
+    private static func en(_ id: String) -> String { CommentFixture.end(id) }
     private static func sidecar(_ entries: [CommentSidecar.Entry]) -> String {
         "\n\n" + CommentSidecar.encode(entries)
     }

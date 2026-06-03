@@ -90,10 +90,9 @@ func activeComments(_ raw: String) -> [String: String] {
 
 /// A trailing label for assertion messages (e.g. the corpus case name or seed).
 /// Named `Ctx`, not `Comment`, to avoid colliding with swift-testing's `Comment`.
-struct Ctx: ExpressibleByStringLiteral, CustomStringConvertible {
+struct Ctx: CustomStringConvertible {
     let text: String
     init() { text = "" }
     init(_ text: String) { self.text = " [\(text)]" }
-    init(stringLiteral value: String) { self.init(value) }
     var description: String { text }
 }
