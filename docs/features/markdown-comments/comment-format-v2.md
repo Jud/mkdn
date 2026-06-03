@@ -120,44 +120,40 @@ author→insert; SourceMap/resolver/DocumentState scaffolding). What changes: th
 parsing (HTML-comment paired anchors + sidecar), the resilience layer (TextQuote), and the
 hardening above. Replaces the v1 single-wrap `{==..==}{>>..<<}` preprocessor/authoring.
 
-## Hardening contract (verified by the adversarial suites)
-
-The adversarial-hardening pass (`adversarial-hardening-plan.md`) pins these as
-tested invariants. See `mkdnTests/Unit/Core/Adversarial*.swift`.
+## Behavior & guarantees
 
 - **Reserved markers.** A well-formed `<mkdn-comment id="…" edge="…"/>` token is
-  reserved metadata and is stripped wherever it appears (prose or code) — do not
+  reserved metadata and is stripped wherever it appears (prose or code) — don't
   type it literally as content. Malformed marker-like text is left verbatim.
-- **Trailing-only sidecar (B3).** `<!--mkdn-comments…-->` is recognized as the
-  sidecar only when it is the document's trailing block (nothing but whitespace
-  after its close). A mid-document or fenced example of the block is ordinary
-  content and is never stripped. `preprocess` is idempotent on its own output.
-- **Bounded id generation (B1).** `uniqueID` never spins on a colliding
-  generator; it bounds attempts and falls back to an anchor-safe unique id.
-- **Non-corruption (B4/I4).** `wrapComment` verifies every pre-existing active
-  comment survives a new wrap (id, body, highlighted text) and rejects any
-  placement that would disturb one. Nested/crossing comments are allowed.
-- **Overflow-safe mapping (B2/I5).** `CommentRangeResolver` rejects hostile or
-  degenerate `NSRange`s (negative location, zero length, `Int.max`) without
-  trapping; a resolved range's raw text always equals the selected rendered text
-  (atomic tokens snap whole). Cross-paragraph / unmappable selections → nil.
-- **Sidecar codec (I7).** Bodies/quotes round-trip arbitrarily (`-->`, `--`, the
-  marker itself, newlines, quotes, backslashes, emoji, NUL); malformed sidecars
-  decode to nil and are left intact; a future schema `v` still decodes leniently.
+- **Trailing-only sidecar.** `<!--mkdn-comments…-->` is treated as the sidecar
+  only when it's the document's trailing block (only whitespace and HTML comments
+  follow its close). A mid-document or fenced example of the block is ordinary
+  content and is never stripped. Stripping is idempotent — running it over its
+  own output is a no-op.
+- **Unique ids.** Each comment gets an id unique within the document; generation
+  always terminates and never reuses an existing id.
+- **Non-corruption.** Adding a comment never disturbs an existing one — a wrap
+  that would change another comment's id, body, or highlighted text is rejected.
+  Nested and overlapping (crossing) comments are allowed.
+- **Selection mapping.** A selection maps back to the exact source text it covers;
+  atomic tokens (links, inline code) snap to the whole token. A selection that
+  can't map cleanly (e.g. spanning a paragraph boundary) is simply not
+  commentable, and a degenerate selection is rejected rather than crashing.
+- **Sidecar codec.** Comment bodies and quotes can contain anything — `-->`, `--`,
+  the marker text, newlines, quotes, backslashes, emoji — and round-trip intact.
+  A malformed sidecar is left untouched rather than guessed at.
 
-### Accepted limitations (documented, asserted current behavior)
+## Limitations
 
-- **Overlap re-click toggle.** After adding a comment whose span overlaps an
-  existing one, re-clicking that span opens the stacked popover rather than
-  toggling the box closed (showing the overlap is acceptable; a precise fix needs
-  the post-rebuild overlap set).
 - **Inline code is whole-token.** Commenting inline code wraps the entire
   `` `token` `` (anchors can't live inside verbatim code without breaking
-  portability); sub-range highlighting of code is not supported.
-- **Sidecar relocation.** Since the sidecar is trailing-only, an external tool
-  that relocates it mid-document detaches its comments (they orphan) until it is
-  moved back. Render-only; `preprocess` never mutates the file.
-- **Unclosed trailing code fence.** A `<!--mkdn-comments…-->` block inside an
-  *unclosed* code fence at end-of-document is still treated as the sidecar (the
-  recognizer is position-based, not fence-aware). Closed fences and mid-document
-  fences are handled correctly; this only affects malformed (unterminated) input.
+  portability); sub-range highlighting of code isn't supported.
+- **Overlap re-click.** After adding a comment whose span overlaps an existing
+  one, re-clicking that span opens the stacked popover rather than toggling it
+  closed.
+- **Sidecar relocation.** The sidecar must be the trailing block; an external tool
+  that moves it mid-document detaches its comments until it's moved back.
+  (Render-only — viewing never rewrites the file.)
+- **Unclosed trailing code fence.** A marker block inside an *unclosed* code fence
+  at end-of-document is treated as the sidecar (recognition is position-based, not
+  fence-aware). Only affects malformed input.
