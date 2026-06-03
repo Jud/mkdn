@@ -293,7 +293,12 @@
             NSAnimationContext.runAnimationGroup({ context in
                 context.duration = CommentBoxMetrics.fadeDuration
                 host.animator().alphaValue = 0
-            }, completionHandler: { host.removeFromSuperview() })
+            }, completionHandler: {
+                // The completion fires on the main thread (AppKit animation), but
+                // its closure is nonisolated — assert the main actor to call the
+                // @MainActor removeFromSuperview() without hopping.
+                MainActor.assumeIsolated { host.removeFromSuperview() }
+            })
         }
 
         /// Place the box just below the comment (flipping above when it would fall

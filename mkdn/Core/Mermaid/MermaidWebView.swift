@@ -83,9 +83,6 @@
         @Binding var intrinsicWidth: CGFloat
         @Binding var renderState: MermaidRenderState
 
-        /// All diagram `WKWebView` instances share a single web content process.
-        private static let sharedProcessPool = WKProcessPool()
-
         // MARK: - NSViewRepresentable
 
         func makeCoordinator() -> Coordinator {
@@ -97,8 +94,6 @@
             container.allowsInteraction = isFocused
 
             let configuration = WKWebViewConfiguration()
-            configuration.processPool = Self.sharedProcessPool
-
             let contentController = WKUserContentController()
             contentController.add(context.coordinator, name: "sizeReport")
             contentController.add(context.coordinator, name: "renderComplete")

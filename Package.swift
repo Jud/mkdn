@@ -2,6 +2,15 @@
 
 import PackageDescription
 
+// Warnings are errors across the package so correctness diagnostics (e.g. actor
+// isolation) can't slip into a build. Deprecation warnings are kept as warnings:
+// the remaining ones are a ScreenCaptureKit migration in the test harness,
+// tracked separately. (unsafeFlags because tools-version 6.0 predates the
+// .treatAllWarnings/.treatWarning SwiftSettings; fine for a root app package.)
+let warningsAsErrors: [SwiftSetting] = [
+    .unsafeFlags(["-warnings-as-errors", "-Wwarning", "DeprecatedDeclaration"]),
+]
+
 let package = Package(
     name: "mkdn",
     platforms: [
@@ -89,7 +98,8 @@ let package = Package(
                 .copy("Resources/mermaid.min.js"),
                 .copy("Resources/mermaid-template.html"),
                 .copy("Resources/AppIcon.icns"),
-            ]
+            ],
+            swiftSettings: warningsAsErrors
         ),
         .executableTarget(
             name: "mkdn",
@@ -98,12 +108,13 @@ let package = Package(
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ],
             path: "mkdnEntry",
-            swiftSettings: [.swiftLanguageMode(.v5)]
+            swiftSettings: [.swiftLanguageMode(.v5)] + warningsAsErrors
         ),
         .testTarget(
             name: "mkdnTests",
             dependencies: ["mkdnLib"],
-            path: "mkdnTests"
+            path: "mkdnTests",
+            swiftSettings: warningsAsErrors
         ),
     ]
 )
