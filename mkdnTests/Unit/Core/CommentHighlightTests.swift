@@ -83,7 +83,8 @@ struct CommentHighlightTests {
             CommentSidecar.Entry(id: "y", body: "second"),
         ]
         // x covers "A B C", y covers "C D" — they overlap on "C".
-        let raw = "<!--mkc s=x-->A B <!--mkc s=y-->C<!--mkc e=x--> D<!--mkc e=y-->\n\n"
+        let raw = "\(CommentFixture.start("x"))A B \(CommentFixture.start("y"))C"
+            + "\(CommentFixture.end("x")) D\(CommentFixture.end("y"))\n\n"
             + CommentSidecar.encode(entries)
         let string = highlighted(raw)
         #expect(Set(commentIDs(string, at: "A") ?? []) == ["x"])

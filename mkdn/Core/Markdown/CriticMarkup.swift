@@ -1,4 +1,5 @@
 import Foundation
+import Markdown
 
 /// A single comment: a span of rendered text bracketed in the raw source by an
 /// invisible paired anchor — `<!--mkc s=ID-->…<!--mkc e=ID-->` — whose body and
@@ -189,7 +190,7 @@ enum CriticMarkup {
         var startIndices: [String: [Int]] = [:]
         var endIndices: [String: [Int]] = [:]
         for (i, anchor) in anchors.enumerated() {
-            switch anchor.kind {
+            switch anchor.edge {
             case .start: startIndices[anchor.id, default: []].append(i)
             case .end: endIndices[anchor.id, default: []].append(i)
             }
@@ -260,50 +261,61 @@ enum CriticMarkup {
 
     // MARK: - Anchors
 
+    /// Which edge of a commented span an anchor marks.
+    enum AnchorEdge: String { case start, end }
+
     private struct Anchor {
-        enum Kind { case start, end }
-        let kind: Kind
+        let edge: AnchorEdge
         let id: String
-        /// The full `<!--mkc s=ID-->` token range in the raw source.
+        /// The full `<mkdn-comment …/>` token range in the raw source.
         let range: Range<String.Index>
     }
 
-    private static let anchorMarker = "<!--mkc "
+    /// The invisible paired anchor token. A self-closing custom element rather
+    /// than an HTML comment because, unlike `<!--…-->`, it parses as INLINE html
+    /// even at the start of a line/heading — so any text, including a line's
+    /// first word, is commentable without changing how a standard CommonMark
+    /// renderer (GitHub, Obsidian) lays out the document. Empty + unknown, so it
+    /// renders invisibly; greppable via `mkdn-comment`.
+    static func anchorToken(id: String, edge: AnchorEdge) -> String {
+        "<mkdn-comment id=\"\(id)\" edge=\"\(edge.rawValue)\"/>"
+    }
 
-    /// Locate every well-formed `<!--mkc s=ID-->` / `<!--mkc e=ID-->` token in
-    /// `raw`, skipping any that fall inside the sidecar block. IDs are
-    /// `[A-Za-z0-9]+`; malformed candidates are ignored.
+    private static let anchorTagOpen = "<mkdn-comment "
+    private static let anchorTagClose = "/>"
+
+    /// Locate every well-formed `<mkdn-comment …/>` token in `raw`, skipping any
+    /// inside the sidecar block. Malformed candidates are ignored.
     private static func anchors(in raw: String, excluding sidecar: Range<String.Index>?) -> [Anchor] {
         var result: [Anchor] = []
         var search = raw.startIndex
-        while let markerRange = raw.range(of: anchorMarker, range: search ..< raw.endIndex) {
-            search = markerRange.upperBound
-            var index = markerRange.upperBound
-            guard index < raw.endIndex else { break }
-            let kind: Anchor.Kind
-            switch raw[index] {
-            case "s": kind = .start
-            case "e": kind = .end
-            default: continue
+        while let openRange = raw.range(of: anchorTagOpen, range: search ..< raw.endIndex) {
+            search = openRange.upperBound
+            guard let closeRange = raw.range(of: anchorTagClose, range: openRange.upperBound ..< raw.endIndex)
+            else {
+                break
             }
-            index = raw.index(after: index)
-            guard index < raw.endIndex, raw[index] == "=" else { continue }
-            index = raw.index(after: index)
-            let idStart = index
-            while index < raw.endIndex, raw[index].isLetter || raw[index].isNumber {
-                index = raw.index(after: index)
-            }
-            guard index > idStart, raw[index...].hasPrefix("-->") else { continue }
-            let tokenEnd = raw.index(index, offsetBy: 3)
-            let tokenRange = markerRange.lowerBound ..< tokenEnd
-            if let sidecar, tokenRange.overlaps(sidecar) {
-                search = tokenEnd
+            search = closeRange.upperBound
+            let attributes = raw[openRange.upperBound ..< closeRange.lowerBound]
+            guard let id = attributeValue("id", in: attributes), !id.isEmpty,
+                  let edgeValue = attributeValue("edge", in: attributes),
+                  let edge = AnchorEdge(rawValue: edgeValue)
+            else {
                 continue
             }
-            result.append(Anchor(kind: kind, id: String(raw[idStart ..< index]), range: tokenRange))
-            search = tokenEnd
+            let tokenRange = openRange.lowerBound ..< closeRange.upperBound
+            if let sidecar, tokenRange.overlaps(sidecar) { continue }
+            result.append(Anchor(edge: edge, id: id, range: tokenRange))
         }
         return result
+    }
+
+    /// The double-quoted value of attribute `name` within an anchor tag's
+    /// attribute span, or nil if absent.
+    private static func attributeValue(_ name: String, in attributes: Substring) -> String? {
+        guard let opening = attributes.range(of: "\(name)=\"") else { return nil }
+        guard let closingQuote = attributes[opening.upperBound...].firstIndex(of: "\"") else { return nil }
+        return String(attributes[opening.upperBound ..< closingQuote])
     }
 
     // MARK: - Authoring
@@ -332,18 +344,85 @@ enum CriticMarkup {
         let suffix = context(in: raw, after: range.upperBound)
 
         var candidate = String(raw[..<range.lowerBound])
-            + "\(anchorMarker)s=\(id)-->" + quote + "\(anchorMarker)e=\(id)-->"
+            + anchorToken(id: id, edge: .start) + quote + anchorToken(id: id, edge: .end)
             + String(raw[range.upperBound...])
 
         let entry = CommentSidecar.Entry(id: id, body: body, quote: quote, prefix: prefix, suffix: suffix)
         candidate = upsertSidecar(in: candidate, entry: entry)
 
-        // Verify the new comment re-parses with the intended id and body, so a
-        // malformed selection (e.g. text that itself looks like an anchor) can't
-        // silently produce a different comment.
+        // The real safety net: the inserted anchors must be parse-neutral in a
+        // standard CommonMark renderer (one that does NOT strip them, e.g.
+        // GitHub). Reject any placement that changes the rendered structure —
+        // a marker at the first non-space of a line becoming an HTML block, a
+        // split emphasis run, etc. mkdn itself always renders correctly (it
+        // strips anchors first); this protects portability.
+        guard rendersUnchanged(raw: raw, candidate: candidate) else { return nil }
+
+        // And it must re-parse to the intended comment, so a selection whose text
+        // itself looks like an anchor can't silently produce a different one.
         let parsed = preprocess(candidate)
         guard let inserted = parsed.commentsByID[id], inserted.body == body else { return nil }
         return candidate
+    }
+
+    /// Whether `candidate` parses to the same rendered structure as `raw` once the
+    /// invisible mkdn anchors and sidecar are ignored in both — the authoring
+    /// safety net (see `wrapComment`).
+    private static func rendersUnchanged(raw: String, candidate: String) -> Bool {
+        renderSignature(Document(parsing: raw, options: []))
+            == renderSignature(Document(parsing: candidate, options: []))
+    }
+
+    /// A structural + text signature of a parsed document that ignores mkdn
+    /// anchors/sidecar and merges the text they split, so an invisible marker
+    /// inserted mid-text registers as no change while one that alters block or
+    /// inline structure does.
+    private static func renderSignature(_ markup: Markup) -> String {
+        var signature = "<\(type(of: markup))"
+        switch markup {
+        case let code as InlineCode: signature += ":\(code.code)"
+        case let code as CodeBlock: signature += ":\(code.language ?? ""):\(code.code)"
+        case let link as Markdown.Link: signature += ":\(link.destination ?? "")"
+        case let image as Markdown.Image: signature += ":\(image.source ?? "")"
+        case let html as InlineHTML: signature += ":\(html.rawHTML)"
+        case let html as HTMLBlock: signature += ":\(html.rawHTML)"
+        default: break
+        }
+
+        var text = ""
+        func flushText() {
+            if !text.isEmpty {
+                signature += "[T:\(text)]"
+                text = ""
+            }
+        }
+        for child in markup.children {
+            if isMkdnComment(child) { continue }
+            if let textNode = child as? Markdown.Text {
+                text += textNode.string
+                continue
+            }
+            flushText()
+            signature += renderSignature(child)
+        }
+        flushText()
+        return signature + ">"
+    }
+
+    /// An HTML-comment node that is one of mkdn's invisible markers (an anchor or
+    /// the sidecar), which standard renderers drop and the signature must ignore.
+    private static func isMkdnComment(_ markup: Markup) -> Bool {
+        let html: String
+        if let inline = markup as? InlineHTML {
+            html = inline.rawHTML
+        } else if let block = markup as? HTMLBlock {
+            html = block.rawHTML
+        } else {
+            return false
+        }
+        // Both the `<mkdn-comment …/>` anchors and the `<!--mkdn-comments…-->`
+        // sidecar contain this substring; standard renderers drop both.
+        return html.contains("mkdn-comment")
     }
 
     /// Rewrite a comment's body in the sidecar, returning the edited source, or

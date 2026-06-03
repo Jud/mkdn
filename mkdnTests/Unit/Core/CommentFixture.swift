@@ -15,6 +15,10 @@ enum CommentFixture {
         doc(text, comments: [(substring, id, body)])
     }
 
+    /// A raw start/end anchor token, so tests don't hard-code the marker syntax.
+    static func start(_ id: String) -> String { CriticMarkup.anchorToken(id: id, edge: .start) }
+    static func end(_ id: String) -> String { CriticMarkup.anchorToken(id: id, edge: .end) }
+
     /// Wrap several substrings in order, each with its own id and body.
     static func doc(_ text: String, comments: [(substring: String, id: String, body: String)]) -> String {
         var result = text

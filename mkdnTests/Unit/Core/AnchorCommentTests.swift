@@ -7,7 +7,7 @@ struct AnchorCommentParserTests {
     /// Raw source with an anchor pair around `quote` and a matching sidecar.
     private func source(_ before: String, _ quote: String, _ after: String, id: String, body: String) -> String {
         let sidecar = CommentSidecar.encode([.init(id: id, body: body, quote: quote)])
-        return "\(before)<!--mkc s=\(id)-->\(quote)<!--mkc e=\(id)-->\(after)\n\n\(sidecar)\n"
+        return "\(before)\(CommentFixture.start(id))\(quote)\(CommentFixture.end(id))\(after)\n\n\(sidecar)\n"
     }
 
     @Test("Strips anchors and sidecar, keeping the commented text")
@@ -40,7 +40,8 @@ struct AnchorCommentParserTests {
             CommentSidecar.Entry(id: "b", body: "two"),
             CommentSidecar.Entry(id: "a", body: "one"),
         ]
-        let raw = "<!--mkc s=a-->A<!--mkc e=a--> and <!--mkc s=b-->B<!--mkc e=b-->\n\n"
+        let raw = "\(CommentFixture.start("a"))A\(CommentFixture.end("a")) and "
+            + "\(CommentFixture.start("b"))B\(CommentFixture.end("b"))\n\n"
             + CommentSidecar.encode(entries)
         let doc = CriticMarkup.preprocess(raw)
         #expect(doc.transformedSource == "A and B")
@@ -54,7 +55,8 @@ struct AnchorCommentParserTests {
             CommentSidecar.Entry(id: "out", body: "outer"),
             CommentSidecar.Entry(id: "in", body: "inner"),
         ]
-        let raw = "<!--mkc s=out-->foo <!--mkc s=in-->bar<!--mkc e=in--> baz<!--mkc e=out-->\n\n"
+        let raw = "\(CommentFixture.start("out"))foo \(CommentFixture.start("in"))bar"
+            + "\(CommentFixture.end("in")) baz\(CommentFixture.end("out"))\n\n"
             + CommentSidecar.encode(entries)
         let doc = CriticMarkup.preprocess(raw)
         #expect(doc.transformedSource == "foo bar baz")
@@ -69,7 +71,8 @@ struct AnchorCommentParserTests {
             CommentSidecar.Entry(id: "out", body: "outer"),
             CommentSidecar.Entry(id: "in", body: "inner"),
         ]
-        let raw = "<!--mkc s=out-->foo <!--mkc s=in-->bar<!--mkc e=in--> baz<!--mkc e=out-->\n\n"
+        let raw = "\(CommentFixture.start("out"))foo \(CommentFixture.start("in"))bar"
+            + "\(CommentFixture.end("in")) baz\(CommentFixture.end("out"))\n\n"
             + CommentSidecar.encode(entries)
         let doc = CriticMarkup.preprocess(raw)
         #expect(doc.innermostComment(among: ["out", "in"])?.id == "in")
@@ -84,7 +87,8 @@ struct AnchorCommentParserTests {
             CommentSidecar.Entry(id: "y", body: "second"),
         ]
         // x opens, y opens, x closes, y closes — a genuine overlap, not nesting.
-        let raw = "<!--mkc s=x-->A B <!--mkc s=y-->C<!--mkc e=x--> D<!--mkc e=y-->\n\n"
+        let raw = "\(CommentFixture.start("x"))A B \(CommentFixture.start("y"))C"
+            + "\(CommentFixture.end("x")) D\(CommentFixture.end("y"))\n\n"
             + CommentSidecar.encode(entries)
         let doc = CriticMarkup.preprocess(raw)
         #expect(doc.transformedSource == "A B C D")
@@ -94,7 +98,7 @@ struct AnchorCommentParserTests {
 
     @Test("Orphaned anchors are stripped but yield no comment")
     func orphanAnchorStripped() {
-        let raw = "foo <!--mkc s=lonely-->bar baz\n\n"
+        let raw = "foo \(CommentFixture.start("lonely"))bar baz\n\n"
             + CommentSidecar.encode([.init(id: "lonely", body: "x")])
         let doc = CriticMarkup.preprocess(raw)
         #expect(doc.transformedSource == "foo bar baz")
@@ -103,7 +107,7 @@ struct AnchorCommentParserTests {
 
     @Test("Anchors with no sidecar entry yield no comment")
     func noSidecarEntry() {
-        let raw = "foo <!--mkc s=z-->bar<!--mkc e=z--> baz"
+        let raw = "foo \(CommentFixture.start("z"))bar\(CommentFixture.end("z")) baz"
         let doc = CriticMarkup.preprocess(raw)
         #expect(doc.transformedSource == "foo bar baz")
         #expect(doc.comments.isEmpty)
@@ -111,7 +115,8 @@ struct AnchorCommentParserTests {
 
     @Test("Duplicate ids are rejected")
     func duplicateID() {
-        let raw = "<!--mkc s=d-->A<!--mkc e=d--> <!--mkc s=d-->B<!--mkc e=d-->\n\n"
+        let raw = "\(CommentFixture.start("d"))A\(CommentFixture.end("d")) "
+            + "\(CommentFixture.start("d"))B\(CommentFixture.end("d"))\n\n"
             + CommentSidecar.encode([.init(id: "d", body: "x")])
         let doc = CriticMarkup.preprocess(raw)
         #expect(doc.transformedSource == "A B")
@@ -130,7 +135,7 @@ struct AnchorCommentParserTests {
 
     @Test("Empty highlight (adjacent anchors) yields no comment")
     func emptyHighlight() {
-        let raw = "foo <!--mkc s=e--><!--mkc e=e--> bar\n\n"
+        let raw = "foo \(CommentFixture.start("e"))\(CommentFixture.end("e")) bar\n\n"
             + CommentSidecar.encode([.init(id: "e", body: "x")])
         let doc = CriticMarkup.preprocess(raw)
         #expect(doc.transformedSource == "foo  bar")
@@ -143,7 +148,7 @@ struct AnchorCommentParserTests {
             CommentSidecar.Entry(id: "d", body: "one"),
             CommentSidecar.Entry(id: "d", body: "two"),
         ]
-        let raw = "<!--mkc s=d-->X<!--mkc e=d-->\n\n" + CommentSidecar.encode(entries)
+        let raw = "\(CommentFixture.start("d"))X\(CommentFixture.end("d"))\n\n" + CommentSidecar.encode(entries)
         let doc = CriticMarkup.preprocess(raw)
         #expect(doc.comments.count == 1)
         #expect(doc.comments[0].body == "one")
@@ -186,6 +191,33 @@ struct AnchorCommentAuthoringTests {
         #expect(doc.comments[0].id == "c1")
         #expect(doc.comments[0].body == "note")
         #expect(doc.transformedSource[doc.comments[0].transformedHighlightRange] == "quick")
+    }
+
+    @Test("Commenting the first word of a line is allowed (structure-safe marker)")
+    func wrapLineStart() {
+        let raw = "Hello world"
+        let wrapped = try! #require(
+            CriticMarkup.wrapComment(in: raw, range: raw.range(of: "Hello")!, body: "hi", idGenerator: { "c1" })
+        )
+        let doc = CriticMarkup.preprocess(wrapped)
+        #expect(doc.transformedSource == "Hello world")
+        #expect(doc.transformedSource[doc.comments[0].transformedHighlightRange] == "Hello")
+    }
+
+    @Test("Anchors use the semantic self-closing <mkdn-comment> custom element")
+    func anchorTokenFormat() {
+        let wrapped = CommentFixture.doc("Hello world", comment: "Hello", id: "c1")
+        #expect(wrapped.contains("<mkdn-comment id=\"c1\" edge=\"start\"/>"))
+        #expect(wrapped.contains("<mkdn-comment id=\"c1\" edge=\"end\"/>"))
+    }
+
+    @Test("AST verify rejects an insertion that changes block structure")
+    func wrapRejectsStructureChange() {
+        // Wrapping the leading '#' would place the anchor ahead of it, demoting
+        // the heading to a paragraph in a standard renderer — must be rejected.
+        let raw = "# Title"
+        let hash = raw.startIndex ..< raw.index(after: raw.startIndex)
+        #expect(CriticMarkup.wrapComment(in: raw, range: hash, body: "x") == nil)
     }
 
     @Test("wrapComment rejects an empty range")
