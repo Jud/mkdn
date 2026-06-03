@@ -109,17 +109,18 @@
         /// `markdownContent` (a reload/edit changed it between selection and
         /// submit), since the index would then be foreign. Updates the content
         /// (re-renders, marks dirty); persistence is the normal save flow — it is
-        /// NOT auto-saved, so it never commits unrelated editor edits. Returns
-        /// false on any reject.
+        /// NOT auto-saved, so it never commits unrelated editor edits. Returns the
+        /// new comment's id (so the caller can reveal it), or nil on any reject.
         @discardableResult
-        public func addComment(in rawRange: Range<String.Index>, of source: String, body: String) -> Bool {
+        public func addComment(in rawRange: Range<String.Index>, of source: String, body: String) -> String? {
             guard source.utf8.elementsEqual(markdownContent.utf8), // exact, not canonical, equality
                   let updated = CriticMarkup.wrapComment(in: markdownContent, range: rawRange, body: body)
             else {
-                return false
+                return nil
             }
+            let priorIDs = Set(CriticMarkup.preprocess(markdownContent).comments.map(\.id))
             markdownContent = updated
-            return true
+            return CriticMarkup.preprocess(updated).comments.map(\.id).first { !priorIDs.contains($0) }
         }
 
         /// Rewrite a comment's body, looked up by id. `source` is the content the

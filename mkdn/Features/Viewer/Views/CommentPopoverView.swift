@@ -7,6 +7,64 @@
         let body: String
     }
 
+    /// The box's title row, which doubles as a drag handle so the overlay can be
+    /// pulled off the text it covers.
+    struct CommentBoxHeader: View {
+        let title: String
+        let theme: AppTheme
+        let onDragChanged: (CGSize) -> Void
+        let onDragEnded: () -> Void
+
+        var body: some View {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(theme.colors.foregroundSecondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+                .gesture(
+                    // Global space: translation stays stable as the box moves,
+                    // avoiding a feedback loop (the box jittering).
+                    DragGesture(coordinateSpace: .global)
+                        .onChanged { onDragChanged($0.translation) }
+                        .onEnded { _ in onDragEnded() }
+                )
+        }
+    }
+
+    /// The shared body editor — a text field with a cancel and a confirm action —
+    /// used both to compose a new comment and to edit an existing one.
+    struct CommentEditor: View {
+        @Binding var draft: String
+        let theme: AppTheme
+        let cancelTitle: String
+        let confirmTitle: String
+        let onCancel: () -> Void
+        let onConfirm: () -> Void
+
+        private var trimmed: String { draft.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+        var body: some View {
+            VStack(alignment: .leading, spacing: 8) {
+                TextEditor(text: $draft)
+                    .font(.body)
+                    .frame(height: 72)
+                    .scrollContentBackground(.hidden)
+                    .padding(4)
+                    .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(theme.colors.border))
+                HStack {
+                    Button(cancelTitle, action: onCancel)
+                        .pointingHandCursor()
+                    Spacer()
+                    Button(confirmTitle, action: onConfirm)
+                        .keyboardShortcut(.return, modifiers: [.command])
+                        .disabled(trimmed.isEmpty)
+                        .pointingHandCursor()
+                }
+                .buttonStyle(.borderless)
+            }
+        }
+    }
+
     /// The popover shown when a reader clicks a commented span. When comments
     /// overlap at the click point, all of them are shown stacked (innermost
     /// first). Edit/Delete appear only when a `documentState` is available;
@@ -30,20 +88,10 @@
 
         var body: some View {
             VStack(alignment: .leading, spacing: 8) {
-                // The header doubles as a drag handle so the box can be pulled off
-                // text it covers.
-                Text(comments.count > 1 ? "Comments" : "Comment")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(theme.colors.foregroundSecondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
-                    .gesture(
-                        // Global space: translation stays stable as the box moves,
-                        // avoiding a feedback loop (the box jittering).
-                        DragGesture(coordinateSpace: .global)
-                            .onChanged { onDragChanged($0.translation) }
-                            .onEnded { _ in onDragEnded() }
-                    )
+                CommentBoxHeader(
+                    title: comments.count > 1 ? "Comments" : "Comment",
+                    theme: theme, onDragChanged: onDragChanged, onDragEnded: onDragEnded
+                )
 
                 ForEach(comments) { comment in
                     CommentRowView(
@@ -68,10 +116,10 @@
         }
     }
 
-    /// A single comment within the popover: its body plus Edit/Delete, with an
-    /// inline editor when editing. Each row owns its own edit state so stacked
-    /// comments edit independently.
-    private struct CommentRowView: View {
+    /// A single comment within a box: its body plus Edit/Delete, with an inline
+    /// editor when editing. Each row owns its own edit state so stacked comments
+    /// edit independently.
+    struct CommentRowView: View {
         let comment: DisplayedComment
         let theme: AppTheme
         let documentState: DocumentState?
@@ -94,7 +142,12 @@
         var body: some View {
             VStack(alignment: .leading, spacing: 8) {
                 if isEditing {
-                    editor
+                    CommentEditor(
+                        draft: $draft, theme: theme,
+                        cancelTitle: "Cancel", confirmTitle: "Save",
+                        onCancel: { withAnimation(AnimationConstants.outlinePop) { isEditing = false } },
+                        onConfirm: save
+                    )
                 } else {
                     Text(body0)
                         .font(.body)
@@ -107,27 +160,6 @@
             }
             .contentShape(Rectangle())
             .onHover { onHover($0 ? comment.id : nil) }
-        }
-
-        private var editor: some View {
-            VStack(alignment: .leading, spacing: 8) {
-                TextEditor(text: $draft)
-                    .font(.body)
-                    .frame(height: 72)
-                    .scrollContentBackground(.hidden)
-                    .padding(4)
-                    .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(theme.colors.border))
-                HStack {
-                    Button("Cancel") { withAnimation(AnimationConstants.outlinePop) { isEditing = false } }
-                        .pointingHandCursor()
-                    Spacer()
-                    Button("Save", action: save)
-                        .keyboardShortcut(.return, modifiers: [.command])
-                        .disabled(trimmedDraft.isEmpty)
-                        .pointingHandCursor()
-                }
-                .buttonStyle(.borderless)
-            }
         }
 
         private func save() {

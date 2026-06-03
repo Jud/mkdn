@@ -11,10 +11,11 @@ struct DocumentStateCommentTests {
         state.markdownContent = "The quick brown fox"
         let source = state.markdownContent
         let range = source.range(of: "quick")!
-        #expect(state.addComment(in: range, of: source, body: "note"))
+        let newID = state.addComment(in: range, of: source, body: "note")
 
         let doc = CriticMarkup.preprocess(state.markdownContent)
         #expect(doc.comments.count == 1)
+        #expect(newID == doc.comments[0].id)
         #expect(doc.comments[0].body == "note")
         #expect(doc.transformedSource[doc.comments[0].transformedHighlightRange] == "quick")
         #expect(doc.transformedSource == "The quick brown fox")
@@ -26,7 +27,7 @@ struct DocumentStateCommentTests {
         state.markdownContent = "a b"
         let source = state.markdownContent
         let empty = source.startIndex ..< source.startIndex
-        #expect(!state.addComment(in: empty, of: source, body: "x"))
+        #expect(state.addComment(in: empty, of: source, body: "x") == nil)
         #expect(state.markdownContent == "a b")
     }
 
@@ -36,7 +37,7 @@ struct DocumentStateCommentTests {
         let staleSource = "The quick brown fox"
         let range = staleSource.range(of: "quick")!
         state.markdownContent = "Totally different content now"
-        #expect(!state.addComment(in: range, of: staleSource, body: "note"))
+        #expect(state.addComment(in: range, of: staleSource, body: "note") == nil)
         #expect(state.markdownContent == "Totally different content now")
     }
 

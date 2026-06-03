@@ -165,12 +165,23 @@
                 return
             }
             let model = CommentOverlayModel()
-            presentCommentOverlay(near: rect, model: model, content: CommentInputView(model: model, theme: theme) { [weak self] body in
-                // Keep the overlay (and the typed text) on a rejected wrap.
-                if documentState.addComment(in: rawRange, of: source, body: body) {
-                    self?.dismissCommentOverlay()
-                }
-            })
+            presentCommentOverlay(near: rect, model: model, content: CommentInputView(
+                model: model,
+                theme: theme,
+                documentState: documentState,
+                addComment: { body in documentState.addComment(in: rawRange, of: source, body: body) },
+                onClose: { [weak self] in self?.dismissCommentOverlay() },
+                onAdded: { [weak self] id in
+                    // The box morphs in place to show the new comment; keep it
+                    // through the rebuild and mark it open so a re-click toggles.
+                    self?.openCommentIDs = [id]
+                    self?.keepCommentOverlayThroughRebuild = true
+                },
+                onEdited: { [weak self] in self?.keepCommentOverlayThroughRebuild = true },
+                onHover: { [weak self] id in self?.setHoveredComment(id) },
+                onDragChanged: { [weak self] translation in self?.dragCommentOverlay(by: translation) },
+                onDragEnded: { [weak self] in self?.endCommentOverlayDrag() }
+            ))
         }
 
         // MARK: - Overlay presentation
