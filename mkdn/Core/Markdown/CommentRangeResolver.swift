@@ -24,24 +24,16 @@ struct CommentRangeResolver {
         }
 
         let transformed = document.transformedSource
-        let utf16 = transformed.utf16
-        guard let lowerUTF16 = utf16.index(
-            utf16.startIndex, offsetBy: sourceUTF16.lowerBound, limitedBy: utf16.endIndex
-        ),
-            let upperUTF16 = utf16.index(
-                utf16.startIndex, offsetBy: sourceUTF16.upperBound, limitedBy: utf16.endIndex
-            ),
-            let lower = lowerUTF16.samePosition(in: transformed),
-            let upper = upperUTF16.samePosition(in: transformed)
-        else {
-            return nil
-        }
+        // `Range(_:in:)` returns nil unless the UTF-16 offsets land on Character
+        // boundaries — the same rejection the manual index/samePosition walk did.
+        let sourceNS = NSRange(location: sourceUTF16.lowerBound, length: sourceUTF16.upperBound - sourceUTF16.lowerBound)
+        guard let transformedRange = Range(sourceNS, in: transformed) else { return nil }
 
         // A selection inside or across existing comments is allowed: v3 supports
         // nested and overlapping comments (anchors are matched by id, not
         // stacked), so wrapping here adds another comment rather than corrupting
         // the existing one. A cross-anchor selection maps to the raw span
         // enclosing the stripped anchors, which the new outer pair then wraps.
-        return document.rawRange(forTransformed: lower ..< upper)
+        return document.rawRange(forTransformed: transformedRange)
     }
 }

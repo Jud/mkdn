@@ -12,9 +12,6 @@ struct CriticComment: Equatable {
     let id: String
     /// The comment text, from the sidecar entry.
     let body: String
-    /// The whole `<mkdn-comment …start/>…<mkdn-comment …end/>` region in the raw
-    /// source, anchors included.
-    let rawFullRange: Range<String.Index>
     /// The commented text between the anchors in the raw source. With nesting,
     /// this can itself contain other comments' anchors.
     let rawHighlightRange: Range<String.Index>
@@ -257,7 +254,6 @@ enum CriticMarkup {
             comments.append(CriticComment(
                 id: entry.id,
                 body: entry.body,
-                rawFullRange: startAnchor.range.lowerBound ..< endAnchor.range.upperBound,
                 rawHighlightRange: startAnchor.range.upperBound ..< endAnchor.range.lowerBound,
                 transformedHighlightRange: tStart ..< tEnd
             ))
@@ -323,7 +319,6 @@ enum CriticMarkup {
             result.append(CriticComment(
                 id: entry.id,
                 body: entry.body,
-                rawFullRange: rawRange,
                 rawHighlightRange: rawRange,
                 transformedHighlightRange: highlight
             ))
