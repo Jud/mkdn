@@ -28,7 +28,8 @@ def main():
     if len(sys.argv) < 2:
         print("Usage: mkdn-ctl <command> [args]")
         print("Commands: ping, load <path>, capture [path], scroll <y>,")
-        print("          theme <name>, cycle, info, resize <w> <h>, quit")
+        print("          theme <name>, cycle, info, resize <w> <h>,")
+        print("          recreate-view, quit")
         sys.exit(1)
 
     sock = os.environ.get("MKDN_SOCK") or find_socket()
@@ -75,6 +76,8 @@ def main():
             x, y, w, h = float(sys.argv[2]), float(sys.argv[3]), float(sys.argv[4]), float(sys.argv[5])
             path = sys.argv[6] if len(sys.argv) > 6 else "/tmp/mkdn-region.png"
             r = send(sock, {"captureRegion": {"region": {"x": x, "y": y, "width": w, "height": h}, "outputPath": os.path.abspath(path)}})
+        elif cmd_name == "recreate-view":
+            r = send(sock, {"recreateView": {}})
         elif cmd_name == "quit":
             r = send(sock, {"quit": {}})
         else:

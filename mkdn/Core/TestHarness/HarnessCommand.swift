@@ -101,6 +101,12 @@
         /// the captured frame paths.
         case stopQuickCapture
 
+        /// Recreate the markdown preview's NSView from scratch (a fresh
+        /// `makeNSView` / cold first paint) by changing its SwiftUI identity.
+        /// Reproduces cold first-paint rendering bugs in-session without
+        /// relaunching. Only has an effect when a markdown preview is visible.
+        case recreateView
+
         /// Connectivity check. The server responds with `pong`.
         case ping
 

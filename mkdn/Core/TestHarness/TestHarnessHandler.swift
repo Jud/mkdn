@@ -21,6 +21,8 @@
                 await handleSetTheme(theme)
             case .reloadFile:
                 await handleReloadFile()
+            case .recreateView:
+                await handleRecreateView()
             case .captureWindow, .captureRegion,
                  .startFrameCapture, .stopFrameCapture,
                  .beginFrameCapture, .endFrameCapture:
@@ -93,6 +95,27 @@
             } catch {
                 return .error("Reload failed: \(error.localizedDescription)")
             }
+        }
+
+        /// Forces a cold recreation of the markdown preview's NSView so a
+        /// first-paint rendering bug can be reproduced without relaunching. The
+        /// rebuild only fires `signalRenderComplete` when a markdown preview is
+        /// mounted, so we only await the render then (a source/plain/welcome view
+        /// has no preview to recreate and would otherwise time out).
+        private static func handleRecreateView() async -> HarnessResponse {
+            guard let docState = documentState else {
+                return .error("No document state available")
+            }
+            let hasMarkdownPreview = docState.currentFileURL != nil
+                && docState.fileKind == .markdown
+            let signal = RenderCompletionSignal.shared
+            if hasMarkdownPreview { signal.prepareForRender() }
+            docState.rebuildDocumentView()
+            if hasMarkdownPreview {
+                try? await signal.awaitPreparedRender(timeout: .seconds(5))
+                return .ok(message: "Document view recreated")
+            }
+            return .ok(message: "No markdown preview to recreate")
         }
 
         // MARK: - Mode Commands
