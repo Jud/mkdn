@@ -119,3 +119,41 @@ Pipeline shape carries over (preprocess→strip→render→map→highlight; clic
 author→insert; SourceMap/resolver/DocumentState scaffolding). What changes: the delimiter
 parsing (HTML-comment paired anchors + sidecar), the resilience layer (TextQuote), and the
 hardening above. Replaces the v1 single-wrap `{==..==}{>>..<<}` preprocessor/authoring.
+
+## Hardening contract (verified by the adversarial suites)
+
+The adversarial-hardening pass (`adversarial-hardening-plan.md`) pins these as
+tested invariants. See `mkdnTests/Unit/Core/Adversarial*.swift`.
+
+- **Reserved markers.** A well-formed `<mkdn-comment id="…" edge="…"/>` token is
+  reserved metadata and is stripped wherever it appears (prose or code) — do not
+  type it literally as content. Malformed marker-like text is left verbatim.
+- **Trailing-only sidecar (B3).** `<!--mkdn-comments…-->` is recognized as the
+  sidecar only when it is the document's trailing block (nothing but whitespace
+  after its close). A mid-document or fenced example of the block is ordinary
+  content and is never stripped. `preprocess` is idempotent on its own output.
+- **Bounded id generation (B1).** `uniqueID` never spins on a colliding
+  generator; it bounds attempts and falls back to an anchor-safe unique id.
+- **Non-corruption (B4/I4).** `wrapComment` verifies every pre-existing active
+  comment survives a new wrap (id, body, highlighted text) and rejects any
+  placement that would disturb one. Nested/crossing comments are allowed.
+- **Overflow-safe mapping (B2/I5).** `CommentRangeResolver` rejects hostile or
+  degenerate `NSRange`s (negative location, zero length, `Int.max`) without
+  trapping; a resolved range's raw text always equals the selected rendered text
+  (atomic tokens snap whole). Cross-paragraph / unmappable selections → nil.
+- **Sidecar codec (I7).** Bodies/quotes round-trip arbitrarily (`-->`, `--`, the
+  marker itself, newlines, quotes, backslashes, emoji, NUL); malformed sidecars
+  decode to nil and are left intact; a future schema `v` still decodes leniently.
+
+### Accepted limitations (documented, asserted current behavior)
+
+- **Overlap re-click toggle.** After adding a comment whose span overlaps an
+  existing one, re-clicking that span opens the stacked popover rather than
+  toggling the box closed (showing the overlap is acceptable; a precise fix needs
+  the post-rebuild overlap set).
+- **Inline code is whole-token.** Commenting inline code wraps the entire
+  `` `token` `` (anchors can't live inside verbatim code without breaking
+  portability); sub-range highlighting of code is not supported.
+- **Sidecar relocation.** Since the sidecar is trailing-only, an external tool
+  that relocates it mid-document detaches its comments (they orphan) until it is
+  moved back. Render-only; `preprocess` never mutates the file.
