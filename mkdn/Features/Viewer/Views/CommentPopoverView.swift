@@ -39,7 +39,9 @@
                         onClose: onClose
                     )
                     if comment.id != comments.last?.id {
-                        Divider()
+                        Rectangle()
+                            .fill(theme.colors.border.opacity(0.4))
+                            .frame(height: 1)
                     }
                 }
             }

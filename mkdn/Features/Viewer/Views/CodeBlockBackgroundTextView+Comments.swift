@@ -50,7 +50,7 @@
                     return
                 }
                 // Scale the badge with the line height so it tracks the text size,
-                // and straddle the span's top-right so it sits above the glyphs.
+                // and straddle the span's top-right corner.
                 let size = max(rect.height * Self.overlapBadgeLineFraction, Self.overlapBadgeMinDiameter)
                 let badge = CGRect(
                     x: rect.maxX - size * 0.5, y: rect.minY - size * 0.5, width: size, height: size
@@ -58,6 +58,22 @@
                 badges.append((badge, ids.count))
             }
             cachedCommentOverlapBadges = badges
+        }
+
+        /// Keep the badge overlay subview sized to the text view and repainted.
+        /// It lives above the text so the highlight can't cover the badges.
+        func syncCommentBadgeOverlay() {
+            let overlay: CommentBadgeOverlayView
+            if let existing = commentBadgeOverlay {
+                overlay = existing
+            } else {
+                overlay = CommentBadgeOverlayView()
+                overlay.textView = self
+                addSubview(overlay)
+                commentBadgeOverlay = overlay
+            }
+            overlay.frame = bounds
+            overlay.needsDisplay = true
         }
 
         func drawCommentOverlapIndicators(in dirtyRect: NSRect) {
@@ -209,6 +225,22 @@
                 }
                 return event
             }
+        }
+    }
+
+    /// Transparent subview that paints the overlapping-comment count badges above
+    /// the text (a `draw(_:)` override is covered by the highlight). Flipped to
+    /// match the text view's coordinates, and click-through so it doesn't intercept
+    /// comment/text clicks.
+    final class CommentBadgeOverlayView: NSView {
+        weak var textView: CodeBlockBackgroundTextView?
+
+        override var isFlipped: Bool { true }
+
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+        override func draw(_ dirtyRect: NSRect) {
+            textView?.drawCommentOverlapIndicators(in: dirtyRect)
         }
     }
 

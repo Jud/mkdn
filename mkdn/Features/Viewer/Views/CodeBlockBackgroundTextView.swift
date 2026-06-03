@@ -66,6 +66,9 @@
         /// coordinates + overlap depth), cached in `viewWillDraw` to avoid forcing
         /// layout during drawing.
         var cachedCommentOverlapBadges: [(rect: CGRect, count: Int)] = []
+        /// A transparent subview that paints the overlap badges; a subview renders
+        /// above the text (unlike `draw(_:)`, which the highlight covers).
+        var commentBadgeOverlay: CommentBadgeOverlayView?
 
         // MARK: - Find State
 
@@ -240,16 +243,12 @@
             super.viewWillDraw()
             refreshCachedBlockRects()
             refreshCachedCommentOverlapBadges()
+            syncCommentBadgeOverlay()
         }
 
         override func drawBackground(in rect: NSRect) {
             super.drawBackground(in: rect)
             drawCodeBlockContainers(in: rect)
-        }
-
-        override func draw(_ dirtyRect: NSRect) {
-            super.draw(dirtyRect)
-            drawCommentOverlapIndicators(in: dirtyRect)
         }
 
         // MARK: - Print
