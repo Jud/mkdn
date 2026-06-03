@@ -179,6 +179,41 @@ struct AnchorCommentParserTests {
         #expect(doc.transformedSource.contains("see foo here"))
     }
 
+    @Test("An orphaned sidecar entry is re-anchored by its unique TextQuote")
+    func reanchorByQuote() {
+        let entry = CommentSidecar.Entry(
+            id: "k1", body: "note", quote: "brown fox", prefix: "quick ", suffix: " jumps"
+        )
+        let raw = "The quick brown fox jumps over\n\n" + CommentSidecar.encode([entry])
+        let doc = CriticMarkup.preprocess(raw)
+        #expect(doc.comments.count == 1)
+        #expect(doc.commentsByID["k1"]?.body == "note")
+        #expect(doc.transformedSource[doc.commentsByID["k1"]!.transformedHighlightRange] == "brown fox")
+    }
+
+    @Test("A re-anchored comment maps back to the raw source")
+    func reanchorMapsToRaw() {
+        let entry = CommentSidecar.Entry(id: "k1", body: "n", quote: "fox", prefix: "brown ", suffix: " jumps")
+        let raw = "The quick brown fox jumps\n\n" + CommentSidecar.encode([entry])
+        let doc = CriticMarkup.preprocess(raw)
+        let comment = try! #require(doc.commentsByID["k1"])
+        #expect(doc.rawSource[comment.rawHighlightRange] == "fox")
+    }
+
+    @Test("A non-unique quote stays orphaned (no fuzzy matching)")
+    func reanchorAmbiguous() {
+        let entry = CommentSidecar.Entry(id: "k1", body: "n", quote: "cat")
+        let raw = "cat and cat\n\n" + CommentSidecar.encode([entry])
+        #expect(CriticMarkup.preprocess(raw).comments.isEmpty)
+    }
+
+    @Test("A quote absent from the text stays orphaned")
+    func reanchorMissing() {
+        let entry = CommentSidecar.Entry(id: "k1", body: "n", quote: "zebra")
+        let raw = "no animals here\n\n" + CommentSidecar.encode([entry])
+        #expect(CriticMarkup.preprocess(raw).comments.isEmpty)
+    }
+
     @Test("A plain document with no anchors round-trips unchanged")
     func plainDocument() {
         let doc = CriticMarkup.preprocess("# Title\n\nJust prose.")

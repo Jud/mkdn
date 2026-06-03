@@ -84,15 +84,28 @@ struct CriticMarkupDocument {
     /// no contiguous raw counterpart — the reject-first contract that keeps a
     /// selection touching an existing anchor from being editable.
     func rawRange(forTransformed range: Range<String.Index>) -> Range<String.Index>? {
-        let lo = transformedSource.distance(from: transformedSource.startIndex, to: range.lowerBound)
-        let hi = transformedSource.distance(from: transformedSource.startIndex, to: range.upperBound)
+        CriticMarkupDocument.rawRange(
+            forTransformed: range, transformed: transformedSource, segments: segments, raw: rawSource
+        )
+    }
+
+    /// Shared segment mapping, also used during re-anchoring before a document is
+    /// constructed.
+    fileprivate static func rawRange(
+        forTransformed range: Range<String.Index>,
+        transformed: String,
+        segments: [Segment],
+        raw: String
+    ) -> Range<String.Index>? {
+        let lo = transformed.distance(from: transformed.startIndex, to: range.lowerBound)
+        let hi = transformed.distance(from: transformed.startIndex, to: range.upperBound)
         guard lo < hi else { return nil }
         guard let segment = segments.first(where: { $0.transformedStart <= lo && hi <= $0.transformedEnd })
         else {
             return nil
         }
-        let rawLo = rawSource.index(segment.raw.lowerBound, offsetBy: lo - segment.transformedStart)
-        let rawHi = rawSource.index(segment.raw.lowerBound, offsetBy: hi - segment.transformedStart)
+        let rawLo = raw.index(segment.raw.lowerBound, offsetBy: lo - segment.transformedStart)
+        let rawHi = raw.index(segment.raw.lowerBound, offsetBy: hi - segment.transformedStart)
         return rawLo ..< rawHi
     }
 }
@@ -164,12 +177,24 @@ enum CriticMarkup {
         }
         appendPreserved(cursor ..< raw.endIndex)
 
-        let comments = pairComments(
+        var comments = pairComments(
             anchors: allAnchors,
             transformedOffsets: anchorTransformedOffset,
             transformed: transformed,
             sidecarEntries: sidecar?.entries ?? []
         )
+
+        // Resilience: a sidecar entry whose anchor pair was lost to an external
+        // edit (git merge, another editor, an agent rewriting prose) is recovered
+        // by locating its TextQuote, so the comment survives the anchor loss.
+        comments += reanchoredComments(
+            sidecarEntries: sidecar?.entries ?? [],
+            anchoredIDs: Set(comments.map(\.id)),
+            transformed: transformed,
+            segments: segments,
+            raw: raw
+        )
+        comments.sort { $0.transformedHighlightRange.lowerBound < $1.transformedHighlightRange.lowerBound }
 
         return CriticMarkupDocument(
             rawSource: raw,
@@ -258,6 +283,65 @@ enum CriticMarkup {
             }
         }
         return lower ..< upper
+    }
+
+    // MARK: - Re-anchoring
+
+    /// Recover comments whose anchor pair is missing by locating each orphaned
+    /// sidecar entry's TextQuote in the rendered text. Conservative: requires a
+    /// UNIQUE exact `prefix+quote+suffix` match (no fuzzy matching); otherwise the
+    /// entry stays orphaned and produces no comment.
+    private static func reanchoredComments(
+        sidecarEntries: [CommentSidecar.Entry],
+        anchoredIDs: Set<String>,
+        transformed: String,
+        segments: [CriticMarkupDocument.Segment],
+        raw: String
+    ) -> [CriticComment] {
+        var seen = anchoredIDs
+        var result: [CriticComment] = []
+        for entry in sidecarEntries where !seen.contains(entry.id) && !entry.quote.isEmpty {
+            seen.insert(entry.id)
+            guard let highlight = reanchorRange(for: entry, in: transformed),
+                  let rawRange = CriticMarkupDocument.rawRange(
+                      forTransformed: highlight, transformed: transformed, segments: segments, raw: raw
+                  )
+            else {
+                continue
+            }
+            result.append(CriticComment(
+                id: entry.id,
+                body: entry.body,
+                rawFullRange: rawRange,
+                rawHighlightRange: rawRange,
+                transformedHighlightRange: highlight
+            ))
+        }
+        return result
+    }
+
+    /// The unique location of `entry`'s quote in `transformed`, matched with its
+    /// stored prefix/suffix context. Returns nil unless exactly one exact match
+    /// exists.
+    private static func reanchorRange(
+        for entry: CommentSidecar.Entry,
+        in transformed: String
+    ) -> Range<String.Index>? {
+        let needle = entry.prefix + entry.quote + entry.suffix
+        guard !needle.isEmpty else { return nil }
+
+        var matchStart: String.Index?
+        var searchStart = transformed.startIndex
+        while let found = transformed.range(of: needle, range: searchStart ..< transformed.endIndex) {
+            if matchStart != nil { return nil } // not unique → orphan
+            matchStart = found.lowerBound
+            searchStart = transformed.index(after: found.lowerBound)
+        }
+        guard let start = matchStart else { return nil }
+
+        let quoteStart = transformed.index(start, offsetBy: entry.prefix.count)
+        let quoteEnd = transformed.index(quoteStart, offsetBy: entry.quote.count)
+        return quoteStart ..< quoteEnd
     }
 
     // MARK: - Anchors
