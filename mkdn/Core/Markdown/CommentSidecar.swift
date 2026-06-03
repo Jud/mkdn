@@ -65,27 +65,17 @@ enum CommentSidecar {
             norm = try container.decodeIfPresent(Int.self, forKey: .norm)
         }
 
-        // Custom encode (vs synthesized) so the v2 position/norm fields are
-        // omitted entirely when absent — a v1 entry re-encodes as before rather
-        // than gaining `start:null`/`end:null`/`norm:null` keys.
-        func encode(to encoder: any Encoder) throws {
-            var container = encoder.container(keyedBy: CodingKeys.self)
-            try container.encode(id, forKey: .id)
-            try container.encode(body, forKey: .body)
-            try container.encode(quote, forKey: .quote)
-            try container.encode(prefix, forKey: .prefix)
-            try container.encode(suffix, forKey: .suffix)
-            try container.encodeIfPresent(start, forKey: .start)
-            try container.encodeIfPresent(end, forKey: .end)
-            try container.encodeIfPresent(norm, forKey: .norm)
-        }
-
-        private enum CodingKeys: String, CodingKey {
-            case id, body, quote, prefix, suffix, start, end, norm
-        }
+        // `encode(to:)` is synthesized: it emits the non-optional fields and uses
+        // `encodeIfPresent` for the optionals, so an absent start/end/norm writes
+        // no key — a v1 entry re-encodes byte-for-byte as before (guarded by
+        // `v1EntryOmitsV2Keys`). Only `init(from:)` is hand-written, to default
+        // absent strings to "".
     }
 
-    /// The schema version written into the block; bumped if the shape changes.
+    /// The schema version written into the block. Bumped for a breaking shape
+    /// change; absent-by-default additions (the v2 start/end/norm fields) stay
+    /// readable as `v:1`, so the writer bumps to 2 only when it starts emitting
+    /// those fields (the anchoring units), not merely because Entry can hold them.
     static let currentVersion = 1
 
     static let blockOpen = "<!--mkdn-comments"
