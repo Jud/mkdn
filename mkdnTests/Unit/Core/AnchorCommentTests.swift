@@ -200,6 +200,15 @@ struct AnchorCommentParserTests {
         #expect(doc.rawSource[comment.rawHighlightRange] == "fox")
     }
 
+    @Test("Anchor attributes parse regardless of order (real id, not a substring)")
+    func attributeOrderIndependent() {
+        let raw = "<mkdn-comment edge=\"start\" id=\"real\"/>X<mkdn-comment edge=\"end\" id=\"real\"/>\n\n"
+            + CommentSidecar.encode([.init(id: "real", body: "n")])
+        let doc = CriticMarkup.preprocess(raw)
+        #expect(doc.commentsByID["real"]?.body == "n")
+        #expect(doc.transformedSource == "X")
+    }
+
     @Test("A non-unique quote stays orphaned (no fuzzy matching)")
     func reanchorAmbiguous() {
         let entry = CommentSidecar.Entry(id: "k1", body: "n", quote: "cat")

@@ -122,6 +122,7 @@ enum CriticMarkup {
     static func preprocess(_ raw: String) -> CriticMarkupDocument {
         let sidecar = CommentSidecar.decode(from: raw)
         let sidecarRange = sidecar?.blockRange
+        let sidecarEntries = sidecar?.entries ?? []
 
         let allAnchors = anchors(in: raw, excluding: sidecarRange)
 
@@ -181,14 +182,14 @@ enum CriticMarkup {
             anchors: allAnchors,
             transformedOffsets: anchorTransformedOffset,
             transformed: transformed,
-            sidecarEntries: sidecar?.entries ?? []
+            sidecarEntries: sidecarEntries
         )
 
         // Resilience: a sidecar entry whose anchor pair was lost to an external
         // edit (git merge, another editor, an agent rewriting prose) is recovered
         // by locating its TextQuote, so the comment survives the anchor loss.
         comments += reanchoredComments(
-            sidecarEntries: sidecar?.entries ?? [],
+            sidecarEntries: sidecarEntries,
             anchoredIDs: Set(comments.map(\.id)),
             transformed: transformed,
             segments: segments,
@@ -252,7 +253,7 @@ enum CriticMarkup {
                 transformedHighlightRange: tStart ..< tEnd
             ))
         }
-        comments.sort { $0.transformedHighlightRange.lowerBound < $1.transformedHighlightRange.lowerBound }
+        // preprocess sorts the combined paired + re-anchored list, so no sort here.
         return comments
     }
 
@@ -320,28 +321,31 @@ enum CriticMarkup {
         return result
     }
 
-    /// The unique location of `entry`'s quote in `transformed`, matched with its
-    /// stored prefix/suffix context. Returns nil unless exactly one exact match
-    /// exists.
+    /// The unique location of `entry`'s quote in `transformed`, validated by its
+    /// stored prefix/suffix context. Returns nil unless exactly one occurrence of
+    /// the quote has the matching surrounding context. Searching the quote
+    /// directly (rather than the concatenated `prefix+quote+suffix`) keeps the
+    /// returned range exactly the quote, with no grapheme-boundary mis-slicing.
     private static func reanchorRange(
         for entry: CommentSidecar.Entry,
         in transformed: String
     ) -> Range<String.Index>? {
-        let needle = entry.prefix + entry.quote + entry.suffix
-        guard !needle.isEmpty else { return nil }
+        guard !entry.quote.isEmpty else { return nil }
 
-        var matchStart: String.Index?
+        var match: Range<String.Index>?
         var searchStart = transformed.startIndex
-        while let found = transformed.range(of: needle, range: searchStart ..< transformed.endIndex) {
-            if matchStart != nil { return nil } // not unique → orphan
-            matchStart = found.lowerBound
+        while let found = transformed.range(of: entry.quote, range: searchStart ..< transformed.endIndex) {
+            let prefixMatches = entry.prefix.isEmpty
+                || transformed[..<found.lowerBound].hasSuffix(entry.prefix)
+            let suffixMatches = entry.suffix.isEmpty
+                || transformed[found.upperBound...].hasPrefix(entry.suffix)
+            if prefixMatches, suffixMatches {
+                if match != nil { return nil } // not unique → orphan
+                match = found
+            }
             searchStart = transformed.index(after: found.lowerBound)
         }
-        guard let start = matchStart else { return nil }
-
-        let quoteStart = transformed.index(start, offsetBy: entry.prefix.count)
-        let quoteEnd = transformed.index(quoteStart, offsetBy: entry.quote.count)
-        return quoteStart ..< quoteEnd
+        return match
     }
 
     // MARK: - Anchors
@@ -400,11 +404,23 @@ enum CriticMarkup {
     }
 
     /// The double-quoted value of attribute `name` within an anchor tag's
-    /// attribute span, or nil if absent.
+    /// attribute span, or nil if absent. The name must sit at a boundary (tag
+    /// start or after a space) so `id="…"` doesn't match inside `data-id="…"`.
     private static func attributeValue(_ name: String, in attributes: Substring) -> String? {
-        guard let opening = attributes.range(of: "\(name)=\"") else { return nil }
-        guard let closingQuote = attributes[opening.upperBound...].firstIndex(of: "\"") else { return nil }
-        return String(attributes[opening.upperBound ..< closingQuote])
+        let token = "\(name)=\""
+        var searchStart = attributes.startIndex
+        while let opening = attributes.range(of: token, range: searchStart ..< attributes.endIndex) {
+            let atBoundary = opening.lowerBound == attributes.startIndex
+                || attributes[attributes.index(before: opening.lowerBound)] == " "
+            if atBoundary {
+                guard let closingQuote = attributes[opening.upperBound...].firstIndex(of: "\"") else {
+                    return nil
+                }
+                return String(attributes[opening.upperBound ..< closingQuote])
+            }
+            searchStart = opening.upperBound
+        }
+        return nil
     }
 
     // MARK: - Authoring
@@ -469,6 +485,7 @@ enum CriticMarkup {
     private static func renderSignature(_ markup: Markup) -> String {
         var signature = "<\(type(of: markup))"
         switch markup {
+        case let heading as Heading: signature += ":\(heading.level)"
         case let code as InlineCode: signature += ":\(code.code)"
         case let code as CodeBlock: signature += ":\(code.language ?? ""):\(code.code)"
         case let link as Markdown.Link: signature += ":\(link.destination ?? "")"
@@ -573,15 +590,27 @@ enum CriticMarkup {
     }
 
     /// Up to 32 characters of context immediately before `index`, for TextQuote
-    /// re-anchoring.
+    /// re-anchoring. Anchor tokens are stripped so the context matches the
+    /// rendered (anchor-free) text re-anchoring later searches.
     private static func context(in raw: String, before index: String.Index) -> String {
         let start = raw.index(index, offsetBy: -32, limitedBy: raw.startIndex) ?? raw.startIndex
-        return String(raw[start ..< index])
+        return strippingAnchorTokens(String(raw[start ..< index]))
     }
 
     private static func context(in raw: String, after index: String.Index) -> String {
         let end = raw.index(index, offsetBy: 32, limitedBy: raw.endIndex) ?? raw.endIndex
-        return String(raw[index ..< end])
+        return strippingAnchorTokens(String(raw[index ..< end]))
+    }
+
+    /// Remove `<mkdn-comment …/>` tokens from a context snippet so it can be
+    /// matched against the anchor-free transformed text.
+    private static func strippingAnchorTokens(_ text: String) -> String {
+        var result = text
+        while let open = result.range(of: anchorTagOpen),
+              let gt = result[open.upperBound...].firstIndex(of: ">") {
+            result.removeSubrange(open.lowerBound ... gt)
+        }
+        return result
     }
 
     /// Insert or update `entry` in the document's sidecar block, creating the
