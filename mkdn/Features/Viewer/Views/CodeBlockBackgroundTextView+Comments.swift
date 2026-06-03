@@ -165,7 +165,7 @@
                 return
             }
             let model = CommentOverlayModel()
-            presentCommentOverlay(near: rect, model: model, content: CommentInputView(
+            presentCommentOverlay(near: rect, model: model, focusesEditor: true, content: CommentInputView(
                 model: model,
                 theme: theme,
                 documentState: documentState,
@@ -186,7 +186,9 @@
 
         // MARK: - Overlay presentation
 
-        private func presentCommentOverlay(near rect: CGRect, model: CommentOverlayModel, content: some View) {
+        private func presentCommentOverlay(
+            near rect: CGRect, model: CommentOverlayModel, focusesEditor: Bool = false, content: some View
+        ) {
             dismissCommentOverlay()
             let host = CommentOverlayHostingView(rootView: content)
             // Size to content via Auto Layout so the box grows/shrinks when the
@@ -205,6 +207,10 @@
             commentOverlayLeading = leading
             commentOverlayTop = top
             installCommentDismissMonitor()
+
+            // Route key input to the box so its editor's @FocusState can take the
+            // caret — the reader can type a new comment without clicking first.
+            if focusesEditor { window?.makeFirstResponder(host) }
 
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = CommentBoxMetrics.fadeDuration

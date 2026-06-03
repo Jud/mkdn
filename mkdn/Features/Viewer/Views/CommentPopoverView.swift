@@ -42,6 +42,8 @@
         /// and the submitted value can't diverge).
         let onConfirm: (String) -> Void
 
+        @FocusState private var focused: Bool
+
         private var trimmed: String { draft.trimmingCharacters(in: .whitespacesAndNewlines) }
 
         var body: some View {
@@ -52,6 +54,8 @@
                     .scrollContentBackground(.hidden)
                     .padding(4)
                     .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(theme.colors.border))
+                    .focused($focused)
+                    .onAppear { focused = true }
                 HStack {
                     Button("Cancel", action: onCancel)
                         .pointingHandCursor()
