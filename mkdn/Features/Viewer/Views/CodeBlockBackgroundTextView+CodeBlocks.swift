@@ -107,7 +107,7 @@
             return frames
         }
 
-        private func textRange(
+        func textRange(
             from nsRange: NSRange,
             contentManager: NSTextContentManager
         ) -> NSTextRange? {

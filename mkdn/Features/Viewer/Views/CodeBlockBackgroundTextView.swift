@@ -253,8 +253,10 @@
 
         /// Pre-draw cache refresh: enumerating layout fragments inside
         /// drawBackground forces TextKit 2 layout during the draw pass,
-        /// causing visible flicker on resize. viewWillDraw fires after
-        /// layout has settled but before drawing begins.
+        /// causing visible flicker on resize. viewWillDraw fires before
+        /// drawing begins; the cache refresh forces real layout itself (see
+        /// refreshCachedBlockRects) since viewWillDraw alone does not guarantee
+        /// TextKit 2 has laid out fragments beyond the visible viewport.
         override func viewWillDraw() {
             super.viewWillDraw()
             refreshCachedBlockRects()
