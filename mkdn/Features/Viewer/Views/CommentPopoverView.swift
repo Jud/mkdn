@@ -22,6 +22,13 @@
             draft.trimmingCharacters(in: .whitespacesAndNewlines)
         }
 
+        /// Match the control appearance to the theme, not the system: otherwise a
+        /// light theme under a dark-mode system renders button labels in light
+        /// (dark-mode) text on the light popover — invisible.
+        private var colorScheme: ColorScheme {
+            theme == .solarizedDark ? .dark : .light
+        }
+
         var body: some View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Comment")
@@ -43,6 +50,7 @@
             .padding(12)
             .frame(width: 300, alignment: .leading)
             .background(theme.colors.background)
+            .environment(\.colorScheme, colorScheme)
         }
 
         private var editor: some View {
