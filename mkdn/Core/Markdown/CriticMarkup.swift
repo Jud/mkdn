@@ -445,15 +445,11 @@ enum CriticMarkup {
 
         let quote = String(raw[range])
         let id = uniqueID(in: raw, idGenerator: idGenerator)
-        let prefix = context(in: raw, before: range.lowerBound)
-        let suffix = context(in: raw, after: range.upperBound)
 
         var candidate = String(raw[..<range.lowerBound])
             + anchorToken(id: id, edge: .start) + quote + anchorToken(id: id, edge: .end)
             + String(raw[range.upperBound...])
-
-        let entry = CommentSidecar.Entry(id: id, body: body, quote: quote, prefix: prefix, suffix: suffix)
-        candidate = upsertSidecar(in: candidate, entry: entry)
+        candidate = upsertSidecar(in: candidate, entry: .init(id: id, body: body, quote: quote))
 
         // The real safety net: the inserted anchors must be parse-neutral in a
         // standard CommonMark renderer (one that does NOT strip them, e.g.
@@ -467,7 +463,30 @@ enum CriticMarkup {
         // itself looks like an anchor can't silently produce a different one.
         let parsed = preprocess(candidate)
         guard let inserted = parsed.commentsByID[id], inserted.body == body else { return nil }
-        return candidate
+
+        // Capture the TextQuote (quote + prefix/suffix context) from the RENDERED
+        // text, which has no anchors or sidecar — so re-anchoring later can match
+        // it directly, even for a comment authored next to another comment.
+        return upsertSidecar(in: candidate, entry: textQuote(for: inserted, in: parsed.transformedSource))
+    }
+
+    /// The re-anchoring TextQuote for `comment`, read from the anchor-free
+    /// transformed text around its highlight.
+    private static func textQuote(for comment: CriticComment, in transformed: String) -> CommentSidecar.Entry {
+        let highlight = comment.transformedHighlightRange
+        let prefixStart = transformed.index(
+            highlight.lowerBound, offsetBy: -contextLength, limitedBy: transformed.startIndex
+        ) ?? transformed.startIndex
+        let suffixEnd = transformed.index(
+            highlight.upperBound, offsetBy: contextLength, limitedBy: transformed.endIndex
+        ) ?? transformed.endIndex
+        return CommentSidecar.Entry(
+            id: comment.id,
+            body: comment.body,
+            quote: String(transformed[highlight]),
+            prefix: String(transformed[prefixStart ..< highlight.lowerBound]),
+            suffix: String(transformed[highlight.upperBound ..< suffixEnd])
+        )
     }
 
     /// Whether `candidate` parses to the same rendered structure as `raw` once the
@@ -589,29 +608,8 @@ enum CriticMarkup {
         return id
     }
 
-    /// Up to 32 characters of context immediately before `index`, for TextQuote
-    /// re-anchoring. Anchor tokens are stripped so the context matches the
-    /// rendered (anchor-free) text re-anchoring later searches.
-    private static func context(in raw: String, before index: String.Index) -> String {
-        let start = raw.index(index, offsetBy: -32, limitedBy: raw.startIndex) ?? raw.startIndex
-        return strippingAnchorTokens(String(raw[start ..< index]))
-    }
-
-    private static func context(in raw: String, after index: String.Index) -> String {
-        let end = raw.index(index, offsetBy: 32, limitedBy: raw.endIndex) ?? raw.endIndex
-        return strippingAnchorTokens(String(raw[index ..< end]))
-    }
-
-    /// Remove `<mkdn-comment …/>` tokens from a context snippet so it can be
-    /// matched against the anchor-free transformed text.
-    private static func strippingAnchorTokens(_ text: String) -> String {
-        var result = text
-        while let open = result.range(of: anchorTagOpen),
-              let gt = result[open.upperBound...].firstIndex(of: ">") {
-            result.removeSubrange(open.lowerBound ... gt)
-        }
-        return result
-    }
+    /// TextQuote context length kept on each side of the quote.
+    private static let contextLength = 32
 
     /// Insert or update `entry` in the document's sidecar block, creating the
     /// block at the end of the document if none exists yet.

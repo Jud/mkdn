@@ -209,6 +209,21 @@ struct AnchorCommentParserTests {
         #expect(doc.transformedSource == "X")
     }
 
+    @Test("Re-anchoring recovers a comment authored adjacent to another comment")
+    func reanchorAdjacent() {
+        let doc = CommentFixture.doc(
+            "alpha beta gamma", comments: [("alpha", "a1", "na"), ("beta", "b1", "nb")]
+        )
+        // External edit lost b1's anchors but kept its sidecar entry.
+        let withoutB1 = doc
+            .replacingOccurrences(of: CommentFixture.start("b1"), with: "")
+            .replacingOccurrences(of: CommentFixture.end("b1"), with: "")
+        let parsed = CriticMarkup.preprocess(withoutB1)
+        #expect(parsed.commentsByID["a1"] != nil) // still anchored
+        let b1 = try! #require(parsed.commentsByID["b1"]) // recovered by quote
+        #expect(parsed.transformedSource[b1.transformedHighlightRange] == "beta")
+    }
+
     @Test("A non-unique quote stays orphaned (no fuzzy matching)")
     func reanchorAmbiguous() {
         let entry = CommentSidecar.Entry(id: "k1", body: "n", quote: "cat")
