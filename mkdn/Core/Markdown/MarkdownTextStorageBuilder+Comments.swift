@@ -5,7 +5,9 @@
 #endif
 
 extension NSAttributedString.Key {
-    /// The id of the CriticMarkup comment whose highlight covers this range.
+    /// The ids (`[String]`) of every comment whose highlight covers this range.
+    /// A list, not a single id, so overlapping comments are all recoverable at a
+    /// point (the click picks the innermost).
     static let mkdnCommentID = NSAttributedString.Key("mkdnCommentID")
 }
 
@@ -34,8 +36,24 @@ extension MarkdownTextStorageBuilder {
                     continue
                 }
                 attributedString.addAttribute(.backgroundColor, value: color, range: nsRange)
-                attributedString.addAttribute(.mkdnCommentID, value: comment.id, range: nsRange)
+                appendCommentID(comment.id, to: attributedString, in: nsRange)
             }
+        }
+    }
+
+    /// Append `id` to the `mkdnCommentID` list across `range`, preserving any ids
+    /// already there so overlapping comments accumulate rather than overwrite.
+    private static func appendCommentID(
+        _ id: String,
+        to attributedString: NSMutableAttributedString,
+        in range: NSRange
+    ) {
+        var updates: [(NSRange, [String])] = []
+        attributedString.enumerateAttribute(.mkdnCommentID, in: range, options: []) { value, subRange, _ in
+            updates.append((subRange, ((value as? [String]) ?? []) + [id]))
+        }
+        for (subRange, ids) in updates {
+            attributedString.addAttribute(.mkdnCommentID, value: ids, range: subRange)
         }
     }
 }

@@ -20,9 +20,13 @@ struct CommentHighlightTests {
     }
 
     private func commentID(_ string: NSAttributedString, at substring: String) -> String? {
+        commentIDs(string, at: substring)?.first
+    }
+
+    private func commentIDs(_ string: NSAttributedString, at substring: String) -> [String]? {
         let range = (string.string as NSString).range(of: substring)
         guard range.location != NSNotFound else { return nil }
-        return string.attribute(.mkdnCommentID, at: range.location, effectiveRange: nil) as? String
+        return string.attribute(.mkdnCommentID, at: range.location, effectiveRange: nil) as? [String]
     }
 
     private func hasBackground(_ string: NSAttributedString, at substring: String) -> Bool {
@@ -70,6 +74,21 @@ struct CommentHighlightTests {
         #expect(commentID(string, at: "swift build") == "c1")
         #expect(hasBackground(string, at: "swift build"))
         #expect(!hasBackground(string, at: "run"))
+    }
+
+    @Test("Overlapping comments accumulate both ids in the overlap region")
+    func overlappingCommentIDs() {
+        let entries = [
+            CommentSidecar.Entry(id: "x", body: "first"),
+            CommentSidecar.Entry(id: "y", body: "second"),
+        ]
+        // x covers "A B C", y covers "C D" — they overlap on "C".
+        let raw = "<!--mkc s=x-->A B <!--mkc s=y-->C<!--mkc e=x--> D<!--mkc e=y-->\n\n"
+            + CommentSidecar.encode(entries)
+        let string = highlighted(raw)
+        #expect(Set(commentIDs(string, at: "A") ?? []) == ["x"])
+        #expect(Set(commentIDs(string, at: "C") ?? []) == ["x", "y"])
+        #expect(Set(commentIDs(string, at: "D") ?? []) == ["y"])
     }
 
     @Test("No comments means no highlight attributes")

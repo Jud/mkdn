@@ -63,6 +63,20 @@ struct AnchorCommentParserTests {
         #expect(doc.transformedSource[byID["in"]!.transformedHighlightRange] == "bar")
     }
 
+    @Test("innermostComment picks the smallest-enclosing comment in an overlap")
+    func innermostComment() {
+        let entries = [
+            CommentSidecar.Entry(id: "out", body: "outer"),
+            CommentSidecar.Entry(id: "in", body: "inner"),
+        ]
+        let raw = "<!--mkc s=out-->foo <!--mkc s=in-->bar<!--mkc e=in--> baz<!--mkc e=out-->\n\n"
+            + CommentSidecar.encode(entries)
+        let doc = CriticMarkup.preprocess(raw)
+        #expect(doc.innermostComment(among: ["out", "in"])?.id == "in")
+        #expect(doc.innermostComment(among: ["out"])?.id == "out")
+        #expect(doc.innermostComment(among: ["nope"]) == nil)
+    }
+
     @Test("Overlapping (truly crossing) anchor pairs both resolve")
     func overlappingComments() {
         let entries = [

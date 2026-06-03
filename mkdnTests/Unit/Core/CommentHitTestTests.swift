@@ -38,7 +38,7 @@
         func hitOnComment() {
             let view = textView(CommentFixture.doc("foo bar baz", comment: "bar"))
             let info = view.commentInfo(at: centerPoint(of: "bar", in: view))
-            #expect(info?.id == "c1")
+            #expect(info?.ids == ["c1"])
             if let info {
                 #expect((view.string as NSString).substring(with: info.range) == "bar")
             }
@@ -64,7 +64,7 @@
             let rect = try! #require(view.boundingRect(forCharacterRange: range))
             #expect(rect.width > 0 && rect.height > 0)
             // A point at the rect's center must hit the same comment.
-            #expect(view.commentInfo(at: CGPoint(x: rect.midX, y: rect.midY))?.id == "c1")
+            #expect(view.commentInfo(at: CGPoint(x: rect.midX, y: rect.midY))?.ids == ["c1"])
         }
     }
 #endif

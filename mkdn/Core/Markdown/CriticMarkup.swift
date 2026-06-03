@@ -36,6 +36,22 @@ struct CriticMarkupDocument {
         Dictionary(comments.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
     }
 
+    /// Among `ids`, the comment with the smallest highlighted span — the
+    /// innermost when comments overlap. Unknown ids are ignored.
+    func innermostComment(among ids: [String]) -> CriticComment? {
+        let byID = commentsByID
+        return ids.compactMap { byID[$0] }.min { lhs, rhs in
+            spanLength(of: lhs) < spanLength(of: rhs)
+        }
+    }
+
+    private func spanLength(of comment: CriticComment) -> Int {
+        transformedSource.distance(
+            from: comment.transformedHighlightRange.lowerBound,
+            to: comment.transformedHighlightRange.upperBound
+        )
+    }
+
     /// Contiguous spans of text copied verbatim from raw into transformed.
     /// `transformed` offsets are Character counts from the transformed start.
     fileprivate struct Segment {

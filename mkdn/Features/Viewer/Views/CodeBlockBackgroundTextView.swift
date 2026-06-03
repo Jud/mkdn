@@ -145,8 +145,15 @@
             else {
                 return
             }
-            guard !isOverLink(at: point), let comment = commentInfo(at: point) else { return }
-            showCommentPopover(id: comment.id, range: comment.range)
+            guard !isOverLink(at: point), let info = commentInfo(at: point) else { return }
+            showCommentPopover(id: innermostCommentID(among: info.ids), range: info.range)
+        }
+
+        /// The innermost (smallest-enclosing) comment among `ids` — the one a
+        /// reader most likely meant when clicking inside overlapping highlights.
+        /// Falls back to the first id when the document is unavailable.
+        private func innermostCommentID(among ids: [String]) -> String {
+            criticDocument?.innermostComment(among: ids)?.id ?? ids[0]
         }
 
         override func menu(for event: NSEvent) -> NSMenu? {
