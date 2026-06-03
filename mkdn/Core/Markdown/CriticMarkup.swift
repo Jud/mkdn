@@ -2,17 +2,18 @@ import Foundation
 import Markdown
 
 /// A single comment: a span of rendered text bracketed in the raw source by an
-/// invisible paired anchor — `<!--mkc s=ID-->…<!--mkc e=ID-->` — whose body and
-/// re-anchoring data live in the document's `CommentSidecar` block, keyed by the
-/// same `ID`. Anchors are HTML comments, so they are invisible in every markdown
-/// renderer and survive round-trips; mkdn strips them before parsing.
+/// invisible paired anchor — `<mkdn-comment id="ID" edge="start"/>…
+/// <mkdn-comment id="ID" edge="end"/>` — whose body and re-anchoring data live in
+/// the document's `CommentSidecar` block, keyed by the same `ID`. The anchors are
+/// empty self-closing custom elements, so they render invisibly and survive
+/// round-trips; mkdn strips them before parsing.
 struct CriticComment: Equatable {
-    /// The anchor id (`s=ID`/`e=ID`), this comment's durable on-disk identity.
+    /// The anchor id, this comment's durable on-disk identity.
     let id: String
     /// The comment text, from the sidecar entry.
     let body: String
-    /// The whole `<!--mkc s=ID-->…<!--mkc e=ID-->` region in the raw source,
-    /// anchors included.
+    /// The whole `<mkdn-comment …start/>…<mkdn-comment …end/>` region in the raw
+    /// source, anchors included.
     let rawFullRange: Range<String.Index>
     /// The commented text between the anchors in the raw source. With nesting,
     /// this can itself contain other comments' anchors.
@@ -420,9 +421,10 @@ enum CriticMarkup {
         } else {
             return false
         }
-        // Both the `<mkdn-comment …/>` anchors and the `<!--mkdn-comments…-->`
-        // sidecar contain this substring; standard renderers drop both.
-        return html.contains("mkdn-comment")
+        // Match the anchor element and the sidecar comment specifically (not just
+        // the substring, so a user's own `<span class="mkdn-comment-x">` isn't
+        // dropped). Standard renderers drop both of these.
+        return html.contains(anchorTagOpen) || html.contains(CommentSidecar.blockOpen)
     }
 
     /// Rewrite a comment's body in the sidecar, returning the edited source, or
