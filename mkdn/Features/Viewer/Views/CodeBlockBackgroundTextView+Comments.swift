@@ -276,6 +276,9 @@
                 NSEvent.removeMonitor(monitor)
                 commentDismissMonitor = nil
             }
+            // A dismissed overlay can't keep itself through a rebuild; clear the
+            // one-shot so a later unrelated rebuild doesn't honor a stale request.
+            keepCommentOverlayThroughRebuild = false
             openCommentIDs = []
             commentOverlayModel?.presented = false // SwiftUI scale-out
             commentOverlayModel = nil
