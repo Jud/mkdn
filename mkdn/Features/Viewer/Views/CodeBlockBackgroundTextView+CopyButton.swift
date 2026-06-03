@@ -108,6 +108,17 @@
                 return
             }
 
+            // Bail without validating while the view is unsized so the first
+            // real sizing pass recomputes.
+            guard bounds.width > 0,
+                  let textContainer,
+                  textContainer.size.width > 0
+            else {
+                cachedBlockRects = []
+                areBlockRectsValid = false
+                return
+            }
+
             let blocks = collectCodeBlocks(from: textStorage)
             guard !blocks.isEmpty else {
                 cachedBlockRects = []
@@ -115,8 +126,25 @@
                 return
             }
 
+            // Enumerating fragments with `.ensuresLayout` only realizes the
+            // visible viewport; blocks outside it come back with TextKit 2's
+            // *estimated* (fractional, accumulating-error) frame positions, so a
+            // code block below the first viewport gets a wrong Y on first paint
+            // and stays mispositioned until a scroll forces real layout. Force
+            // real layout from the document start through the last code block —
+            // every block's Y depends on all preceding layout — so the frames
+            // below are final. (Trailing content can't affect a block rect, so
+            // there's no need to lay out past the last block.)
+            let lastBlockEnd = blocks.map(\.range.upperBound).max() ?? 0
+            if let layoutRange = textRange(
+                from: NSRange(location: 0, length: lastBlockEnd),
+                contentManager: contentManager
+            ) {
+                layoutManager.ensureLayout(for: layoutRange)
+            }
+
             let origin = textContainerOrigin
-            let containerWidth = textContainer?.size.width ?? bounds.width
+            let containerWidth = textContainer.size.width
             let borderInset = Self.borderWidth / 2
 
             cachedBlockRects = blocks.compactMap { block in
