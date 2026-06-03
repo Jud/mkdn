@@ -514,8 +514,8 @@ enum CriticMarkup {
     /// invisible mkdn anchors and sidecar are ignored in both — the authoring
     /// safety net (see `wrapComment`).
     private static func rendersUnchanged(raw: String, candidate: String) -> Bool {
-        renderSignature(Document(parsing: raw, options: []))
-            == renderSignature(Document(parsing: candidate, options: []))
+        renderSignature(Document(parsing: raw, options: MarkdownRenderer.parseOptions))
+            == renderSignature(Document(parsing: candidate, options: MarkdownRenderer.parseOptions))
     }
 
     /// A structural + text signature of a parsed document that ignores mkdn
