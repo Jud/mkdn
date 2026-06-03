@@ -217,8 +217,11 @@ struct MarkdownVisitor {
         case let code as InlineCode:
             var result = AttributedString(code.code)
             result.inlinePresentationIntent = .code
-            // The rendered text drops the backticks, so the whole span is atomic:
-            // a selection inside snaps to the full `` `code` `` source token.
+            // The whole span is atomic: a comment can't anchor inside a verbatim
+            // code span — a standard CommonMark renderer shows anchors there as
+            // literal code text, so the authoring portability check
+            // (`rendersUnchanged`) rejects it. A selection inside snaps to the
+            // full `` `code` `` token and a comment highlights the whole code.
             if !protected, let span = atomicSpan(for: code) {
                 result.sourceSpan = span
             }

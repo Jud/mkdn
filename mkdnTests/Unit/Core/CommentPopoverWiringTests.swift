@@ -50,6 +50,14 @@
             #expect(document.rawSource[raw] == "quick")
         }
 
+        @Test("commentableSelectionRange maps a selection inside an existing comment")
+        func resolvesSelectionInsideComment() {
+            let (view, document) = makeView(CommentFixture.doc("foo bar baz", comment: "bar"))
+            view.setSelectedRange((view.string as NSString).range(of: "bar"))
+            let raw = try! #require(view.commentableSelectionRange())
+            #expect(document.rawSource[raw] == "bar")
+        }
+
         @Test("commentableSelectionRange is nil for an empty selection")
         func emptySelectionNoRange() {
             let (view, _) = makeView("The quick brown fox")

@@ -77,11 +77,11 @@ struct CriticMarkupDocument {
 
     /// Map a non-empty range in the transformed source back to the raw source.
     ///
-    /// Returns `nil` when the range is empty or spans more than one preserved
-    /// segment. Distinct segments always have a stripped anchor (or the sidecar)
-    /// between them in the raw source, so a cross-segment transformed range has
-    /// no contiguous raw counterpart — the reject-first contract that keeps a
-    /// selection touching an existing anchor from being editable.
+    /// Returns `nil` only for an empty range. A selection that spans more than
+    /// one preserved segment maps to the raw span enclosing all of them, which
+    /// includes the stripped anchors that separate the segments — exactly what a
+    /// nested/overlapping comment must wrap (v3 pairs anchors by id, so the new
+    /// pair simply crosses the existing ones).
     func rawRange(forTransformed range: Range<String.Index>) -> Range<String.Index>? {
         CriticMarkupDocument.rawRange(
             forTransformed: range, transformed: transformedSource, segments: segments, raw: rawSource
@@ -99,12 +99,15 @@ struct CriticMarkupDocument {
         let lo = transformed.distance(from: transformed.startIndex, to: range.lowerBound)
         let hi = transformed.distance(from: transformed.startIndex, to: range.upperBound)
         guard lo < hi else { return nil }
-        guard let segment = segments.first(where: { $0.transformedStart <= lo && hi <= $0.transformedEnd })
+        // The start and end may land in different segments; the raw bytes between
+        // them (the stripped anchors) stay inside the returned span.
+        guard let lowerSeg = segments.first(where: { $0.transformedStart <= lo && lo < $0.transformedEnd }),
+              let upperSeg = segments.first(where: { $0.transformedStart < hi && hi <= $0.transformedEnd })
         else {
             return nil
         }
-        let rawLo = raw.index(segment.raw.lowerBound, offsetBy: lo - segment.transformedStart)
-        let rawHi = raw.index(segment.raw.lowerBound, offsetBy: hi - segment.transformedStart)
+        let rawLo = raw.index(lowerSeg.raw.lowerBound, offsetBy: lo - lowerSeg.transformedStart)
+        let rawHi = raw.index(upperSeg.raw.lowerBound, offsetBy: hi - upperSeg.transformedStart)
         return rawLo ..< rawHi
     }
 }

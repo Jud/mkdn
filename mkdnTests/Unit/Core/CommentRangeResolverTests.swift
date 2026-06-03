@@ -85,15 +85,15 @@ struct CommentRangeResolverTests {
         #expect(raw[rawRange] == "[docs]()")
     }
 
-    @Test("Rejects a selection inside an existing comment's highlight")
-    func rejectsInsideExistingComment() {
+    @Test("A selection inside an existing comment resolves (nesting is allowed)")
+    func allowsSelectionInsideExistingComment() {
         let raw = CommentFixture.doc("foo bar baz", comment: "bar", body: "old")
         let (document, result) = pipeline(raw)
-        // Transformed source is "foo bar baz"; "bar" lands inside the existing
-        // comment, so re-commenting it must be rejected.
+        // "bar" is inside the existing comment; v3 allows nesting, so it maps.
         let resolver = CommentRangeResolver(document: document, sourceMap: result.sourceMap)
         let nsRange = builderRange(of: "bar", in: result)
-        #expect(resolver.rawRange(forBuilderRange: nsRange) == nil)
+        let rawRange = try! #require(resolver.rawRange(forBuilderRange: nsRange))
+        #expect(raw[rawRange] == "bar")
     }
 
     @Test("Rejects an empty selection")

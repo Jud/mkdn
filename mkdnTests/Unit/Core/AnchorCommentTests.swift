@@ -289,6 +289,37 @@ struct AnchorCommentAuthoringTests {
         #expect(CriticMarkup.wrapComment(in: raw, range: hash, body: "x") == nil)
     }
 
+    @Test("A comment can be nested inside another comment")
+    func nestedAuthoring() {
+        let base = "the quick brown fox"
+        let outer = CommentFixture.doc(base, comment: "quick brown fox", id: "out", body: "outer")
+        let nested = try! #require(
+            CriticMarkup.wrapComment(in: outer, range: outer.range(of: "brown")!, body: "inner", idGenerator: { "in" })
+        )
+        let doc = CriticMarkup.preprocess(nested)
+        #expect(doc.transformedSource == base)
+        #expect(doc.commentsByID["out"]?.body == "outer")
+        #expect(doc.commentsByID["in"]?.body == "inner")
+        #expect(doc.transformedSource[doc.commentsByID["in"]!.transformedHighlightRange] == "brown")
+    }
+
+    @Test("A comment can wrap a selection that crosses an existing comment's anchors")
+    func crossingAuthoring() {
+        let base = "quick brown fox"
+        let doc0 = CriticMarkup.preprocess(CommentFixture.doc(base, comment: "brown", id: "in", body: "inner"))
+        // The whole phrase spans the inner comment's start and end anchors.
+        let whole = doc0.transformedSource.range(of: base)!
+        let rawRange = try! #require(doc0.rawRange(forTransformed: whole))
+        let outer = try! #require(
+            CriticMarkup.wrapComment(in: doc0.rawSource, range: rawRange, body: "outer", idGenerator: { "out" })
+        )
+        let doc = CriticMarkup.preprocess(outer)
+        #expect(doc.transformedSource == base)
+        #expect(doc.commentsByID["in"]?.body == "inner")
+        #expect(doc.commentsByID["out"]?.body == "outer")
+        #expect(doc.transformedSource[doc.commentsByID["out"]!.transformedHighlightRange] == base)
+    }
+
     @Test("wrapComment rejects an empty range")
     func wrapEmpty() {
         let raw = "hello"

@@ -29,15 +29,11 @@ struct CommentRangeResolver {
             return nil
         }
 
-        guard let rawRange = document.rawRange(forTransformed: lower ..< upper) else {
-            return nil
-        }
-
-        // Reject text inside an existing comment: re-commenting there would nest
-        // CriticMarkup and corrupt the existing annotation (v1 has no threading).
-        if document.comments.contains(where: { rawRange.overlaps($0.rawFullRange) }) {
-            return nil
-        }
-        return rawRange
+        // A selection inside an existing comment is allowed: v3 supports nested
+        // and overlapping comments (anchors are matched by id, not stacked), so
+        // wrapping here adds a nested comment rather than corrupting the existing
+        // one. (Cross-anchor selections still fail to map — rawRange returns nil
+        // for a transformed range that spans a stripped anchor.)
+        return document.rawRange(forTransformed: lower ..< upper)
     }
 }
