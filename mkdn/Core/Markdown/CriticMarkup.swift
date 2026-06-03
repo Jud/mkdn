@@ -89,12 +89,16 @@ struct CriticMarkupDocument {
     }
 
     /// Shared segment mapping, also used during re-anchoring before a document is
-    /// constructed.
+    /// constructed. `allowingCrossSegment` lets authoring wrap a selection that
+    /// spans stripped anchors; re-anchoring keeps the conservative single-segment
+    /// contract (a cross-anchor quote match stays orphaned rather than recovering
+    /// to a raw span that engulfs another comment's anchors).
     fileprivate static func rawRange(
         forTransformed range: Range<String.Index>,
         transformed: String,
         segments: [Segment],
-        raw: String
+        raw: String,
+        allowingCrossSegment: Bool = true
     ) -> Range<String.Index>? {
         let lo = transformed.distance(from: transformed.startIndex, to: range.lowerBound)
         let hi = transformed.distance(from: transformed.startIndex, to: range.upperBound)
@@ -104,6 +108,9 @@ struct CriticMarkupDocument {
         guard let lowerSeg = segments.first(where: { $0.transformedStart <= lo && lo < $0.transformedEnd }),
               let upperSeg = segments.first(where: { $0.transformedStart < hi && hi <= $0.transformedEnd })
         else {
+            return nil
+        }
+        guard allowingCrossSegment || lowerSeg.transformedStart == upperSeg.transformedStart else {
             return nil
         }
         let rawLo = raw.index(lowerSeg.raw.lowerBound, offsetBy: lo - lowerSeg.transformedStart)
@@ -307,7 +314,8 @@ enum CriticMarkup {
             seen.insert(entry.id)
             guard let highlight = reanchorRange(for: entry, in: transformed),
                   let rawRange = CriticMarkupDocument.rawRange(
-                      forTransformed: highlight, transformed: transformed, segments: segments, raw: raw
+                      forTransformed: highlight, transformed: transformed, segments: segments, raw: raw,
+                      allowingCrossSegment: false
                   )
             else {
                 continue

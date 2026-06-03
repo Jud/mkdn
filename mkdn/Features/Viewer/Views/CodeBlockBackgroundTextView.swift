@@ -212,40 +212,26 @@
         override func mouseMoved(with event: NSEvent) {
             // Don't override cursor when another view (e.g. outline HUD) is on top.
             if isObscuredAtPoint(event.locationInWindow) { return }
-
             let point = convert(event.locationInWindow, from: nil)
-            // The comment overlay is our own subview, so it owns its cursor (arrow
-            // over the box, pointing hand over buttons) — don't force the I-beam.
-            if commentOverlay?.frame.contains(point) == true { return }
-            if isOverOverlapBadge(point) {
-                NSCursor.pointingHand.set()
-                updateCopyButtonForMouse(at: point)
-                return
-            }
-            if isOverEmptyTextArea(point) {
-                NSCursor.arrow.set()
-            } else if isOverLink(at: point) || commentInfo(at: point) != nil {
-                NSCursor.pointingHand.set()
-            } else {
-                NSCursor.iBeam.set()
-            }
+            guard let cursor = cursor(at: point) else { return } // overlay owns it
+            cursor.set()
             updateCopyButtonForMouse(at: point)
         }
 
         override func cursorUpdate(with event: NSEvent) {
             if isObscuredAtPoint(event.locationInWindow) { return }
-
             let point = convert(event.locationInWindow, from: nil)
-            if commentOverlay?.frame.contains(point) == true { return }
-            if isOverOverlapBadge(point) {
-                NSCursor.pointingHand.set()
-            } else if isOverEmptyTextArea(point) {
-                NSCursor.arrow.set()
-            } else if isOverLink(at: point) || commentInfo(at: point) != nil {
-                NSCursor.pointingHand.set()
-            } else {
-                NSCursor.iBeam.set()
-            }
+            cursor(at: point)?.set()
+        }
+
+        /// The cursor for a point, or nil when the comment overlay (our own
+        /// subview) is on top and owns its cursor — the caller must not override it.
+        private func cursor(at point: CGPoint) -> NSCursor? {
+            if commentOverlay?.frame.contains(point) == true { return nil }
+            if isOverOverlapBadge(point) { return .pointingHand }
+            if isOverEmptyTextArea(point) { return .arrow }
+            if isOverLink(at: point) || commentInfo(at: point) != nil { return .pointingHand }
+            return .iBeam
         }
 
         private func isOverOverlapBadge(_ point: CGPoint) -> Bool {

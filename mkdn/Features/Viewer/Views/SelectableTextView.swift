@@ -226,6 +226,9 @@
             // asks to keep the overlay through that one rebuild.
             if textView.keepCommentOverlayThroughRebuild {
                 textView.keepCommentOverlayThroughRebuild = false
+                // Clear any row-hover emphasis before the storage swap; otherwise
+                // the stale hovered id paints onto the rebuilt content.
+                textView.setHoveredComment(nil)
             } else {
                 textView.dismissCommentOverlay()
             }

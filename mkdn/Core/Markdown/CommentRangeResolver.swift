@@ -29,11 +29,11 @@ struct CommentRangeResolver {
             return nil
         }
 
-        // A selection inside an existing comment is allowed: v3 supports nested
-        // and overlapping comments (anchors are matched by id, not stacked), so
-        // wrapping here adds a nested comment rather than corrupting the existing
-        // one. (Cross-anchor selections still fail to map — rawRange returns nil
-        // for a transformed range that spans a stripped anchor.)
+        // A selection inside or across existing comments is allowed: v3 supports
+        // nested and overlapping comments (anchors are matched by id, not
+        // stacked), so wrapping here adds another comment rather than corrupting
+        // the existing one. A cross-anchor selection maps to the raw span
+        // enclosing the stripped anchors, which the new outer pair then wraps.
         return document.rawRange(forTransformed: lower ..< upper)
     }
 }

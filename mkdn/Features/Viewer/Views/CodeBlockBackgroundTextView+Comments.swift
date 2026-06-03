@@ -62,10 +62,10 @@
                 .mkdnCommentID, in: NSRange(location: 0, length: textStorage.length)
             ) { value, range, _ in
                 guard let ids = value as? [String], ids.count >= 2 else { return }
-                if var last = clusters.last, NSMaxRange(last.range) == range.location {
-                    last.range = NSUnionRange(last.range, range)
-                    last.ids += ids.filter { !last.ids.contains($0) }
-                    clusters[clusters.count - 1] = last
+                let i = clusters.count - 1
+                if let last = clusters.last, NSMaxRange(last.range) == range.location {
+                    clusters[i].range = NSUnionRange(last.range, range)
+                    clusters[i].ids += ids.filter { !last.ids.contains($0) }
                 } else {
                     clusters.append((range, ids))
                 }

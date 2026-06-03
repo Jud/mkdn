@@ -18,7 +18,9 @@
         static let shadowPadding: CGFloat = 16
         /// Duration of the box's fade in/out, driven on the AppKit host's
         /// `alphaValue` (a SwiftUI `.opacity` mis-composites the material backing).
-        static let fadeDuration: TimeInterval = 0.18
+        /// Matched to the scale-out so the host (removed on the fade's completion)
+        /// outlives the SwiftUI close animation rather than truncating it.
+        static let fadeDuration: TimeInterval = AnimationConstants.outlineCloseDuration
     }
 
     extension AppTheme {

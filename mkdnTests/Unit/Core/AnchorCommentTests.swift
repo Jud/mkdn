@@ -303,6 +303,25 @@ struct AnchorCommentAuthoringTests {
         #expect(doc.transformedSource[doc.commentsByID["in"]!.transformedHighlightRange] == "brown")
     }
 
+    @Test("A comment can wrap a selection crossing only one of an existing comment's anchors")
+    func partialCrossingAuthoring() {
+        let doc0 = CriticMarkup.preprocess(
+            CommentFixture.doc("foo bar baz", comment: "bar", id: "in", body: "inner")
+        )
+        // "o ba" spans the inner comment's START anchor but stops before its end.
+        let partial = doc0.transformedSource.range(of: "o ba")!
+        let rawRange = try! #require(doc0.rawRange(forTransformed: partial))
+        let outer = try! #require(
+            CriticMarkup.wrapComment(in: doc0.rawSource, range: rawRange, body: "outer", idGenerator: { "out" })
+        )
+        let doc = CriticMarkup.preprocess(outer)
+        #expect(doc.transformedSource == "foo bar baz")
+        #expect(doc.commentsByID["in"]?.body == "inner")
+        #expect(doc.commentsByID["out"]?.body == "outer")
+        #expect(doc.transformedSource[doc.commentsByID["in"]!.transformedHighlightRange] == "bar")
+        #expect(doc.transformedSource[doc.commentsByID["out"]!.transformedHighlightRange] == "o ba")
+    }
+
     @Test("A comment can wrap a selection that crosses an existing comment's anchors")
     func crossingAuthoring() {
         let base = "quick brown fox"
