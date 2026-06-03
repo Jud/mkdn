@@ -1,4 +1,17 @@
-**Status:** v3 — Codex green-with-changes folded in; ready to implement
+**Status:** v3 — BUILT (Units 1–5a, 789 tests green on feature/markdown-comments).
+
+> **IMPLEMENTATION NOTE (supersedes the anchor syntax below):** the anchors are NOT
+> HTML comments. They are self-closing semantic custom elements —
+> **`<mkdn-comment id="ID" edge="start"/>`** and **`edge="end"`** — because an HTML
+> comment at the start of a line becomes an HTML *block* in CommonMark/GitHub and hides
+> that line's text, so a line's first word couldn't be commented. The empty custom
+> element parses as inline HTML everywhere (verified vs swift-markdown), renders
+> invisibly, and is greppable via `mkdn-comment`. The **sidecar block stays an HTML
+> comment** (`<!--mkdn-comments … -->`) since it must hide its JSON payload and, as an
+> EOF block, isn't affected by the line-start issue. Everything else below (sidecar,
+> TextQuote resilience, AST renders-unchanged verify, multi-ID overlap, innermost click)
+> is implemented as described. Re-anchoring is conservative (unique exact match, no
+> fuzzy). Deferred: save-time sidecar GC/sync, in-code-block anchor protection.
 
 # Comment Format — Paired ID Anchors + Sidecar (invisible, resilient)
 
