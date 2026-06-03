@@ -315,11 +315,8 @@ public enum MarkdownTextStorageBuilder {
             let text = String(content[run.range].characters)
             var attributes: [NSAttributedString.Key: Any] = [:]
 
-            // Carry the source span as [start, end]; NSArray gives reliable
-            // value equality so the SourceMap enumeration coalesces a token's
-            // runs correctly.
             if let sourceSpan = run.sourceSpan {
-                attributes[.mkdnSourceSpan] = [sourceSpan.start, sourceSpan.end]
+                attributes[.mkdnSourceSpan] = sourceSpan.attributeArray
             }
 
             let intent = run.inlinePresentationIntent ?? []

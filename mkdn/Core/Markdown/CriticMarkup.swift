@@ -39,8 +39,8 @@ struct CriticMarkupDocument {
     /// Among `ids`, the comment with the smallest highlighted span — the
     /// innermost when comments overlap. Unknown ids are ignored.
     func innermostComment(among ids: [String]) -> CriticComment? {
-        let byID = commentsByID
-        return ids.compactMap { byID[$0] }.min { lhs, rhs in
+        let wanted = Set(ids)
+        return comments.filter { wanted.contains($0.id) }.min { lhs, rhs in
             spanLength(of: lhs) < spanLength(of: rhs)
         }
     }

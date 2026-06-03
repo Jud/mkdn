@@ -296,9 +296,8 @@ struct MarkdownVisitor {
     }
 
     private func span(for resolved: Range<String.Index>, in source: String) -> SourceSpan {
-        let start = source.utf16.distance(from: source.utf16.startIndex, to: resolved.lowerBound)
-        let end = source.utf16.distance(from: source.utf16.startIndex, to: resolved.upperBound)
-        return SourceSpan(start: start, end: end)
+        let nsRange = NSRange(resolved, in: source)
+        return SourceSpan(start: nsRange.location, end: nsRange.location + nsRange.length)
     }
 
     // MARK: - Checkbox Extraction

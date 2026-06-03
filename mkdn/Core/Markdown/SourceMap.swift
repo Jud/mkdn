@@ -22,10 +22,9 @@ struct SourceMap {
         let sourceStart: Int
         let sourceEnd: Int
 
-        var builderLength: Int { builderEnd - builderStart }
-        var sourceLength: Int { sourceEnd - sourceStart }
-        /// Atomic when the rendered run is shorter than its source token.
-        var isAtomic: Bool { sourceLength != builderLength }
+        /// Atomic when the rendered run differs in length from its source token
+        /// (a link/inline-code whose delimiters don't render).
+        var isAtomic: Bool { (sourceEnd - sourceStart) != (builderEnd - builderStart) }
     }
 
     private let segments: [Segment]
@@ -44,12 +43,12 @@ struct SourceMap {
         var segments: [Segment] = []
         let full = NSRange(location: 0, length: attributedString.length)
         attributedString.enumerateAttribute(.mkdnSourceSpan, in: full, options: []) { value, range, _ in
-            guard let pair = value as? [Int], pair.count == 2 else { return }
+            guard let pair = value as? [Int], let span = SourceSpan(attributeArray: pair) else { return }
             segments.append(Segment(
                 builderStart: range.location,
                 builderEnd: range.location + range.length,
-                sourceStart: pair[0],
-                sourceEnd: pair[1]
+                sourceStart: span.start,
+                sourceEnd: span.end
             ))
         }
         self.segments = segments

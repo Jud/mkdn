@@ -15,6 +15,22 @@ import Foundation
 struct SourceSpan: Codable, Hashable {
     let start: Int
     let end: Int
+
+    init(start: Int, end: Int) {
+        self.start = start
+        self.end = end
+    }
+
+    /// NSAttributedString carries the span as a 2-element `[start, end]` array,
+    /// which bridges to NSArray with reliable value equality so `SourceMap`'s
+    /// enumeration coalesces a token's runs. These two members keep that
+    /// positional encoding in one typed place.
+    init?(attributeArray: [Int]) {
+        guard attributeArray.count == 2 else { return nil }
+        self.init(start: attributeArray[0], end: attributeArray[1])
+    }
+
+    var attributeArray: [Int] { [start, end] }
 }
 
 /// Marks a run of `AttributedString` that maps back to a `SourceSpan` in the
