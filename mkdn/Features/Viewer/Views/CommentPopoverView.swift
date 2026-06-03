@@ -15,9 +15,6 @@
     struct CommentPopoverView: View {
         @ObservedObject var model: CommentOverlayModel
         let comments: [DisplayedComment]
-        /// The content the ids were resolved against; edit/delete reject if it no
-        /// longer matches, so a re-keyed id can't mutate the wrong comment.
-        let source: String
         let theme: AppTheme
         let documentState: DocumentState?
         let onClose: () -> Void
@@ -51,7 +48,6 @@
                 ForEach(comments) { comment in
                     CommentRowView(
                         comment: comment,
-                        source: source,
                         theme: theme,
                         documentState: documentState,
                         onClose: onClose,
@@ -77,7 +73,6 @@
     /// comments edit independently.
     private struct CommentRowView: View {
         let comment: DisplayedComment
-        let source: String
         let theme: AppTheme
         let documentState: DocumentState?
         let onClose: () -> Void
@@ -136,8 +131,14 @@
         }
 
         private func save() {
-            // Keep the editor open (and the draft) if the edit is rejected.
-            guard documentState?.editComment(id: comment.id, of: source, newBody: trimmedDraft) == true
+            // Operate on the live document: the overlay only survives its own
+            // edits (any other rebuild dismisses it), so its rows always reflect
+            // the current content. Keep the editor open (and the draft) if the
+            // edit is rejected.
+            guard let documentState,
+                  documentState.editComment(
+                      id: comment.id, of: documentState.markdownContent, newBody: trimmedDraft
+                  )
             else {
                 return
             }
@@ -157,7 +158,7 @@
                 .pointingHandCursor()
                 Spacer()
                 Button("Delete", role: .destructive) {
-                    if documentState.deleteComment(id: comment.id, of: source) {
+                    if documentState.deleteComment(id: comment.id, of: documentState.markdownContent) {
                         onClose()
                     }
                 }

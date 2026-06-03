@@ -31,7 +31,6 @@
             presentCommentOverlay(near: rect, model: model, content: CommentPopoverView(
                 model: model,
                 comments: comments,
-                source: document.rawSource,
                 theme: theme,
                 documentState: documentState,
                 onClose: { [weak self] in self?.dismissCommentOverlay() },
@@ -62,8 +61,13 @@
                 .mkdnCommentID, in: NSRange(location: 0, length: textStorage.length)
             ) { value, range, _ in
                 guard let ids = value as? [String], ids.count >= 2 else { return }
+                // Merge into the previous cluster only when the runs abut AND
+                // share a comment — i.e. one connected overlap region (a 2→3→2
+                // staircase). Two unrelated overlap pairs that merely touch stay
+                // separate badges.
                 let i = clusters.count - 1
-                if let last = clusters.last, NSMaxRange(last.range) == range.location {
+                if let last = clusters.last, NSMaxRange(last.range) == range.location,
+                   ids.contains(where: last.ids.contains) {
                     clusters[i].range = NSUnionRange(last.range, range)
                     clusters[i].ids += ids.filter { !last.ids.contains($0) }
                 } else {
