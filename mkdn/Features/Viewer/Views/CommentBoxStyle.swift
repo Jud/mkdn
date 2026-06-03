@@ -28,23 +28,21 @@
     }
 
     extension View {
-        /// Floating-box chrome for the comment overlays: a themed rounded
-        /// background, border, and shadow, with padding so the shadow isn't
-        /// clipped, and the control appearance pinned to the theme so default
-        /// buttons stay legible. Shadow reach (radius + y) must stay within
+        /// Floating-box chrome for the comment overlays: the same frosted,
+        /// elevated surface as the outline navigator (ultra-thin material under a
+        /// translucent theme tint) so the box reads as floating above — not
+        /// matching — the window background. Padding leaves room for the shadow;
+        /// the control appearance is pinned to the theme so default buttons stay
+        /// legible. Shadow reach (radius + y) must stay within
         /// `CommentBoxMetrics.shadowPadding`.
         func commentBox(theme: AppTheme) -> some View {
-            background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(theme.colors.background)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(theme.colors.border)
-            )
-            .environment(\.colorScheme, theme.colorScheme)
-            .shadow(color: .black.opacity(0.22), radius: 10, y: 3)
-            .padding(CommentBoxMetrics.shadowPadding)
+            let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
+            return background(.ultraThinMaterial, in: shape)
+                .background(theme.colors.background.opacity(0.6), in: shape)
+                .overlay(shape.strokeBorder(theme.colors.border.opacity(0.4), lineWidth: 0.5))
+                .environment(\.colorScheme, theme.colorScheme)
+                .shadow(color: .black.opacity(0.18), radius: 8, y: 4)
+                .padding(CommentBoxMetrics.shadowPadding)
         }
 
         /// Pop the box open and closed in step with `model.presented`, matching

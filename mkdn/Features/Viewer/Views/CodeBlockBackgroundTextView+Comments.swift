@@ -31,17 +31,17 @@
 
         // MARK: - Overlap indicator
 
-        /// A small dot marking each span covered by 2+ overlapping comments, so a
-        /// reader can tell there's more than one comment there. Cached as
-        /// view-coordinate rects (the `.mkdnCommentID` value is a list whose count
-        /// is the overlap depth).
-        func refreshCachedCommentOverlapDots() {
+        /// A small count badge marking each span covered by 2+ overlapping
+        /// comments, so a reader can tell how many comments are there (clicking
+        /// shows them stacked). Cached as view-coordinate rects + the overlap depth
+        /// (the `.mkdnCommentID` value is the list of covering ids).
+        func refreshCachedCommentOverlapBadges() {
             guard let textStorage, !textStorage.string.isEmpty else {
-                cachedCommentOverlapDots = []
+                cachedCommentOverlapBadges = []
                 return
             }
-            var dots: [CGRect] = []
-            let diameter = Self.overlapDotDiameter
+            var badges: [(rect: CGRect, count: Int)] = []
+            let size = Self.overlapBadgeDiameter
             textStorage.enumerateAttribute(
                 .mkdnCommentID, in: NSRange(location: 0, length: textStorage.length)
             ) { value, range, _ in
@@ -50,18 +50,36 @@
                 else {
                     return
                 }
-                dots.append(CGRect(
-                    x: rect.maxX - diameter, y: rect.minY + 1, width: diameter, height: diameter
-                ))
+                // Straddle the span's top-right so the badge sits above the text
+                // edge rather than on the glyphs.
+                let badge = CGRect(
+                    x: rect.maxX - size * 0.5, y: rect.minY - size * 0.5, width: size, height: size
+                )
+                badges.append((badge, ids.count))
             }
-            cachedCommentOverlapDots = dots
+            cachedCommentOverlapBadges = badges
         }
 
         func drawCommentOverlapIndicators(in dirtyRect: NSRect) {
-            guard let theme = commentTheme, !cachedCommentOverlapDots.isEmpty else { return }
-            PlatformTypeConverter.color(from: theme.colors.accent).setFill()
-            for dot in cachedCommentOverlapDots where dot.intersects(dirtyRect) {
-                NSBezierPath(ovalIn: dot).fill()
+            guard let theme = commentTheme, !cachedCommentOverlapBadges.isEmpty else { return }
+            let fill = PlatformTypeConverter.color(from: theme.colors.accent)
+            for badge in cachedCommentOverlapBadges where badge.rect.intersects(dirtyRect) {
+                fill.setFill()
+                NSBezierPath(ovalIn: badge.rect).fill()
+
+                let label = "\(badge.count)" as NSString
+                let attributes: [NSAttributedString.Key: Any] = [
+                    .font: NSFont.systemFont(ofSize: badge.rect.height * 0.62, weight: .bold),
+                    .foregroundColor: NSColor.white,
+                ]
+                let labelSize = label.size(withAttributes: attributes)
+                label.draw(
+                    at: CGPoint(
+                        x: badge.rect.midX - labelSize.width / 2,
+                        y: badge.rect.midY - labelSize.height / 2
+                    ),
+                    withAttributes: attributes
+                )
             }
         }
 
