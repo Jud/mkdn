@@ -15,8 +15,10 @@
         let documentState: DocumentState?
         let onClose: () -> Void
 
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
         @State private var isEditing = false
         @State private var draft = ""
+        @State private var appeared = false
 
         private var trimmedDraft: String {
             draft.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -51,6 +53,13 @@
             .frame(width: 300, alignment: .leading)
             .background(theme.colors.background)
             .environment(\.colorScheme, colorScheme)
+            .scaleEffect(appeared ? 1 : 0.95, anchor: .top)
+            .opacity(appeared ? 1 : 0)
+            .onAppear {
+                withAnimation(reduceMotion ? AnimationConstants.reducedCrossfade : AnimationConstants.springSettle) {
+                    appeared = true
+                }
+            }
         }
 
         private var editor: some View {

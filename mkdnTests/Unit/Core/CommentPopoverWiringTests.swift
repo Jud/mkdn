@@ -36,8 +36,8 @@
         @Test("Presents a popover for a known comment id")
         func presentsForKnownComment() {
             let (view, _) = makeView(CommentFixture.doc("foo bar baz", comment: "bar"))
-            let range = (view.string as NSString).range(of: "bar")
-            view.showCommentPopover(id: "c1", range: range)
+            let rect = view.boundingRect(forCharacterRange: (view.string as NSString).range(of: "bar"))!
+            view.showCommentPopover(id: "c1", at: CGPoint(x: rect.midX, y: rect.midY))
             #expect(view.commentPopover != nil)
             #expect(view.commentPopover?.contentViewController is NSHostingController<CommentPopoverView>)
             view.commentPopover?.close() // avoid an open popover at process teardown
@@ -75,8 +75,7 @@
         @Test("Does nothing for an unknown comment id")
         func ignoresUnknownComment() {
             let (view, _) = makeView(CommentFixture.doc("foo bar baz", comment: "bar"))
-            let range = (view.string as NSString).range(of: "bar")
-            view.showCommentPopover(id: "does-not-exist", range: range)
+            view.showCommentPopover(id: "does-not-exist", at: CGPoint(x: 50, y: 30))
             #expect(view.commentPopover == nil)
         }
     }

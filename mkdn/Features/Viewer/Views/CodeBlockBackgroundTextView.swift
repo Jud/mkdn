@@ -148,7 +148,7 @@
                 return
             }
             guard let info = commentInfo(at: point) else { return }
-            showCommentPopover(id: innermostCommentID(among: info.ids), range: info.range)
+            showCommentPopover(id: innermostCommentID(among: info.ids), at: point)
         }
 
         /// The innermost (smallest-enclosing) comment among `ids` — the one a

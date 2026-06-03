@@ -7,7 +7,9 @@
         let theme: AppTheme
         let onSubmit: (String) -> Void
 
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
         @State private var text = ""
+        @State private var appeared = false
 
         private var trimmed: String {
             text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -41,6 +43,13 @@
             .frame(width: 300)
             .background(theme.colors.background)
             .environment(\.colorScheme, colorScheme)
+            .scaleEffect(appeared ? 1 : 0.95, anchor: .top)
+            .opacity(appeared ? 1 : 0)
+            .onAppear {
+                withAnimation(reduceMotion ? AnimationConstants.reducedCrossfade : AnimationConstants.springSettle) {
+                    appeared = true
+                }
+            }
         }
     }
 #endif
