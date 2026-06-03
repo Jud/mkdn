@@ -106,9 +106,11 @@ struct CommentSidecarTests {
         let block = CommentSidecar.encode([CommentSidecar.Entry(id: "a", body: "b", quote: "q")])
         let payload = String(block.dropFirst("<!--mkdn-comments".count).dropLast("-->".count))
         // Absent optionals must not surface as keys (would dirty existing v1 docs).
-        #expect(!payload.contains("start"))
-        #expect(!payload.contains("end"))
-        #expect(!payload.contains("norm"))
+        // Match the quoted JSON key, not the bare word, so a value containing
+        // "start"/"end"/"norm" couldn't mask a regression.
+        #expect(!payload.contains("\"start\""))
+        #expect(!payload.contains("\"end\""))
+        #expect(!payload.contains("\"norm\""))
     }
 
     @Test("Decoding a legacy v1 block yields nil position/norm")
