@@ -6,9 +6,20 @@ import SwiftUI
 /// Uses apple/swift-markdown for parsing and a custom `MarkdownVisitor`
 /// for rendering each node type as SwiftUI views.
 public enum MarkdownRenderer {
+    /// Parse options shared by every `Document(parsing:)` call in the app.
+    ///
+    /// `.disableSmartOpts` turns off swift-markdown's smart-punctuation
+    /// substitution (`"` → `“”`, `'` → `’`, `--` → `–`, `...` → `…`), which is on
+    /// by default. The comment feature anchors selections by mapping rendered
+    /// text verbatim back to source offsets; smart substitution makes the
+    /// rendered text differ from source, dropping the source span for any run
+    /// that contains a quote/apostrophe/dash/ellipsis and silently making it
+    /// uncommentable. Parsing verbatim keeps render and source identical.
+    public static let parseOptions: ParseOptions = .disableSmartOpts
+
     /// Parse raw Markdown text into a structured document.
     public static func parse(_ text: String) -> Document {
-        Document(parsing: text)
+        Document(parsing: text, options: parseOptions)
     }
 
     /// Render a Markdown document into an array of indexed block-level elements.

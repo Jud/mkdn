@@ -104,6 +104,38 @@ struct CommentRangeResolverTests {
         #expect(resolver.rawRange(forBuilderRange: NSRange(location: 2, length: 0)) == nil)
     }
 
+    // MARK: - Smart-punctuation regression
+
+    @Test("Rendered text keeps punctuation verbatim (smart substitution disabled)")
+    func rendersPunctuationVerbatim() {
+        let raw = "don't say \"hi\" -- or ... do"
+        let (_, result) = pipeline(raw)
+        // No “ ” ’ – … substitution: rendered text maps to source 1:1 for comments.
+        #expect(result.attributedString.string.contains(raw))
+    }
+
+    @Test("A phrase containing quotes/apostrophes is commentable")
+    func commentableAcrossSmartPunctuation() {
+        let raw = "the recipient's op is mandatory, so \"recipient last\" is a rule"
+        let (document, result) = pipeline(raw)
+        let resolver = CommentRangeResolver(document: document, sourceMap: result.sourceMap)
+
+        let nsRange = builderRange(of: "recipient last", in: result)
+        let rawRange = try! #require(resolver.rawRange(forBuilderRange: nsRange))
+        #expect(raw[rawRange] == "recipient last")
+    }
+
+    @Test("A quoted phrase after a soft line break is commentable")
+    func commentableAfterSoftBreak() {
+        let raw = "the partials commute, so\n\"recipient last\" is an orchestration rule"
+        let (document, result) = pipeline(raw)
+        let resolver = CommentRangeResolver(document: document, sourceMap: result.sourceMap)
+
+        let nsRange = builderRange(of: "recipient last", in: result)
+        let rawRange = try! #require(resolver.rawRange(forBuilderRange: nsRange))
+        #expect(raw[rawRange] == "recipient last")
+    }
+
     @Test("commentsByID exposes parsed comments keyed by id")
     func commentsByID() {
         let raw = CommentFixture.doc("a and b", comments: [("a", "c1", "one"), ("b", "c2", "two")])
