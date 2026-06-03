@@ -27,10 +27,18 @@
             // MARK: - Link Navigation
 
             func textView(
-                _: NSTextView,
+                _ textView: NSTextView,
                 clickedOnLink link: Any,
-                at _: Int
+                at charIndex: Int
             ) -> Bool {
+                // A commented link opens its comment (in openCommentPopoverIfNeeded,
+                // after super.mouseDown) rather than navigating — suppress the
+                // navigation here so the two don't both fire on one click.
+                if let storage = textView.textStorage, charIndex < storage.length,
+                   storage.attribute(.mkdnCommentID, at: charIndex, effectiveRange: nil) != nil {
+                    return true
+                }
+
                 let url: URL
                 if let linkURL = link as? URL {
                     url = linkURL

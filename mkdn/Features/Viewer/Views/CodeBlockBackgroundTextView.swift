@@ -136,8 +136,10 @@
         /// finished the gesture and `selectedRange()` is settled — not in a
         /// `mouseUp` override (which never fires for normal text clicks). Opens a
         /// comment only on a plain single click that placed a caret (no selection,
-        /// no modifiers) and isn't a link, preserving selection, double-click,
-        /// modifier-click, and link-following.
+        /// no modifiers), preserving selection, double-click and modifier-click. A
+        /// click on a commented link opens the comment (its navigation is
+        /// suppressed in the clickedOnLink delegate); an uncommented link still
+        /// follows normally because `commentInfo` is nil there.
         private func openCommentPopoverIfNeeded(for event: NSEvent, at point: CGPoint) {
             guard event.clickCount == 1,
                   event.modifierFlags.intersection([.shift, .command, .option, .control]).isEmpty,
@@ -145,7 +147,7 @@
             else {
                 return
             }
-            guard !isOverLink(at: point), let info = commentInfo(at: point) else { return }
+            guard let info = commentInfo(at: point) else { return }
             showCommentPopover(id: innermostCommentID(among: info.ids), range: info.range)
         }
 

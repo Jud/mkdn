@@ -44,6 +44,13 @@
             }
         }
 
+        @Test("Finds the comment over a commented link label")
+        func hitOnCommentedLink() {
+            let view = textView(CommentFixture.doc("see [docs](https://x.com) now", comment: "[docs](https://x.com)"))
+            let info = view.commentInfo(at: centerPoint(of: "docs", in: view))
+            #expect(info?.ids == ["c1"])
+        }
+
         @Test("Returns nil over text that is not commented")
         func missOnPlainText() {
             let view = textView(CommentFixture.doc("foo bar baz", comment: "bar"))
