@@ -3,29 +3,30 @@
     import SwiftUI
 
     extension CodeBlockBackgroundTextView {
-        /// Show a comment's read popover as a hosted overlay near its span. The
-        /// whole box (drawn by SwiftUI) pops in; clicking a different comment
-        /// replaces it.
-        func showCommentPopover(id: String, range: NSRange) {
+        /// Show the comment(s) covering a click as a hosted overlay near the span.
+        /// Overlapping comments are stacked innermost-first; the whole box pops in.
+        func showComments(ids: [String], range: NSRange) {
             guard window != nil,
                   let document = criticDocument,
-                  let comment = document.commentsByID[id],
                   let theme = commentTheme,
                   let rect = boundingRect(forCharacterRange: range)
             else {
                 return
             }
+            let comments = document.commentsInnermostFirst(among: ids)
+                .map { DisplayedComment(id: $0.id, body: $0.body) }
+            guard !comments.isEmpty else { return }
+
             let model = CommentOverlayModel()
             presentCommentOverlay(near: rect, model: model, content: CommentPopoverView(
                 model: model,
-                commentID: id,
-                commentBody: comment.body,
+                comments: comments,
                 source: document.rawSource,
                 theme: theme,
                 documentState: documentState,
                 onClose: { [weak self] in self?.dismissCommentOverlay() }
             ))
-            openCommentID = id
+            openCommentIDs = comments.map(\.id)
         }
 
         // MARK: - Authoring
@@ -87,7 +88,7 @@
                 NSEvent.removeMonitor(monitor)
                 commentDismissMonitor = nil
             }
-            openCommentID = nil
+            openCommentIDs = []
             commentOverlayModel?.presented = false // animate out
             commentOverlayModel = nil
             commentOverlay = nil
@@ -120,7 +121,7 @@
         /// Dismiss on Escape, scroll, or a click outside the text view. Clicks
         /// INSIDE the text view (including comment highlights) are left to
         /// `mouseDown`, which owns the open/switch/toggle decision by comparing the
-        /// clicked comment to `openCommentID` — so the toggle doesn't depend on the
+        /// clicked comment to `openCommentIDs` — so the toggle doesn't depend on the
         /// overlay's geometry. Clicks within the visible box (Edit/Delete) pass
         /// through untouched.
         private func installCommentDismissMonitor() {

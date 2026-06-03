@@ -75,10 +75,10 @@
         var commentOverlay: NSView?
         var commentOverlayModel: CommentOverlayModel?
         var commentDismissMonitor: Any?
-        /// The comment currently shown (nil for the add-comment input), so a
-        /// re-click on the same highlight toggles it closed (see
-        /// `openCommentPopoverIfNeeded`).
-        var openCommentID: String?
+        /// The comments currently shown (empty for the add-comment input or when
+        /// closed), so a re-click on the same overlapping set toggles it closed
+        /// (see `openCommentPopoverIfNeeded`).
+        var openCommentIDs: [String] = []
 
         // MARK: - Print Support
 
@@ -125,6 +125,7 @@
         override func mouseDown(with event: NSEvent) {
             let point = convert(event.locationInWindow, from: nil)
             if isOverEmptyTextArea(point) {
+                dismissCommentOverlay() // click-away in the empty/drag area closes a comment
                 handleEmptyAreaMouseDown(with: event)
                 return
             }
@@ -160,19 +161,11 @@
                 dismissCommentOverlay() // a plain-text click closes any open comment
                 return
             }
-            let id = innermostCommentID(among: info.ids)
-            if id == openCommentID {
-                dismissCommentOverlay() // re-clicked the open comment → toggle off
+            if Set(info.ids) == Set(openCommentIDs) {
+                dismissCommentOverlay() // re-clicked the same comment(s) → toggle off
             } else {
-                showCommentPopover(id: id, range: info.range)
+                showComments(ids: info.ids, range: info.range)
             }
-        }
-
-        /// The innermost (smallest-enclosing) comment among `ids` — the one a
-        /// reader most likely meant when clicking inside overlapping highlights.
-        /// Falls back to the first id when the document is unavailable.
-        private func innermostCommentID(among ids: [String]) -> String {
-            criticDocument?.innermostComment(among: ids)?.id ?? ids[0]
         }
 
         override func menu(for event: NSEvent) -> NSMenu? {

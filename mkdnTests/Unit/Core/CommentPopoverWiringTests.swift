@@ -37,7 +37,7 @@
         func presentsForKnownComment() {
             let (view, _) = makeView(CommentFixture.doc("foo bar baz", comment: "bar"))
             let range = (view.string as NSString).range(of: "bar")
-            view.showCommentPopover(id: "c1", range: range)
+            view.showComments(ids: ["c1"], range: range)
             #expect(view.commentOverlay is NSHostingView<CommentPopoverView>)
             view.dismissCommentOverlay() // avoid an open overlay/monitor at teardown
         }
@@ -74,7 +74,7 @@
         func ignoresUnknownComment() {
             let (view, _) = makeView(CommentFixture.doc("foo bar baz", comment: "bar"))
             let range = (view.string as NSString).range(of: "bar")
-            view.showCommentPopover(id: "does-not-exist", range: range)
+            view.showComments(ids: ["does-not-exist"], range: range)
             #expect(view.commentOverlay == nil)
         }
     }
