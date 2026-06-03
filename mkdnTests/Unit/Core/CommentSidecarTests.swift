@@ -84,4 +84,40 @@ struct CommentSidecarTests {
         let decoded = try #require(CommentSidecar.decode(from: CommentSidecar.encode(entries)))
         #expect(decoded.entries == entries)
     }
+
+    // MARK: - v2 position/norm fields
+
+    @Test("Round-trips a v2 entry with position hint and norm version")
+    func roundTripV2Fields() throws {
+        let entry = CommentSidecar.Entry(
+            id: "v2", body: "b", quote: "fox", prefix: "the ", suffix: " jumps",
+            start: 12, end: 15, norm: 1
+        )
+        let decoded = try #require(CommentSidecar.decode(from: CommentSidecar.encode([entry])))
+        #expect(decoded.entries == [entry])
+        let got = try #require(decoded.entries.first)
+        #expect(got.start == 12)
+        #expect(got.end == 15)
+        #expect(got.norm == 1)
+    }
+
+    @Test("A v1 entry (no position/norm) omits those keys on encode")
+    func v1EntryOmitsV2Keys() {
+        let block = CommentSidecar.encode([CommentSidecar.Entry(id: "a", body: "b", quote: "q")])
+        let payload = String(block.dropFirst("<!--mkdn-comments".count).dropLast("-->".count))
+        // Absent optionals must not surface as keys (would dirty existing v1 docs).
+        #expect(!payload.contains("start"))
+        #expect(!payload.contains("end"))
+        #expect(!payload.contains("norm"))
+    }
+
+    @Test("Decoding a legacy v1 block yields nil position/norm")
+    func legacyDecodeHasNilV2Fields() throws {
+        let raw = "<!--mkdn-comments\n{\"v\":1,\"comments\":[{\"id\":\"a\",\"body\":\"b\",\"quote\":\"q\"}]}\n-->"
+        let decoded = try #require(CommentSidecar.decode(from: raw))
+        let entry = try #require(decoded.entries.first)
+        #expect(entry.start == nil)
+        #expect(entry.end == nil)
+        #expect(entry.norm == nil)
+    }
 }

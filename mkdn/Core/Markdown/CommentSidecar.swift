@@ -28,13 +28,29 @@ enum CommentSidecar {
         /// non-unique quote during re-anchoring.
         var prefix: String
         var suffix: String
+        /// v2 TextPositionSelector — start/end offsets into the normalized anchor
+        /// tape, captured at creation. A *hint* used only to disambiguate when the
+        /// quote+context still matches more than once (W3C calls the position
+        /// selector "very brittle"), never the primary locator. nil for v1 entries.
+        var start: Int?
+        var end: Int?
+        /// Version of the text normalizer the quote/prefix/suffix/offsets were
+        /// recorded under, so a future normalizer change can re-anchor rather than
+        /// silently mismatch. nil for v1 entries.
+        var norm: Int?
 
-        init(id: String, body: String, quote: String = "", prefix: String = "", suffix: String = "") {
+        init(
+            id: String, body: String, quote: String = "", prefix: String = "", suffix: String = "",
+            start: Int? = nil, end: Int? = nil, norm: Int? = nil
+        ) {
             self.id = id
             self.body = body
             self.quote = quote
             self.prefix = prefix
             self.suffix = suffix
+            self.start = start
+            self.end = end
+            self.norm = norm
         }
 
         init(from decoder: any Decoder) throws {
@@ -44,6 +60,28 @@ enum CommentSidecar {
             quote = try container.decodeIfPresent(String.self, forKey: .quote) ?? ""
             prefix = try container.decodeIfPresent(String.self, forKey: .prefix) ?? ""
             suffix = try container.decodeIfPresent(String.self, forKey: .suffix) ?? ""
+            start = try container.decodeIfPresent(Int.self, forKey: .start)
+            end = try container.decodeIfPresent(Int.self, forKey: .end)
+            norm = try container.decodeIfPresent(Int.self, forKey: .norm)
+        }
+
+        // Custom encode (vs synthesized) so the v2 position/norm fields are
+        // omitted entirely when absent — a v1 entry re-encodes as before rather
+        // than gaining `start:null`/`end:null`/`norm:null` keys.
+        func encode(to encoder: any Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(id, forKey: .id)
+            try container.encode(body, forKey: .body)
+            try container.encode(quote, forKey: .quote)
+            try container.encode(prefix, forKey: .prefix)
+            try container.encode(suffix, forKey: .suffix)
+            try container.encodeIfPresent(start, forKey: .start)
+            try container.encodeIfPresent(end, forKey: .end)
+            try container.encodeIfPresent(norm, forKey: .norm)
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case id, body, quote, prefix, suffix, start, end, norm
         }
     }
 
