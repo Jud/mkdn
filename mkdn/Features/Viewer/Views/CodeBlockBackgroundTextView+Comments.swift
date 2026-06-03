@@ -2,58 +2,37 @@
     import AppKit
     import SwiftUI
 
-    extension CodeBlockBackgroundTextView: NSPopoverDelegate {
-        /// A `.transient` popover dismisses on the next outside click; clicking a
-        /// different comment replaces it. Anchored at the click `point` so the
-        /// arrow lands under the cursor (not the start of the comment span); its
-        /// own fade is disabled in favor of the content's themed entrance.
-        func showCommentPopover(id: String, at point: CGPoint) {
-            guard window != nil, // NSPopover needs a hosting window to anchor
+    extension CodeBlockBackgroundTextView {
+        /// Show a comment's read popover as a hosted overlay near its span. The
+        /// whole box (drawn by SwiftUI) pops in; clicking a different comment
+        /// replaces it.
+        func showCommentPopover(id: String, range: NSRange) {
+            guard window != nil,
                   let document = criticDocument,
                   let comment = document.commentsByID[id],
-                  let theme = commentTheme
+                  let theme = commentTheme,
+                  let rect = boundingRect(forCharacterRange: range)
             else {
                 return
             }
-
-            commentPopover?.close()
-
-            let popover = NSPopover()
-            popover.behavior = .transient
-            popover.animates = false
-            popover.delegate = self
-            popover.contentViewController = NSHostingController(
-                rootView: CommentPopoverView(
-                    commentID: id,
-                    commentBody: comment.body,
-                    source: document.rawSource,
-                    theme: theme,
-                    documentState: documentState,
-                    onClose: { [weak self] in self?.commentPopover?.close() }
-                )
-            )
-            commentPopover = popover
-            popover.show(relativeTo: anchorRect(at: point), of: self, preferredEdge: .maxY)
-        }
-
-        /// A 1×1 rect at `point`, so the popover's arrow points at the cursor.
-        private func anchorRect(at point: CGPoint) -> CGRect {
-            CGRect(x: point.x, y: point.y, width: 1, height: 1)
-        }
-
-        /// Release the closed popover (and its hosted SwiftUI content) on the
-        /// transient outside-click dismissal, not just when replaced/rebuilt.
-        public func popoverDidClose(_ notification: Notification) {
-            if (notification.object as? NSPopover) === commentPopover {
-                commentPopover = nil
-            }
+            let model = CommentOverlayModel()
+            presentCommentOverlay(near: rect, model: model, content: CommentPopoverView(
+                model: model,
+                commentID: id,
+                commentBody: comment.body,
+                source: document.rawSource,
+                theme: theme,
+                documentState: documentState,
+                onClose: { [weak self] in self?.dismissCommentOverlay() }
+            ))
+            openCommentID = id
         }
 
         // MARK: - Authoring
 
         /// The raw-source range for the current selection, if it maps to a single
         /// commentable span (reject-first: nil for empty selections or selections
-        /// over links/code/existing comments/block boundaries).
+        /// over existing comments/block boundaries).
         func commentableSelectionRange() -> Range<String.Index>? {
             let selection = selectedRange()
             guard selection.length > 0,
@@ -66,9 +45,9 @@
                 .rawRange(forBuilderRange: selection)
         }
 
-        /// Present the add-comment input over the current selection. The raw
-        /// range is captured now (valid against the rendered document); on submit
-        /// it's applied to the live content via DocumentState.
+        /// Present the add-comment input over the current selection. The raw range
+        /// is captured now (valid against the rendered document); on submit it's
+        /// applied to the live content via DocumentState.
         @objc func addCommentToSelection(_: Any?) {
             guard let rawRange = commentableSelectionRange(),
                   let source = criticDocument?.rawSource,
@@ -78,22 +57,117 @@
             else {
                 return
             }
-            commentPopover?.close()
-
-            let popover = NSPopover()
-            popover.behavior = .transient
-            popover.animates = false
-            popover.delegate = self
-            popover.contentViewController = NSHostingController(
-                rootView: CommentInputView(theme: theme) { [weak self] body in
-                    // Keep the popover (and the typed text) on a rejected wrap.
-                    if documentState.addComment(in: rawRange, of: source, body: body) {
-                        self?.commentPopover?.close()
-                    }
+            let model = CommentOverlayModel()
+            presentCommentOverlay(near: rect, model: model, content: CommentInputView(model: model, theme: theme) { [weak self] body in
+                // Keep the overlay (and the typed text) on a rejected wrap.
+                if documentState.addComment(in: rawRange, of: source, body: body) {
+                    self?.dismissCommentOverlay()
                 }
+            })
+        }
+
+        // MARK: - Overlay presentation
+
+        private func presentCommentOverlay(near rect: CGRect, model: CommentOverlayModel, content: some View) {
+            dismissCommentOverlay()
+            let host = CommentOverlayHostingView(rootView: content)
+            addSubview(host)
+            host.layoutSubtreeIfNeeded()
+            host.frame = CGRect(origin: overlayOrigin(near: rect, size: host.fittingSize),
+                                size: host.fittingSize)
+            commentOverlay = host
+            commentOverlayModel = model
+            installCommentDismissMonitor()
+        }
+
+        /// Play the contract animation, then remove the host once it finishes.
+        func dismissCommentOverlay() {
+            guard let host = commentOverlay else { return }
+            if let monitor = commentDismissMonitor {
+                NSEvent.removeMonitor(monitor)
+                commentDismissMonitor = nil
+            }
+            openCommentID = nil
+            commentOverlayModel?.presented = false // animate out
+            commentOverlayModel = nil
+            commentOverlay = nil
+            DispatchQueue.main.asyncAfter(deadline: .now() + CommentBoxMetrics.exitDuration) { [weak host] in
+                host?.removeFromSuperview()
+            }
+        }
+
+        /// Place the box just below the comment (flipping above when it would fall
+        /// past the visible area), clamped horizontally. `host.fittingSize` includes
+        /// the `commentBox` shadow padding, so the visible box is inset within it.
+        private func overlayOrigin(near rect: CGRect, size: CGSize) -> CGPoint {
+            let inset = CommentBoxMetrics.shadowPadding
+            let gap: CGFloat = 4
+            let visible = enclosingScrollView?.documentVisibleRect ?? bounds
+
+            let boxWidth = size.width - 2 * inset
+            let boxHeight = size.height - 2 * inset
+            var boxLeft = rect.midX - boxWidth / 2
+            boxLeft = min(max(boxLeft, visible.minX + 8), max(visible.minX + 8, visible.maxX - boxWidth - 8))
+
+            // The text view is flipped (y grows downward), so "below" is +y.
+            var boxTop = rect.maxY + gap
+            if boxTop + boxHeight > visible.maxY {
+                boxTop = rect.minY - gap - boxHeight
+            }
+            return CGPoint(x: boxLeft - inset, y: boxTop - inset)
+        }
+
+        /// Dismiss on Escape, scroll, or a click outside the text view. Clicks
+        /// INSIDE the text view (including comment highlights) are left to
+        /// `mouseDown`, which owns the open/switch/toggle decision by comparing the
+        /// clicked comment to `openCommentID` — so the toggle doesn't depend on the
+        /// overlay's geometry. Clicks within the visible box (Edit/Delete) pass
+        /// through untouched.
+        private func installCommentDismissMonitor() {
+            commentDismissMonitor = NSEvent.addLocalMonitorForEvents(
+                matching: [.leftMouseDown, .rightMouseDown, .scrollWheel, .keyDown]
+            ) { [weak self] event in
+                guard let self, let overlay = self.commentOverlay else { return event }
+                if event.type == .keyDown {
+                    if event.keyCode == 53 { self.dismissCommentOverlay() } // Escape
+                    return event
+                }
+                // Inside the visible box (not the transparent shadow padding):
+                // interact, don't dismiss.
+                let box = overlay.bounds.insetBy(
+                    dx: CommentBoxMetrics.shadowPadding, dy: CommentBoxMetrics.shadowPadding
+                )
+                if box.contains(overlay.convert(event.locationInWindow, from: nil)) { return event }
+                if event.type == .scrollWheel {
+                    self.dismissCommentOverlay()
+                    return event
+                }
+                // A click inside the text view is handled by mouseDown (toggle/
+                // switch/close); only a click elsewhere dismisses here.
+                if !self.bounds.contains(self.convert(event.locationInWindow, from: nil)) {
+                    self.dismissCommentOverlay()
+                }
+                return event
+            }
+        }
+    }
+
+    /// Hosts a comment overlay but ignores its transparent shadow padding when
+    /// hit-testing, so clicks there fall through to the text view (e.g. a click on
+    /// the open comment's highlight, which the padding overlaps, reaches mouseDown
+    /// to toggle it closed).
+    final class CommentOverlayHostingView<Content: View>: NSHostingView<Content> {
+        required init(rootView: Content) { super.init(rootView: rootView) }
+
+        @available(*, unavailable)
+        @MainActor @objc dynamic required init?(coder: NSCoder) { fatalError("init(coder:) unavailable") }
+
+        override func hitTest(_ point: NSPoint) -> NSView? {
+            let box = bounds.insetBy(
+                dx: CommentBoxMetrics.shadowPadding, dy: CommentBoxMetrics.shadowPadding
             )
-            commentPopover = popover
-            popover.show(relativeTo: rect, of: self, preferredEdge: .maxY)
+            guard box.contains(convert(point, from: superview)) else { return nil }
+            return super.hitTest(point)
         }
     }
 #endif

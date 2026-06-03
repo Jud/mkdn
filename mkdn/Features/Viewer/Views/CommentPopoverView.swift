@@ -6,6 +6,7 @@
     /// them; mutations are keyed by comment id so they resolve against the
     /// current content (never a stale range).
     struct CommentPopoverView: View {
+        @ObservedObject var model: CommentOverlayModel
         let commentID: String
         let commentBody: String
         /// The content the id was resolved against; edit/delete reject if it no
@@ -18,7 +19,6 @@
         @Environment(\.accessibilityReduceMotion) private var reduceMotion
         @State private var isEditing = false
         @State private var draft = ""
-        @State private var appeared = false
 
         private var trimmedDraft: String {
             draft.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -51,15 +51,8 @@
             }
             .padding(12)
             .frame(width: 300, alignment: .leading)
-            .background(theme.colors.background)
-            .environment(\.colorScheme, colorScheme)
-            .scaleEffect(appeared ? 1 : 0.95, anchor: .top)
-            .opacity(appeared ? 1 : 0)
-            .onAppear {
-                withAnimation(reduceMotion ? AnimationConstants.reducedCrossfade : AnimationConstants.springSettle) {
-                    appeared = true
-                }
-            }
+            .commentBox(theme: theme, colorScheme: colorScheme)
+            .commentOverlayTransition(model: model, reduceMotion: reduceMotion)
         }
 
         private var editor: some View {

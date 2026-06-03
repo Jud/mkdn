@@ -33,14 +33,13 @@
             return (view, document)
         }
 
-        @Test("Presents a popover for a known comment id")
+        @Test("Presents an overlay for a known comment id")
         func presentsForKnownComment() {
             let (view, _) = makeView(CommentFixture.doc("foo bar baz", comment: "bar"))
-            let rect = view.boundingRect(forCharacterRange: (view.string as NSString).range(of: "bar"))!
-            view.showCommentPopover(id: "c1", at: CGPoint(x: rect.midX, y: rect.midY))
-            #expect(view.commentPopover != nil)
-            #expect(view.commentPopover?.contentViewController is NSHostingController<CommentPopoverView>)
-            view.commentPopover?.close() // avoid an open popover at process teardown
+            let range = (view.string as NSString).range(of: "bar")
+            view.showCommentPopover(id: "c1", range: range)
+            #expect(view.commentOverlay is NSHostingView<CommentPopoverView>)
+            view.dismissCommentOverlay() // avoid an open overlay/monitor at teardown
         }
 
         @Test("commentableSelectionRange maps a selection to its raw span")
@@ -58,7 +57,7 @@
             #expect(view.commentableSelectionRange() == nil)
         }
 
-        @Test("addCommentToSelection presents the input popover for a valid selection")
+        @Test("addCommentToSelection presents the input overlay for a valid selection")
         func presentsAddPopover() {
             let (view, _) = makeView("The quick brown fox")
             let state = DocumentState() // documentState is weak; hold it strongly
@@ -66,17 +65,17 @@
             view.setSelectedRange((view.string as NSString).range(of: "quick"))
             withExtendedLifetime(state) {
                 view.addCommentToSelection(nil)
-                #expect(view.commentPopover != nil)
-                #expect(view.commentPopover?.contentViewController is NSHostingController<CommentInputView>)
-                view.commentPopover?.close() // avoid an open popover at process teardown
+                #expect(view.commentOverlay is NSHostingView<CommentInputView>)
+                view.dismissCommentOverlay() // avoid an open overlay/monitor at teardown
             }
         }
 
         @Test("Does nothing for an unknown comment id")
         func ignoresUnknownComment() {
             let (view, _) = makeView(CommentFixture.doc("foo bar baz", comment: "bar"))
-            view.showCommentPopover(id: "does-not-exist", at: CGPoint(x: 50, y: 30))
-            #expect(view.commentPopover == nil)
+            let range = (view.string as NSString).range(of: "bar")
+            view.showCommentPopover(id: "does-not-exist", range: range)
+            #expect(view.commentOverlay == nil)
         }
     }
 #endif

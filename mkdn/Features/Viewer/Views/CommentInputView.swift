@@ -4,12 +4,12 @@
     /// The popover shown when adding a comment to a selection. Submits the typed
     /// body; an empty/whitespace body is not submittable.
     struct CommentInputView: View {
+        @ObservedObject var model: CommentOverlayModel
         let theme: AppTheme
         let onSubmit: (String) -> Void
 
         @Environment(\.accessibilityReduceMotion) private var reduceMotion
         @State private var text = ""
-        @State private var appeared = false
 
         private var trimmed: String {
             text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -41,15 +41,8 @@
             }
             .padding(12)
             .frame(width: 300)
-            .background(theme.colors.background)
-            .environment(\.colorScheme, colorScheme)
-            .scaleEffect(appeared ? 1 : 0.95, anchor: .top)
-            .opacity(appeared ? 1 : 0)
-            .onAppear {
-                withAnimation(reduceMotion ? AnimationConstants.reducedCrossfade : AnimationConstants.springSettle) {
-                    appeared = true
-                }
-            }
+            .commentBox(theme: theme, colorScheme: colorScheme)
+            .commentOverlayTransition(model: model, reduceMotion: reduceMotion)
         }
     }
 #endif

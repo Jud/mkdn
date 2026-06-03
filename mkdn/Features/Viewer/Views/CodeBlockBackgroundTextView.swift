@@ -69,7 +69,16 @@
         var commentSourceMap: SourceMap?
         weak var documentState: DocumentState?
         var commentTheme: AppTheme?
-        var commentPopover: NSPopover?
+        /// The currently presented comment overlay (read popover or add input), a
+        /// hosted subview rather than an NSPopover so the whole box pops with the
+        /// app's animation and has no arrow.
+        var commentOverlay: NSView?
+        var commentOverlayModel: CommentOverlayModel?
+        var commentDismissMonitor: Any?
+        /// The comment currently shown (nil for the add-comment input), so a
+        /// re-click on the same highlight toggles it closed (see
+        /// `openCommentPopoverIfNeeded`).
+        var openCommentID: String?
 
         // MARK: - Print Support
 
@@ -147,8 +156,16 @@
             else {
                 return
             }
-            guard let info = commentInfo(at: point) else { return }
-            showCommentPopover(id: innermostCommentID(among: info.ids), at: point)
+            guard let info = commentInfo(at: point) else {
+                dismissCommentOverlay() // a plain-text click closes any open comment
+                return
+            }
+            let id = innermostCommentID(among: info.ids)
+            if id == openCommentID {
+                dismissCommentOverlay() // re-clicked the open comment → toggle off
+            } else {
+                showCommentPopover(id: id, range: info.range)
+            }
         }
 
         /// The innermost (smallest-enclosing) comment among `ids` — the one a
