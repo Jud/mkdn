@@ -296,7 +296,8 @@ enum CriticMarkup {
             // swallow everything up to a real anchor.
             guard let gt = raw[openRange.upperBound...].firstIndex(of: ">") else { break }
             let inside = raw[openRange.upperBound ..< gt]
-            // Must be a self-closing tag (`…/>`) with no nested `<`.
+            // A stray `<` before the `>` means this isn't one clean tag (the real
+            // tag's `>` came earlier or this is malformed) — reject.
             guard inside.last == "/", !inside.contains("<") else { continue }
             let attributes = inside.dropLast()
             guard let id = attributeValue("id", in: attributes), !id.isEmpty,
