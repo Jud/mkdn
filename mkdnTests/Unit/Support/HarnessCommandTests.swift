@@ -77,6 +77,17 @@ struct HarnessCommandTests {
         }
     }
 
+    @Test("recreateView command round-trips through JSON")
+    func recreateViewRoundTrip() throws {
+        let command = HarnessCommand.recreateView
+        let data = try encoder.encode(command)
+        let decoded = try decoder.decode(HarnessCommand.self, from: data)
+        guard case .recreateView = decoded else {
+            Issue.record("Expected .recreateView, got \(decoded)")
+            return
+        }
+    }
+
     @Test("captureWindow command with output path round-trips through JSON")
     func captureWindowWithPathRoundTrip() throws {
         let command = HarnessCommand.captureWindow(outputPath: "/tmp/capture.png")

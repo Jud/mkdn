@@ -26,6 +26,7 @@ scripts/mkdn-ctl theme solarizedLight
 scripts/mkdn-ctl cycle                         # cycle through themes
 scripts/mkdn-ctl info                          # window size, theme, loaded file
 scripts/mkdn-ctl resize 1024 768               # resize window to 1024x768pt
+scripts/mkdn-ctl recreate-view                 # rebuild the preview cold (see below)
 scripts/mkdn-ctl quit                          # close the app
 ```
 
@@ -61,6 +62,43 @@ When verifying visual changes during development:
    ```bash
    scripts/mkdn-ctl quit
    ```
+
+## Cold First-Paint Testing
+
+Some rendering bugs only appear on a document's **cold first paint** — the very
+first `makeNSView` pass, before TextKit 2 has laid out anything below the
+initial viewport. (Example: code-block backgrounds were once cached from
+TextKit 2's *estimated* fragment frames for blocks below the fold, so they
+rendered in the wrong place until a scroll forced real layout.)
+
+The normal `load` command does **not** reproduce these: it swaps content into an
+already-laid-out view (the warm `updateNSView` path, with real fragment frames).
+A plain `capture` also waits on a render-complete signal that fires only after
+the entrance animator has warmed layout.
+
+Two ways to hit the cold path:
+
+1. **Cold launch** — pass the file as a launch argument so the window's first
+   paint *is* the target document, then capture immediately:
+   ```bash
+   .build/debug/mkdn --test-harness path/to/file.md
+   scripts/mkdn-ctl capture /tmp/cold.png       # no load, no scroll, no hover
+   ```
+
+2. **`recreate-view`** — rebuild the preview cold in an already-running session
+   (no relaunch). It changes the preview's SwiftUI identity, forcing a fresh
+   `makeNSView`:
+   ```bash
+   scripts/mkdn-ctl load path/to/file.md
+   scripts/mkdn-ctl recreate-view
+   scripts/mkdn-ctl capture /tmp/cold.png       # no scroll, no hover
+   ```
+
+Use a file whose triggering element sits **below the initial viewport** — that's
+the region TextKit 2 leaves estimated on first paint. `recreate-view` only has
+an effect when a markdown preview is visible (not the welcome/source/plain-text
+views). After capturing, a scroll or window resize forces real layout and the
+bug "snaps" away — so capture before any such interaction.
 
 ## Fixtures
 

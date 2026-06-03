@@ -44,6 +44,14 @@
         /// Used to disambiguate block IDs across document loads.
         public private(set) var loadGeneration: UInt64 = 0
 
+        // MARK: - View Rebuild Generation
+
+        /// Identity nonce for the markdown preview's NSView. Bumped only by the
+        /// test harness (see ``rebuildDocumentView()``) to force a cold
+        /// `makeNSView`; stays `0` in normal use so production view identity is
+        /// stable.
+        public private(set) var viewRebuildGeneration: UInt64 = 0
+
         // MARK: - View Mode
 
         /// Current display mode: preview-only or side-by-side editing.
@@ -76,6 +84,14 @@
         public init() {}
 
         // MARK: - Methods
+
+        /// Force the markdown preview's `NSViewRepresentable` to be torn down and
+        /// recreated — a fresh `makeNSView` / cold first paint — by changing its
+        /// SwiftUI identity. Used by the test harness to reproduce cold
+        /// first-paint rendering bugs in-session; not called in normal operation.
+        public func rebuildDocumentView() {
+            viewRebuildGeneration &+= 1
+        }
 
         /// Load a file from the given URL.
         public func loadFile(at url: URL) throws {

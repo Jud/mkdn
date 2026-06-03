@@ -57,6 +57,11 @@
                 commentSourceMap: textStorageResult.sourceMap,
                 isLoadingGateActive: $docState.isLoadingGateActive
             )
+            // Changing this identity tears down and recreates the text view's
+            // representable (a fresh cold makeNSView), reusing the already-built
+            // attributed content. Bumped only by the test harness to reproduce
+            // cold first-paint bugs; constant in normal use.
+            .id(documentState.viewRebuildGeneration)
             .background(appSettings.theme.colors.background)
             .task(id: documentState.markdownContent) {
                 if isInitialRender {
