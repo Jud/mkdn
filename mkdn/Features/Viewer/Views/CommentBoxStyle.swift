@@ -55,6 +55,13 @@
                 .padding(CommentBoxMetrics.shadowPadding)
         }
 
+        /// The full frame + chrome + pop transition for a comment overlay box,
+        /// shared by the compose, display, and edit boxes so they stay visually
+        /// identical (the morph between them depends on it).
+        func commentOverlayChrome(model: CommentOverlayModel, theme: AppTheme) -> some View {
+            modifier(CommentOverlayChrome(model: model, theme: theme))
+        }
+
         /// Pop the box open/closed in step with `model.presented`, matching the
         /// outline navigator's expand (`outlinePop`) / contract (`outlineClose`)
         /// feel. Only the scale lives here; the fade is the AppKit host's
@@ -69,6 +76,22 @@
                     value: model.presented
                 )
                 .onAppear { model.presented = true }
+        }
+    }
+
+    /// Backs `commentOverlayChrome`; reads Reduce Motion from the environment so
+    /// callers don't have to thread it through.
+    private struct CommentOverlayChrome: ViewModifier {
+        let model: CommentOverlayModel
+        let theme: AppTheme
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+        func body(content: Content) -> some View {
+            content
+                .padding(12)
+                .frame(width: 300, alignment: .leading)
+                .commentBox(theme: theme)
+                .commentOverlayTransition(model: model, reduceMotion: reduceMotion)
         }
     }
 #endif

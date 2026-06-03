@@ -43,21 +43,16 @@
                     )
                 } else {
                     CommentEditor(
-                        draft: $draft, theme: theme,
-                        cancelTitle: "Cancel", confirmTitle: "Comment",
+                        draft: $draft, theme: theme, confirmTitle: "Comment",
                         onCancel: onClose, onConfirm: submit
                     )
                 }
             }
-            .padding(12)
-            .frame(width: 300, alignment: .leading)
-            .commentBox(theme: theme)
-            .commentOverlayTransition(model: model, reduceMotion: reduceMotion)
+            .commentOverlayChrome(model: model, theme: theme)
         }
 
-        private func submit() {
-            let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty, let id = addComment(trimmed) else { return }
+        private func submit(_ trimmed: String) {
+            guard let id = addComment(trimmed) else { return }
             onAdded(id) // keep the overlay through the rebuild + mark it open
             withAnimation(reduceMotion ? AnimationConstants.reducedInstant : AnimationConstants.outlinePop) {
                 created = DisplayedComment(id: id, body: trimmed)

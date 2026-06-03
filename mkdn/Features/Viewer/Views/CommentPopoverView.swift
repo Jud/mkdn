@@ -36,10 +36,11 @@
     struct CommentEditor: View {
         @Binding var draft: String
         let theme: AppTheme
-        let cancelTitle: String
         let confirmTitle: String
         let onCancel: () -> Void
-        let onConfirm: () -> Void
+        /// Receives the trimmed body, so callers never re-trim (the disable gate
+        /// and the submitted value can't diverge).
+        let onConfirm: (String) -> Void
 
         private var trimmed: String { draft.trimmingCharacters(in: .whitespacesAndNewlines) }
 
@@ -52,10 +53,10 @@
                     .padding(4)
                     .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(theme.colors.border))
                 HStack {
-                    Button(cancelTitle, action: onCancel)
+                    Button("Cancel", action: onCancel)
                         .pointingHandCursor()
                     Spacer()
-                    Button(confirmTitle, action: onConfirm)
+                    Button(confirmTitle) { onConfirm(trimmed) }
                         .keyboardShortcut(.return, modifiers: [.command])
                         .disabled(trimmed.isEmpty)
                         .pointingHandCursor()
@@ -84,8 +85,6 @@
         let onDragChanged: (CGSize) -> Void
         let onDragEnded: () -> Void
 
-        @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
         var body: some View {
             VStack(alignment: .leading, spacing: 8) {
                 CommentBoxHeader(
@@ -109,10 +108,7 @@
                     }
                 }
             }
-            .padding(12)
-            .frame(width: 300, alignment: .leading)
-            .commentBox(theme: theme)
-            .commentOverlayTransition(model: model, reduceMotion: reduceMotion)
+            .commentOverlayChrome(model: model, theme: theme)
         }
     }
 
@@ -135,16 +131,11 @@
 
         private var body0: String { editedBody ?? comment.body }
 
-        private var trimmedDraft: String {
-            draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-
         var body: some View {
             VStack(alignment: .leading, spacing: 8) {
                 if isEditing {
                     CommentEditor(
-                        draft: $draft, theme: theme,
-                        cancelTitle: "Cancel", confirmTitle: "Save",
+                        draft: $draft, theme: theme, confirmTitle: "Save",
                         onCancel: { withAnimation(AnimationConstants.outlinePop) { isEditing = false } },
                         onConfirm: save
                     )
@@ -162,21 +153,19 @@
             .onHover { onHover($0 ? comment.id : nil) }
         }
 
-        private func save() {
+        private func save(_ trimmed: String) {
             // Operate on the live document: the overlay only survives its own
             // edits (any other rebuild dismisses it), so its rows always reflect
             // the current content. Keep the editor open (and the draft) if the
             // edit is rejected.
             guard let documentState,
-                  documentState.editComment(
-                      id: comment.id, of: documentState.markdownContent, newBody: trimmedDraft
-                  )
+                  documentState.editComment(id: comment.id, of: documentState.markdownContent, newBody: trimmed)
             else {
                 return
             }
             onEdited() // keep the overlay alive through the rebuild this triggers
             withAnimation(AnimationConstants.outlinePop) {
-                editedBody = trimmedDraft
+                editedBody = trimmed
                 isEditing = false
             }
         }
