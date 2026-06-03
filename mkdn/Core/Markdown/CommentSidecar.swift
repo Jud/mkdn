@@ -87,6 +87,11 @@ enum CommentSidecar {
         guard let closeRange = raw.range(of: blockClose, range: openRange.upperBound ..< raw.endIndex) else {
             return nil
         }
+        // The sidecar is appended metadata: recognize it only as the document's
+        // TRAILING block (nothing but whitespace after its close). A
+        // `<!--mkdn-comments…-->` inside a code fence or mid-document is then left
+        // as ordinary user content, never stripped.
+        guard raw[closeRange.upperBound...].allSatisfy(\.isWhitespace) else { return nil }
         // The extracted text still holds the `>`/`-` escapes; JSONDecoder
         // restores them to `>`/`-` natively, so no inverse step is needed.
         let jsonText = String(raw[openRange.upperBound ..< closeRange.lowerBound])

@@ -154,12 +154,18 @@ struct AnchorCommentParserTests {
         #expect(doc.comments[0].body == "one")
     }
 
-    @Test("A mid-document sidecar is stripped without merging the paragraphs around it")
-    func midDocumentSidecar() {
+    @Test("A non-trailing sidecar block is treated as content, not stripped")
+    func nonTrailingSidecarKept() {
+        // The sidecar is recognized only as the document's trailing metadata
+        // block (see CommentSidecar.decode / B3): a `<!--mkdn-comments…-->`
+        // mid-document — e.g. a fenced example of the format — is ordinary
+        // content and must survive verbatim, not be silently stripped.
         let sidecar = CommentSidecar.encode([.init(id: "m", body: "x")])
         let raw = "para one\n\n\(sidecar)\n\npara two"
         let doc = CriticMarkup.preprocess(raw)
-        #expect(doc.transformedSource == "para one\n\npara two")
+        #expect(doc.transformedSource.contains("para one"))
+        #expect(doc.transformedSource.contains("para two"))
+        #expect(doc.transformedSource.contains("mkdn-comments"))
     }
 
     @Test("CRLF separators around a trailing sidecar are absorbed")
