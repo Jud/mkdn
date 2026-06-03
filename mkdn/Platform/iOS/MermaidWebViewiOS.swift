@@ -15,9 +15,6 @@
         @Binding var renderedHeight: CGFloat
         @Binding var renderState: MermaidRenderState
 
-        /// All diagram `WKWebView` instances share a single web content process.
-        private static let sharedProcessPool = WKProcessPool()
-
         // MARK: - UIViewRepresentable
 
         func makeCoordinator() -> Coordinator {
@@ -26,8 +23,6 @@
 
         func makeUIView(context: Context) -> WKWebView {
             let configuration = WKWebViewConfiguration()
-            configuration.processPool = Self.sharedProcessPool
-
             let contentController = WKUserContentController()
             contentController.add(context.coordinator, name: "sizeReport")
             contentController.add(context.coordinator, name: "renderComplete")
