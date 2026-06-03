@@ -64,6 +64,23 @@ struct AdversarialMappingTests {
         }
     }
 
+    @Test("I5: selections around and over emoji (surrogate pairs) map soundly")
+    func emojiSelectionsMapSoundly() {
+        let raw = "wave 😀🎉 and flag 🇺🇸 done here"
+        let (resolver, result) = resolver(raw)
+        let rendered = result.attributedString.string as NSString
+        // Words after emoji have shifted UTF-16 offsets; mapping must still be exact.
+        for word in ["wave", "and flag", "done here"] {
+            let nsRange = rendered.range(of: word)
+            guard nsRange.location != NSNotFound, let r = resolver.rawRange(forBuilderRange: nsRange) else { continue }
+            #expect(raw[r] == word, "wrong mapping for \(word)")
+        }
+        let emoji = rendered.range(of: "😀🎉")
+        if emoji.location != NSNotFound, let r = resolver.rawRange(forBuilderRange: emoji) {
+            #expect(raw[r] == "😀🎉")
+        }
+    }
+
     @Test("Support matrix: unmappable selections resolve to nil, never crash")
     func unmappableSelectionsAreNil() {
         // A selection that spans a paragraph boundary is not source-contiguous.
