@@ -188,8 +188,8 @@ struct MarkdownVisitor {
         switch markup {
         case let text as Markdown.Text:
             var result = AttributedString(text.string)
-            if !protected, let offset = sourceUTF16Offset(for: text) {
-                result.sourceSpan = offset
+            if !protected, let span = linearSpan(for: text) {
+                result.sourceSpan = span
             }
             return result
 
@@ -217,15 +217,25 @@ struct MarkdownVisitor {
         case let code as InlineCode:
             var result = AttributedString(code.code)
             result.inlinePresentationIntent = .code
+            // The rendered text drops the backticks, so the whole span is atomic:
+            // a selection inside snaps to the full `` `code` `` source token.
+            if !protected, let span = atomicSpan(for: code) {
+                result.sourceSpan = span
+            }
             return result
 
         case let link as Markdown.Link:
-            // Links are preprocessor-protected regardless of whether the URL
-            // resolves, so suppress spans on the whole subtree.
+            // Suppress per-node spans on the subtree, then tag the whole label as
+            // one atomic token covering the full `[text](url)` source — so a
+            // selection on link text snaps to the link and a comment over it
+            // highlights the whole label.
             var result = inlineText(from: link, protected: true)
             if let destination = link.destination, let url = URL(string: destination) {
                 result.link = url
                 result.underlineStyle = .single
+            }
+            if !protected, let span = atomicSpan(for: link) {
+                result.sourceSpan = span
             }
             return result
 
@@ -253,15 +263,15 @@ struct MarkdownVisitor {
         }
     }
 
-    /// The UTF-16 offset into `source` of a text node's first character, but
-    /// only when the node's rendered string is a verbatim copy of its source
-    /// substring. Returns nil otherwise (escapes, entities — not 1:1 mappable).
+    /// A 1:1 `SourceSpan` for a text node whose rendered string is a verbatim
+    /// copy of its source substring. Returns nil otherwise (escapes, entities —
+    /// not 1:1 mappable).
     ///
     /// Text containing `$` is also skipped: `postProcessMathDelimiters` may later
     /// replace an inline `$…$` span, which would leave a stale offset on the
     /// text after it. Dropping the whole run keeps the mapping correct at the
     /// cost of not being able to comment on `$`-bearing prose (a safe v1 trade).
-    private func sourceUTF16Offset(for text: Markdown.Text) -> Int? {
+    private func linearSpan(for text: Markdown.Text) -> SourceSpan? {
         guard let source, let converter,
               !text.string.contains("$"),
               let sourceRange = text.range,
@@ -270,7 +280,25 @@ struct MarkdownVisitor {
         else {
             return nil
         }
-        return source.utf16.distance(from: source.utf16.startIndex, to: resolved.lowerBound)
+        return span(for: resolved, in: source)
+    }
+
+    /// An atomic `SourceSpan` covering a whole token's source (e.g. a link or
+    /// inline code), so a selection inside snaps to the full token.
+    private func atomicSpan(for markup: any Markup) -> SourceSpan? {
+        guard let source, let converter,
+              let sourceRange = markup.range,
+              let resolved = converter.range(for: sourceRange)
+        else {
+            return nil
+        }
+        return span(for: resolved, in: source)
+    }
+
+    private func span(for resolved: Range<String.Index>, in source: String) -> SourceSpan {
+        let start = source.utf16.distance(from: source.utf16.startIndex, to: resolved.lowerBound)
+        let end = source.utf16.distance(from: source.utf16.startIndex, to: resolved.upperBound)
+        return SourceSpan(start: start, end: end)
     }
 
     // MARK: - Checkbox Extraction

@@ -54,6 +54,24 @@ struct CommentHighlightTests {
         #expect(!hasBackground(string, at: "z"))
     }
 
+    @Test("Highlights a commented link across its whole rendered label")
+    func highlightsLink() {
+        let raw = CommentFixture.doc("see [docs](https://x.com) now", comment: "[docs](https://x.com)")
+        let string = highlighted(raw)
+        #expect(commentID(string, at: "docs") == "c1")
+        #expect(hasBackground(string, at: "docs"))
+        #expect(!hasBackground(string, at: "see"))
+    }
+
+    @Test("Highlights a commented inline-code span")
+    func highlightsInlineCode() {
+        let raw = CommentFixture.doc("run `swift build` now", comment: "`swift build`")
+        let string = highlighted(raw)
+        #expect(commentID(string, at: "swift build") == "c1")
+        #expect(hasBackground(string, at: "swift build"))
+        #expect(!hasBackground(string, at: "run"))
+    }
+
     @Test("No comments means no highlight attributes")
     func noComments() {
         let string = highlighted("plain text only")

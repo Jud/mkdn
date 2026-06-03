@@ -55,31 +55,34 @@ struct CommentRangeResolverTests {
         #expect(resolver.rawRange(forBuilderRange: nsRange) == nil)
     }
 
-    @Test("Rejects a selection on link text (protected by the preprocessor)")
-    func rejectsLinkText() {
+    @Test("A selection on link text snaps to the whole link source")
+    func snapsLinkText() {
         let raw = "see [docs](https://example.com) now"
         let (document, result) = pipeline(raw)
         let resolver = CommentRangeResolver(document: document, sourceMap: result.sourceMap)
         let nsRange = builderRange(of: "docs", in: result)
-        #expect(resolver.rawRange(forBuilderRange: nsRange) == nil)
+        let rawRange = try! #require(resolver.rawRange(forBuilderRange: nsRange))
+        #expect(raw[rawRange] == "[docs](https://example.com)")
     }
 
-    @Test("Rejects a selection on inline code (protected by the preprocessor)")
-    func rejectsInlineCode() {
+    @Test("A selection on inline code snaps to the whole backticked source")
+    func snapsInlineCode() {
         let raw = "run `swift build` now"
         let (document, result) = pipeline(raw)
         let resolver = CommentRangeResolver(document: document, sourceMap: result.sourceMap)
         let nsRange = builderRange(of: "swift", in: result)
-        #expect(resolver.rawRange(forBuilderRange: nsRange) == nil)
+        let rawRange = try! #require(resolver.rawRange(forBuilderRange: nsRange))
+        #expect(raw[rawRange] == "`swift build`")
     }
 
-    @Test("Rejects link text even when the URL is empty/unresolvable")
-    func rejectsEmptyUrlLink() {
+    @Test("Link text snaps even when the URL is empty/unresolvable")
+    func snapsEmptyUrlLink() {
         let raw = "see [docs]() now"
         let (document, result) = pipeline(raw)
         let resolver = CommentRangeResolver(document: document, sourceMap: result.sourceMap)
         let nsRange = builderRange(of: "docs", in: result)
-        #expect(resolver.rawRange(forBuilderRange: nsRange) == nil)
+        let rawRange = try! #require(resolver.rawRange(forBuilderRange: nsRange))
+        #expect(raw[rawRange] == "[docs]()")
     }
 
     @Test("Rejects a selection inside an existing comment's highlight")

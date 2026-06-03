@@ -315,11 +315,11 @@ public enum MarkdownTextStorageBuilder {
             let text = String(content[run.range].characters)
             var attributes: [NSAttributedString.Key: Any] = [:]
 
-            // The visitor only tags commentable text (not links/images), so
-            // carrying the span through verbatim keeps the resolver aligned with
-            // what the preprocessor accepts.
+            // Carry the source span as [start, end]; NSArray gives reliable
+            // value equality so the SourceMap enumeration coalesces a token's
+            // runs correctly.
             if let sourceSpan = run.sourceSpan {
-                attributes[.mkdnSourceSpan] = sourceSpan
+                attributes[.mkdnSourceSpan] = [sourceSpan.start, sourceSpan.end]
             }
 
             let intent = run.inlinePresentationIntent ?? []
