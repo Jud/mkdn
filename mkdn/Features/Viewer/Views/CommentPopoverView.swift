@@ -101,6 +101,7 @@
                     .keyboardShortcut(.return, modifiers: [.command])
                     .disabled(trimmedDraft.isEmpty)
                 }
+                .buttonStyle(.borderless)
             }
         }
 
@@ -117,6 +118,7 @@
                     }
                 }
             }
+            .buttonStyle(.borderless)
         }
     }
 #endif

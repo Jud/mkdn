@@ -41,7 +41,6 @@
                 return
             }
             var badges: [(rect: CGRect, count: Int)] = []
-            let size = Self.overlapBadgeDiameter
             textStorage.enumerateAttribute(
                 .mkdnCommentID, in: NSRange(location: 0, length: textStorage.length)
             ) { value, range, _ in
@@ -50,8 +49,9 @@
                 else {
                     return
                 }
-                // Straddle the span's top-right so the badge sits above the text
-                // edge rather than on the glyphs.
+                // Scale the badge with the line height so it tracks the text size,
+                // and straddle the span's top-right so it sits above the glyphs.
+                let size = max(rect.height * Self.overlapBadgeLineFraction, Self.overlapBadgeMinDiameter)
                 let badge = CGRect(
                     x: rect.maxX - size * 0.5, y: rect.minY - size * 0.5, width: size, height: size
                 )
@@ -63,13 +63,18 @@
         func drawCommentOverlapIndicators(in dirtyRect: NSRect) {
             guard let theme = commentTheme, !cachedCommentOverlapBadges.isEmpty else { return }
             let fill = PlatformTypeConverter.color(from: theme.colors.accent)
-            for badge in cachedCommentOverlapBadges where badge.rect.intersects(dirtyRect) {
+            let halo = PlatformTypeConverter.color(from: theme.colors.background)
+            for badge in cachedCommentOverlapBadges where badge.rect.insetBy(dx: -2, dy: -2).intersects(dirtyRect) {
+                // A halo ring in the box color separates the badge from the
+                // highlight so the number stays legible on any background.
+                halo.setFill()
+                NSBezierPath(ovalIn: badge.rect.insetBy(dx: -1.5, dy: -1.5)).fill()
                 fill.setFill()
                 NSBezierPath(ovalIn: badge.rect).fill()
 
                 let label = "\(badge.count)" as NSString
                 let attributes: [NSAttributedString.Key: Any] = [
-                    .font: NSFont.systemFont(ofSize: badge.rect.height * 0.62, weight: .bold),
+                    .font: NSFont.systemFont(ofSize: badge.rect.height * 0.6, weight: .bold),
                     .foregroundColor: NSColor.white,
                 ]
                 let labelSize = label.size(withAttributes: attributes)

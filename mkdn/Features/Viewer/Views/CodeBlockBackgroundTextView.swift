@@ -26,8 +26,10 @@
         static let cornerRadius: CGFloat = 6
         static let borderWidth: CGFloat = 1
         static let borderOpacity: CGFloat = 0.3
-        /// Diameter of the count badge marking overlapping comments.
-        static let overlapBadgeDiameter: CGFloat = 14
+        /// The overlapping-comments count badge is sized as a fraction of the
+        /// commented line's height, so it scales with the text size.
+        static let overlapBadgeLineFraction: CGFloat = 0.85
+        static let overlapBadgeMinDiameter: CGFloat = 14
         static let bottomPadding: CGFloat = MarkdownTextStorageBuilder.codeBlockPadding
         static let copyButtonInset: CGFloat = 8
         static let copyButtonSize: CGFloat = 24

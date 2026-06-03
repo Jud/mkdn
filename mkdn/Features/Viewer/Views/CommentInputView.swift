@@ -32,6 +32,7 @@
                         .keyboardShortcut(.return, modifiers: [.command])
                         .disabled(trimmed.isEmpty)
                 }
+                .buttonStyle(.borderless)
             }
             .padding(12)
             .frame(width: 300)
