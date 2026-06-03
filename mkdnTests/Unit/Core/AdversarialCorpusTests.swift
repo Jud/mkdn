@@ -69,7 +69,7 @@ struct AdversarialCorpusTests {
 
     @Test("Every hostile corpus document parses without crash or residue", arguments: corpus)
     func corpusSurvives(name: String, raw: String) {
-        assertCommentInvariants(raw, Comment(name))
+        assertCommentInvariants(raw, Ctx(name))
     }
 
     @Test("Seeded random documents parse without crash or residue")
@@ -77,7 +77,7 @@ struct AdversarialCorpusTests {
         for seed in UInt64(0) ..< 400 {
             var rng = SeededRNG(seed: seed)
             let doc = Adversarial.randomMarkdown(using: &rng)
-            assertCommentInvariants(doc, Comment("seed \(seed)"))
+            assertCommentInvariants(doc, Ctx("seed \(seed)"))
         }
     }
 }

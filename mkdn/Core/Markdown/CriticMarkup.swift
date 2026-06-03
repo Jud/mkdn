@@ -474,6 +474,21 @@ enum CriticMarkup {
         let parsed = preprocess(candidate)
         guard let inserted = parsed.commentsByID[id], inserted.body == body else { return nil }
 
+        // Non-corruption (I4): every comment active before the wrap must remain
+        // active afterward with the same body and highlighted text. A new anchor
+        // pair only ever crosses existing ones (matched by id), so this normally
+        // holds — but verify rather than assume, and reject a placement that
+        // would disturb an existing annotation.
+        let prior = preprocess(raw)
+        for old in prior.comments {
+            guard let now = parsed.commentsByID[old.id], now.body == old.body,
+                  prior.transformedSource[old.transformedHighlightRange]
+                      == parsed.transformedSource[now.transformedHighlightRange]
+            else {
+                return nil
+            }
+        }
+
         // Capture the TextQuote (quote + prefix/suffix context) from the RENDERED
         // text, which has no anchors or sidecar — so re-anchoring later can match
         // it directly, even for a comment authored next to another comment.
@@ -613,8 +628,23 @@ enum CriticMarkup {
     private static func uniqueID(in raw: String, idGenerator: () -> String) -> String {
         var used = Set(anchors(in: raw, excluding: CommentSidecar.decode(from: raw)?.blockRange).map(\.id))
         used.formUnion(CommentSidecar.decode(from: raw)?.entries.map(\.id) ?? [])
-        var id = idGenerator()
-        while used.contains(id) { id = idGenerator() }
+        // Honor the generator's id when it's free, but bound the attempts: a
+        // pathological generator (e.g. a fixed id that's already used) would
+        // otherwise spin forever.
+        for _ in 0 ..< 100 {
+            let id = idGenerator()
+            if !used.contains(id) { return id }
+        }
+        // Fallback: extend a fresh base with a counter until unused. `used` is
+        // finite so this terminates, and base36 + digits stays anchor-attribute
+        // safe (no quotes/<>/spaces).
+        let base = randomID()
+        var suffix = 1
+        var id = base
+        while used.contains(id) {
+            id = "\(base)\(suffix)"
+            suffix += 1
+        }
         return id
     }
 

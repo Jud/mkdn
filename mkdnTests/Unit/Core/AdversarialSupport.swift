@@ -61,24 +61,24 @@ enum Adversarial {
 /// sidecar body source and a non-empty, in-bounds highlight). Returns the parsed
 /// document for further assertions.
 @discardableResult
-func assertCommentInvariants(_ raw: String, _ comment: Comment = .init()) -> CriticMarkupDocument {
+func assertCommentInvariants(_ raw: String, _ ctx: Ctx = .init()) -> CriticMarkupDocument {
     let doc = CriticMarkup.preprocess(raw)
 
     // Idempotence: re-running over the stripped output changes nothing and finds
     // no comments — i.e. nothing recognized was left behind (narrowed I2).
     let again = CriticMarkup.preprocess(doc.transformedSource)
-    #expect(again.transformedSource == doc.transformedSource, "preprocess not idempotent\(comment)")
-    #expect(again.comments.isEmpty, "residual comments after re-parse\(comment)")
+    #expect(again.transformedSource == doc.transformedSource, "preprocess not idempotent\(ctx)")
+    #expect(again.comments.isEmpty, "residual comments after re-parse\(ctx)")
 
     // Each active comment's highlight is a non-empty in-bounds slice.
     for c in doc.comments {
         #expect(c.transformedHighlightRange.lowerBound < c.transformedHighlightRange.upperBound,
-                "empty/inverted highlight for \(c.id)\(comment)")
+                "empty/inverted highlight for \(c.id)\(ctx)")
         #expect(c.transformedHighlightRange.upperBound <= doc.transformedSource.endIndex,
-                "out-of-bounds highlight for \(c.id)\(comment)")
+                "out-of-bounds highlight for \(c.id)\(ctx)")
     }
     // Ids are unique among active comments.
-    #expect(Set(doc.comments.map(\.id)).count == doc.comments.count, "duplicate active ids\(comment)")
+    #expect(Set(doc.comments.map(\.id)).count == doc.comments.count, "duplicate active ids\(ctx)")
     return doc
 }
 
@@ -89,7 +89,8 @@ func activeComments(_ raw: String) -> [String: String] {
 }
 
 /// A trailing label for assertion messages (e.g. the corpus case name or seed).
-struct Comment: ExpressibleByStringLiteral, CustomStringConvertible {
+/// Named `Ctx`, not `Comment`, to avoid colliding with swift-testing's `Comment`.
+struct Ctx: ExpressibleByStringLiteral, CustomStringConvertible {
     let text: String
     init() { text = "" }
     init(_ text: String) { self.text = " [\(text)]" }
