@@ -283,7 +283,6 @@ enum CriticMarkup {
     }
 
     private static let anchorTagOpen = "<mkdn-comment "
-    private static let anchorTagClose = "/>"
 
     /// Locate every well-formed `<mkdn-comment …/>` token in `raw`, skipping any
     /// inside the sidecar block. Malformed candidates are ignored.
@@ -292,19 +291,23 @@ enum CriticMarkup {
         var search = raw.startIndex
         while let openRange = raw.range(of: anchorTagOpen, range: search ..< raw.endIndex) {
             search = openRange.upperBound
-            guard let closeRange = raw.range(of: anchorTagClose, range: openRange.upperBound ..< raw.endIndex)
-            else {
-                break
-            }
-            search = closeRange.upperBound
-            let attributes = raw[openRange.upperBound ..< closeRange.lowerBound]
+            // Close THIS tag at its first '>'; never scan ahead to a distant
+            // '/>', which would let a literal `<mkdn-comment ` in prose/code
+            // swallow everything up to a real anchor.
+            guard let gt = raw[openRange.upperBound...].firstIndex(of: ">") else { break }
+            let inside = raw[openRange.upperBound ..< gt]
+            // Must be a self-closing tag (`…/>`) with no nested `<`.
+            guard inside.last == "/", !inside.contains("<") else { continue }
+            let attributes = inside.dropLast()
             guard let id = attributeValue("id", in: attributes), !id.isEmpty,
                   let edgeValue = attributeValue("edge", in: attributes),
                   let edge = AnchorEdge(rawValue: edgeValue)
             else {
                 continue
             }
-            let tokenRange = openRange.lowerBound ..< closeRange.upperBound
+            let tokenEnd = raw.index(after: gt)
+            search = tokenEnd
+            let tokenRange = openRange.lowerBound ..< tokenEnd
             if let sidecar, tokenRange.overlaps(sidecar) { continue }
             result.append(Anchor(edge: edge, id: id, range: tokenRange))
         }

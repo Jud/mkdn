@@ -169,6 +169,16 @@ struct AnchorCommentParserTests {
         #expect(doc.transformedSource == "para")
     }
 
+    @Test("A literal non-self-closing <mkdn-comment ...> in prose doesn't swallow a real anchor")
+    func literalMarkerInProse() {
+        let real = CommentFixture.doc("see foo here", comment: "foo", id: "c1", body: "n")
+        let raw = "Docs: <mkdn-comment id=\"x\" edge=\"start\"> denotes a start.\n\n" + real
+        let doc = CriticMarkup.preprocess(raw)
+        #expect(doc.commentsByID["c1"]?.body == "n")
+        #expect(doc.transformedSource.contains("denotes a start."))
+        #expect(doc.transformedSource.contains("see foo here"))
+    }
+
     @Test("A plain document with no anchors round-trips unchanged")
     func plainDocument() {
         let doc = CriticMarkup.preprocess("# Title\n\nJust prose.")
