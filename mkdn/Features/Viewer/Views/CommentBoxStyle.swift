@@ -4,11 +4,19 @@
     enum CommentBoxMetrics {
         /// Transparent padding around the box, leaving room for its shadow so the
         /// hosting view doesn't clip it. The overlay positioner subtracts this to
-        /// align the visible box with the comment span.
+        /// align the visible box with the comment span. Must exceed the box
+        /// shadow's reach (radius + y offset, see `commentBox`).
         static let shadowPadding: CGFloat = 16
         /// How long to keep the host alive after a dismiss so the contract
-        /// animation can play before the view is removed.
-        static let exitDuration: TimeInterval = 0.25
+        /// animation can finish before the view is removed. Derived from the
+        /// contract animation's duration so retuning one can't truncate the other.
+        static let exitDuration: TimeInterval = AnimationConstants.outlineCloseDuration + 0.05
+    }
+
+    extension AppTheme {
+        /// The control appearance to pin the comment overlays to (the theme, not
+        /// the system) so default buttons stay legible on the themed box.
+        var colorScheme: ColorScheme { self == .solarizedDark ? .dark : .light }
     }
 
     /// Drives a comment overlay's expand/contract. AppKit flips `presented` and
@@ -23,8 +31,9 @@
         /// Floating-box chrome for the comment overlays: a themed rounded
         /// background, border, and shadow, with padding so the shadow isn't
         /// clipped, and the control appearance pinned to the theme so default
-        /// buttons stay legible.
-        func commentBox(theme: AppTheme, colorScheme: ColorScheme) -> some View {
+        /// buttons stay legible. Shadow reach (radius + y) must stay within
+        /// `CommentBoxMetrics.shadowPadding`.
+        func commentBox(theme: AppTheme) -> some View {
             background(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(theme.colors.background)
@@ -33,7 +42,7 @@
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .strokeBorder(theme.colors.border)
             )
-            .environment(\.colorScheme, colorScheme)
+            .environment(\.colorScheme, theme.colorScheme)
             .shadow(color: .black.opacity(0.22), radius: 10, y: 3)
             .padding(CommentBoxMetrics.shadowPadding)
         }

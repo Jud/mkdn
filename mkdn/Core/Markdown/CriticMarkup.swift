@@ -38,12 +38,6 @@ struct CriticMarkupDocument {
         Dictionary(comments.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
     }
 
-    /// Among `ids`, the comment with the smallest highlighted span — the
-    /// innermost when comments overlap. Unknown ids are ignored.
-    func innermostComment(among ids: [String]) -> CriticComment? {
-        commentsInnermostFirst(among: ids).first
-    }
-
     /// The comments for `ids`, ordered smallest span first — so overlapping
     /// comments stack innermost (most specific) at the top. Unknown ids ignored.
     func commentsInnermostFirst(among ids: [String]) -> [CriticComment] {

@@ -15,12 +15,6 @@
             text.trimmingCharacters(in: .whitespacesAndNewlines)
         }
 
-        /// Match control appearance to the theme, not the system (see
-        /// `CommentPopoverView.colorScheme`).
-        private var colorScheme: ColorScheme {
-            theme == .solarizedDark ? .dark : .light
-        }
-
         var body: some View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Add comment")
@@ -41,7 +35,7 @@
             }
             .padding(12)
             .frame(width: 300)
-            .commentBox(theme: theme, colorScheme: colorScheme)
+            .commentBox(theme: theme)
             .commentOverlayTransition(model: model, reduceMotion: reduceMotion)
         }
     }
