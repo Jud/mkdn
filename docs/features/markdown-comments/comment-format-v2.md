@@ -157,3 +157,7 @@ tested invariants. See `mkdnTests/Unit/Core/Adversarial*.swift`.
 - **Sidecar relocation.** Since the sidecar is trailing-only, an external tool
   that relocates it mid-document detaches its comments (they orphan) until it is
   moved back. Render-only; `preprocess` never mutates the file.
+- **Unclosed trailing code fence.** A `<!--mkdn-comments…-->` block inside an
+  *unclosed* code fence at end-of-document is still treated as the sidecar (the
+  recognizer is position-based, not fence-aware). Closed fences and mid-document
+  fences are handled correctly; this only affects malformed (unterminated) input.

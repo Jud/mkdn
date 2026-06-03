@@ -81,27 +81,35 @@ enum CommentSidecar {
     /// LAST `<!--mkdn-comments` — earlier prose or code that merely mentions the
     /// marker can't shadow the real trailing block.
     static func decode(from raw: String) -> (entries: [Entry], blockRange: Range<String.Index>)? {
-        guard let openRange = raw.range(of: blockOpen, options: .backwards) else { return nil }
-        // Escaped JSON never contains "-->", so the first close after the marker
-        // is the true terminator.
-        guard let closeRange = raw.range(of: blockClose, range: openRange.upperBound ..< raw.endIndex) else {
-            return nil
+        // Scan marker candidates from last to first and return the first that is a
+        // real sidecar: trailing metadata after its close AND decodable JSON. This
+        // skips a shadow marker the user wrote inside a trailing HTML comment
+        // (e.g. docs mentioning `<!--mkdn-comments`), which would otherwise hide
+        // the genuine trailing block.
+        var searchEnd = raw.endIndex
+        while let openRange = raw.range(of: blockOpen, options: .backwards, range: raw.startIndex ..< searchEnd) {
+            searchEnd = openRange.lowerBound // next iteration considers earlier candidates
+            // Escaped JSON never contains "-->", so the first close after the
+            // marker is the true terminator.
+            guard let closeRange = raw.range(of: blockClose, range: openRange.upperBound ..< raw.endIndex) else {
+                continue
+            }
+            // The sidecar is appended metadata: accept it only when nothing but
+            // trailing metadata (whitespace and the user's own HTML comments, e.g.
+            // a license or TODO note) follows its close. A `<!--mkdn-comments…-->`
+            // embedded in prose or a code fence is left as ordinary content.
+            guard isTrailingMetadata(raw[closeRange.upperBound...]) else { continue }
+            // The extracted text still holds the `>`/`-` escapes; JSONDecoder
+            // restores them to `>`/`-` natively, so no inverse step is needed.
+            let jsonText = String(raw[openRange.upperBound ..< closeRange.lowerBound])
+            guard let data = jsonText.data(using: .utf8),
+                  let wrapper = try? JSONDecoder().decode(Wrapper.self, from: data)
+            else {
+                continue
+            }
+            return (wrapper.comments, openRange.lowerBound ..< closeRange.upperBound)
         }
-        // The sidecar is appended metadata: recognize it only when nothing but
-        // trailing metadata (whitespace and the user's own HTML comments, e.g. a
-        // license or TODO note) follows its close. A `<!--mkdn-comments…-->`
-        // embedded in prose or a code fence — where real content follows — is
-        // then left as ordinary user content, never stripped.
-        guard isTrailingMetadata(raw[closeRange.upperBound...]) else { return nil }
-        // The extracted text still holds the `>`/`-` escapes; JSONDecoder
-        // restores them to `>`/`-` natively, so no inverse step is needed.
-        let jsonText = String(raw[openRange.upperBound ..< closeRange.lowerBound])
-        guard let data = jsonText.data(using: .utf8),
-              let wrapper = try? JSONDecoder().decode(Wrapper.self, from: data)
-        else {
-            return nil
-        }
-        return (wrapper.comments, openRange.lowerBound ..< closeRange.upperBound)
+        return nil
     }
 
     /// Whether everything after the sidecar's close is "trailing metadata" — only

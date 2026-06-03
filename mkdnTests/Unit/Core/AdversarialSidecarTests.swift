@@ -72,6 +72,18 @@ struct AdversarialSidecarTests {
         #expect(doc.transformedSource.contains("<!-- license: MIT -->")) // user's note survives
     }
 
+    @Test("A shadow marker inside a trailing HTML comment doesn't hide the real sidecar")
+    func shadowMarkerInTrailingComment() {
+        // A footer comment that literally mentions the marker would be the LAST
+        // `<!--mkdn-comments` occurrence; decode must skip it (its JSON is junk)
+        // and still find the genuine sidecar above it.
+        let raw = CommentFixture.doc("comment this text", comment: "comment this")
+            + "\n\n<!-- see <!--mkdn-comments for docs -->\n"
+        let doc = CriticMarkup.preprocess(raw)
+        #expect(doc.comments.count == 1)
+        #expect(doc.comments.first?.body == "note")
+    }
+
     @Test("Only the trailing block is decoded when several marker blocks exist")
     func lastBlockWins() {
         let raw = "earlier <!--mkdn-comments not really --> mention\n\n"
