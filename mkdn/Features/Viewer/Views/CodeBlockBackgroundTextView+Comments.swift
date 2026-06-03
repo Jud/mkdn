@@ -29,6 +29,42 @@
             openCommentIDs = comments.map(\.id)
         }
 
+        // MARK: - Overlap indicator
+
+        /// A small dot marking each span covered by 2+ overlapping comments, so a
+        /// reader can tell there's more than one comment there. Cached as
+        /// view-coordinate rects (the `.mkdnCommentID` value is a list whose count
+        /// is the overlap depth).
+        func refreshCachedCommentOverlapDots() {
+            guard let textStorage, !textStorage.string.isEmpty else {
+                cachedCommentOverlapDots = []
+                return
+            }
+            var dots: [CGRect] = []
+            let diameter = Self.overlapDotDiameter
+            textStorage.enumerateAttribute(
+                .mkdnCommentID, in: NSRange(location: 0, length: textStorage.length)
+            ) { value, range, _ in
+                guard let ids = value as? [String], ids.count >= 2,
+                      let rect = boundingRect(forCharacterRange: range)
+                else {
+                    return
+                }
+                dots.append(CGRect(
+                    x: rect.maxX - diameter, y: rect.minY + 1, width: diameter, height: diameter
+                ))
+            }
+            cachedCommentOverlapDots = dots
+        }
+
+        func drawCommentOverlapIndicators(in dirtyRect: NSRect) {
+            guard let theme = commentTheme, !cachedCommentOverlapDots.isEmpty else { return }
+            PlatformTypeConverter.color(from: theme.colors.accent).setFill()
+            for dot in cachedCommentOverlapDots where dot.intersects(dirtyRect) {
+                NSBezierPath(ovalIn: dot).fill()
+            }
+        }
+
         // MARK: - Authoring
 
         /// The raw-source range for the current selection, if it maps to a single

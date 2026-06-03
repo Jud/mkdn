@@ -26,6 +26,8 @@
         static let cornerRadius: CGFloat = 6
         static let borderWidth: CGFloat = 1
         static let borderOpacity: CGFloat = 0.3
+        /// Diameter of the dot marking overlapping comments.
+        static let overlapDotDiameter: CGFloat = 5
         static let bottomPadding: CGFloat = MarkdownTextStorageBuilder.codeBlockPadding
         static let copyButtonInset: CGFloat = 8
         static let copyButtonSize: CGFloat = 24
@@ -58,6 +60,9 @@
         var hoveredBlockID: String?
         var copyButtonOverlay: NSView?
         var cachedBlockRects: [CodeBlockGeometry] = []
+        /// View-coordinate dots marking spans covered by 2+ overlapping comments,
+        /// cached in `viewWillDraw` to avoid forcing layout during drawing.
+        var cachedCommentOverlapDots: [CGRect] = []
 
         // MARK: - Find State
 
@@ -231,11 +236,17 @@
         override func viewWillDraw() {
             super.viewWillDraw()
             refreshCachedBlockRects()
+            refreshCachedCommentOverlapDots()
         }
 
         override func drawBackground(in rect: NSRect) {
             super.drawBackground(in: rect)
             drawCodeBlockContainers(in: rect)
+        }
+
+        override func draw(_ dirtyRect: NSRect) {
+            super.draw(dirtyRect)
+            drawCommentOverlapIndicators(in: dirtyRect)
         }
 
         // MARK: - Print
