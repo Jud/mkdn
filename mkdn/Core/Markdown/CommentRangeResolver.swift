@@ -10,6 +10,14 @@ struct CommentRangeResolver {
     let sourceMap: SourceMap
 
     func rawRange(forBuilderRange nsRange: NSRange) -> Range<String.Index>? {
+        // Reject hostile/degenerate ranges before any arithmetic: a negative
+        // location (e.g. NSNotFound from a failed search), an empty selection, or
+        // an upper bound that would overflow Int (NSRange uses Int).
+        guard nsRange.location >= 0, nsRange.length > 0,
+              nsRange.location <= Int.max - nsRange.length
+        else {
+            return nil
+        }
         let builderRange = nsRange.location ..< (nsRange.location + nsRange.length)
         guard let sourceUTF16 = sourceMap.sourceUTF16Range(forBuilder: builderRange) else {
             return nil
