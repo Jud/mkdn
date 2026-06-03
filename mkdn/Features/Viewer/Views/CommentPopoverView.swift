@@ -21,14 +21,32 @@
         let theme: AppTheme
         let documentState: DocumentState?
         let onClose: () -> Void
+        /// Called when a body edit is saved, so the host can keep the overlay open
+        /// through the resulting content rebuild (the edit only changed the sidecar).
+        let onEdited: () -> Void
+        /// Emphasize (id) / un-emphasize (nil) the hovered comment in the document.
+        let onHover: (String?) -> Void
+        let onDragChanged: (CGSize) -> Void
+        let onDragEnded: () -> Void
 
         @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
         var body: some View {
             VStack(alignment: .leading, spacing: 8) {
+                // The header doubles as a drag handle so the box can be pulled off
+                // text it covers.
                 Text(comments.count > 1 ? "Comments" : "Comment")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(theme.colors.foregroundSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                    .gesture(
+                        // Global space: translation stays stable as the box moves,
+                        // avoiding a feedback loop (the box jittering).
+                        DragGesture(coordinateSpace: .global)
+                            .onChanged { onDragChanged($0.translation) }
+                            .onEnded { _ in onDragEnded() }
+                    )
 
                 ForEach(comments) { comment in
                     CommentRowView(
@@ -36,7 +54,9 @@
                         source: source,
                         theme: theme,
                         documentState: documentState,
-                        onClose: onClose
+                        onClose: onClose,
+                        onEdited: onEdited,
+                        onHover: onHover
                     )
                     if comment.id != comments.last?.id {
                         Rectangle()
@@ -61,26 +81,37 @@
         let theme: AppTheme
         let documentState: DocumentState?
         let onClose: () -> Void
+        let onEdited: () -> Void
+        let onHover: (String?) -> Void
 
         @State private var isEditing = false
         @State private var draft = ""
+        /// The body to show after an in-place edit, so the row reflects the save
+        /// without waiting for (or being torn down by) a content rebuild.
+        @State private var editedBody: String?
+
+        private var body0: String { editedBody ?? comment.body }
 
         private var trimmedDraft: String {
             draft.trimmingCharacters(in: .whitespacesAndNewlines)
         }
 
         var body: some View {
-            if isEditing {
-                editor
-            } else {
-                Text(comment.body)
-                    .font(.body)
-                    .foregroundStyle(theme.colors.foreground)
-                    .textSelection(.enabled)
-                if let documentState {
-                    actions(documentState)
+            VStack(alignment: .leading, spacing: 8) {
+                if isEditing {
+                    editor
+                } else {
+                    Text(body0)
+                        .font(.body)
+                        .foregroundStyle(theme.colors.foreground)
+                        .textSelection(.enabled)
+                    if let documentState {
+                        actions(documentState)
+                    }
                 }
             }
+            .contentShape(Rectangle())
+            .onHover { onHover($0 ? comment.id : nil) }
         }
 
         private var editor: some View {
@@ -92,33 +123,45 @@
                     .padding(4)
                     .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(theme.colors.border))
                 HStack {
-                    Button("Cancel") { isEditing = false }
+                    Button("Cancel") { withAnimation(AnimationConstants.outlinePop) { isEditing = false } }
+                        .pointingHandCursor()
                     Spacer()
-                    Button("Save") {
-                        // Keep the editor open (and the draft) if the edit is rejected.
-                        if documentState?.editComment(id: comment.id, of: source, newBody: trimmedDraft) == true {
-                            onClose()
-                        }
-                    }
-                    .keyboardShortcut(.return, modifiers: [.command])
-                    .disabled(trimmedDraft.isEmpty)
+                    Button("Save", action: save)
+                        .keyboardShortcut(.return, modifiers: [.command])
+                        .disabled(trimmedDraft.isEmpty)
+                        .pointingHandCursor()
                 }
                 .buttonStyle(.borderless)
+            }
+        }
+
+        private func save() {
+            // Keep the editor open (and the draft) if the edit is rejected.
+            guard documentState?.editComment(id: comment.id, of: source, newBody: trimmedDraft) == true
+            else {
+                return
+            }
+            onEdited() // keep the overlay alive through the rebuild this triggers
+            withAnimation(AnimationConstants.outlinePop) {
+                editedBody = trimmedDraft
+                isEditing = false
             }
         }
 
         private func actions(_ documentState: DocumentState) -> some View {
             HStack {
                 Button("Edit") {
-                    draft = comment.body
-                    isEditing = true
+                    draft = body0
+                    withAnimation(AnimationConstants.outlinePop) { isEditing = true }
                 }
+                .pointingHandCursor()
                 Spacer()
                 Button("Delete", role: .destructive) {
                     if documentState.deleteComment(id: comment.id, of: source) {
                         onClose()
                     }
                 }
+                .pointingHandCursor()
             }
             .buttonStyle(.borderless)
         }

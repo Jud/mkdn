@@ -3,6 +3,16 @@
     import SwiftUI
 
     extension CodeBlockBackgroundTextView {
+        /// Open the given comments, or close them if that same set is already open
+        /// (re-click toggle), shared by highlight clicks and badge clicks.
+        func toggleComments(ids: [String], range: NSRange) {
+            if Set(ids) == Set(openCommentIDs) {
+                dismissCommentOverlay()
+            } else {
+                showComments(ids: ids, range: range)
+            }
+        }
+
         /// Show the comment(s) covering a click as a hosted overlay near the span.
         /// Overlapping comments are stacked innermost-first; the whole box pops in.
         func showComments(ids: [String], range: NSRange) {
@@ -24,40 +34,56 @@
                 source: document.rawSource,
                 theme: theme,
                 documentState: documentState,
-                onClose: { [weak self] in self?.dismissCommentOverlay() }
+                onClose: { [weak self] in self?.dismissCommentOverlay() },
+                onEdited: { [weak self] in self?.keepCommentOverlayThroughRebuild = true },
+                onHover: { [weak self] id in self?.setHoveredComment(id) },
+                onDragChanged: { [weak self] translation in self?.dragCommentOverlay(by: translation) },
+                onDragEnded: { [weak self] in self?.endCommentOverlayDrag() }
             ))
             openCommentIDs = comments.map(\.id)
         }
 
         // MARK: - Overlap indicator
 
-        /// A small count badge marking each span covered by 2+ overlapping
-        /// comments, so a reader can tell how many comments are there (clicking
-        /// shows them stacked). Cached as view-coordinate rects + the overlap depth
-        /// (the `.mkdnCommentID` value is the list of covering ids).
+        /// One count badge per contiguous cluster of overlapping comments, so a
+        /// reader can tell how many comments are there (clicking shows them
+        /// stacked). `enumerateAttribute` emits a new run wherever the covering id
+        /// set changes, so a staircase of overlaps (depth 2→3→2) arrives as several
+        /// abutting runs; merging them into one cluster avoids a row of badges
+        /// (`2 3 2`) across a single overlapping region. The count is the distinct
+        /// comments in the cluster — exactly what clicking the badge opens.
         func refreshCachedCommentOverlapBadges() {
             guard let textStorage, !textStorage.string.isEmpty else {
                 cachedCommentOverlapBadges = []
                 return
             }
-            var badges: [(rect: CGRect, count: Int)] = []
+            var clusters: [(range: NSRange, ids: [String])] = []
             textStorage.enumerateAttribute(
                 .mkdnCommentID, in: NSRange(location: 0, length: textStorage.length)
             ) { value, range, _ in
-                guard let ids = value as? [String], ids.count >= 2,
-                      let rect = boundingRect(forCharacterRange: range)
-                else {
-                    return
+                guard let ids = value as? [String], ids.count >= 2 else { return }
+                if var last = clusters.last, NSMaxRange(last.range) == range.location {
+                    last.range = NSUnionRange(last.range, range)
+                    last.ids += ids.filter { !last.ids.contains($0) }
+                    clusters[clusters.count - 1] = last
+                } else {
+                    clusters.append((range, ids))
                 }
+            }
+            cachedCommentOverlapBadges = clusters.compactMap { cluster in
+                // Anchor the badge at the cluster's last character so it sits at the
+                // end of the overlapping text (a multi-line cluster's union rect
+                // would misplace it).
+                let endRange = NSRange(location: NSMaxRange(cluster.range) - 1, length: 1)
+                guard let rect = boundingRect(forCharacterRange: endRange) else { return nil }
                 // Scale the badge with the line height so it tracks the text size,
                 // and straddle the span's top-right corner.
                 let size = max(rect.height * Self.overlapBadgeLineFraction, Self.overlapBadgeMinDiameter)
-                let badge = CGRect(
+                let badgeRect = CGRect(
                     x: rect.maxX - size * 0.5, y: rect.minY - size * 0.5, width: size, height: size
                 )
-                badges.append((badge, ids.count))
+                return OverlapBadge(rect: badgeRect, count: cluster.ids.count, ids: cluster.ids, range: cluster.range)
             }
-            cachedCommentOverlapBadges = badges
         }
 
         /// Keep the badge overlay subview sized to the text view and repainted.
@@ -106,9 +132,10 @@
 
         // MARK: - Authoring
 
-        /// The raw-source range for the current selection, if it maps to a single
-        /// commentable span (reject-first: nil for empty selections or selections
-        /// over existing comments/block boundaries).
+        /// The raw-source range for the current selection, if it maps to source
+        /// text (nil for an empty selection or one that can't be mapped). A
+        /// selection inside or across existing comments is allowed — v3 supports
+        /// nesting/overlap, so wrapping it adds another comment.
         func commentableSelectionRange() -> Range<String.Index>? {
             let selection = selectedRange()
             guard selection.length > 0,
@@ -147,29 +174,104 @@
         private func presentCommentOverlay(near rect: CGRect, model: CommentOverlayModel, content: some View) {
             dismissCommentOverlay()
             let host = CommentOverlayHostingView(rootView: content)
+            // Size to content via Auto Layout so the box grows/shrinks when the
+            // row switches between display and edit, anchored at its top-left.
+            host.sizingOptions = [.intrinsicContentSize]
+            host.translatesAutoresizingMaskIntoConstraints = false
+            host.alphaValue = 0 // fade in via the host (see commentOverlayTransition)
             addSubview(host)
             host.layoutSubtreeIfNeeded()
-            host.frame = CGRect(origin: overlayOrigin(near: rect, size: host.fittingSize),
-                                size: host.fittingSize)
+            let origin = overlayOrigin(near: rect, size: host.fittingSize)
+            let leading = host.leadingAnchor.constraint(equalTo: leadingAnchor, constant: origin.x)
+            let top = host.topAnchor.constraint(equalTo: topAnchor, constant: origin.y)
+            NSLayoutConstraint.activate([leading, top])
             commentOverlay = host
             commentOverlayModel = model
+            commentOverlayLeading = leading
+            commentOverlayTop = top
             installCommentDismissMonitor()
+
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = CommentBoxMetrics.fadeDuration
+                host.animator().alphaValue = 1
+            }
+        }
+
+        // MARK: - Hover-to-locate
+
+        /// Emphasize the hovered comment's span in the document so the reader sees
+        /// which text the row they're reading refers to. Restores the previous one.
+        func setHoveredComment(_ id: String?) {
+            guard id != hoveredCommentID else { return }
+            if let previous = hoveredCommentID { paintCommentHighlight(previous, emphasized: false) }
+            hoveredCommentID = id
+            if let id { paintCommentHighlight(id, emphasized: true) }
+        }
+
+        private func paintCommentHighlight(_ id: String, emphasized: Bool) {
+            guard let document = criticDocument, let sourceMap = commentSourceMap,
+                  let theme = commentTheme, let textStorage,
+                  let comment = document.commentsByID[id]
+            else {
+                return
+            }
+            let utf16 = document.transformedSource.utf16
+            let lo = utf16.distance(from: utf16.startIndex, to: comment.transformedHighlightRange.lowerBound)
+            let hi = utf16.distance(from: utf16.startIndex, to: comment.transformedHighlightRange.upperBound)
+            let color = emphasized
+                ? PlatformTypeConverter.color(from: theme.colors.accent).withAlphaComponent(0.3)
+                : PlatformTypeConverter.color(from: theme.colors.commentHighlight)
+            for builderRange in sourceMap.builderUTF16Ranges(forSource: lo ..< hi) {
+                let nsRange = NSRange(
+                    location: builderRange.lowerBound, length: builderRange.upperBound - builderRange.lowerBound
+                )
+                guard nsRange.location >= 0, NSMaxRange(nsRange) <= textStorage.length else { continue }
+                textStorage.addAttribute(.backgroundColor, value: color, range: nsRange)
+            }
+        }
+
+        // MARK: - Dragging
+
+        /// Move the open overlay by a drag translation (from its header), so it can
+        /// be pulled off text it covers.
+        func dragCommentOverlay(by translation: CGSize) {
+            guard let leading = commentOverlayLeading, let top = commentOverlayTop else { return }
+            let base = commentOverlayDragBase ?? CGPoint(x: leading.constant, y: top.constant)
+            commentOverlayDragBase = base
+            // Disable implicit layer animations (otherwise each move tick fades the
+            // layer, flashing its backing) and snap to whole pixels (so the 1px
+            // border stays crisp).
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            leading.constant = (base.x + translation.width).rounded()
+            top.constant = (base.y + translation.height).rounded()
+            layoutSubtreeIfNeeded()
+            CATransaction.commit()
+        }
+
+        func endCommentOverlayDrag() {
+            commentOverlayDragBase = nil
         }
 
         /// Play the contract animation, then remove the host once it finishes.
         func dismissCommentOverlay() {
             guard let host = commentOverlay else { return }
+            setHoveredComment(nil) // restore any emphasized highlight
             if let monitor = commentDismissMonitor {
                 NSEvent.removeMonitor(monitor)
                 commentDismissMonitor = nil
             }
             openCommentIDs = []
-            commentOverlayModel?.presented = false // animate out
+            commentOverlayModel?.presented = false // SwiftUI scale-out
             commentOverlayModel = nil
             commentOverlay = nil
-            DispatchQueue.main.asyncAfter(deadline: .now() + CommentBoxMetrics.exitDuration) { [weak host] in
-                host?.removeFromSuperview()
-            }
+            commentOverlayLeading = nil
+            commentOverlayTop = nil
+            commentOverlayDragBase = nil
+            NSAnimationContext.runAnimationGroup({ context in
+                context.duration = CommentBoxMetrics.fadeDuration
+                host.animator().alphaValue = 0
+            }, completionHandler: { host.removeFromSuperview() })
         }
 
         /// Place the box just below the comment (flipping above when it would fall
@@ -237,7 +339,23 @@
 
         override var isFlipped: Bool { true }
 
-        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+        /// Capture clicks only on a badge (so it opens the comments); elsewhere is
+        /// click-through to the text.
+        override func hitTest(_ point: NSPoint) -> NSView? {
+            let local = convert(point, from: superview)
+            return badge(at: local) != nil ? self : nil
+        }
+
+        override func mouseDown(with event: NSEvent) {
+            let local = convert(event.locationInWindow, from: nil)
+            if let badge = badge(at: local) {
+                textView?.toggleComments(ids: badge.ids, range: badge.range)
+            }
+        }
+
+        private func badge(at point: NSPoint) -> CodeBlockBackgroundTextView.OverlapBadge? {
+            textView?.cachedCommentOverlapBadges.first { $0.rect.contains(point) }
+        }
 
         override func draw(_ dirtyRect: NSRect) {
             textView?.drawCommentOverlapIndicators(in: dirtyRect)
@@ -249,7 +367,17 @@
     /// the open comment's highlight, which the padding overlaps, reaches mouseDown
     /// to toggle it closed).
     final class CommentOverlayHostingView<Content: View>: NSHostingView<Content> {
-        required init(rootView: Content) { super.init(rootView: rootView) }
+        required init(rootView: Content) {
+            super.init(rootView: rootView)
+            // A clear, non-opaque layer so the box (and its transparent shadow
+            // padding) never composites against black during the alpha fade.
+            wantsLayer = true
+            layer?.backgroundColor = NSColor.clear.cgColor
+            layer?.isOpaque = false
+            layer?.masksToBounds = false
+        }
+
+        override var isOpaque: Bool { false }
 
         @available(*, unavailable)
         @MainActor @objc dynamic required init?(coder: NSCoder) { fatalError("init(coder:) unavailable") }

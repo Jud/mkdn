@@ -221,8 +221,14 @@
             // delayed fade would otherwise write stale ranges into new content.
             coordinator.cancelFootnotePulse()
             // Dismiss an open comment overlay; its position points into the old
-            // layout and its body may no longer match the new content.
-            textView.dismissCommentOverlay()
+            // layout and its body may no longer match the new content. A body edit
+            // from the popover only changed the sidecar (layout unchanged), so it
+            // asks to keep the overlay through that one rebuild.
+            if textView.keepCommentOverlayThroughRebuild {
+                textView.keepCommentOverlayThroughRebuild = false
+            } else {
+                textView.dismissCommentOverlay()
+            }
             textView.textStorage?.setAttributedString(attributedText)
             textView.window?.invalidateCursorRects(for: textView)
 

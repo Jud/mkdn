@@ -1,5 +1,14 @@
 #if os(macOS)
+    import AppKit
     import SwiftUI
+
+    extension View {
+        /// Show the pointing-hand cursor while hovering — the comment overlay owns
+        /// its cursor (the text view defers over it), so its buttons opt in here.
+        func pointingHandCursor() -> some View {
+            onHover { $0 ? NSCursor.pointingHand.set() : NSCursor.arrow.set() }
+        }
+    }
 
     enum CommentBoxMetrics {
         /// Transparent padding around the box, leaving room for its shadow so the
@@ -7,10 +16,9 @@
         /// align the visible box with the comment span. Must exceed the box
         /// shadow's reach (radius + y offset, see `commentBox`).
         static let shadowPadding: CGFloat = 16
-        /// How long to keep the host alive after a dismiss so the contract
-        /// animation can finish before the view is removed. Derived from the
-        /// contract animation's duration so retuning one can't truncate the other.
-        static let exitDuration: TimeInterval = AnimationConstants.outlineCloseDuration + 0.05
+        /// Duration of the box's fade in/out, driven on the AppKit host's
+        /// `alphaValue` (a SwiftUI `.opacity` mis-composites the material backing).
+        static let fadeDuration: TimeInterval = 0.18
     }
 
     extension AppTheme {
@@ -45,12 +53,13 @@
                 .padding(CommentBoxMetrics.shadowPadding)
         }
 
-        /// Pop the box open and closed in step with `model.presented`, matching
-        /// the outline navigator's expand (`outlinePop`) / contract
-        /// (`outlineClose`) feel.
+        /// Pop the box open/closed in step with `model.presented`, matching the
+        /// outline navigator's expand (`outlinePop`) / contract (`outlineClose`)
+        /// feel. Only the scale lives here; the fade is the AppKit host's
+        /// `alphaValue` (animating SwiftUI `.opacity` over the material flashes a
+        /// black backing).
         func commentOverlayTransition(model: CommentOverlayModel, reduceMotion: Bool) -> some View {
             scaleEffect(model.presented ? 1 : 0.9, anchor: .top)
-                .opacity(model.presented ? 1 : 0)
                 .animation(
                     reduceMotion
                         ? AnimationConstants.reducedInstant

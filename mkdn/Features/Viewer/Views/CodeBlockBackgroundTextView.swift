@@ -62,10 +62,17 @@
         var hoveredBlockID: String?
         var copyButtonOverlay: NSView?
         var cachedBlockRects: [CodeBlockGeometry] = []
-        /// Count badges marking spans covered by 2+ overlapping comments (view
-        /// coordinates + overlap depth), cached in `viewWillDraw` to avoid forcing
-        /// layout during drawing.
-        var cachedCommentOverlapBadges: [(rect: CGRect, count: Int)] = []
+        /// Count badges marking spans covered by 2+ overlapping comments, cached in
+        /// `viewWillDraw` to avoid forcing layout during drawing. Carries the
+        /// covering ids + range so clicking the badge opens those comments.
+        struct OverlapBadge {
+            let rect: CGRect
+            let count: Int
+            let ids: [String]
+            let range: NSRange
+        }
+
+        var cachedCommentOverlapBadges: [OverlapBadge] = []
         /// A transparent subview that paints the overlap badges; a subview renders
         /// above the text (unlike `draw(_:)`, which the highlight covers).
         var commentBadgeOverlay: CommentBadgeOverlayView?
@@ -90,6 +97,18 @@
         /// closed), so a re-click on the same overlapping set toggles it closed
         /// (see `openCommentPopoverIfNeeded`).
         var openCommentIDs: [String] = []
+        /// One-shot: skip dismissing the open overlay on the next content rebuild.
+        /// Set when a comment body is edited from the popover (a sidecar-only
+        /// change that leaves the layout — and the overlay's anchor — valid), so
+        /// the box can pop back to its updated display state instead of closing.
+        var keepCommentOverlayThroughRebuild = false
+        /// The comment whose row is hovered in the box, emphasized in the document
+        /// so the reader sees which span it refers to.
+        var hoveredCommentID: String?
+        /// Position constraints for the open overlay, updated while dragging it.
+        var commentOverlayLeading: NSLayoutConstraint?
+        var commentOverlayTop: NSLayoutConstraint?
+        var commentOverlayDragBase: CGPoint?
 
         // MARK: - Print Support
 
@@ -172,11 +191,7 @@
                 dismissCommentOverlay() // a plain-text click closes any open comment
                 return
             }
-            if Set(info.ids) == Set(openCommentIDs) {
-                dismissCommentOverlay() // re-clicked the same comment(s) → toggle off
-            } else {
-                showComments(ids: info.ids, range: info.range)
-            }
+            toggleComments(ids: info.ids, range: info.range)
         }
 
         override func menu(for event: NSEvent) -> NSMenu? {
@@ -199,6 +214,14 @@
             if isObscuredAtPoint(event.locationInWindow) { return }
 
             let point = convert(event.locationInWindow, from: nil)
+            // The comment overlay is our own subview, so it owns its cursor (arrow
+            // over the box, pointing hand over buttons) — don't force the I-beam.
+            if commentOverlay?.frame.contains(point) == true { return }
+            if isOverOverlapBadge(point) {
+                NSCursor.pointingHand.set()
+                updateCopyButtonForMouse(at: point)
+                return
+            }
             if isOverEmptyTextArea(point) {
                 NSCursor.arrow.set()
             } else if isOverLink(at: point) || commentInfo(at: point) != nil {
@@ -213,13 +236,20 @@
             if isObscuredAtPoint(event.locationInWindow) { return }
 
             let point = convert(event.locationInWindow, from: nil)
-            if isOverEmptyTextArea(point) {
+            if commentOverlay?.frame.contains(point) == true { return }
+            if isOverOverlapBadge(point) {
+                NSCursor.pointingHand.set()
+            } else if isOverEmptyTextArea(point) {
                 NSCursor.arrow.set()
             } else if isOverLink(at: point) || commentInfo(at: point) != nil {
                 NSCursor.pointingHand.set()
             } else {
                 NSCursor.iBeam.set()
             }
+        }
+
+        private func isOverOverlapBadge(_ point: CGPoint) -> Bool {
+            cachedCommentOverlapBadges.contains { $0.rect.contains(point) }
         }
 
         /// Returns true if another view is on top of this text view at the given window point.
