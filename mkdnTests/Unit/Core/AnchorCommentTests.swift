@@ -260,7 +260,7 @@ struct AnchorCommentAuthoringTests {
         let wrapped = try! #require(
             CriticMarkup.wrapComment(in: raw, range: raw.range(of: "quick")!, body: "note", idGenerator: { "c1" })
         )
-        let doc = CriticMarkup.preprocess(wrapped)
+        let doc = CriticMarkup.preprocess(wrapped.source)
         #expect(doc.transformedSource == "The quick brown fox")
         #expect(doc.comments.count == 1)
         #expect(doc.comments[0].id == "c1")
@@ -274,7 +274,7 @@ struct AnchorCommentAuthoringTests {
         let wrapped = try! #require(
             CriticMarkup.wrapComment(in: raw, range: raw.range(of: "Hello")!, body: "hi", idGenerator: { "c1" })
         )
-        let doc = CriticMarkup.preprocess(wrapped)
+        let doc = CriticMarkup.preprocess(wrapped.source)
         #expect(doc.transformedSource == "Hello world")
         #expect(doc.transformedSource[doc.comments[0].transformedHighlightRange] == "Hello")
     }
@@ -302,7 +302,7 @@ struct AnchorCommentAuthoringTests {
         let nested = try! #require(
             CriticMarkup.wrapComment(in: outer, range: outer.range(of: "brown")!, body: "inner", idGenerator: { "in" })
         )
-        let doc = CriticMarkup.preprocess(nested)
+        let doc = CriticMarkup.preprocess(nested.source)
         #expect(doc.transformedSource == base)
         #expect(doc.commentsByID["out"]?.body == "outer")
         #expect(doc.commentsByID["in"]?.body == "inner")
@@ -320,7 +320,7 @@ struct AnchorCommentAuthoringTests {
         let outer = try! #require(
             CriticMarkup.wrapComment(in: doc0.rawSource, range: rawRange, body: "outer", idGenerator: { "out" })
         )
-        let doc = CriticMarkup.preprocess(outer)
+        let doc = CriticMarkup.preprocess(outer.source)
         #expect(doc.transformedSource == "foo bar baz")
         #expect(doc.commentsByID["in"]?.body == "inner")
         #expect(doc.commentsByID["out"]?.body == "outer")
@@ -338,7 +338,7 @@ struct AnchorCommentAuthoringTests {
         let outer = try! #require(
             CriticMarkup.wrapComment(in: doc0.rawSource, range: rawRange, body: "outer", idGenerator: { "out" })
         )
-        let doc = CriticMarkup.preprocess(outer)
+        let doc = CriticMarkup.preprocess(outer.source)
         #expect(doc.transformedSource == base)
         #expect(doc.commentsByID["in"]?.body == "inner")
         #expect(doc.commentsByID["out"]?.body == "outer")
@@ -360,7 +360,7 @@ struct AnchorCommentAuthoringTests {
                 in: raw, range: raw.range(of: "[docs](https://example.com)")!, body: "c", idGenerator: { "c1" }
             )
         )
-        let doc = CriticMarkup.preprocess(wrapped)
+        let doc = CriticMarkup.preprocess(wrapped.source)
         #expect(doc.transformedSource == raw)
         #expect(doc.transformedSource[doc.comments[0].transformedHighlightRange] == "[docs](https://example.com)")
     }
@@ -375,7 +375,7 @@ struct AnchorCommentAuthoringTests {
                 idGenerator: { generated.next() ?? "fallback" }
             )
         )
-        let doc = CriticMarkup.preprocess(second)
+        let doc = CriticMarkup.preprocess(second.source)
         #expect(doc.comments.count == 2)
         #expect(Set(doc.comments.map(\.id)) == ["c1", "zz9"])
     }

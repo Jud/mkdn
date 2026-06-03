@@ -67,9 +67,9 @@
         /// covering ids + range so clicking the badge opens those comments.
         struct OverlapBadge {
             let rect: CGRect
-            let count: Int
             let ids: [String]
             let range: NSRange
+            var count: Int { ids.count }
         }
 
         var cachedCommentOverlapBadges: [OverlapBadge] = []

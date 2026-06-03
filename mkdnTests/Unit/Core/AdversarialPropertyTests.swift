@@ -45,11 +45,14 @@ struct AdversarialPropertyTests {
                     guard let rawR = parsed.rawRange(forTransformed: tRange) else { break }
                     let before = Set(parsed.comments.map(\.id))
                     if let next = CriticMarkup.wrapComment(in: parsed.rawSource, range: rawR, body: "b\(seed)\(step)") {
-                        let after = Set(CriticMarkup.preprocess(next).comments.map(\.id))
-                        // B4: every prior comment survives; the set grows by one.
+                        let parsedNext = CriticMarkup.preprocess(next.source)
+                        let after = Set(parsedNext.comments.map(\.id))
+                        // B4: every prior comment survives; the set grows by one,
+                        // and the returned id is the one that materialized.
                         #expect(before.isSubset(of: after), "seed \(seed) step \(step): a prior comment was lost")
                         #expect(after.count == before.count + 1, "seed \(seed) step \(step): add didn't add exactly one")
-                        doc = next
+                        #expect(parsedNext.commentsByID[next.id] != nil, "seed \(seed) step \(step): returned id not active")
+                        doc = next.source
                     }
                 case 1: // edit a random existing comment
                     if let id = parsed.comments.randomElement(using: &rng)?.id,

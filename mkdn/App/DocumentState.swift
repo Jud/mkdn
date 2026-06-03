@@ -114,16 +114,12 @@
         @discardableResult
         public func addComment(in rawRange: Range<String.Index>, of source: String, body: String) -> String? {
             guard source.utf8.elementsEqual(markdownContent.utf8) else { return nil } // exact, not canonical
-            // Identify the new comment by diffing the active id set rather than
-            // capturing the generator's output — uniqueID may fall back to an id
-            // the generator never produced, so a captured value could be wrong.
-            let priorIDs = Set(CriticMarkup.preprocess(markdownContent).comments.map(\.id))
-            guard let updated = CriticMarkup.wrapComment(in: markdownContent, range: rawRange, body: body)
+            guard let wrapped = CriticMarkup.wrapComment(in: markdownContent, range: rawRange, body: body)
             else {
                 return nil
             }
-            markdownContent = updated
-            return CriticMarkup.preprocess(updated).comments.map(\.id).first { !priorIDs.contains($0) }
+            markdownContent = wrapped.source
+            return wrapped.id
         }
 
         /// Rewrite a comment's body, looked up by id. `source` is the content the

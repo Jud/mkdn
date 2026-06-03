@@ -33,10 +33,9 @@ struct CriticMarkupDocument {
     let transformedSource: String
     let comments: [CriticComment]
 
-    /// Comments keyed by id, for hit-test/edit/delete lookups.
-    var commentsByID: [String: CriticComment] {
-        Dictionary(comments.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-    }
+    /// Comments keyed by id, for hit-test/edit/delete lookups. Computed once at
+    /// init since `comments` is immutable (read per hover/popover/wrap).
+    let commentsByID: [String: CriticComment]
 
     /// The comments for `ids`, ordered smallest span first — so overlapping
     /// comments stack innermost (most specific) at the top. Unknown ids ignored.
@@ -72,6 +71,7 @@ struct CriticMarkupDocument {
         self.rawSource = rawSource
         self.transformedSource = transformedSource
         self.comments = comments
+        self.commentsByID = Dictionary(comments.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         self.segments = segments
     }
 
@@ -436,14 +436,15 @@ enum CriticMarkup {
     // MARK: - Authoring
 
     /// Wrap a raw-source span as a commented anchor pair, adding its body to the
-    /// sidecar block. Returns the edited source, or nil when the span is empty or
-    /// the result fails to re-parse as the intended comment.
+    /// sidecar block. Returns the edited source and the new comment's id, or nil
+    /// when the span is empty or the result fails to re-parse as the intended
+    /// comment. (The id is returned so callers needn't re-parse to recover it.)
     static func wrapComment(
         in raw: String,
         range: Range<String.Index>,
         body: String,
         idGenerator: () -> String = randomID
-    ) -> String? {
+    ) -> (source: String, id: String)? {
         guard !range.isEmpty else { return nil }
 
         // A selection overlapping the sidecar block would pull it inside the new
@@ -492,7 +493,7 @@ enum CriticMarkup {
         // Capture the TextQuote (quote + prefix/suffix context) from the RENDERED
         // text, which has no anchors or sidecar — so re-anchoring later can match
         // it directly, even for a comment authored next to another comment.
-        return upsertSidecar(in: candidate, entry: textQuote(for: inserted, in: parsed.transformedSource))
+        return (upsertSidecar(in: candidate, entry: textQuote(for: inserted, in: parsed.transformedSource)), id)
     }
 
     /// The re-anchoring TextQuote for `comment`, read from the anchor-free

@@ -30,7 +30,7 @@ enum CommentFixture {
             else {
                 fatalError("CommentFixture could not wrap \(comment.substring)")
             }
-            result = wrapped
+            result = wrapped.source
         }
         return result
     }

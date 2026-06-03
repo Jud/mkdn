@@ -23,21 +23,35 @@ extension MarkdownTextStorageBuilder {
         sourceMap: SourceMap,
         color: PlatformTypeConverter.PlatformColor
     ) {
-        let utf16 = document.transformedSource.utf16
         for comment in document.comments {
-            let lower = utf16.distance(from: utf16.startIndex, to: comment.transformedHighlightRange.lowerBound)
-            let upper = utf16.distance(from: utf16.startIndex, to: comment.transformedHighlightRange.upperBound)
-            for builderRange in sourceMap.builderUTF16Ranges(forSource: lower ..< upper) {
-                let nsRange = NSRange(
-                    location: builderRange.lowerBound,
-                    length: builderRange.upperBound - builderRange.lowerBound
-                )
-                guard nsRange.location >= 0, NSMaxRange(nsRange) <= attributedString.length else {
-                    continue
-                }
+            for nsRange in highlightRanges(
+                for: comment, in: document, sourceMap: sourceMap, maxLength: attributedString.length
+            ) {
                 attributedString.addAttribute(.backgroundColor, value: color, range: nsRange)
                 appendCommentID(comment.id, to: attributedString, in: nsRange)
             }
+        }
+    }
+
+    /// The bounds-checked builder NSRanges a comment's highlight covers — mapping
+    /// its transformed-source span through `sourceMap`. Shared by the build-time
+    /// highlighter and the live hover-emphasis painter so the mapping lives once.
+    static func highlightRanges(
+        for comment: CriticComment,
+        in document: CriticMarkupDocument,
+        sourceMap: SourceMap,
+        maxLength: Int
+    ) -> [NSRange] {
+        let utf16 = document.transformedSource.utf16
+        let lower = utf16.distance(from: utf16.startIndex, to: comment.transformedHighlightRange.lowerBound)
+        let upper = utf16.distance(from: utf16.startIndex, to: comment.transformedHighlightRange.upperBound)
+        return sourceMap.builderUTF16Ranges(forSource: lower ..< upper).compactMap { builderRange in
+            let nsRange = NSRange(
+                location: builderRange.lowerBound,
+                length: builderRange.upperBound - builderRange.lowerBound
+            )
+            guard nsRange.location >= 0, NSMaxRange(nsRange) <= maxLength else { return nil }
+            return nsRange
         }
     }
 

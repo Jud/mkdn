@@ -86,7 +86,7 @@
                 let badgeRect = CGRect(
                     x: rect.maxX - size * 0.5, y: rect.minY - size * 0.5, width: size, height: size
                 )
-                return OverlapBadge(rect: badgeRect, count: cluster.ids.count, ids: cluster.ids, range: cluster.range)
+                return OverlapBadge(rect: badgeRect, ids: cluster.ids, range: cluster.range)
             }
         }
 
@@ -236,17 +236,15 @@
             else {
                 return
             }
-            let utf16 = document.transformedSource.utf16
-            let lo = utf16.distance(from: utf16.startIndex, to: comment.transformedHighlightRange.lowerBound)
-            let hi = utf16.distance(from: utf16.startIndex, to: comment.transformedHighlightRange.upperBound)
             let color = emphasized
                 ? PlatformTypeConverter.color(from: theme.colors.accent).withAlphaComponent(0.3)
                 : PlatformTypeConverter.color(from: theme.colors.commentHighlight)
-            for builderRange in sourceMap.builderUTF16Ranges(forSource: lo ..< hi) {
-                let nsRange = NSRange(
-                    location: builderRange.lowerBound, length: builderRange.upperBound - builderRange.lowerBound
-                )
-                guard nsRange.location >= 0, NSMaxRange(nsRange) <= textStorage.length else { continue }
+            // Reuse the build-time highlight mapping; hover only repaints the
+            // colour, never the comment-id list (it's transient).
+            let ranges = MarkdownTextStorageBuilder.highlightRanges(
+                for: comment, in: document, sourceMap: sourceMap, maxLength: textStorage.length
+            )
+            for nsRange in ranges {
                 textStorage.addAttribute(.backgroundColor, value: color, range: nsRange)
             }
         }
