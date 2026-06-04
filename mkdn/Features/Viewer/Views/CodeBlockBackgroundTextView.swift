@@ -85,6 +85,9 @@
 
         var criticDocument: CriticMarkupDocument?
         var commentSourceMap: SourceMap?
+        /// Comments resolved against the rendered text, drawn as a background fill
+        /// (see ``drawCommentHighlights(in:)``) and queried for hit-testing.
+        var resolvedComments: ResolvedComments?
         weak var documentState: DocumentState?
         var commentTheme: AppTheme?
         /// The currently presented comment overlay (read popover or add input), a
@@ -267,6 +270,7 @@
         override func drawBackground(in rect: NSRect) {
             super.drawBackground(in: rect)
             drawCodeBlockContainers(in: rect)
+            drawCommentHighlights(in: rect)
         }
 
         // MARK: - Print
