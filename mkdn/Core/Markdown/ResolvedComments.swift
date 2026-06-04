@@ -4,8 +4,7 @@
     /// A document's comments resolved against its rendered ``AnchorTape``: the
     /// id→builder-`NSRange` index joined with the originating sidecar entries, so
     /// consumers read highlight ranges (overlay draw), bodies (popover), and
-    /// orphans (sidebar) from one place. The single source the view layer queries,
-    /// replacing the baked `.mkdnCommentID` attribute.
+    /// orphans (sidebar) from one place.
     struct ResolvedComments: Equatable {
         private let index: CommentAnchorResolver.Index
         private let entriesByID: [String: CommentSidecar.Entry]
