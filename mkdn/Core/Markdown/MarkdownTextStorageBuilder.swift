@@ -324,6 +324,7 @@ public enum MarkdownTextStorageBuilder {
 
             if intent.contains(.code) {
                 font = PlatformTypeConverter.monospacedFont(scaleFactor: scaleFactor)
+                attributes[CodeBlockAttributes.inlineCode] = true
             } else {
                 let isBold = intent.contains(.stronglyEmphasized)
                 let isItalic = intent.contains(.emphasized)

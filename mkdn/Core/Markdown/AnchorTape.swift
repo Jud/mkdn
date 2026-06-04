@@ -8,9 +8,8 @@
     /// and ASCII letters case-fold — so cosmetic reflow or case changes don't
     /// orphan a comment. Code runs are preserved **verbatim** because code is
     /// whitespace- and case-significant. Code is detected by fenced-block tag
-    /// (``CodeBlockAttributes/range``) or by a monospaced run font (inline code;
-    /// the builder lowers `.code` inline intent to a monospaced font and drops the
-    /// intent, so the font is the surviving signal).
+    /// (``CodeBlockAttributes/range``) or inline-code tag
+    /// (``CodeBlockAttributes/inlineCode``).
     ///
     /// `builderRange(forNormalized:)` maps a span of the normalized text back to
     /// the `NSRange` it occupies in the source ``NSAttributedString`` (the
@@ -58,7 +57,8 @@
                 in: NSRange(location: 0, length: attributed.length), options: []
             ) { attrs, runRange, _ in
                 guard runRange.length > 0 else { return }
-                let isCode = attrs[CodeBlockAttributes.range] != nil || isCodeFont(attrs)
+                let isCode = attrs[CodeBlockAttributes.range] != nil
+                    || attrs[CodeBlockAttributes.inlineCode] != nil
                 var buffer = [unichar](repeating: 0, count: runRange.length)
                 ns.getCharacters(&buffer, range: runRange)
                 for (k, unit) in buffer.enumerated() {
@@ -98,11 +98,6 @@
 
         private static func asciiLower(_ unit: unichar) -> unichar {
             (unit >= 0x41 && unit <= 0x5A) ? unit + 0x20 : unit
-        }
-
-        private static func isCodeFont(_ attrs: [NSAttributedString.Key: Any]) -> Bool {
-            guard let font = attrs[.font] as? NSFont else { return false }
-            return font.fontDescriptor.symbolicTraits.contains(.monoSpace)
         }
     }
 #endif
