@@ -108,7 +108,7 @@
                 let anyKnown = newBlocks.contains { knownBlockIDs.contains($0.id) }
                 let shouldAnimate = !anyKnown && !reduceMotion && !newBlocks.isEmpty
 
-                renderAndBuild(newBlocks, isFullReload: shouldAnimate)
+                renderAndBuild(newBlocks, isFullReload: shouldAnimate, entries: document.entries)
             }
             .onChange(of: appSettings.theme) {
                 renderAndBuild(cachedBlocks, isFullReload: false)
@@ -118,7 +118,12 @@
             }
         }
 
-        private func renderAndBuild(_ newBlocks: [IndexedBlock], isFullReload animate: Bool) {
+        /// `entries` is the already-parsed sidecar for the content-change path; the
+        /// theme/scale re-render paths pass nil and re-parse (content unchanged).
+        private func renderAndBuild(
+            _ newBlocks: [IndexedBlock], isFullReload animate: Bool,
+            entries: [CommentSidecar.Entry]? = nil
+        ) {
             renderedBlocks = newBlocks
             knownBlockIDs = Set(newBlocks.map(\.id))
             isFullReload = animate
@@ -131,9 +136,8 @@
             textStorageResult = result
             let tape = AnchorTape.build(from: result.attributedString)
             anchorTape = tape
-            resolvedComments = ResolvedComments.resolve(
-                CommentDocument.parse(documentState.markdownContent).entries, in: tape
-            )
+            let resolved = entries ?? CommentDocument.parse(documentState.markdownContent).entries
+            resolvedComments = ResolvedComments.resolve(resolved, in: tape)
             outlineState.updateHeadings(from: newBlocks)
         }
     }

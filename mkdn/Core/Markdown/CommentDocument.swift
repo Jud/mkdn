@@ -17,7 +17,13 @@ struct CommentDocument: Equatable {
             entries = decoded.entries
             text.removeSubrange(decoded.blockRange)
         }
-        return CommentDocument(body: stripInlineMarkers(text), entries: entries)
+        var body = stripInlineMarkers(text)
+        // Trim trailing newlines (they never affect rendering): removing a sidecar
+        // leaves the separator newlines behind, so trimming keeps `body` stable
+        // across the no-sidecar↔sidecar transition — the comment-only-change
+        // detector stays exact and adding the first comment doesn't force a rebuild.
+        while body.last?.isNewline == true { body.removeLast() }
+        return CommentDocument(body: body, entries: entries)
     }
 
     private static let markerOpen = "<mkdn-comment "

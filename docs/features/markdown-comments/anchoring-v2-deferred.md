@@ -16,6 +16,18 @@ clear items as they ship.
 
 ## From the v1 deletion
 
+- **Orphaned source-map chain (own removal pass).** `CommentRangeResolver` was the
+  only reader of `SourceMap`/`SourceSpanAttribute` (`mkdnSourceSpan`) and the
+  visitor's `linearSpan`/`atomicSpan`/`protected` machinery. With it deleted, that
+  whole chain is now write-only: `TextStorageResult.sourceMap` is built on every
+  render and read by nobody, and the visitor still computes + writes source spans
+  for nothing. ~157 lines + per-render cost. Remove it as a focused unit (cascades:
+  SourceMap → SourceSpanAttribute → visitor spans → the builder's `.mkdnSourceSpan`
+  write → the `AnchorTape` doc-comment contrast with `SourceMap`). Verify no other
+  feature (syntax highlighting, headings) reads it first.
+
+
+
 - **Adversarial corpus/fuzzing over the new path.** The v1 deletion removed the
   inline-marker adversarial corpus + property/mapping/authoring fuzz suites (they
   exercised CriticMarkup parse invariants over inline-marker documents). The

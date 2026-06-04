@@ -26,6 +26,16 @@ struct CommentDocumentTests {
         #expect(CommentDocument.parse(raw).body == raw)
     }
 
+    @Test("Body is stable across adding the first comment (comment-only detection)")
+    func bodyStableAcrossFirstComment() {
+        let plain = "Hello world."
+        let entry = CommentSidecar.Entry(id: "c", body: "note", quote: "x", norm: 1)
+        let withComment = CommentSidecar.upsert(entry, into: plain)
+        // The writer trims+separates; parse trims trailing newlines — so the body a
+        // comment-only change compares against is unchanged by the first add.
+        #expect(CommentDocument.parse(plain).body == CommentDocument.parse(withComment).body)
+    }
+
     @Test("Returns the body unchanged when there are no comments")
     func noComments() {
         let raw = "# Title\n\nBody text."
