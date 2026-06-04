@@ -47,22 +47,28 @@
 
         static func build(from attributed: NSAttributedString) -> AnchorTape {
             let ns = attributed.string as NSString
+            let length = ns.length
             var units: [unichar] = []
             var offsets: [Int] = []
-            units.reserveCapacity(ns.length)
-            offsets.reserveCapacity(ns.length + 1)
+            units.reserveCapacity(length)
+            offsets.reserveCapacity(length + 1)
+            var chars = [unichar](repeating: 0, count: length)
+            if length > 0 { ns.getCharacters(&chars, range: NSRange(location: 0, length: length)) }
             var inProseWhitespaceRun = false
 
             attributed.enumerateAttributes(
-                in: NSRange(location: 0, length: attributed.length), options: []
+                in: NSRange(location: 0, length: length), options: []
             ) { attrs, runRange, _ in
                 guard runRange.length > 0 else { return }
+                // Attachments (inline math/image/table placeholders) are
+                // object-replacement sentinels, not anchor content; the tape is
+                // content-addressed text only.
+                if attrs[.attachment] != nil { return }
                 let isCode = attrs[CodeBlockAttributes.range] != nil
                     || attrs[CodeBlockAttributes.inlineCode] != nil
-                var buffer = [unichar](repeating: 0, count: runRange.length)
-                ns.getCharacters(&buffer, range: runRange)
-                for (k, unit) in buffer.enumerated() {
+                for k in 0 ..< runRange.length {
                     let builderOffset = runRange.location + k
+                    let unit = chars[builderOffset]
                     if isCode {
                         units.append(unit)
                         offsets.append(builderOffset)
@@ -80,7 +86,7 @@
                     }
                 }
             }
-            offsets.append(attributed.length)
+            offsets.append(length)
 
             let text = units.withUnsafeBufferPointer { buffer -> String in
                 guard let base = buffer.baseAddress else { return "" }

@@ -93,7 +93,14 @@ wrong for code):
   **reflowing/rewrapping** a paragraph (same words, new line breaks) does **not**
   orphan; a real word change does.
 - **Code (fenced/inline):** preserve whitespace and case verbatim — code is
-  whitespace- and case-significant.
+  whitespace- and case-significant. Detected via `CodeBlockAttributes.range`
+  (fenced) / `CodeBlockAttributes.inlineCode` (inline) — explicit builder tags,
+  not a monospaced-font heuristic.
+- **Deferred (open):** monospaced *non-code* runs — the inline-math/math-block
+  **LaTeX-fallback** (render-failure path) and **raw HTML blocks** — are currently
+  normalized as prose, so their case/whitespace folds (`\Delta` → `\delta`). These
+  are case-significant too. When a tape consumer lands, decide whether to tag them
+  verbatim; today they carry no code tag and there is no resolver yet.
 
 We do **not** reuse `SourceMap` directly — it's source-centric and skips synthetic
 text/attachments/math. v1 builds a new **rendered "anchor tape"**: a normalized

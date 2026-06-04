@@ -60,6 +60,16 @@
         #expect(tape.text.contains(" now"))
     }
 
+    @Test("Attachment runs are excluded from the tape")
+    func attachmentsExcluded() {
+        let s = NSMutableAttributedString(string: "before ")
+        s.append(NSAttributedString(attachment: NSTextAttachment()))
+        s.append(NSAttributedString(string: " after"))
+        let tape = AnchorTape.build(from: s)
+        #expect(!tape.text.contains("\u{FFFC}"))
+        #expect(tape.text == "before after") // whitespace around the attachment collapses
+    }
+
     // MARK: - Edges
 
     @Test("Empty input yields empty tape and no mappable range")
