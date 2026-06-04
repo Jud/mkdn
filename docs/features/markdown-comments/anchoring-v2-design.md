@@ -1,6 +1,45 @@
-# Comment Anchoring v2 — sidecar-only, overlay highlights, content anchoring
+# Comment Anchoring — sidecar-only, overlay highlights, content anchoring
 
-**Status:** Proposed (design) — codex-reviewed GREEN
+**Status:** In progress (clean break — see below). Pure cores landed.
+
+## Clean break (decided 2026-06-04 — supersedes the v1/migration framing below)
+
+The feature is greenfield (nobody depends on it), so we drop the "v1 vs v2"
+distinction and the migration path entirely. There is just **comments**: sidecar
+storage + content-anchored resolve + drawn-overlay highlights. No inline
+`<mkdn-comment>` markers, no `reanchorRange`, no `CommentRangeResolver`, no
+`CriticMarkupDocument`/segments, no migration. Stray inline markers from older
+docs are still stripped on load so they never render as literal text, but their
+comments are **not** auto-converted — they simply orphan (surfaced + deletable),
+since v1 sidecar quotes were captured from source, not the normalized tape.
+
+**Landed (pure cores, reviewed):** `AnchorTape` (normalized tape + builder↔normalized
+maps), `CommentAnchorResolver` (deterministic resolve + `Index` + hit-test query),
+`CommentSelector`/`CommentSelectorCapture` (selection → selector), shared
+`CommentSidecar.contextLength`.
+
+**Remaining units (build-new → swap → delete-old, keep green each commit):**
+1. ~~Index hit-test query~~ (done).
+2. **Overlay draw** — draw highlights from the resolved `Index` in the text view's
+   background pass (the `CodeBlockBackgroundTextView.drawBackground` pattern), and
+   stop baking `.backgroundColor`/`.mkdnCommentID`. **Layout-passive; needs visual
+   verification in both themes.**
+3. **Hit-test / popover** read `Index.comments(containing:)` instead of the
+   `.mkdnCommentID` attribute.
+4. **Authoring** — `addComment` captures a selector → sidecar upsert (no markers);
+   menu gate uses `AnchorTape.normalizedRange`.
+5. **Comment-only update path** — sidecar change → re-resolve + redraw, no rebuild /
+   no `setAttributedString` (this is what removes the jump).
+6. **Delete v1** subsystem (inline markers, `CriticMarkupDocument`, `reanchorRange`,
+   `CommentRangeResolver`, baked-attribute highlighting, dual mutation) + their tests.
+7. **Orphan sidebar UI** — list orphaned comments (quote + body), allow delete.
+
+The research, format, semantics, and rendering sections below remain valid; ignore
+their "v1/v2" labels (there is now one format).
+
+---
+
+**Original design (proposed) — codex-reviewed GREEN**
 
 ## Why
 
