@@ -102,6 +102,15 @@ wrong for code):
   are case-significant too. When a tape consumer lands, decide whether to tag them
   verbatim; today they carry no code tag and there is no resolver yet.
 
+**Trim is a quote-normalization step, not a tape step.** The shared normalizer
+trims leading/trailing whitespace off the *extracted quote/prefix/suffix* at
+write and resolve time; the global tape only collapses + case-folds (trimming the
+whole tape would misalign block-boundary offsets). **Open (resolver-era):** the
+tape→builder map is contiguous, so a resolved span's endpoints absorb collapsed
+whitespace and excluded attachments that trail the last matched unit. If a
+consumer needs tight highlight edges, switch the map from one offset-per-unit to a
+per-unit (start, end) extent; not needed until a tape consumer lands.
+
 We do **not** reuse `SourceMap` directly — it's source-centric and skips synthetic
 text/attachments/math. v1 builds a new **rendered "anchor tape"**: a normalized
 rendered-text string + an index mapping normalized offsets → builder `NSRange`s (so

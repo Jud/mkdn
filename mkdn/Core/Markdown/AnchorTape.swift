@@ -32,9 +32,11 @@
         }
 
         /// The builder `NSRange` spanning a normalized UTF-16 range (end-exclusive),
-        /// or nil for an empty/out-of-bounds range. The result covers any source
-        /// characters collapsed away inside the span (e.g. a whitespace run
-        /// rendered as one normalized space).
+        /// or nil for an empty/out-of-bounds range. The range is contiguous in the
+        /// builder, so it covers any source characters that don't appear in the
+        /// normalized text inside the span — collapsed whitespace runs and excluded
+        /// attachment placeholders alike. A span ending at the last normalized unit
+        /// therefore extends through any collapsed/excluded source that trails it.
         func builderRange(forNormalized range: Range<Int>) -> NSRange? {
             guard range.lowerBound >= 0,
                   range.lowerBound < range.upperBound,
