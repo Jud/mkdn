@@ -122,7 +122,7 @@
                 )
             } else if coordinator.lastCommentRevision != commentRevision {
                 coordinator.lastCommentRevision = commentRevision
-                repaintCommentHighlights(textView: textView)
+                repaintCommentHighlights(coordinator: coordinator, textView: textView)
             }
 
             coordinator.handleFindUpdate(
@@ -263,10 +263,19 @@
         /// un-highlighted base and syncs only `.backgroundColor` + `.mkdnCommentID`
         /// onto the storage — an attribute-only edit that recreates no attachments,
         /// so the document doesn't relayout and the viewport doesn't jump.
-        private func repaintCommentHighlights(textView: CodeBlockBackgroundTextView) {
+        private func repaintCommentHighlights(
+            coordinator: Coordinator, textView: CodeBlockBackgroundTextView
+        ) {
             guard let storage = textView.textStorage,
                   storage.length == baseAttributedText.length
             else { return }
+
+            // The footnote pulse paints a transient `.backgroundColor` not present
+            // in the base and restores it from saved state on fade; cancel it
+            // cleanly first so the scoped sync below can't strip it and leave the
+            // pulse's restore writing a stale color back. (Find is handled upstream
+            // by falling back to a rebuild.)
+            coordinator.cancelFootnotePulse()
 
             let highlighted = NSMutableAttributedString(attributedString: baseAttributedText)
             if let document = criticDocument, !document.comments.isEmpty {

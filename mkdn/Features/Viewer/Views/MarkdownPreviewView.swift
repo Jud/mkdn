@@ -90,8 +90,13 @@
                 // A comment add/edit/delete changes the raw source but not the
                 // visible (transformed) text. Repaint highlights on the live
                 // storage instead of rebuilding — no setAttributedString, no
-                // attachment relayout, no scroll jump.
-                if document.transformedSource == lastTransformedSource {
+                // attachment relayout, no scroll jump. Fall back to a full rebuild
+                // while Find is open: find-match highlights share `.backgroundColor`
+                // with comments, live in the storage (not the cached base), and
+                // carry save/restore bookkeeping the scoped repaint would corrupt;
+                // the rebuild path re-applies them correctly.
+                if document.transformedSource == lastTransformedSource,
+                   !findState.isVisible {
                     criticDocument = document
                     commentRevision += 1
                     return
