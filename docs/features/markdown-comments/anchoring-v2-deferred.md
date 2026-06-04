@@ -14,6 +14,19 @@ clear items as they ship.
   without growing trailing blank lines across save cycles, and base the
   "stripped body unchanged?" rebuild-skip on the *parsed* body, not raw text.
 
+## From the draw + consumer swap
+
+- **Feature is non-functional in production until authoring is swapped.** The draw
+  resolves sidecar entries through `CommentAnchorResolver`, which orphans entries
+  with `norm == nil`. Authoring still writes v1 entries (via `CriticMarkup.wrapComment`,
+  no `norm`/normalized quote), so freshly-added and existing comments orphan and
+  don't draw. The **authoring swap unit** (capture → sidecar upsert with `norm`)
+  makes the feature work end-to-end; the draw is verified for resolved entries.
+- **Per-hover badge recompute (optimization).** Hover only changes the highlight
+  fill color, but `setHoveredComment` → `setNeedsDisplay` → `viewWillDraw` recomputes
+  all overlap clusters each time. Bounded/negligible for typical docs; gate the
+  badge refresh behind a "ranges changed" dirty flag if it ever matters.
+
 ## From unit 1 (AnchorTape)
 
 - **Monospaced non-code runs are normalized as prose.** The inline-math /
