@@ -78,6 +78,11 @@ enum CommentSidecar {
     /// those fields (the anchoring units), not merely because Entry can hold them.
     static let currentVersion = 1
 
+    /// TextQuote context kept on each side of the quote (prefix/suffix), in
+    /// characters. Shared by every capture path so the v1 (raw-source) and v2
+    /// (rendered-tape) windows can't drift apart. ~32 per W3C/Hypothes.is.
+    static let contextLength = 32
+
     static let blockOpen = "<!--mkdn-comments"
     static let blockClose = "-->"
 

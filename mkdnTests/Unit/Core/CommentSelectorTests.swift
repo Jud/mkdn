@@ -61,6 +61,20 @@
             #expect(CommentAnchorResolver.resolve(entry, in: t) == .resolved(secondApple))
         }
 
+        @Test("A selection ending inside a collapsed-whitespace run round-trips identically")
+        func roundTripTrailingCollapsedWhitespace() throws {
+            // No trim on either side, so a quote that pulls in a trailing collapsed
+            // space must still capture+resolve to the same builder span — the
+            // write/read symmetry the design hinges on.
+            let t = AnchorTape.build(from: NSAttributedString(string: "Hello   World"))
+            let selection = NSRange(location: 0, length: 8) // "Hello   " (5 + 3 spaces)
+            let selector = try #require(CommentSelectorCapture.capture(builderRange: selection, in: t))
+            #expect(selector.quote == "hello ")
+            var entry = CommentSidecar.Entry(id: "c", body: "b")
+            entry.setAnchor(selector)
+            #expect(CommentAnchorResolver.resolve(entry, in: t) == .resolved(selection))
+        }
+
         @Test("A captured code selector round-trips verbatim")
         func roundTripCode() throws {
             let indexed = IndexedBlock(index: 0, block: .codeBlock(language: "swift", code: "Let X = 1"))

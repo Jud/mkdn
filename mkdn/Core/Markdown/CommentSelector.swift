@@ -16,18 +16,15 @@
     }
 
     enum CommentSelectorCapture {
-        /// Normalized context characters kept on each side of the quote for
-        /// disambiguation (W3C/Hypothes.is use ~32).
-        static let contextLength = 32
-
         /// Capture a selector for a builder-space text selection against the
         /// rendered tape, or nil when the selection maps to no anchorable text
         /// (e.g. it lands entirely in excluded/collapsed source).
         static func capture(builderRange: NSRange, in tape: AnchorTape) -> CommentSelector? {
             guard let range = tape.normalizedRange(forBuilder: builderRange) else { return nil }
             let ns = tape.text as NSString
-            let prefixStart = max(0, range.lowerBound - contextLength)
-            let suffixEnd = min(ns.length, range.upperBound + contextLength)
+            let context = CommentSidecar.contextLength
+            let prefixStart = max(0, range.lowerBound - context)
+            let suffixEnd = min(ns.length, range.upperBound + context)
             return CommentSelector(
                 quote: ns.substring(with: NSRange(location: range.lowerBound, length: range.count)),
                 prefix: ns.substring(with: NSRange(location: prefixStart, length: range.lowerBound - prefixStart)),

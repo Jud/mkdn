@@ -496,10 +496,10 @@ enum CriticMarkup {
     private static func textQuote(for comment: CriticComment, in transformed: String) -> CommentSidecar.Entry {
         let highlight = comment.transformedHighlightRange
         let prefixStart = transformed.index(
-            highlight.lowerBound, offsetBy: -contextLength, limitedBy: transformed.startIndex
+            highlight.lowerBound, offsetBy: -CommentSidecar.contextLength, limitedBy: transformed.startIndex
         ) ?? transformed.startIndex
         let suffixEnd = transformed.index(
-            highlight.upperBound, offsetBy: contextLength, limitedBy: transformed.endIndex
+            highlight.upperBound, offsetBy: CommentSidecar.contextLength, limitedBy: transformed.endIndex
         ) ?? transformed.endIndex
         return CommentSidecar.Entry(
             id: comment.id,
@@ -643,9 +643,6 @@ enum CriticMarkup {
         }
         return id
     }
-
-    /// TextQuote context length kept on each side of the quote.
-    private static let contextLength = 32
 
     /// Insert or update `entry` in the document's sidecar block, creating the
     /// block at the end of the document if none exists yet.
