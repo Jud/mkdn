@@ -7,7 +7,7 @@
     /// orphans (sidebar) from one place. The single source the view layer queries,
     /// replacing the baked `.mkdnCommentID` attribute.
     struct ResolvedComments: Equatable {
-        let index: CommentAnchorResolver.Index
+        private let index: CommentAnchorResolver.Index
         private let entriesByID: [String: CommentSidecar.Entry]
 
         static func resolve(_ entries: [CommentSidecar.Entry], in tape: AnchorTape) -> ResolvedComments {
