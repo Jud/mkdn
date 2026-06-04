@@ -21,10 +21,10 @@
             }
         }
 
-        /// Toggle the comments covering a character range (a badge cluster's anchor),
-        /// resolved from the index.
-        func toggleComments(at range: NSRange) {
-            toggleComments(resolvedComments?.comments(containing: range.location) ?? [])
+        /// Toggle a badge cluster's comments by id — resolved from the index, since
+        /// no single offset lies inside every overlapping comment.
+        func toggleComments(ids: [String]) {
+            toggleComments(resolvedComments?.comments(ids: ids) ?? [])
         }
 
         /// Show the comment(s) covering a click as a hosted overlay near the span.
@@ -368,7 +368,7 @@
         override func mouseDown(with event: NSEvent) {
             let local = convert(event.locationInWindow, from: nil)
             if let badge = badge(at: local) {
-                textView?.toggleComments(at: badge.range)
+                textView?.toggleComments(ids: badge.ids)
             }
         }
 

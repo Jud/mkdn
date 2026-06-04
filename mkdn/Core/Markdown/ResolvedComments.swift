@@ -31,6 +31,17 @@
             }
         }
 
+        /// The resolved comments for the given ids, innermost (smallest span) first
+        /// — for opening an overlap cluster from its badge, where the ids are known
+        /// but no single offset lies inside them all.
+        func comments(ids: [String]) -> [(entry: CommentSidecar.Entry, range: NSRange)] {
+            ids.compactMap { id in
+                guard let range = index.ranges[id], let entry = entriesByID[id] else { return nil }
+                return (entry: entry, range: range)
+            }
+            .sorted { $0.range.length < $1.range.length }
+        }
+
         /// Entries whose anchor couldn't be located, for the orphan sidebar.
         var orphans: [CommentSidecar.Entry] {
             index.orphaned.compactMap { entriesByID[$0] }
