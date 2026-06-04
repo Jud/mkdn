@@ -14,9 +14,12 @@
         }
 
         private func entry(
-            quote: String, prefix: String = "", suffix: String = "", start: Int? = nil
+            id: String = "c", quote: String, prefix: String = "", suffix: String = "",
+            start: Int? = nil, norm: Int? = AnchorTape.normalizationVersion
         ) -> CommentSidecar.Entry {
-            CommentSidecar.Entry(id: "c", body: "b", quote: quote, prefix: prefix, suffix: suffix, start: start)
+            CommentSidecar.Entry(
+                id: id, body: "b", quote: quote, prefix: prefix, suffix: suffix, start: start, norm: norm
+            )
         }
 
         // MARK: - Single match
@@ -49,6 +52,13 @@
         func emptyQuote() {
             let result = CommentAnchorResolver.resolve(entry(quote: ""), in: tape("the quick brown fox"))
             #expect(result == .orphaned)
+        }
+
+        @Test("A selector from a different normalizer version orphans")
+        func normMismatchOrphans() {
+            let t = tape("the quick brown fox")
+            let stale = entry(quote: "quick brown", norm: AnchorTape.normalizationVersion + 1)
+            #expect(CommentAnchorResolver.resolve(stale, in: t) == .orphaned)
         }
 
         // MARK: - Duplicate quote disambiguation
@@ -85,6 +95,18 @@
             let t = tape("apple apple")
             let result = CommentAnchorResolver.resolve(entry(quote: "apple", start: 3), in: t)
             #expect(result == .orphaned)
+        }
+
+        // MARK: - Batch index
+
+        @Test("resolveAll keys resolved entries by id and lists orphans")
+        func resolveAllBuildsIndex() throws {
+            let t = tape("the quick brown fox")
+            let index = CommentAnchorResolver.resolveAll(
+                [entry(id: "a", quote: "quick brown"), entry(id: "b", quote: "missing")], in: t
+            )
+            #expect(index.ranges == ["a": NSRange(location: 4, length: 11)])
+            #expect(index.orphaned == ["b"])
         }
 
         // MARK: - Tape integration (normalization)

@@ -1,8 +1,7 @@
 #if os(macOS)
     import Foundation
 
-    /// Deterministically locates a v2 comment's anchor in the rendered
-    /// ``AnchorTape``.
+    /// Deterministically locates v2 comment anchors in the rendered ``AnchorTape``.
     ///
     /// The entry's `quote`/`prefix`/`suffix` are assumed already normalized by the
     /// same shared normalizer that built the tape, so resolution is exact-substring
@@ -15,7 +14,9 @@
     ///
     /// A comment is *about* specific text: if the quote can't be located uniquely we
     /// orphan rather than mis-place. (Fuzzy re-attachment through small edits is
-    /// deferred to v2.)
+    /// deferred to v2.) This is the v2 successor to the prose-only, hard-context
+    /// `CriticMarkup.reanchorRange`; the two differ deliberately (soft vs. hard
+    /// context, tape `unichar` space vs. transformed source) and should not be merged.
     enum CommentAnchorResolver {
         enum Resolution: Equatable {
             /// Builder `NSRange` in the source `NSAttributedString` the tape was built from.
@@ -23,11 +24,42 @@
             case orphaned
         }
 
+        /// The resolved-range index for a document: comment id → builder `NSRange`
+        /// for every entry that anchored, plus the ids that orphaned. This is the
+        /// single source for highlight drawing, hit-testing, and the overlap sweep.
+        struct Index: Equatable {
+            var ranges: [String: NSRange] = [:]
+            var orphaned: [String] = []
+        }
+
+        /// Resolve every entry against one tape, converting the tape text to its
+        /// UTF-16 search form once for the whole batch.
+        static func resolveAll(_ entries: [CommentSidecar.Entry], in tape: AnchorTape) -> Index {
+            let text = Array(tape.text.utf16)
+            var index = Index()
+            for entry in entries {
+                switch resolve(entry, text: text, tape: tape) {
+                case let .resolved(range): index.ranges[entry.id] = range
+                case .orphaned: index.orphaned.append(entry.id)
+                }
+            }
+            return index
+        }
+
         static func resolve(_ entry: CommentSidecar.Entry, in tape: AnchorTape) -> Resolution {
+            resolve(entry, text: Array(tape.text.utf16), tape: tape)
+        }
+
+        private static func resolve(
+            _ entry: CommentSidecar.Entry, text: [unichar], tape: AnchorTape
+        ) -> Resolution {
+            // A selector recorded under a different normalizer can't be trusted to
+            // exact-match this tape; orphan (surfaced in the sidebar) rather than
+            // silently mismatch. Re-anchoring across versions is deferred to v2.
+            guard entry.norm == AnchorTape.normalizationVersion else { return .orphaned }
             let quote = Array(entry.quote.utf16)
             guard !quote.isEmpty else { return .orphaned }
 
-            let text = Array(tape.text.utf16)
             let matches = occurrences(of: quote, in: text)
             guard let chosen = disambiguate(matches, entry: entry, text: text),
                   let builder = tape.builderRange(forNormalized: chosen)
@@ -40,8 +72,8 @@
         private static func disambiguate(
             _ matches: [Range<Int>], entry: CommentSidecar.Entry, text: [unichar]
         ) -> Range<Int>? {
-            guard matches.count != 1 else { return matches[0] }
-            guard matches.count > 1 else { return nil }
+            guard !matches.isEmpty else { return nil }
+            guard matches.count > 1 else { return matches[0] }
 
             let prefix = Array(entry.prefix.utf16)
             let suffix = Array(entry.suffix.utf16)
@@ -58,10 +90,9 @@
             // candidate. No hint, or two candidates equidistant from it, is a true
             // tie — orphan rather than guess.
             guard let hint = entry.start else { return nil }
-            let distances = winners.map { abs($0.lowerBound - hint) }
-            let nearest = distances.min()!
-            let tied = winners.indices.filter { distances[$0] == nearest }
-            return tied.count == 1 ? winners[tied[0]] : nil
+            let nearest = winners.map { abs($0.lowerBound - hint) }.min()!
+            let tied = winners.filter { abs($0.lowerBound - hint) == nearest }
+            return tied.count == 1 ? tied[0] : nil
         }
 
         /// All (possibly overlapping) start-aligned occurrences of `pattern` in `text`.
@@ -80,23 +111,11 @@
         }
 
         private static func commonPrefixLength(_ a: ArraySlice<unichar>, _ b: [unichar]) -> Int {
-            var n = 0
-            var ai = a.startIndex
-            while n < b.count, ai < a.endIndex, a[ai] == b[n] {
-                n += 1
-                ai = a.index(after: ai)
-            }
-            return n
+            zip(a, b).prefix { $0.0 == $0.1 }.count
         }
 
         private static func commonSuffixLength(_ a: ArraySlice<unichar>, _ b: [unichar]) -> Int {
-            var n = 0
-            var ai = a.endIndex
-            while n < b.count, ai > a.startIndex {
-                ai = a.index(before: ai)
-                if a[ai] == b[b.count - 1 - n] { n += 1 } else { break }
-            }
-            return n
+            zip(a.reversed(), b.reversed()).prefix { $0.0 == $0.1 }.count
         }
     }
 #endif

@@ -19,6 +19,12 @@
     ///
     /// v1 case-folding is ASCII-only (`A`–`Z`); non-ASCII case matches verbatim.
     struct AnchorTape: Equatable {
+        /// The version of the normalization scheme `build(from:)` applies. Stamped
+        /// onto a comment's selectors when they're recorded (`Entry.norm`) so a
+        /// later normalizer change can be detected: a selector recorded under a
+        /// different version can't be trusted to exact-match this tape.
+        static let normalizationVersion = 1
+
         let text: String
 
         /// `builderOffsets[i]` is the builder UTF-16 offset that normalized UTF-16
