@@ -53,22 +53,6 @@
             return nil
         }
 
-        /// The comment ids under `point` and the effective range of the run there,
-        /// or nil if no comment is present. Multiple ids mean overlapping comments;
-        /// the caller picks the innermost. The range is the attribute's
-        /// `effectiveRange`, used to anchor the popover near the click.
-        func commentInfo(at point: CGPoint) -> (ids: [String], range: NSRange)? {
-            guard let textStorage, let index = characterIndex(at: point) else { return nil }
-            var range = NSRange(location: 0, length: 0)
-            guard let ids = textStorage.attribute(
-                .mkdnCommentID, at: index, effectiveRange: &range
-            ) as? [String], !ids.isEmpty
-            else {
-                return nil
-            }
-            return (ids, range)
-        }
-
         /// The bounding rect (view coordinates) of a character range, for
         /// anchoring a popover. Unions the per-line text segments. Returns nil if
         /// the range has no laid-out geometry.

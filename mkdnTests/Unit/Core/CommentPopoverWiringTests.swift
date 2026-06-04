@@ -33,11 +33,12 @@
             return (view, document)
         }
 
-        @Test("Presents an overlay for a known comment id")
+        @Test("Presents an overlay for a resolved comment hit")
         func presentsForKnownComment() {
             let (view, _) = makeView(CommentFixture.doc("foo bar baz", comment: "bar"))
             let range = (view.string as NSString).range(of: "bar")
-            view.showComments(ids: ["c1"], range: range)
+            let entry = CommentSidecar.Entry(id: "c1", body: "note")
+            view.showComments([(entry: entry, range: range)])
             #expect(view.commentOverlay is NSHostingView<CommentPopoverView>)
             view.dismissCommentOverlay() // avoid an open overlay/monitor at teardown
         }
@@ -78,11 +79,10 @@
             }
         }
 
-        @Test("Does nothing for an unknown comment id")
-        func ignoresUnknownComment() {
+        @Test("Does nothing when there are no comment hits")
+        func ignoresNoHits() {
             let (view, _) = makeView(CommentFixture.doc("foo bar baz", comment: "bar"))
-            let range = (view.string as NSString).range(of: "bar")
-            view.showComments(ids: ["does-not-exist"], range: range)
+            view.showComments([])
             #expect(view.commentOverlay == nil)
         }
     }

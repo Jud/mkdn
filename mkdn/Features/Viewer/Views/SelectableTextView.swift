@@ -30,11 +30,10 @@
         let headingOffsets: [Int: Int]
         let criticDocument: CriticMarkupDocument?
         let commentSourceMap: SourceMap
-        /// The built text *without* comment highlights, used to re-derive them on
-        /// a comment-only change without a rebuild.
-        let baseAttributedText: NSAttributedString
-        /// Bumped by the preview when only comments changed; drives a live
-        /// highlight repaint instead of replacing the attributed string.
+        /// Comments resolved against the rendered text, drawn as a background fill.
+        let resolvedComments: ResolvedComments?
+        /// Bumped by the preview when only comments changed; swaps the resolved
+        /// index and redraws — no storage edit, so the viewport never jumps.
         let commentRevision: Int
         @Binding var isLoadingGateActive: Bool
 
@@ -80,6 +79,7 @@
             textView.printBlocks = blocks
             textView.criticDocument = criticDocument
             textView.commentSourceMap = commentSourceMap
+            textView.resolvedComments = resolvedComments
             textView.documentState = documentState
             textView.commentTheme = theme
 
@@ -112,6 +112,7 @@
             textView.printBlocks = blocks
             textView.criticDocument = criticDocument
             textView.commentSourceMap = commentSourceMap
+            textView.resolvedComments = resolvedComments
             textView.documentState = documentState
             textView.commentTheme = theme
 
@@ -258,70 +259,22 @@
             RenderCompletionSignal.shared.signalRenderComplete()
         }
 
-        /// Repaint comment highlights on the LIVE text storage for a comment-only
-        /// change (visible text unchanged). Re-derives highlights from the
-        /// un-highlighted base and syncs only `.backgroundColor` + `.mkdnCommentID`
-        /// onto the storage — an attribute-only edit that recreates no attachments,
-        /// so the document doesn't relayout and the viewport doesn't jump.
+        /// Apply a comment-only change (visible text unchanged) by swapping the
+        /// resolved-comment index and redrawing the viewport. No storage edit, so no
+        /// attachment re-estimation and no scroll jump — the whole point of drawing
+        /// comments instead of baking them.
         private func repaintCommentHighlights(
             coordinator: Coordinator, textView: CodeBlockBackgroundTextView
         ) {
-            guard let storage = textView.textStorage,
-                  storage.length == baseAttributedText.length
-            else { return }
-
-            // The footnote pulse and Find's dismissal fade both paint a transient
-            // `.backgroundColor` not present in the base and restore it from saved
-            // state, which would fight the scoped sync below (strip an added
-            // comment's tint, or restore a stale color over a deleted one where a
-            // find match overlapped). Tear both down cleanly first. (An *open* Find
-            // is handled upstream by falling back to a full rebuild.)
-            coordinator.cancelFootnotePulse()
-            coordinator.cancelFindHighlightFade(in: storage)
+            textView.resolvedComments = resolvedComments
             // The rebuild path clears hover emphasis before swapping; this path
-            // skips that, so clear it here or a hovered row stays unemphasized.
+            // skips that, so clear it here or a hovered row stays emphasized.
             textView.setHoveredComment(nil)
-
-            let highlighted = MarkdownTextStorageBuilder.highlighted(
-                base: baseAttributedText,
-                document: criticDocument,
-                sourceMap: commentSourceMap,
-                color: PlatformTypeConverter.color(from: theme.colors.commentHighlight)
-            )
-
-            // Only touch the ranges whose comment state actually changed (old
-            // highlighted ∪ new highlighted). Editing `.backgroundColor` over the
-            // whole document invalidates every fragment and re-estimates attachment
-            // heights — the very relayout/jump we're avoiding. Within each dirty
-            // range, sync both attributes from `highlighted` (base + comments), so
-            // a removed comment restores the base inline-code background underneath.
-            let full = NSRange(location: 0, length: storage.length)
-            var dirty: [NSRange] = []
-            storage.enumerateAttribute(.mkdnCommentID, in: full, options: []) { value, range, _ in
-                if value != nil { dirty.append(range) }
-            }
-            highlighted.enumerateAttribute(.mkdnCommentID, in: full, options: []) { value, range, _ in
-                if value != nil { dirty.append(range) }
-            }
-            guard !dirty.isEmpty else { return }
-
-            storage.beginEditing()
-            for range in dirty {
-                storage.removeAttribute(.backgroundColor, range: range)
-                storage.removeAttribute(.mkdnCommentID, range: range)
-                highlighted.enumerateAttribute(.backgroundColor, in: range, options: []) { value, sub, _ in
-                    if let value { storage.addAttribute(.backgroundColor, value: value, range: sub) }
-                }
-                highlighted.enumerateAttribute(.mkdnCommentID, in: range, options: []) { value, sub, _ in
-                    if let value { storage.addAttribute(.mkdnCommentID, value: value, range: sub) }
-                }
-            }
-            storage.endEditing()
-
             // The add-comment flow sets this expecting applyNewContent to consume
             // it; the comment-only path skips that pass, so clear it here.
             textView.keepCommentOverlayThroughRebuild = false
-            textView.needsDisplay = true
+            textView.setNeedsDisplay(textView.enclosingScrollView?.documentVisibleRect ?? textView.bounds)
+            textView.commentBadgeOverlay?.needsDisplay = true
             RenderCompletionSignal.shared.signalRenderComplete()
         }
 

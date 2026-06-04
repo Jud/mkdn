@@ -3,28 +3,41 @@
     import SwiftUI
 
     extension CodeBlockBackgroundTextView {
+        /// The comments under a view-coordinate point — innermost (smallest span)
+        /// first — resolved from the drawn-comment index rather than a baked
+        /// attribute. Empty when no comment covers the point.
+        func commentHits(at point: CGPoint) -> [(entry: CommentSidecar.Entry, range: NSRange)] {
+            guard let index = characterIndex(at: point) else { return [] }
+            return resolvedComments?.comments(containing: index) ?? []
+        }
+
         /// Open the given comments, or close them if that same set is already open
         /// (re-click toggle), shared by highlight clicks and badge clicks.
-        func toggleComments(ids: [String], range: NSRange) {
-            if Set(ids) == Set(openCommentIDs) {
+        func toggleComments(_ hits: [(entry: CommentSidecar.Entry, range: NSRange)]) {
+            if Set(hits.map(\.entry.id)) == Set(openCommentIDs) {
                 dismissCommentOverlay()
             } else {
-                showComments(ids: ids, range: range)
+                showComments(hits)
             }
+        }
+
+        /// Toggle the comments covering a character range (a badge cluster's anchor),
+        /// resolved from the index.
+        func toggleComments(at range: NSRange) {
+            toggleComments(resolvedComments?.comments(containing: range.location) ?? [])
         }
 
         /// Show the comment(s) covering a click as a hosted overlay near the span.
         /// Overlapping comments are stacked innermost-first; the whole box pops in.
-        func showComments(ids: [String], range: NSRange) {
+        func showComments(_ hits: [(entry: CommentSidecar.Entry, range: NSRange)]) {
             guard window != nil,
-                  let document = criticDocument,
                   let theme = commentTheme,
-                  let rect = boundingRect(forCharacterRange: range)
+                  let anchor = hits.first?.range,
+                  let rect = boundingRect(forCharacterRange: anchor)
             else {
                 return
             }
-            let comments = document.commentsInnermostFirst(among: ids)
-                .map { DisplayedComment(id: $0.id, body: $0.body) }
+            let comments = hits.map { DisplayedComment(id: $0.entry.id, body: $0.entry.body) }
             guard !comments.isEmpty else { return }
 
             let model = CommentOverlayModel()
@@ -44,44 +57,42 @@
 
         // MARK: - Overlap indicator
 
-        /// One count badge per contiguous cluster of overlapping comments, so a
-        /// reader can tell how many comments are there (clicking shows them
-        /// stacked). `enumerateAttribute` emits a new run wherever the covering id
-        /// set changes, so a staircase of overlaps (depth 2→3→2) arrives as several
-        /// abutting runs; merging them into one cluster avoids a row of badges
-        /// (`2 3 2`) across a single overlapping region. The count is the distinct
-        /// comments in the cluster — exactly what clicking the badge opens.
+        /// One count badge per cluster of overlapping comments, so a reader can tell
+        /// how many are there (clicking shows them stacked). Clusters are merged
+        /// from the resolved-range index; only clusters whose anchor character is in
+        /// the laid-out viewport get a badge, so an offscreen overlap never forces
+        /// layout (no `boundingRect` on unlaid text).
         func refreshCachedCommentOverlapBadges() {
-            guard let textStorage, !textStorage.string.isEmpty else {
+            guard let resolved = resolvedComments, !resolved.ranges.isEmpty,
+                  let layoutManager = textLayoutManager,
+                  let contentManager = layoutManager.textContentManager,
+                  let viewport = layoutManager.textViewportLayoutController.viewportRange
+            else {
                 cachedCommentOverlapBadges = []
                 return
             }
+            let docStart = contentManager.documentRange.location
+            let visibleStart = contentManager.offset(from: docStart, to: viewport.location)
+            let visibleEnd = contentManager.offset(from: docStart, to: viewport.endLocation)
+            let visibleRange = NSRange(location: visibleStart, length: max(0, visibleEnd - visibleStart))
+
             var clusters: [(range: NSRange, ids: [String])] = []
-            textStorage.enumerateAttribute(
-                .mkdnCommentID, in: NSRange(location: 0, length: textStorage.length)
-            ) { value, range, _ in
-                guard let ids = value as? [String], ids.count >= 2 else { return }
-                // Merge into the previous cluster only when the runs abut AND
-                // share a comment — i.e. one connected overlap region (a 2→3→2
-                // staircase). Two unrelated overlap pairs that merely touch stay
-                // separate badges.
-                let i = clusters.count - 1
-                if let last = clusters.last, NSMaxRange(last.range) == range.location,
-                   ids.contains(where: last.ids.contains) {
-                    clusters[i].range = NSUnionRange(last.range, range)
-                    clusters[i].ids += ids.filter { !last.ids.contains($0) }
+            for (id, range) in resolved.ranges.sorted(by: { $0.value.location < $1.value.location }) {
+                if let last = clusters.last, NSMaxRange(last.range) > range.location {
+                    clusters[clusters.count - 1].range = NSUnionRange(last.range, range)
+                    clusters[clusters.count - 1].ids.append(id)
                 } else {
-                    clusters.append((range, ids))
+                    clusters.append((range, [id]))
                 }
             }
             cachedCommentOverlapBadges = clusters.compactMap { cluster in
-                // Anchor the badge at the cluster's last character so it sits at the
-                // end of the overlapping text (a multi-line cluster's union rect
-                // would misplace it).
-                let endRange = NSRange(location: NSMaxRange(cluster.range) - 1, length: 1)
-                guard let rect = boundingRect(forCharacterRange: endRange) else { return nil }
-                // Scale the badge with the line height so it tracks the text size,
-                // and straddle the span's top-right corner.
+                guard cluster.ids.count >= 2 else { return nil }
+                // Anchor at the cluster's last character; skip (no badge) when it's
+                // offscreen so we never lay out unlaid text for a badge.
+                let endLocation = NSMaxRange(cluster.range) - 1
+                guard NSLocationInRange(endLocation, visibleRange),
+                      let rect = boundingRect(forCharacterRange: NSRange(location: endLocation, length: 1))
+                else { return nil }
                 let size = max(rect.height * Self.overlapBadgeLineFraction, Self.overlapBadgeMinDiameter)
                 let badgeRect = CGRect(
                     x: rect.maxX - size * 0.5, y: rect.minY - size * 0.5, width: size, height: size
@@ -220,33 +231,14 @@
 
         // MARK: - Hover-to-locate
 
-        /// Emphasize the hovered comment's span in the document so the reader sees
-        /// which text the row they're reading refers to. Restores the previous one.
+        /// Emphasize the hovered comment's span so the reader sees which text the
+        /// row they're reading refers to. A draw-state change (``hoveredCommentID``
+        /// drives the fill color in ``drawCommentHighlights(in:)``) — no storage
+        /// edit, so locating a comment never relayouts.
         func setHoveredComment(_ id: String?) {
             guard id != hoveredCommentID else { return }
-            if let previous = hoveredCommentID { paintCommentHighlight(previous, emphasized: false) }
             hoveredCommentID = id
-            if let id { paintCommentHighlight(id, emphasized: true) }
-        }
-
-        private func paintCommentHighlight(_ id: String, emphasized: Bool) {
-            guard let document = criticDocument, let sourceMap = commentSourceMap,
-                  let theme = commentTheme, let textStorage,
-                  let comment = document.commentsByID[id]
-            else {
-                return
-            }
-            let color = emphasized
-                ? PlatformTypeConverter.color(from: theme.colors.accent).withAlphaComponent(0.3)
-                : PlatformTypeConverter.color(from: theme.colors.commentHighlight)
-            // Reuse the build-time highlight mapping; hover only repaints the
-            // colour, never the comment-id list (it's transient).
-            let ranges = MarkdownTextStorageBuilder.highlightRanges(
-                for: comment, in: document, sourceMap: sourceMap, maxLength: textStorage.length
-            )
-            for nsRange in ranges {
-                textStorage.addAttribute(.backgroundColor, value: color, range: nsRange)
-            }
+            setNeedsDisplay(enclosingScrollView?.documentVisibleRect ?? bounds)
         }
 
         // MARK: - Dragging
@@ -376,7 +368,7 @@
         override func mouseDown(with event: NSEvent) {
             let local = convert(event.locationInWindow, from: nil)
             if let badge = badge(at: local) {
-                textView?.toggleComments(ids: badge.ids, range: badge.range)
+                textView?.toggleComments(at: badge.range)
             }
         }
 

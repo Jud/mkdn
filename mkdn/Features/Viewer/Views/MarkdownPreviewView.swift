@@ -35,10 +35,12 @@
         /// The CriticMarkup parse of the current content, cached so theme/scale
         /// re-renders can re-apply comment highlights without re-preprocessing.
         @State private var criticDocument: CriticMarkupDocument?
-        /// The built attributed string *before* comment highlights, so a
-        /// comment-only change can re-derive highlights without a rebuild.
-        @State private var baseAttributedString = NSAttributedString()
-        /// Bumped on a comment-only change to drive the live highlight repaint.
+        /// The rendered anchor tape for the current text, cached so a comment-only
+        /// change re-resolves selectors without rebuilding the text.
+        @State private var anchorTape: AnchorTape?
+        /// Comments resolved against `anchorTape`, drawn by the text view.
+        @State private var resolvedComments: ResolvedComments?
+        /// Bumped on a comment-only change to drive the live highlight redraw.
         @State private var commentRevision = 0
 
         var body: some View {
@@ -60,7 +62,7 @@
                 headingOffsets: textStorageResult.headingOffsets,
                 criticDocument: criticDocument,
                 commentSourceMap: textStorageResult.sourceMap,
-                baseAttributedText: baseAttributedString,
+                resolvedComments: resolvedComments,
                 commentRevision: commentRevision,
                 isLoadingGateActive: $docState.isLoadingGateActive
             )
@@ -94,6 +96,11 @@
                 if document.transformedSource == criticDocument?.transformedSource,
                    !findState.isVisible {
                     criticDocument = document
+                    if let tape = anchorTape {
+                        resolvedComments = ResolvedComments.resolve(
+                            CommentDocument.parse(documentState.markdownContent).entries, in: tape
+                        )
+                    }
                     commentRevision += 1
                     return
                 }
@@ -129,24 +136,13 @@
                 scaleFactor: appSettings.scaleFactor,
                 appSettings: appSettings
             )
-            baseAttributedString = result.attributedString
-            textStorageResult = applyingCommentHighlights(to: result)
+            textStorageResult = result
+            let tape = AnchorTape.build(from: result.attributedString)
+            anchorTape = tape
+            resolvedComments = ResolvedComments.resolve(
+                CommentDocument.parse(documentState.markdownContent).entries, in: tape
+            )
             outlineState.updateHeadings(from: newBlocks)
-        }
-
-        private func applyingCommentHighlights(to result: TextStorageResult) -> TextStorageResult {
-            let mutable = MarkdownTextStorageBuilder.highlighted(
-                base: result.attributedString,
-                document: criticDocument,
-                sourceMap: result.sourceMap,
-                color: PlatformTypeConverter.color(from: appSettings.theme.colors.commentHighlight)
-            )
-            return TextStorageResult(
-                attributedString: mutable,
-                attachments: result.attachments,
-                headingOffsets: result.headingOffsets,
-                sourceMap: result.sourceMap
-            )
         }
     }
 #endif

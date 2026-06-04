@@ -35,8 +35,8 @@
                 // A commented link opens its comment (in openCommentPopoverIfNeeded,
                 // after super.mouseDown) rather than navigating — suppress the
                 // navigation here so the two don't both fire on one click.
-                if let storage = textView.textStorage, charIndex < storage.length,
-                   storage.attribute(.mkdnCommentID, at: charIndex, effectiveRange: nil) != nil {
+                if let codeView = textView as? CodeBlockBackgroundTextView,
+                   codeView.resolvedComments?.comments(containing: charIndex).isEmpty == false {
                     return true
                 }
 

@@ -190,11 +190,12 @@
             else {
                 return
             }
-            guard let info = commentInfo(at: point) else {
+            let hits = commentHits(at: point)
+            guard !hits.isEmpty else {
                 dismissCommentOverlay() // a plain-text click closes any open comment
                 return
             }
-            toggleComments(ids: info.ids, range: info.range)
+            toggleComments(hits)
         }
 
         override func menu(for event: NSEvent) -> NSMenu? {
@@ -233,7 +234,7 @@
             if commentOverlay?.frame.contains(point) == true { return nil }
             if isOverOverlapBadge(point) { return .pointingHand }
             if isOverEmptyTextArea(point) { return .arrow }
-            if isOverLink(at: point) || commentInfo(at: point) != nil { return .pointingHand }
+            if isOverLink(at: point) || !commentHits(at: point).isEmpty { return .pointingHand }
             return .iBeam
         }
 

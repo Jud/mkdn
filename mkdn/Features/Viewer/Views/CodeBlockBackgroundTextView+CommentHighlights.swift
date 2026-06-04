@@ -32,13 +32,18 @@
             let visibleRange = NSRange(location: visibleLocation, length: visibleEnd - visibleLocation)
 
             let origin = textContainerOrigin
-            PlatformTypeConverter.color(from: theme.colors.commentHighlight).setFill()
+            let base = PlatformTypeConverter.color(from: theme.colors.commentHighlight)
+            // Hover emphasis is a draw-state change (a brighter fill for the hovered
+            // comment), not a storage edit — so locating a comment from its sidebar
+            // row never relayouts.
+            let emphasis = PlatformTypeConverter.color(from: theme.colors.accent).withAlphaComponent(0.3)
 
-            for range in resolved.ranges.values {
+            for (id, range) in resolved.ranges {
                 let clipped = NSIntersectionRange(range, visibleRange)
                 guard clipped.length > 0,
                       let textRange = textRange(from: clipped, contentManager: contentManager)
                 else { continue }
+                (id == hoveredCommentID ? emphasis : base).setFill()
                 layoutManager.enumerateTextSegments(
                     in: textRange, type: .highlight, options: [.rangeNotRequired]
                 ) { _, segmentFrame, _, _ in
