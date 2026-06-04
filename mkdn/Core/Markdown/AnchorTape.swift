@@ -61,9 +61,18 @@
         /// selection or one that maps to no normalized units.
         func normalizedRange(forBuilder range: NSRange) -> Range<Int>? {
             guard range.location >= 0, range.length > 0 else { return nil }
-            let lo = normalizedLowerBound(builderOffset: range.location)
-            let hi = normalizedLowerBound(builderOffset: range.location + range.length)
+            var lo = normalizedLowerBound(builderOffset: range.location)
+            var hi = normalizedLowerBound(builderOffset: range.location + range.length)
             guard lo < hi, hi <= builderOffsets.count - 1 else { return nil }
+            // Never split a surrogate pair: a boundary that lands between the high
+            // and low halves of an astral character expands outward to keep the
+            // pair whole, so the captured quote is valid Unicode (not a U+FFFD that
+            // would never match the resolver's intact-surrogate search). TextKit
+            // selections are grapheme-aligned, but this is a pure function over an
+            // arbitrary NSRange.
+            let units = text as NSString
+            if lo > 0, UTF16.isTrailSurrogate(units.character(at: lo)) { lo -= 1 }
+            if hi < units.length, UTF16.isLeadSurrogate(units.character(at: hi - 1)) { hi += 1 }
             return lo ..< hi
         }
 

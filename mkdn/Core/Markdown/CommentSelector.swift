@@ -23,8 +23,13 @@
             guard let range = tape.normalizedRange(forBuilder: builderRange) else { return nil }
             let ns = tape.text as NSString
             let context = CommentSidecar.contextLength
-            let prefixStart = max(0, range.lowerBound - context)
-            let suffixEnd = min(ns.length, range.upperBound + context)
+            var prefixStart = max(0, range.lowerBound - context)
+            var suffixEnd = min(ns.length, range.upperBound + context)
+            // Keep the context windows valid Unicode: if a window edge lands inside
+            // a surrogate pair, shrink it to drop the orphaned half (context is soft,
+            // so trimming one boundary char is harmless).
+            if prefixStart > 0, UTF16.isTrailSurrogate(ns.character(at: prefixStart)) { prefixStart += 1 }
+            if suffixEnd < ns.length, UTF16.isLeadSurrogate(ns.character(at: suffixEnd - 1)) { suffixEnd -= 1 }
             return CommentSelector(
                 quote: ns.substring(with: NSRange(location: range.lowerBound, length: range.count)),
                 prefix: ns.substring(with: NSRange(location: prefixStart, length: range.lowerBound - prefixStart)),

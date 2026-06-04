@@ -10,6 +10,13 @@
             AnchorTape.build(from: NSAttributedString(string: text))
         }
 
+        /// A comment entry carrying `selector`'s captured anchor.
+        private func anchored(_ selector: CommentSelector) -> CommentSidecar.Entry {
+            var entry = CommentSidecar.Entry(id: "c", body: "b")
+            entry.setAnchor(selector)
+            return entry
+        }
+
         @Test("Capture records the normalized quote, context, and offsets")
         func capturesFields() throws {
             let t = tape("the quick brown fox")
@@ -46,9 +53,7 @@
             let t = tape("the quick brown fox")
             let builderRange = NSRange(location: 4, length: 11)
             let selector = try #require(CommentSelectorCapture.capture(builderRange: builderRange, in: t))
-            var entry = CommentSidecar.Entry(id: "c", body: "b")
-            entry.setAnchor(selector)
-            #expect(CommentAnchorResolver.resolve(entry, in: t) == .resolved(builderRange))
+            #expect(CommentAnchorResolver.resolve(anchored(selector), in: t) == .resolved(builderRange))
         }
 
         @Test("A captured selector disambiguates a duplicate quote via context + hint")
@@ -56,9 +61,7 @@
             let t = tape("red apple and green apple")
             let secondApple = NSRange(location: 20, length: 5)
             let selector = try #require(CommentSelectorCapture.capture(builderRange: secondApple, in: t))
-            var entry = CommentSidecar.Entry(id: "c", body: "b")
-            entry.setAnchor(selector)
-            #expect(CommentAnchorResolver.resolve(entry, in: t) == .resolved(secondApple))
+            #expect(CommentAnchorResolver.resolve(anchored(selector), in: t) == .resolved(secondApple))
         }
 
         @Test("A selection ending inside a collapsed-whitespace run round-trips identically")
@@ -70,9 +73,23 @@
             let selection = NSRange(location: 0, length: 8) // "Hello   " (5 + 3 spaces)
             let selector = try #require(CommentSelectorCapture.capture(builderRange: selection, in: t))
             #expect(selector.quote == "hello ")
-            var entry = CommentSidecar.Entry(id: "c", body: "b")
-            entry.setAnchor(selector)
-            #expect(CommentAnchorResolver.resolve(entry, in: t) == .resolved(selection))
+            #expect(CommentAnchorResolver.resolve(anchored(selector), in: t) == .resolved(selection))
+        }
+
+        @Test("A selection splitting a surrogate pair snaps to keep the astral char whole")
+        func surrogatePairNotSplit() throws {
+            let t = tape("a😀b") // UTF-16: a, D83D, DE00, b
+            // Selection ends between the emoji's high and low halves; must snap out
+            // to include the whole emoji rather than capturing a lone surrogate.
+            let endSplit = try #require(CommentSelectorCapture.capture(builderRange: NSRange(location: 0, length: 2), in: t))
+            #expect(endSplit.quote == "a😀")
+            #expect(!endSplit.quote.unicodeScalars.contains("\u{FFFD}"))
+            #expect(CommentAnchorResolver.resolve(anchored(endSplit), in: t) == .resolved(NSRange(location: 0, length: 3)))
+
+            // Selection starts on the emoji's low half; must snap back to its high half.
+            let startSplit = try #require(CommentSelectorCapture.capture(builderRange: NSRange(location: 2, length: 2), in: t))
+            #expect(startSplit.quote == "😀b")
+            #expect(CommentAnchorResolver.resolve(anchored(startSplit), in: t) == .resolved(NSRange(location: 1, length: 3)))
         }
 
         @Test("A captured code selector round-trips verbatim")
@@ -83,9 +100,7 @@
             let codeRange = (built.attributedString.string as NSString).range(of: "Let X = 1")
             let selector = try #require(CommentSelectorCapture.capture(builderRange: codeRange, in: t))
             #expect(selector.quote == "Let X = 1") // case preserved
-            var entry = CommentSidecar.Entry(id: "c", body: "b")
-            entry.setAnchor(selector)
-            #expect(CommentAnchorResolver.resolve(entry, in: t) == .resolved(codeRange))
+            #expect(CommentAnchorResolver.resolve(anchored(selector), in: t) == .resolved(codeRange))
         }
     }
 #endif

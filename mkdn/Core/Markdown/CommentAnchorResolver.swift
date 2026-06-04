@@ -27,6 +27,10 @@
         /// The resolved-range index for a document: comment id → builder `NSRange`
         /// for every entry that anchored, plus the ids that orphaned. This is the
         /// single source for highlight drawing, hit-testing, and the overlap sweep.
+        ///
+        /// `ranges` is an unordered map: consumers that need painting/stacking order
+        /// (e.g. the overlap sweep's "smallest span first") must sort the values
+        /// themselves; iteration order is not meaningful.
         struct Index: Equatable {
             var ranges: [String: NSRange] = [:]
             var orphaned: [String] = []
