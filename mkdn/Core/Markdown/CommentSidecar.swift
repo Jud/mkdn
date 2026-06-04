@@ -72,10 +72,11 @@ enum CommentSidecar {
         // absent strings to "".
     }
 
-    /// The schema version written into the block. Bumped for a breaking shape
-    /// change; absent-by-default additions (the v2 start/end/norm fields) stay
-    /// readable as `v:1`, so the writer bumps to 2 only when it starts emitting
-    /// those fields (the anchoring units), not merely because Entry can hold them.
+    /// The sidecar format version, written into the block. There is one comment
+    /// format: the writer always emits the content-anchor fields
+    /// (quote/prefix/suffix/start/end/norm). Resolution gates on `norm`, not this
+    /// version, so nothing branches on it — it's a marker, pinned at 1. A legacy
+    /// entry lacking `norm` simply orphans on resolve.
     static let currentVersion = 1
 
     /// TextQuote context kept on each side of the quote (prefix/suffix), in

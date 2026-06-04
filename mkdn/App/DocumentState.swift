@@ -139,14 +139,12 @@
         @discardableResult
         public func editComment(id: String, newBody: String) -> Bool {
             guard let decoded = CommentSidecar.decode(from: markdownContent),
-                  decoded.entries.contains(where: { $0.id == id })
+                  let index = decoded.entries.firstIndex(where: { $0.id == id })
             else {
                 return false
             }
             var entries = decoded.entries
-            for index in entries.indices where entries[index].id == id {
-                entries[index].body = newBody
-            }
+            entries[index].body = newBody
             var updated = markdownContent
             updated.replaceSubrange(decoded.blockRange, with: CommentSidecar.encode(entries))
             markdownContent = updated
