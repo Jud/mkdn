@@ -61,8 +61,10 @@
         /// selection or one that maps to no normalized units.
         func normalizedRange(forBuilder range: NSRange) -> Range<Int>? {
             guard range.location >= 0, range.length > 0 else { return nil }
+            let (builderEnd, overflow) = range.location.addingReportingOverflow(range.length)
+            guard !overflow else { return nil } // e.g. NSNotFound (Int.max) selection
             var lo = normalizedLowerBound(builderOffset: range.location)
-            var hi = normalizedLowerBound(builderOffset: range.location + range.length)
+            var hi = normalizedLowerBound(builderOffset: builderEnd)
             guard lo < hi, hi <= builderOffsets.count - 1 else { return nil }
             // Never split a surrogate pair: a boundary that lands between the high
             // and low halves of an astral character expands outward to keep the

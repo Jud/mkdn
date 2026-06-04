@@ -93,6 +93,7 @@
         let tape = AnchorTape.build(from: NSAttributedString(string: "abc"))
         #expect(tape.normalizedRange(forBuilder: NSRange(location: 1, length: 0)) == nil)
         #expect(tape.normalizedRange(forBuilder: NSRange(location: 5, length: 2)) == nil)
+        #expect(tape.normalizedRange(forBuilder: NSRange(location: NSNotFound, length: 1)) == nil) // no overflow trap
     }
 
     // MARK: - Edges
