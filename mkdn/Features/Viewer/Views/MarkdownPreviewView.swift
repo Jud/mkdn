@@ -35,6 +35,16 @@
         /// The CriticMarkup parse of the current content, cached so theme/scale
         /// re-renders can re-apply comment highlights without re-preprocessing.
         @State private var criticDocument: CriticMarkupDocument?
+        /// The built attributed string *before* comment highlights, so a
+        /// comment-only change can re-derive highlights without a rebuild.
+        @State private var baseAttributedString = NSAttributedString()
+        /// The transformed (visible) source of the last full build. When a content
+        /// change leaves it identical — a comment add/edit/delete — we repaint
+        /// highlights on the live storage instead of rebuilding (avoids the
+        /// attachment-relayout scroll jump).
+        @State private var lastTransformedSource: String?
+        /// Bumped on a comment-only change to drive the live highlight repaint.
+        @State private var commentRevision = 0
 
         var body: some View {
             @Bindable var docState = documentState
@@ -55,6 +65,8 @@
                 headingOffsets: textStorageResult.headingOffsets,
                 criticDocument: criticDocument,
                 commentSourceMap: textStorageResult.sourceMap,
+                baseAttributedText: baseAttributedString,
+                commentRevision: commentRevision,
                 isLoadingGateActive: $docState.isLoadingGateActive
             )
             // Changing this identity tears down and recreates the text view's
@@ -74,6 +86,17 @@
                 // Strip CriticMarkup before rendering so comment delimiters never
                 // reach the screen; the parse is cached for highlight application.
                 let document = CriticMarkup.preprocess(documentState.markdownContent)
+
+                // A comment add/edit/delete changes the raw source but not the
+                // visible (transformed) text. Repaint highlights on the live
+                // storage instead of rebuilding — no setAttributedString, no
+                // attachment relayout, no scroll jump.
+                if document.transformedSource == lastTransformedSource {
+                    criticDocument = document
+                    commentRevision += 1
+                    return
+                }
+
                 criticDocument = document
                 let newBlocks = MarkdownRenderer.render(
                     text: document.transformedSource,
@@ -105,6 +128,8 @@
                 scaleFactor: appSettings.scaleFactor,
                 appSettings: appSettings
             )
+            baseAttributedString = result.attributedString
+            lastTransformedSource = criticDocument?.transformedSource
             textStorageResult = applyingCommentHighlights(to: result)
             outlineState.updateHeadings(from: newBlocks)
         }

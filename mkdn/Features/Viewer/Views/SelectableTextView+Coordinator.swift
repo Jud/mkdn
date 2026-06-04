@@ -15,6 +15,7 @@
             let overlayCoordinator = OverlayCoordinator()
             let gate = EntranceGate()
             var lastAppliedText: NSAttributedString?
+            var lastCommentRevision = 0
             var headingOffsets: [Int: Int] = [:]
             var lastScrolledTarget: Int?
             private var headingDotView: NSView?

@@ -23,6 +23,8 @@
                 await handleReloadFile()
             case .recreateView:
                 await handleRecreateView()
+            case let .addComment(substring, body):
+                await handleAddComment(substring: substring, body: body)
             case .captureWindow, .captureRegion,
                  .startFrameCapture, .stopFrameCapture,
                  .beginFrameCapture, .endFrameCapture:
@@ -116,6 +118,26 @@
                 return .ok(message: "Document view recreated")
             }
             return .ok(message: "No markdown preview to recreate")
+        }
+
+        private static func handleAddComment(
+            substring: String, body: String
+        ) async -> HarnessResponse {
+            guard let docState = documentState else {
+                return .error("No document state available")
+            }
+            let content = docState.markdownContent
+            guard let r = content.range(of: substring) else {
+                return .error("Substring not found: \(substring)")
+            }
+            let signal = RenderCompletionSignal.shared
+            signal.prepareForRender()
+            guard docState.addComment(in: r, of: content, body: body) != nil else {
+                signal.cancelPrepare()
+                return .error("addComment rejected")
+            }
+            try? await signal.awaitPreparedRender(timeout: .seconds(5))
+            return .ok(message: "Comment added over: \(substring)")
         }
 
         // MARK: - Mode Commands

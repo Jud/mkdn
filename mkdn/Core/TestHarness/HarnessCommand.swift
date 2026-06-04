@@ -107,6 +107,11 @@
         /// relaunching. Only has an effect when a markdown preview is visible.
         case recreateView
 
+        /// Add a comment over the first occurrence of `substring` in the current
+        /// markdown content (test harness only — exercises the comment-save
+        /// rebuild path without simulating a text selection + menu).
+        case addComment(substring: String, body: String)
+
         /// Connectivity check. The server responds with `pong`.
         case ping
 
