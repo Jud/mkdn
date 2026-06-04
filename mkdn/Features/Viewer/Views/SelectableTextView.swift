@@ -28,8 +28,6 @@
         let findState: FindState
         let outlineState: OutlineState
         let headingOffsets: [Int: Int]
-        let criticDocument: CriticMarkupDocument?
-        let commentSourceMap: SourceMap
         /// Comments resolved against the rendered text, drawn as a background fill.
         let resolvedComments: ResolvedComments?
         /// The rendered anchor tape, for capturing a selector when authoring.
@@ -79,8 +77,6 @@
             applyTheme(to: textView, scrollView: scrollView)
             textView.findState = findState
             textView.printBlocks = blocks
-            textView.criticDocument = criticDocument
-            textView.commentSourceMap = commentSourceMap
             textView.resolvedComments = resolvedComments
             textView.anchorTape = anchorTape
             textView.documentState = documentState
@@ -113,8 +109,6 @@
             applyTheme(to: textView, scrollView: scrollView)
             textView.findState = findState
             textView.printBlocks = blocks
-            textView.criticDocument = criticDocument
-            textView.commentSourceMap = commentSourceMap
             textView.resolvedComments = resolvedComments
             textView.anchorTape = anchorTape
             textView.documentState = documentState

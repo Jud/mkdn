@@ -83,8 +83,6 @@
 
         // MARK: - Comment State
 
-        var criticDocument: CriticMarkupDocument?
-        var commentSourceMap: SourceMap?
         /// Comments resolved against the rendered text, drawn as a background fill
         /// (see ``drawCommentHighlights(in:)``) and queried for hit-testing.
         var resolvedComments: ResolvedComments?

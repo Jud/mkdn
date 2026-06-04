@@ -60,8 +60,6 @@
                 findState: findState,
                 outlineState: outlineState,
                 headingOffsets: textStorageResult.headingOffsets,
-                criticDocument: criticDocument,
-                commentSourceMap: textStorageResult.sourceMap,
                 resolvedComments: resolvedComments,
                 anchorTape: anchorTape,
                 commentRevision: commentRevision,
