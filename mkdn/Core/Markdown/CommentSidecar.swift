@@ -160,6 +160,65 @@ enum CommentSidecar {
         }
     }
 
+    // MARK: - Authoring
+
+    /// A short random base-36 id (anchor-attribute safe: no quotes/`<>`/spaces).
+    static func randomID() -> String {
+        let alphabet = Array("abcdefghijklmnopqrstuvwxyz0123456789")
+        return String((0 ..< 5).map { _ in alphabet.randomElement()! })
+    }
+
+    /// An id not already used by an entry in `raw`.
+    static func uniqueID(in raw: String) -> String {
+        let used = Set(decode(from: raw)?.entries.map(\.id) ?? [])
+        for _ in 0 ..< 100 {
+            let id = randomID()
+            if !used.contains(id) { return id }
+        }
+        let base = randomID()
+        var suffix = 1
+        var id = base
+        while used.contains(id) {
+            id = "\(base)\(suffix)"
+            suffix += 1
+        }
+        return id
+    }
+
+    /// Insert or replace `entry` (by id) in `raw`'s sidecar block, creating the
+    /// block at the end of the document if none exists yet.
+    static func upsert(_ entry: Entry, into raw: String) -> String {
+        guard let decoded = decode(from: raw) else {
+            var trimmed = raw
+            while let last = trimmed.last, last.isNewline { trimmed.removeLast() }
+            let separator = trimmed.isEmpty ? "" : "\n\n"
+            return trimmed + separator + encode([entry]) + "\n"
+        }
+        var entries = decoded.entries.filter { $0.id != entry.id }
+        entries.append(entry)
+        var result = raw
+        result.replaceSubrange(decoded.blockRange, with: encode(entries))
+        return result
+    }
+
+    /// Remove the entry with `id` (no-op if absent), removing the block and its
+    /// trailing blank line when no entries remain. Removes orphaned entries too.
+    static func remove(id: String, from raw: String) -> String {
+        guard let decoded = decode(from: raw) else { return raw }
+        let entries = decoded.entries.filter { $0.id != id }
+        guard entries.count != decoded.entries.count else { return raw }
+        var result = raw
+        guard !entries.isEmpty else {
+            result.removeSubrange(decoded.blockRange)
+            // Trim only trailing newlines (the separator), never spaces (a hard break).
+            while let last = result.last, last.isNewline { result.removeLast() }
+            if !result.isEmpty { result.append("\n") }
+            return result
+        }
+        result.replaceSubrange(decoded.blockRange, with: encode(entries))
+        return result
+    }
+
     // MARK: - `-->`-safe escaping
 
     /// Replace every `>` and `-` with their JSON `\uXXXX` escapes so the encoded

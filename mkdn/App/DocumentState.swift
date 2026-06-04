@@ -120,48 +120,46 @@
 
         // MARK: - Comments
 
-        /// Wrap a raw-source range as a CriticMarkup comment. `rawRange` indexes
-        /// `source`; the wrap is rejected if `source` no longer equals
-        /// `markdownContent` (a reload/edit changed it between selection and
-        /// submit), since the index would then be foreign. Updates the content
-        /// (re-renders, marks dirty); persistence is the normal save flow — it is
-        /// NOT auto-saved, so it never commits unrelated editor edits. Returns the
-        /// new comment's id (so the caller can reveal it), or nil on any reject.
+        /// Add a comment anchored by content: store `selector` (a normalized
+        /// quote + context captured against the rendered text) and `body` in the
+        /// EOF sidecar, no inline markers. Updates the content (re-renders, marks
+        /// dirty); persistence is the normal save flow (not auto-saved). Returns
+        /// the new comment's id so the caller can reveal it.
         @discardableResult
-        public func addComment(in rawRange: Range<String.Index>, of source: String, body: String) -> String? {
-            guard source.utf8.elementsEqual(markdownContent.utf8) else { return nil } // exact, not canonical
-            guard let wrapped = CriticMarkup.wrapComment(in: markdownContent, range: rawRange, body: body)
-            else {
-                return nil
-            }
-            markdownContent = wrapped.source
-            return wrapped.id
+        public func addComment(_ selector: CommentSelector, body: String) -> String {
+            let id = CommentSidecar.uniqueID(in: markdownContent)
+            var entry = CommentSidecar.Entry(id: id, body: body)
+            entry.setAnchor(selector)
+            markdownContent = CommentSidecar.upsert(entry, into: markdownContent)
+            return id
         }
 
-        /// Rewrite a comment's body, looked up by id. `source` is the content the
-        /// id was resolved against; rejected if it no longer equals
-        /// `markdownContent` so a re-keyed id can't edit the wrong comment.
+        /// Rewrite a comment's body in the sidecar, looked up by id. False if no
+        /// entry has that id.
         @discardableResult
-        public func editComment(id: String, of source: String, newBody: String) -> Bool {
-            guard source.utf8.elementsEqual(markdownContent.utf8), // exact, not canonical, equality
-                  let updated = CriticMarkup.editComment(in: markdownContent, id: id, newBody: newBody)
+        public func editComment(id: String, newBody: String) -> Bool {
+            guard let decoded = CommentSidecar.decode(from: markdownContent),
+                  decoded.entries.contains(where: { $0.id == id })
             else {
                 return false
             }
+            var entries = decoded.entries
+            for index in entries.indices where entries[index].id == id {
+                entries[index].body = newBody
+            }
+            var updated = markdownContent
+            updated.replaceSubrange(decoded.blockRange, with: CommentSidecar.encode(entries))
             markdownContent = updated
             return true
         }
 
-        /// Remove a comment (resolve), looked up by id. `source` guards against a
-        /// re-keyed id deleting the wrong comment (see `editComment`).
+        /// Delete a comment's sidecar entry by id (works even when the comment is
+        /// orphaned). False if no entry has that id.
         @discardableResult
-        public func deleteComment(id: String, of source: String) -> Bool {
-            guard source.utf8.elementsEqual(markdownContent.utf8), // exact, not canonical, equality
-                  CriticMarkup.preprocess(markdownContent).commentsByID[id] != nil
-            else {
-                return false
-            }
-            markdownContent = CriticMarkup.deleteComment(in: markdownContent, id: id)
+        public func deleteComment(id: String) -> Bool {
+            let updated = CommentSidecar.remove(id: id, from: markdownContent)
+            guard updated != markdownContent else { return false }
+            markdownContent = updated
             return true
         }
 

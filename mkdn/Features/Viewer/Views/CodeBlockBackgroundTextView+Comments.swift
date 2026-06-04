@@ -152,31 +152,41 @@
 
         // MARK: - Authoring
 
-        /// The raw-source range for the current selection, if it maps to source
-        /// text (nil for an empty selection or one that can't be mapped). A
-        /// selection inside or across existing comments is allowed — v3 supports
-        /// nesting/overlap, so wrapping it adds another comment.
-        func commentableSelectionRange() -> Range<String.Index>? {
+        /// The current selection if it can be commented: non-empty, mappable to a
+        /// normalized tape range, and free of attachments (tables/math/images are
+        /// not yet anchorable). nil otherwise. A selection inside or across existing
+        /// comments is allowed — overlap adds another comment.
+        func commentableSelection() -> NSRange? {
             let selection = selectedRange()
             guard selection.length > 0,
-                  let document = criticDocument,
-                  let sourceMap = commentSourceMap
+                  let tape = anchorTape,
+                  tape.normalizedRange(forBuilder: selection) != nil,
+                  !selectionContainsAttachment(selection)
             else {
                 return nil
             }
-            return CommentRangeResolver(document: document, sourceMap: sourceMap)
-                .rawRange(forBuilderRange: selection)
+            return selection
         }
 
-        /// Present the add-comment input over the current selection. The raw range
-        /// is captured now (valid against the rendered document); on submit it's
-        /// applied to the live content via DocumentState.
+        private func selectionContainsAttachment(_ range: NSRange) -> Bool {
+            guard let textStorage else { return false }
+            var found = false
+            textStorage.enumerateAttribute(.attachment, in: range, options: []) { value, _, stop in
+                if value != nil { found = true; stop.pointee = true }
+            }
+            return found
+        }
+
+        /// Present the add-comment input over the current selection. The selector
+        /// is captured now (against the rendered text); on submit it's stored in
+        /// the sidecar via DocumentState — no inline markers.
         @objc func addCommentToSelection(_: Any?) {
-            guard let rawRange = commentableSelectionRange(),
-                  let source = criticDocument?.rawSource,
+            guard let selection = commentableSelection(),
+                  let tape = anchorTape,
+                  let selector = CommentSelectorCapture.capture(builderRange: selection, in: tape),
                   let theme = commentTheme,
                   let documentState,
-                  let rect = boundingRect(forCharacterRange: selectedRange())
+                  let rect = boundingRect(forCharacterRange: selection)
             else {
                 return
             }
@@ -185,7 +195,7 @@
                 model: model,
                 theme: theme,
                 documentState: documentState,
-                addComment: { body in documentState.addComment(in: rawRange, of: source, body: body) },
+                addComment: { body in documentState.addComment(selector, body: body) },
                 onClose: { [weak self] in self?.dismissCommentOverlay() },
                 onAdded: { [weak self] id in
                     // The box morphs in place to show the new comment; keep it

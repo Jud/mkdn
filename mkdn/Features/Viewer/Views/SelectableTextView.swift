@@ -32,6 +32,8 @@
         let commentSourceMap: SourceMap
         /// Comments resolved against the rendered text, drawn as a background fill.
         let resolvedComments: ResolvedComments?
+        /// The rendered anchor tape, for capturing a selector when authoring.
+        let anchorTape: AnchorTape?
         /// Bumped by the preview when only comments changed; swaps the resolved
         /// index and redraws — no storage edit, so the viewport never jumps.
         let commentRevision: Int
@@ -80,6 +82,7 @@
             textView.criticDocument = criticDocument
             textView.commentSourceMap = commentSourceMap
             textView.resolvedComments = resolvedComments
+            textView.anchorTape = anchorTape
             textView.documentState = documentState
             textView.commentTheme = theme
 
@@ -113,6 +116,7 @@
             textView.criticDocument = criticDocument
             textView.commentSourceMap = commentSourceMap
             textView.resolvedComments = resolvedComments
+            textView.anchorTape = anchorTape
             textView.documentState = documentState
             textView.commentTheme = theme
 

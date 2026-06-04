@@ -1,19 +1,34 @@
-#if os(macOS)
-    import Foundation
+import Foundation
 
-    /// The content-anchored selector captured for a comment: the normalized
-    /// `quote` plus disambiguation `prefix`/`suffix` context and a `start`/`end`
-    /// position hint into the rendered tape. The write-side mirror of
-    /// ``CommentAnchorResolver`` — what this records is what the resolver searches
-    /// for, both over the same normalized ``AnchorTape``.
-    struct CommentSelector: Equatable {
-        var quote: String
-        var prefix: String
-        var suffix: String
-        var start: Int
-        var end: Int
-        var norm: Int
+/// The content-anchored selector captured for a comment: the normalized `quote`
+/// plus disambiguation `prefix`/`suffix` context and a `start`/`end` position
+/// hint into the rendered tape. The write-side mirror of
+/// ``CommentAnchorResolver`` — what this records is what the resolver searches
+/// for, both over the same normalized ``AnchorTape``.
+public struct CommentSelector: Equatable {
+    public var quote: String
+    public var prefix: String
+    public var suffix: String
+    public var start: Int
+    public var end: Int
+    public var norm: Int
+}
+
+extension CommentSidecar.Entry {
+    /// Overwrite this entry's anchor fields with a freshly captured selector,
+    /// leaving `id`/`body` untouched.
+    mutating func setAnchor(_ selector: CommentSelector) {
+        quote = selector.quote
+        prefix = selector.prefix
+        suffix = selector.suffix
+        start = selector.start
+        end = selector.end
+        norm = selector.norm
     }
+}
+
+#if os(macOS)
+    import AppKit
 
     enum CommentSelectorCapture {
         /// Capture a selector for a builder-space text selection against the
@@ -38,19 +53,6 @@
                 end: range.upperBound,
                 norm: AnchorTape.normalizationVersion
             )
-        }
-    }
-
-    extension CommentSidecar.Entry {
-        /// Overwrite this entry's anchor fields with a freshly captured selector,
-        /// leaving `id`/`body` untouched.
-        mutating func setAnchor(_ selector: CommentSelector) {
-            quote = selector.quote
-            prefix = selector.prefix
-            suffix = selector.suffix
-            start = selector.start
-            end = selector.end
-            norm = selector.norm
         }
     }
 #endif

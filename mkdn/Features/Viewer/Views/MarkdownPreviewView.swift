@@ -63,6 +63,7 @@
                 criticDocument: criticDocument,
                 commentSourceMap: textStorageResult.sourceMap,
                 resolvedComments: resolvedComments,
+                anchorTape: anchorTape,
                 commentRevision: commentRevision,
                 isLoadingGateActive: $docState.isLoadingGateActive
             )

@@ -126,16 +126,24 @@
             guard let docState = documentState else {
                 return .error("No document state available")
             }
-            let content = docState.markdownContent
-            guard let r = content.range(of: substring) else {
-                return .error("Substring not found: \(substring)")
+            // Capture a content-anchored selector for the substring against a fresh
+            // render of the body, mirroring the live authoring path.
+            let theme = appSettings?.theme ?? .solarizedDark
+            let body0 = CommentDocument.parse(docState.markdownContent).body
+            let blocks = MarkdownRenderer.render(text: body0, theme: theme)
+            let result = MarkdownTextStorageBuilder.build(blocks: blocks, theme: theme)
+            let rendered = result.attributedString.string as NSString
+            let builderRange = rendered.range(of: substring)
+            guard builderRange.location != NSNotFound else {
+                return .error("Substring not found in rendered text: \(substring)")
+            }
+            let tape = AnchorTape.build(from: result.attributedString)
+            guard let selector = CommentSelectorCapture.capture(builderRange: builderRange, in: tape) else {
+                return .error("Could not capture selector for: \(substring)")
             }
             let signal = RenderCompletionSignal.shared
             signal.prepareForRender()
-            guard docState.addComment(in: r, of: content, body: body) != nil else {
-                signal.cancelPrepare()
-                return .error("addComment rejected")
-            }
+            docState.addComment(selector, body: body)
             try? await signal.awaitPreparedRender(timeout: .seconds(5))
             return .ok(message: "Comment added over: \(substring)")
         }

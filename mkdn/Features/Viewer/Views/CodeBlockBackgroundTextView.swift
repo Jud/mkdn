@@ -88,6 +88,8 @@
         /// Comments resolved against the rendered text, drawn as a background fill
         /// (see ``drawCommentHighlights(in:)``) and queried for hit-testing.
         var resolvedComments: ResolvedComments?
+        /// The rendered anchor tape, for capturing a selector when authoring a comment.
+        var anchorTape: AnchorTape?
         weak var documentState: DocumentState?
         var commentTheme: AppTheme?
         /// The currently presented comment overlay (read popover or add input), a
@@ -200,7 +202,7 @@
 
         override func menu(for event: NSEvent) -> NSMenu? {
             let menu = super.menu(for: event) ?? NSMenu()
-            if commentableSelectionRange() != nil {
+            if commentableSelection() != nil {
                 let item = NSMenuItem(
                     title: "Add Comment…",
                     action: #selector(addCommentToSelection(_:)),
