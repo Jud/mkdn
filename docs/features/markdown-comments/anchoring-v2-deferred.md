@@ -14,6 +14,16 @@ clear items as they ship.
   without growing trailing blank lines across save cycles, and base the
   "stripped body unchanged?" rebuild-skip on the *parsed* body, not raw text.
 
+## From the authoring swap
+
+- **Sidecar escaping is not string-aware.** `CommentSidecar.escape` replaces every
+  `>`/`-` in the encoded JSON (to neutralize `-->`/`--`), including a bare numeric
+  minus. The writer never emits negatives (start/end are tape offsets ≥0, norm=1;
+  the resolver rejects negative hints), so this can't corrupt our output — but a
+  hand-edited sidecar with e.g. `"start":-1` would re-encode as invalid JSON
+  (`-1` outside a string) on the next write and lose the block. Make escaping
+  string-aware (only escape inside string values, or only the `-->` sequence).
+
 ## From the draw + consumer swap
 
 - **Feature is non-functional in production until authoring is swapped.** The draw

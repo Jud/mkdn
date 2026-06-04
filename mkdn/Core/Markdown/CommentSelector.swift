@@ -12,6 +12,15 @@ public struct CommentSelector: Equatable {
     public var start: Int
     public var end: Int
     public var norm: Int
+
+    public init(quote: String, prefix: String, suffix: String, start: Int, end: Int, norm: Int) {
+        self.quote = quote
+        self.prefix = prefix
+        self.suffix = suffix
+        self.start = start
+        self.end = end
+        self.norm = norm
+    }
 }
 
 extension CommentSidecar.Entry {
