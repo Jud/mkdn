@@ -117,6 +117,24 @@
             #expect(index.orphaned == ["b"])
         }
 
+        @Test("Index hit-test returns covering comments innermost-first")
+        func indexHitTest() {
+            var index = CommentAnchorResolver.Index()
+            index.ranges = [
+                "outer": NSRange(location: 0, length: 20),
+                "inner": NSRange(location: 5, length: 5),
+                "elsewhere": NSRange(location: 40, length: 3),
+            ]
+            // Offset 7 is inside both outer and inner; inner (smaller) comes first.
+            #expect(index.comments(containing: 7).map(\.id) == ["inner", "outer"])
+            // Offset 15 is only inside outer.
+            #expect(index.comments(containing: 15).map(\.id) == ["outer"])
+            // Offset 25 is in no comment.
+            #expect(index.comments(containing: 25).isEmpty)
+            // End-exclusive: offset 20 is past outer's [0,20).
+            #expect(index.comments(containing: 20).isEmpty)
+        }
+
         // MARK: - Tape integration (normalization)
 
         @Test("Resolved range covers the verbatim source of a collapsed-whitespace span")

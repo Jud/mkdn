@@ -34,6 +34,21 @@
         struct Index: Equatable {
             var ranges: [String: NSRange] = [:]
             var orphaned: [String] = []
+
+            /// Resolved `(id, range)` pairs whose range contains `offset`, innermost
+            /// (smallest span) first. The order the stacked popover lists overlapping
+            /// comments, and the first pair is the natural popover anchor. Empty when
+            /// no comment covers `offset`. Replaces reading the `.mkdnCommentID`
+            /// attribute at a character index.
+            func comments(containing offset: Int) -> [(id: String, range: NSRange)] {
+                ranges
+                    .filter { NSLocationInRange(offset, $0.value) }
+                    .sorted {
+                        ($0.value.length, $0.value.location, $0.key)
+                            < ($1.value.length, $1.value.location, $1.key)
+                    }
+                    .map { (id: $0.key, range: $0.value) }
+            }
         }
 
         /// Resolve every entry against one tape, converting the tape text to its
@@ -59,7 +74,7 @@
         ) -> Resolution {
             // A selector recorded under a different normalizer can't be trusted to
             // exact-match this tape; orphan (surfaced in the sidebar) rather than
-            // silently mismatch. Re-anchoring across versions is deferred to v2.
+            // silently mismatch. Fuzzy re-anchoring across versions is deferred.
             guard entry.norm == AnchorTape.normalizationVersion else { return .orphaned }
             let quote = Array(entry.quote.utf16)
             guard !quote.isEmpty else { return .orphaned }
