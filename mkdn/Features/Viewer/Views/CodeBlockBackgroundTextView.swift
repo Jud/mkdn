@@ -182,7 +182,7 @@
         /// no modifiers), preserving selection, double-click and modifier-click. A
         /// click on a commented link opens the comment (its navigation is
         /// suppressed in the clickedOnLink delegate); an uncommented link still
-        /// follows normally because `commentInfo` is nil there.
+        /// follows normally because `commentHits` is empty there.
         private func openCommentPopoverIfNeeded(for event: NSEvent, at point: CGPoint) {
             guard event.clickCount == 1,
                   event.modifierFlags.intersection([.shift, .command, .option, .control]).isEmpty,
@@ -284,6 +284,11 @@
 
             let savedString = textStorage.map { NSAttributedString(attributedString: $0) }
             let savedBgColor = backgroundColor
+            // Comment highlights are drawn from screen-resolved ranges; suppress them
+            // for the print canvas (its rebuilt storage has no comments) so they
+            // don't bleed onto the page.
+            let savedResolvedComments = resolvedComments
+            resolvedComments = nil
             let result = MarkdownTextStorageBuilder.build(
                 blocks: printBlocks,
                 colors: PrintPalette.colors,
@@ -304,6 +309,7 @@
                 textStorage?.setAttributedString(saved)
             }
             backgroundColor = savedBgColor
+            resolvedComments = savedResolvedComments
         }
     }
 #endif

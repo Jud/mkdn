@@ -123,7 +123,7 @@
                 )
             } else if coordinator.lastCommentRevision != commentRevision {
                 coordinator.lastCommentRevision = commentRevision
-                repaintCommentHighlights(coordinator: coordinator, textView: textView)
+                repaintCommentHighlights(textView: textView)
             }
 
             coordinator.handleFindUpdate(
@@ -263,9 +263,7 @@
         /// resolved-comment index and redrawing the viewport. No storage edit, so no
         /// attachment re-estimation and no scroll jump — the whole point of drawing
         /// comments instead of baking them.
-        private func repaintCommentHighlights(
-            coordinator: Coordinator, textView: CodeBlockBackgroundTextView
-        ) {
+        private func repaintCommentHighlights(textView: CodeBlockBackgroundTextView) {
             textView.resolvedComments = resolvedComments
             // The rebuild path clears hover emphasis before swapping; this path
             // skips that, so clear it here or a hovered row stays emphasized.
