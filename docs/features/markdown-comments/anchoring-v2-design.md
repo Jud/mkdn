@@ -119,6 +119,17 @@ a resolved quote → on-screen rects). Attachments/math are not on the prose tap
   shown in the sidebar as *orphaned* with its stored quote + body, to re-place or
   delete. Never silently dropped, never mis-placed.
 
+## Why code blocks can't be commented today (and how v2 fixes it)
+
+Code-block text is built with font + syntax colors but **no `mkdnSourceSpan`** —
+only prose runs get a source span (via the visitor's `linearSpan`/`atomicSpan`).
+So `commentableSelectionRange()` → `SourceMap.sourceUTF16Range` finds no mapping
+for a code selection and the gate rejects it; the "Add Comment…" item never
+appears. v2 removes this dependency: comments anchor against the normalized
+rendered **anchor tape**, which includes *all* visible text (code kept verbatim),
+so code spans are anchorable without per-run source spans — and the highlight is
+drawn, so there's no inline marker to break a fence.
+
 ## Rendering
 
 Highlights move from a built-in `.backgroundColor`/`.mkdnCommentID` attribute (baked
@@ -142,6 +153,26 @@ take a comment-only path: re-resolve selectors + repaint the overlay, **skipping
 Overlap/nesting falls out of resolved ranges (paint all; click a point → stacked
 popover, smallest span first — unchanged UX; verified against current crossing-pair
 stacking).
+
+**The draw path MUST be layout-passive (codex — this is the crux that makes the
+jump go away rather than relocate):** a plain `needsDisplay` is *display*
+invalidation, not *layout* invalidation, so drawing highlights without a storage
+edit does not trigger the attachment-height settle. But only if the draw never
+forces offscreen layout. So:
+- resolve/draw only ranges intersecting the **visible viewport / dirtyRect**;
+- never call `ensureLayout` / `boundingRect(forCharacterRange:)` /
+  `.ensuresLayout` enumeration over off-screen comment ranges during a repaint;
+- do **not** invalidate the code-block rect cache on a comment-only change —
+  `refreshCachedBlockRects()` force-lays-out from the document start through the
+  last code block.
+- pre-build de-risk: at the bottom of a long doc, `setNeedsDisplay(visibleRect)`
+  repeatedly with no storage edit and confirm `docH` stays put.
+
+**Move find-match highlights and the footnote pulse to drawing too.** Both are the
+same trigger class today (live `.backgroundColor` edits on a redraw). For the
+invariant "a visual highlight change never moves layout," they should also become
+draws off an index rather than storage attributes. (Folds the v1 find/rebuild
+fallback + pulse-cancel carve-outs away entirely.)
 
 ## Phasing
 
