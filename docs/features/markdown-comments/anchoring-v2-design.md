@@ -18,18 +18,39 @@ maps), `CommentAnchorResolver` (deterministic resolve + `Index` + hit-test query
 `CommentSelector`/`CommentSelectorCapture` (selection → selector), shared
 `CommentSidecar.contextLength`.
 
-**Remaining units (build-new → swap → delete-old, keep green each commit):**
+**Remaining units (build-new → swap → delete-old, keep green each commit) —
+re-greened by codex 2026-06-04 (GREEN-WITH-CHANGES; sequencing fixed below):**
+
 1. ~~Index hit-test query~~ (done).
-2. **Overlay draw** — draw highlights from the resolved `Index` in the text view's
-   background pass (the `CodeBlockBackgroundTextView.drawBackground` pattern), and
-   stop baking `.backgroundColor`/`.mkdnCommentID`. **Layout-passive; needs visual
-   verification in both themes.**
-3. **Hit-test / popover** read `Index.comments(containing:)` instead of the
-   `.mkdnCommentID` attribute.
-4. **Authoring** — `addComment` captures a selector → sidecar upsert (no markers);
-   menu gate uses `AnchorTape.normalizedRange`.
-5. **Comment-only update path** — sidecar change → re-resolve + redraw, no rebuild /
-   no `setAttributedString` (this is what removes the jump).
+2. **Clean parse/strip + resolved model.** A clean-break parser that strips the EOF
+   sidecar block *and* any stray inline `<mkdn-comment>` markers → clean body +
+   decoded `[Entry]` (no `CriticMarkupDocument`/segments). Plus a `ResolvedComments`
+   model = `Index` + `id → Entry` (so the popover has bodies) + the innermost-first
+   ordering. Pure + tested; not yet wired (kept green alongside the old path). The
+   render pipeline depends on `CriticMarkup.preprocess` to strip today, so this
+   stripper must exist before unit 6 can delete CriticMarkup.
+3. **Overlay draw + consumer swap (one unit — they share the `.mkdnCommentID`
+   dependency, so they flip together).** Build the `AnchorTape` from
+   `MarkdownTextStorageBuilder.build(...).attributedString` (NOT raw markdown — the
+   tape needs builder attributes for code/attachments), `resolveAll` → model; draw
+   highlights from the model in the background pass; switch hit-test, caret/cursor,
+   commented-link suppression, and overlap badges to read the model; then remove the
+   baked `.backgroundColor`/`.mkdnCommentID` comment attributes **and** the
+   find/footnote save-restore of comment backgrounds. Decide draw order (comments
+   *under* find/current-match). Handle print (`printView` rebuilds without comments —
+   clear/recompute the index). **Layout-passive: visible-rect-only; NO
+   `ensureLayout`/`boundingRect(forCharacterRange:)`/`refreshCachedBlockRects` over
+   offscreen comment ranges. Needs visual verification in both themes.**
+4. **Comment-only update path** — sidecar change → re-resolve + redraw, no
+   `setAttributedString` rebuild (removes the jump). **Lands before authoring** so a
+   newly-added comment appears reliably (authoring mutates `markdownContent`, which
+   takes the comment-only path when the stripped body is unchanged).
+5. **Authoring** — `addComment` captures a selector via `AnchorTape.normalizedRange`
+   → sidecar upsert (no markers). Menu gate must **reject selections containing
+   attachments** (tables/math/images are deferred; `builderRange` can span excluded
+   attachments). Bump `CommentSidecar.currentVersion` once it emits start/end/norm.
+   `deleteComment` must remove a sidecar entry **even when unresolved/orphaned**
+   (today it rejects unless v1 parsing finds an active comment).
 6. **Delete v1** subsystem (inline markers, `CriticMarkupDocument`, `reanchorRange`,
    `CommentRangeResolver`, baked-attribute highlighting, dual mutation) + their tests.
 7. **Orphan sidebar UI** — list orphaned comments (quote + body), allow delete.
