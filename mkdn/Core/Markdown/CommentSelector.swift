@@ -1,0 +1,54 @@
+#if os(macOS)
+    import Foundation
+
+    /// The content-anchored selector captured for a comment: the normalized
+    /// `quote` plus disambiguation `prefix`/`suffix` context and a `start`/`end`
+    /// position hint into the rendered tape. The write-side mirror of
+    /// ``CommentAnchorResolver`` — what this records is what the resolver searches
+    /// for, both over the same normalized ``AnchorTape``.
+    struct CommentSelector: Equatable {
+        var quote: String
+        var prefix: String
+        var suffix: String
+        var start: Int
+        var end: Int
+        var norm: Int
+    }
+
+    enum CommentSelectorCapture {
+        /// Normalized context characters kept on each side of the quote for
+        /// disambiguation (W3C/Hypothes.is use ~32).
+        static let contextLength = 32
+
+        /// Capture a selector for a builder-space text selection against the
+        /// rendered tape, or nil when the selection maps to no anchorable text
+        /// (e.g. it lands entirely in excluded/collapsed source).
+        static func capture(builderRange: NSRange, in tape: AnchorTape) -> CommentSelector? {
+            guard let range = tape.normalizedRange(forBuilder: builderRange) else { return nil }
+            let ns = tape.text as NSString
+            let prefixStart = max(0, range.lowerBound - contextLength)
+            let suffixEnd = min(ns.length, range.upperBound + contextLength)
+            return CommentSelector(
+                quote: ns.substring(with: NSRange(location: range.lowerBound, length: range.count)),
+                prefix: ns.substring(with: NSRange(location: prefixStart, length: range.lowerBound - prefixStart)),
+                suffix: ns.substring(with: NSRange(location: range.upperBound, length: suffixEnd - range.upperBound)),
+                start: range.lowerBound,
+                end: range.upperBound,
+                norm: AnchorTape.normalizationVersion
+            )
+        }
+    }
+
+    extension CommentSidecar.Entry {
+        /// Overwrite this entry's anchor fields with a freshly captured selector,
+        /// leaving `id`/`body` untouched.
+        mutating func setAnchor(_ selector: CommentSelector) {
+            quote = selector.quote
+            prefix = selector.prefix
+            suffix = selector.suffix
+            start = selector.start
+            end = selector.end
+            norm = selector.norm
+        }
+    }
+#endif

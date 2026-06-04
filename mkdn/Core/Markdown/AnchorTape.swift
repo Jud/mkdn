@@ -53,6 +53,33 @@
             return NSRange(location: lo, length: hi - lo)
         }
 
+        /// The normalized UTF-16 range (end-exclusive) for a builder `NSRange`
+        /// selection — the inverse of ``builderRange(forNormalized:)``, used to
+        /// capture a comment selector from a text selection. Bounds snap to
+        /// normalized-unit boundaries (a partially-selected collapsed-whitespace run
+        /// or excluded attachment at an edge drops out). Returns nil for an empty
+        /// selection or one that maps to no normalized units.
+        func normalizedRange(forBuilder range: NSRange) -> Range<Int>? {
+            guard range.location >= 0, range.length > 0 else { return nil }
+            let lo = normalizedLowerBound(builderOffset: range.location)
+            let hi = normalizedLowerBound(builderOffset: range.location + range.length)
+            guard lo < hi, hi <= builderOffsets.count - 1 else { return nil }
+            return lo ..< hi
+        }
+
+        /// First normalized index whose builder offset is ≥ `target`
+        /// (`builderOffsets` is strictly increasing). Returns `builderOffsets.count`
+        /// when `target` is past every offset.
+        private func normalizedLowerBound(builderOffset target: Int) -> Int {
+            var low = 0
+            var high = builderOffsets.count
+            while low < high {
+                let mid = (low + high) / 2
+                if builderOffsets[mid] < target { low = mid + 1 } else { high = mid }
+            }
+            return low
+        }
+
         static func build(from attributed: NSAttributedString) -> AnchorTape {
             let ns = attributed.string as NSString
             let length = ns.length

@@ -70,6 +70,31 @@
         #expect(tape.text == "before after") // whitespace around the attachment collapses
     }
 
+    // MARK: - Inverse mapping (builder → normalized)
+
+    @Test("normalizedRange inverts builderRange for an identity-mapped tape")
+    func inverseRoundTripIdentity() throws {
+        let tape = AnchorTape.build(from: NSAttributedString(string: "hello world"))
+        let normalized = try #require(tape.normalizedRange(forBuilder: NSRange(location: 0, length: 5)))
+        #expect(normalized == 0 ..< 5)
+        #expect(tape.builderRange(forNormalized: normalized) == NSRange(location: 0, length: 5))
+    }
+
+    @Test("normalizedRange maps a collapsed-whitespace selection to normalized units")
+    func inverseCollapsedWhitespace() throws {
+        let tape = AnchorTape.build(from: NSAttributedString(string: "Hello   World"))
+        let normalized = try #require(tape.normalizedRange(forBuilder: NSRange(location: 0, length: 13)))
+        #expect(normalized == 0 ..< 11) // "hello world"
+        #expect(tape.builderRange(forNormalized: normalized) == NSRange(location: 0, length: 13))
+    }
+
+    @Test("normalizedRange rejects empty and out-of-bounds selections")
+    func inverseDegenerate() {
+        let tape = AnchorTape.build(from: NSAttributedString(string: "abc"))
+        #expect(tape.normalizedRange(forBuilder: NSRange(location: 1, length: 0)) == nil)
+        #expect(tape.normalizedRange(forBuilder: NSRange(location: 5, length: 2)) == nil)
+    }
+
     // MARK: - Edges
 
     @Test("Empty input yields empty tape and no mappable range")
