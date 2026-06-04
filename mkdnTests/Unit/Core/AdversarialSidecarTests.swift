@@ -2,7 +2,9 @@ import Foundation
 import Testing
 @testable import mkdnLib
 
-/// Sidecar codec hardening (I7) and the trailing-only stripping policy (B3/I2).
+/// Sidecar codec hardening and the trailing-only stripping policy, over the
+/// surviving `CommentSidecar` + `CommentDocument` parse path (the sidecar is
+/// untrusted, user-editable input).
 @Suite("Comment adversarial sidecar")
 struct AdversarialSidecarTests {
     /// Bodies/quotes that must survive the `-->`-safe escape + JSON round-trip.
@@ -12,6 +14,11 @@ struct AdversarialSidecarTests {
         "emoji 😀🎉 flags 🇺🇸", "combining e\u{0301}", "rtl \u{202E}x\u{202C}",
         "null\u{0000}byte", "html <div> & </div>", String(repeating: "x-->", count: 500),
     ]
+
+    /// A document with a trailing v2 sidecar holding one comment.
+    private func docWithSidecar(_ text: String, commentBody: String = "note") -> String {
+        text + "\n\n" + CommentSidecar.encode([CommentSidecar.Entry(id: "c1", body: commentBody)])
+    }
 
     @Test("Sidecar round-trips arbitrary hostile bodies and quotes", arguments: hostilePayloads)
     func roundTripsHostilePayloads(payload: String) {
@@ -28,7 +35,7 @@ struct AdversarialSidecarTests {
         #expect(decoded?.entries.first?.prefix == payload)
     }
 
-    @Test("B3: a sidecar-looking block that isn't the trailing block is left as content")
+    @Test("A sidecar-looking block that isn't the trailing block is left as content")
     func nonTrailingSidecarNotStripped() {
         let raw = """
         # Doc
@@ -41,47 +48,42 @@ struct AdversarialSidecarTests {
 
         Real text after the fence.
         """
-        let doc = CriticMarkup.preprocess(raw)
-        // The fenced literal and the trailing prose must both survive — the block
-        // is inside a code fence and not trailing, so it is ordinary content.
-        #expect(doc.transformedSource.contains("Real text after the fence."))
-        #expect(doc.transformedSource.contains("mkdn-comments"))
+        let parsed = CommentDocument.parse(raw)
+        // The fenced literal and trailing prose both survive — the block is inside
+        // a code fence and not trailing, so it is ordinary content.
+        #expect(parsed.body.contains("Real text after the fence."))
+        #expect(parsed.body.contains("mkdn-comments"))
+        #expect(parsed.entries.isEmpty)
     }
 
-    @Test("B3: a genuinely trailing sidecar is still recognized and stripped")
+    @Test("A genuinely trailing sidecar is recognized and stripped")
     func trailingSidecarStillStripped() {
-        let raw = CommentFixture.doc("comment me please", comment: "comment me")
-        let doc = CriticMarkup.preprocess(raw)
-        #expect(!doc.transformedSource.contains("mkdn-comments"))
-        #expect(doc.comments.count == 1)
+        let raw = docWithSidecar("comment me please")
+        let parsed = CommentDocument.parse(raw)
+        #expect(!parsed.body.contains("mkdn-comments"))
+        #expect(parsed.entries.count == 1)
         // Trailing whitespace after the block must not defeat recognition.
-        let padded = CriticMarkup.preprocess(raw + "\n\n  \n")
-        #expect(!padded.transformedSource.contains("mkdn-comments"))
-        #expect(padded.comments.count == 1)
+        let padded = CommentDocument.parse(raw + "\n\n  \n")
+        #expect(!padded.body.contains("mkdn-comments"))
+        #expect(padded.entries.count == 1)
     }
 
     @Test("A user's trailing HTML comment after the sidecar doesn't detach comments")
     func trailingHTMLCommentAfterSidecar() {
-        // Common case: comments authored by mkdn (sidecar at EOF) plus the user's
-        // own footer comment. The sidecar must still be recognized + stripped and
-        // the comment stay active — not orphaned with raw JSON shown.
-        let raw = CommentFixture.doc("comment this text", comment: "comment this") + "\n\n<!-- license: MIT -->\n"
-        let doc = CriticMarkup.preprocess(raw)
-        #expect(doc.comments.count == 1)
-        #expect(!doc.transformedSource.contains("mkdn-comments"))
-        #expect(doc.transformedSource.contains("<!-- license: MIT -->")) // user's note survives
+        let raw = docWithSidecar("comment this text") + "\n\n<!-- license: MIT -->\n"
+        let parsed = CommentDocument.parse(raw)
+        #expect(parsed.entries.count == 1)
+        #expect(!parsed.body.contains("mkdn-comments"))
+        #expect(parsed.body.contains("<!-- license: MIT -->")) // user's note survives
     }
 
     @Test("A shadow marker inside a trailing HTML comment doesn't hide the real sidecar")
     func shadowMarkerInTrailingComment() {
-        // A footer comment that literally mentions the marker would be the LAST
-        // `<!--mkdn-comments` occurrence; decode must skip it (its JSON is junk)
-        // and still find the genuine sidecar above it.
-        let raw = CommentFixture.doc("comment this text", comment: "comment this")
+        let raw = docWithSidecar("comment this text", commentBody: "note")
             + "\n\n<!-- see <!--mkdn-comments for docs -->\n"
-        let doc = CriticMarkup.preprocess(raw)
-        #expect(doc.comments.count == 1)
-        #expect(doc.comments.first?.body == "note")
+        let parsed = CommentDocument.parse(raw)
+        #expect(parsed.entries.count == 1)
+        #expect(parsed.entries.first?.body == "note")
     }
 
     @Test("Only the trailing block is decoded when several marker blocks exist")
@@ -96,9 +98,9 @@ struct AdversarialSidecarTests {
     func malformedSidecarPreserved() {
         let raw = "doc body\n\n<!--mkdn-comments\n{this is not json\n-->"
         #expect(CommentSidecar.decode(from: raw) == nil)
-        let doc = CriticMarkup.preprocess(raw)
-        #expect(doc.transformedSource.contains("mkdn-comments")) // not stripped
-        #expect(doc.comments.isEmpty)
+        let parsed = CommentDocument.parse(raw)
+        #expect(parsed.body.contains("mkdn-comments")) // not stripped
+        #expect(parsed.entries.isEmpty)
     }
 
     @Test("A future schema version still decodes its comments (lenient policy)")

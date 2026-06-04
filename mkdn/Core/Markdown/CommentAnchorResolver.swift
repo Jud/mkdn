@@ -14,9 +14,7 @@
     ///
     /// A comment is *about* specific text: if the quote can't be located uniquely we
     /// orphan rather than mis-place. (Fuzzy re-attachment through small edits is
-    /// deferred to v2.) This is the v2 successor to the prose-only, hard-context
-    /// `CriticMarkup.reanchorRange`; the two differ deliberately (soft vs. hard
-    /// context, tape `unichar` space vs. transformed source) and should not be merged.
+    /// deferred.)
     enum CommentAnchorResolver {
         enum Resolution: Equatable {
             /// Builder `NSRange` in the source `NSAttributedString` the tape was built from.

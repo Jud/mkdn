@@ -14,6 +14,17 @@ clear items as they ship.
   without growing trailing blank lines across save cycles, and base the
   "stripped body unchanged?" rebuild-skip on the *parsed* body, not raw text.
 
+## From the v1 deletion
+
+- **Adversarial corpus/fuzzing over the new path.** The v1 deletion removed the
+  inline-marker adversarial corpus + property/mapping/authoring fuzz suites (they
+  exercised CriticMarkup parse invariants over inline-marker documents). The
+  surviving `CommentSidecar`/`CommentDocument` robustness is covered by
+  `AdversarialSidecarTests` (salvaged: hostile payloads, shadow markers, malformed,
+  future schema) + the unit suites. If broader fuzzing is wanted, re-add a corpus
+  over `CommentDocument.parse` → `CommentAnchorResolver.resolveAll` (random bodies +
+  sidecars, assert no crash / no residue / resolved ranges in bounds).
+
 ## From the authoring swap
 
 - **Sidecar escaping is not string-aware.** `CommentSidecar.escape` replaces every

@@ -180,10 +180,9 @@ struct MarkdownVisitor {
         return postProcessMathDelimiters(result)
     }
 
-    /// - Parameter protected: true when inside a node the CriticMarkup
-    ///   preprocessor shields (a link/image), so descendant text must not be
-    ///   tagged with a `SourceSpanAttribute` — a selection there is not
-    ///   commentable and tagging it would let a wrap corrupt the node.
+    /// - Parameter protected: true when inside a shielded node (a link/image), so
+    ///   descendant text must not be tagged with a `SourceSpanAttribute` — the
+    ///   source map must not map a selection into the node's interior.
     private func convertInline(_ markup: any Markup, protected: Bool = false) -> AttributedString {
         switch markup {
         case let text as Markdown.Text:

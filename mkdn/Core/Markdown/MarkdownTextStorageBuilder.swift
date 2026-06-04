@@ -20,8 +20,7 @@ public struct TextStorageResult {
     /// Maps heading block indices to their character offsets in the attributed string.
     public let headingOffsets: [Int: Int]
 
-    /// Maps built attributed-string ranges back to source offsets, for resolving
-    /// editor selections to source (see `CommentRangeResolver`).
+    /// Maps built attributed-string ranges back to source offsets.
     let sourceMap: SourceMap
 
     init(
