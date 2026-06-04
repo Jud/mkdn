@@ -89,7 +89,10 @@
             // Context tied: fall back to the position hint, biasing to the nearest
             // candidate. No hint, or two candidates equidistant from it, is a true
             // tie — orphan rather than guess.
-            guard let hint = entry.start else { return nil }
+            // A position hint outside the tape is stale or corrupt (the sidecar is
+            // untrusted input): ignore it rather than let it pick an edge candidate,
+            // and avoid overflow in the distance math below.
+            guard let hint = entry.start, hint >= 0, hint <= text.count else { return nil }
             let nearest = winners.map { abs($0.lowerBound - hint) }.min()!
             let tied = winners.filter { abs($0.lowerBound - hint) == nearest }
             return tied.count == 1 ? tied[0] : nil

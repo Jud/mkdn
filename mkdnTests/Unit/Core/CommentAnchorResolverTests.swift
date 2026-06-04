@@ -97,6 +97,14 @@
             #expect(result == .orphaned)
         }
 
+        @Test("An out-of-range or corrupt position hint is ignored (tie → orphan, no crash)")
+        func outOfRangeHintOrphans() {
+            let t = tape("apple apple apple")
+            #expect(CommentAnchorResolver.resolve(entry(quote: "apple", start: -1), in: t) == .orphaned)
+            #expect(CommentAnchorResolver.resolve(entry(quote: "apple", start: .min), in: t) == .orphaned)
+            #expect(CommentAnchorResolver.resolve(entry(quote: "apple", start: 9999), in: t) == .orphaned)
+        }
+
         // MARK: - Batch index
 
         @Test("resolveAll keys resolved entries by id and lists orphans")
