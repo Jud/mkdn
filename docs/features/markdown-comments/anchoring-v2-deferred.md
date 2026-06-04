@@ -4,6 +4,16 @@ Running list of items intentionally punted during the v2 build, with the reason
 and the unit/era where each should land. Add to this as more units defer work;
 clear items as they ship.
 
+## From the parse/resolve units
+
+- **Sidecar separator whitespace (writer idempotency).** `CommentDocument.parse`
+  strips only the sidecar block's marker range (`<!--mkdn-comments … -->`), so the
+  `\n\n` the writer inserts before it stays in `body`. Harmless for rendering and
+  consistent for parsed-body comparison, but the **authoring/comment-only-update
+  unit** must manage that separator idempotently — append/rewrite the sidecar
+  without growing trailing blank lines across save cycles, and base the
+  "stripped body unchanged?" rebuild-skip on the *parsed* body, not raw text.
+
 ## From unit 1 (AnchorTape)
 
 - **Monospaced non-code runs are normalized as prose.** The inline-math /
