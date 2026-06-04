@@ -11,8 +11,13 @@
         private let entriesByID: [String: CommentSidecar.Entry]
 
         static func resolve(_ entries: [CommentSidecar.Entry], in tape: AnchorTape) -> ResolvedComments {
-            let index = CommentAnchorResolver.resolveAll(entries, in: tape)
-            let byID = Dictionary(entries.map { ($0.id, $0) }, uniquingKeysWith: { _, last in last })
+            // The sidecar is user-editable, so guard against duplicate ids: keep the
+            // first per id and resolve that set, so an id lands in exactly one of
+            // resolved/orphaned and its entry matches its resolution.
+            var seen = Set<String>()
+            let unique = entries.filter { seen.insert($0.id).inserted }
+            let index = CommentAnchorResolver.resolveAll(unique, in: tape)
+            let byID = Dictionary(uniqueKeysWithValues: unique.map { ($0.id, $0) })
             return ResolvedComments(index: index, entriesByID: byID)
         }
 

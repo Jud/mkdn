@@ -41,5 +41,18 @@
             let resolved = ResolvedComments.resolve([entry("a", quote: "quick")], in: tape("the quick brown fox"))
             #expect(resolved.comments(containing: 17).isEmpty) // in "fox", no comment
         }
+
+        @Test("Duplicate ids keep the first entry; resolved and orphaned stay disjoint")
+        func duplicateIDs() {
+            // Both entries share id "dup": first resolves, second would orphan.
+            let resolved = ResolvedComments.resolve(
+                [entry("dup", quote: "quick", body: "first"),
+                 entry("dup", quote: "missing", body: "second")],
+                in: tape("the quick brown fox")
+            )
+            #expect(resolved.ranges == ["dup": NSRange(location: 4, length: 5)])
+            #expect(resolved.orphans.isEmpty)
+            #expect(resolved.comments(containing: 5).first?.entry.body == "first")
+        }
     }
 #endif
