@@ -277,15 +277,12 @@
             // by falling back to a rebuild.)
             coordinator.cancelFootnotePulse()
 
-            let highlighted = NSMutableAttributedString(attributedString: baseAttributedText)
-            if let document = criticDocument, !document.comments.isEmpty {
-                MarkdownTextStorageBuilder.applyCommentHighlights(
-                    to: highlighted,
-                    document: document,
-                    sourceMap: commentSourceMap,
-                    color: PlatformTypeConverter.color(from: theme.colors.commentHighlight)
-                )
-            }
+            let highlighted = MarkdownTextStorageBuilder.highlighted(
+                base: baseAttributedText,
+                document: criticDocument,
+                sourceMap: commentSourceMap,
+                color: PlatformTypeConverter.color(from: theme.colors.commentHighlight)
+            )
 
             // Only touch the ranges whose comment state actually changed (old
             // highlighted ∪ new highlighted). Editing `.backgroundColor` over the

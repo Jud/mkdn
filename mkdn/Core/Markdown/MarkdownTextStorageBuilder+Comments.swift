@@ -13,6 +13,22 @@ extension NSAttributedString.Key {
 
 @MainActor
 extension MarkdownTextStorageBuilder {
+    /// A mutable copy of `base` with `document`'s comment highlights applied (or
+    /// just a copy when there are no comments). Shared by the initial build and
+    /// the live comment-only repaint so both derive highlights identically.
+    static func highlighted(
+        base: NSAttributedString,
+        document: CriticMarkupDocument?,
+        sourceMap: SourceMap,
+        color: PlatformTypeConverter.PlatformColor
+    ) -> NSMutableAttributedString {
+        let mutable = NSMutableAttributedString(attributedString: base)
+        if let document, !document.comments.isEmpty {
+            applyCommentHighlights(to: mutable, document: document, sourceMap: sourceMap, color: color)
+        }
+        return mutable
+    }
+
     /// Paint each comment's highlight span with `color` and tag it with the
     /// comment id, mapping the comment's transformed-source range to builder
     /// ranges via `sourceMap`. The raw CriticMarkup delimiters are already gone

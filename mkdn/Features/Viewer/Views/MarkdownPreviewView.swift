@@ -38,11 +38,6 @@
         /// The built attributed string *before* comment highlights, so a
         /// comment-only change can re-derive highlights without a rebuild.
         @State private var baseAttributedString = NSAttributedString()
-        /// The transformed (visible) source of the last full build. When a content
-        /// change leaves it identical — a comment add/edit/delete — we repaint
-        /// highlights on the live storage instead of rebuilding (avoids the
-        /// attachment-relayout scroll jump).
-        @State private var lastTransformedSource: String?
         /// Bumped on a comment-only change to drive the live highlight repaint.
         @State private var commentRevision = 0
 
@@ -94,8 +89,9 @@
                 // while Find is open: find-match highlights share `.backgroundColor`
                 // with comments, live in the storage (not the cached base), and
                 // carry save/restore bookkeeping the scoped repaint would corrupt;
-                // the rebuild path re-applies them correctly.
-                if document.transformedSource == lastTransformedSource,
+                // the rebuild path re-applies them correctly. (`criticDocument`
+                // still holds the previously rendered parse here.)
+                if document.transformedSource == criticDocument?.transformedSource,
                    !findState.isVisible {
                     criticDocument = document
                     commentRevision += 1
@@ -134,17 +130,14 @@
                 appSettings: appSettings
             )
             baseAttributedString = result.attributedString
-            lastTransformedSource = criticDocument?.transformedSource
             textStorageResult = applyingCommentHighlights(to: result)
             outlineState.updateHeadings(from: newBlocks)
         }
 
         private func applyingCommentHighlights(to result: TextStorageResult) -> TextStorageResult {
-            guard let document = criticDocument, !document.comments.isEmpty else { return result }
-            let mutable = NSMutableAttributedString(attributedString: result.attributedString)
-            MarkdownTextStorageBuilder.applyCommentHighlights(
-                to: mutable,
-                document: document,
+            let mutable = MarkdownTextStorageBuilder.highlighted(
+                base: result.attributedString,
+                document: criticDocument,
                 sourceMap: result.sourceMap,
                 color: PlatformTypeConverter.color(from: appSettings.theme.colors.commentHighlight)
             )
