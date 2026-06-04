@@ -32,9 +32,9 @@
             attachments: []
         )
         @State private var isFullReload = false
-        /// The CriticMarkup parse of the current content, cached so theme/scale
-        /// re-renders can re-apply comment highlights without re-preprocessing.
-        @State private var criticDocument: CriticMarkupDocument?
+        /// The last rendered body (sidecar + markers stripped), to detect a
+        /// comment-only change (visible text unchanged) and skip the rebuild.
+        @State private var lastRenderedBody: String?
         /// The rendered anchor tape for the current text, cached so a comment-only
         /// change re-resolves selectors without rebuilding the text.
         @State private var anchorTape: AnchorTape?
@@ -79,34 +79,27 @@
                     guard !Task.isCancelled else { return }
                 }
 
-                // Strip CriticMarkup before rendering so comment delimiters never
-                // reach the screen; the parse is cached for highlight application.
-                let document = CriticMarkup.preprocess(documentState.markdownContent)
+                // Strip the sidecar + any stray markers before rendering so they
+                // never reach the screen.
+                let document = CommentDocument.parse(documentState.markdownContent)
 
                 // A comment add/edit/delete changes the raw source but not the
-                // visible (transformed) text. Repaint highlights on the live
-                // storage instead of rebuilding — no setAttributedString, no
-                // attachment relayout, no scroll jump. Fall back to a full rebuild
-                // while Find is open: find-match highlights share `.backgroundColor`
-                // with comments, live in the storage (not the cached base), and
-                // carry save/restore bookkeeping the scoped repaint would corrupt;
-                // the rebuild path re-applies them correctly. (`criticDocument`
-                // still holds the previously rendered parse here.)
-                if document.transformedSource == criticDocument?.transformedSource,
-                   !findState.isVisible {
-                    criticDocument = document
+                // visible (body) text. Re-resolve + redraw the overlay instead of
+                // rebuilding — no setAttributedString, no attachment relayout, no
+                // scroll jump. Fall back to a full rebuild while Find is open:
+                // find-match highlights live in the storage and carry save/restore
+                // bookkeeping the comment-only path doesn't run.
+                if document.body == lastRenderedBody, !findState.isVisible {
                     if let tape = anchorTape {
-                        resolvedComments = ResolvedComments.resolve(
-                            CommentDocument.parse(documentState.markdownContent).entries, in: tape
-                        )
+                        resolvedComments = ResolvedComments.resolve(document.entries, in: tape)
                     }
                     commentRevision += 1
                     return
                 }
 
-                criticDocument = document
+                lastRenderedBody = document.body
                 let newBlocks = MarkdownRenderer.render(
-                    text: document.transformedSource,
+                    text: document.body,
                     theme: appSettings.theme,
                     generation: documentState.loadGeneration
                 )
