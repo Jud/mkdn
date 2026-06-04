@@ -270,12 +270,17 @@
                   storage.length == baseAttributedText.length
             else { return }
 
-            // The footnote pulse paints a transient `.backgroundColor` not present
-            // in the base and restores it from saved state on fade; cancel it
-            // cleanly first so the scoped sync below can't strip it and leave the
-            // pulse's restore writing a stale color back. (Find is handled upstream
-            // by falling back to a rebuild.)
+            // The footnote pulse and Find's dismissal fade both paint a transient
+            // `.backgroundColor` not present in the base and restore it from saved
+            // state, which would fight the scoped sync below (strip an added
+            // comment's tint, or restore a stale color over a deleted one where a
+            // find match overlapped). Tear both down cleanly first. (An *open* Find
+            // is handled upstream by falling back to a full rebuild.)
             coordinator.cancelFootnotePulse()
+            coordinator.cancelFindHighlightFade(in: storage)
+            // The rebuild path clears hover emphasis before swapping; this path
+            // skips that, so clear it here or a hovered row stays unemphasized.
+            textView.setHoveredComment(nil)
 
             let highlighted = MarkdownTextStorageBuilder.highlighted(
                 base: baseAttributedText,

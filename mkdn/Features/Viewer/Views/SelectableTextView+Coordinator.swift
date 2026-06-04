@@ -712,6 +712,18 @@
                 textStorage.endEditing()
                 savedBackgrounds = []
             }
+
+            /// Tear down any in-flight find highlight or dismissal fade before a
+            /// comment-only repaint. The fade restores `.backgroundColor` from state
+            /// captured *before* the comment change, which would otherwise fight the
+            /// repaint — losing an added comment's tint or resurrecting a deleted
+            /// one where a find match overlapped it.
+            func cancelFindHighlightFade(in textStorage: NSTextStorage) {
+                highlightFadeTask?.cancel()
+                highlightFadeTask = nil
+                restoreBackgrounds(in: textStorage)
+                lastHighlightedRanges = []
+            }
         }
     }
 
