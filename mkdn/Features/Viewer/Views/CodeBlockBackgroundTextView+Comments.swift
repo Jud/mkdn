@@ -30,9 +30,14 @@
         /// Show the comment(s) covering a click as a hosted overlay near the span.
         /// Overlapping comments are stacked innermost-first; the whole box pops in.
         func showComments(_ hits: [(entry: CommentSidecar.Entry, range: NSRange)]) {
+            // Anchor on the smallest hit that's on screen (hits are innermost-first),
+            // so a badge whose smallest comment is offscreen doesn't force layout
+            // there and mis-place the box.
+            let visible = visibleCharacterRange()
+            let anchor = hits.first { visible == nil || NSIntersectionRange($0.range, visible!).length > 0 }?.range
             guard window != nil,
                   let theme = commentTheme,
-                  let anchor = hits.first?.range,
+                  let anchor,
                   let rect = boundingRect(forCharacterRange: anchor)
             else {
                 return
@@ -64,34 +69,34 @@
         /// layout (no `boundingRect` on unlaid text).
         func refreshCachedCommentOverlapBadges() {
             guard let resolved = resolvedComments, !resolved.ranges.isEmpty,
-                  let layoutManager = textLayoutManager,
-                  let contentManager = layoutManager.textContentManager,
-                  let viewport = layoutManager.textViewportLayoutController.viewportRange
+                  let visibleRange = visibleCharacterRange()
             else {
                 cachedCommentOverlapBadges = []
                 return
             }
-            let docStart = contentManager.documentRange.location
-            let visibleStart = contentManager.offset(from: docStart, to: viewport.location)
-            let visibleEnd = contentManager.offset(from: docStart, to: viewport.endLocation)
-            let visibleRange = NSRange(location: visibleStart, length: max(0, visibleEnd - visibleStart))
+            // Cluster the VISIBLE portions of each comment, so a badge's count
+            // reflects the comments actually overlapping on screen and its anchor is
+            // always laid out (no offscreen `boundingRect`).
+            let visible = resolved.ranges.compactMap { id, range -> (id: String, range: NSRange)? in
+                let clipped = NSIntersectionRange(range, visibleRange)
+                return clipped.length > 0 ? (id, clipped) : nil
+            }
+            .sorted { $0.range.location < $1.range.location }
 
             var clusters: [(range: NSRange, ids: [String])] = []
-            for (id, range) in resolved.ranges.sorted(by: { $0.value.location < $1.value.location }) {
-                if let last = clusters.last, NSMaxRange(last.range) > range.location {
-                    clusters[clusters.count - 1].range = NSUnionRange(last.range, range)
-                    clusters[clusters.count - 1].ids.append(id)
+            for entry in visible {
+                if let last = clusters.last, NSMaxRange(last.range) > entry.range.location {
+                    clusters[clusters.count - 1].range = NSUnionRange(last.range, entry.range)
+                    clusters[clusters.count - 1].ids.append(entry.id)
                 } else {
-                    clusters.append((range, [id]))
+                    clusters.append((entry.range, [entry.id]))
                 }
             }
             cachedCommentOverlapBadges = clusters.compactMap { cluster in
-                guard cluster.ids.count >= 2 else { return nil }
-                // Anchor at the cluster's last character; skip (no badge) when it's
-                // offscreen so we never lay out unlaid text for a badge.
-                let endLocation = NSMaxRange(cluster.range) - 1
-                guard NSLocationInRange(endLocation, visibleRange),
-                      let rect = boundingRect(forCharacterRange: NSRange(location: endLocation, length: 1))
+                guard cluster.ids.count >= 2,
+                      let rect = boundingRect(
+                          forCharacterRange: NSRange(location: NSMaxRange(cluster.range) - 1, length: 1)
+                      )
                 else { return nil }
                 let size = max(rect.height * Self.overlapBadgeLineFraction, Self.overlapBadgeMinDiameter)
                 let badgeRect = CGRect(

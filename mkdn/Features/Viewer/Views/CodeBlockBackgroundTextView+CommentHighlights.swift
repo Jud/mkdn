@@ -15,21 +15,28 @@
     /// enumeration), so a comment far below the fold costs nothing and can't settle
     /// estimated heights.
     extension CodeBlockBackgroundTextView {
+        /// The character range currently laid out in the viewport, or nil. Clip to
+        /// this before asking for any geometry so comment drawing, badges, and
+        /// popover anchoring stay layout-passive (never touch offscreen text).
+        func visibleCharacterRange() -> NSRange? {
+            guard let layoutManager = textLayoutManager,
+                  let contentManager = layoutManager.textContentManager,
+                  let viewport = layoutManager.textViewportLayoutController.viewportRange
+            else { return nil }
+            let docStart = contentManager.documentRange.location
+            let lo = contentManager.offset(from: docStart, to: viewport.location)
+            let hi = contentManager.offset(from: docStart, to: viewport.endLocation)
+            guard hi > lo else { return nil }
+            return NSRange(location: lo, length: hi - lo)
+        }
+
         func drawCommentHighlights(in dirtyRect: NSRect) {
             guard let resolved = resolvedComments, !resolved.ranges.isEmpty,
                   let layoutManager = textLayoutManager,
                   let contentManager = layoutManager.textContentManager,
                   let theme = commentTheme,
-                  let viewport = layoutManager.textViewportLayoutController.viewportRange
+                  let visibleRange = visibleCharacterRange()
             else { return }
-
-            // Clip to the laid-out viewport range: segment enumeration over a range
-            // inside it won't lay out anything new.
-            let docStart = contentManager.documentRange.location
-            let visibleLocation = contentManager.offset(from: docStart, to: viewport.location)
-            let visibleEnd = contentManager.offset(from: docStart, to: viewport.endLocation)
-            guard visibleEnd > visibleLocation else { return }
-            let visibleRange = NSRange(location: visibleLocation, length: visibleEnd - visibleLocation)
 
             let origin = textContainerOrigin
             let base = PlatformTypeConverter.color(from: theme.colors.commentHighlight)
@@ -38,7 +45,12 @@
             // row never relayouts.
             let emphasis = PlatformTypeConverter.color(from: theme.colors.accent).withAlphaComponent(0.3)
 
-            for (id, range) in resolved.ranges {
+            // Draw the hovered comment last so a later overlapping base fill can't
+            // overpaint its emphasis.
+            let ordered = resolved.ranges.sorted {
+                ($0.key == hoveredCommentID ? 1 : 0) < ($1.key == hoveredCommentID ? 1 : 0)
+            }
+            for (id, range) in ordered {
                 let clipped = NSIntersectionRange(range, visibleRange)
                 guard clipped.length > 0,
                       let textRange = textRange(from: clipped, contentManager: contentManager)
