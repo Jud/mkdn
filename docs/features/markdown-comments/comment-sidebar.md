@@ -1,7 +1,6 @@
 # Comment sidebar + detached comments
 
-**Status:** shipped on `feature/comment-anchoring-v2`. This describes the shipped
-interaction model.
+**Status:** shipped on `feature/comment-anchoring-v2`.
 
 ## Term
 
@@ -41,7 +40,7 @@ selector slides between segments):
   drawn layout-passively (no storage edit, so locating never relayouts). A
   wrapped span draws as one connected highlight. Moving off clears it.
 - **Click an on-page card** → smooth-scrolls the span into view. The sidebar
-  stays open and the hover keeps the span emphasized — there's no separate flash.
+  stays open and the hover keeps the span emphasized.
 - **Delete** (detached cards) → `DocumentState.deleteComment(id:)` (sidecar-only;
   the card fades out).
 
