@@ -79,7 +79,7 @@
 
         /// A laid-out *TextKit 2* text view — does NOT touch `layoutManager` (which
         /// would switch to TextKit 1); forces layout via `textLayoutManager`. This
-        /// exercises the TextKit 2 `characterIndex(at:)` branch the other tests skip.
+        /// exercises the TextKit 2 `characterIndex(at:)` branch.
         private func tk2TextView(
             _ attributed: NSAttributedString, comment quote: String, width: CGFloat
         ) throws -> CodeBlockBackgroundTextView {
@@ -87,8 +87,7 @@
             view.textContainerInset = NSSize(width: 16, height: 16)
             view.textStorage?.setAttributedString(attributed)
             view.resolvedComments = resolvedComments(for: attributed, comment: quote)
-            // Force layout via textLayoutManager (NOT layoutManager, which switches
-            // to TK1) so the whole document has real (not estimated) geometry.
+            // The whole document gets real (not estimated) geometry.
             let tlm = try #require(view.textLayoutManager)
             tlm.ensureLayout(for: tlm.documentRange)
             return view
@@ -109,7 +108,7 @@
             let string = view.string as NSString
             let quoteRect = try #require(view.boundingRect(forCharacterRange: string.range(of: "WRAPPEDPHRASE")))
             let firstWordRect = try #require(view.boundingRect(forCharacterRange: string.range(of: "quick")))
-            // Non-vacuous: the phrase must be on a visual line below the first word.
+            // The phrase must be on a visual line below the first word.
             #expect(quoteRect.minY > firstWordRect.maxY)
 
             let hits = view.commentHits(at: CGPoint(x: quoteRect.midX, y: quoteRect.midY))
