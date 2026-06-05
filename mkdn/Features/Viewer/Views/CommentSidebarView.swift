@@ -39,12 +39,9 @@
 
         @State private var filter: CommentFilter = .all
 
-        private var showActive: Bool { filter != .detached }
-        private var showDetached: Bool { filter != .onPage }
-
-        private var isEmpty: Bool {
-            (!showActive || active.isEmpty) && (!showDetached || detached.isEmpty)
-        }
+        private var hasActive: Bool { filter != .detached && !active.isEmpty }
+        private var hasDetached: Bool { filter != .onPage && !detached.isEmpty }
+        private var isEmpty: Bool { !hasActive && !hasDetached }
 
         var body: some View {
             VStack(alignment: .leading, spacing: 12) {
@@ -83,14 +80,14 @@
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
-                        if showActive, !active.isEmpty {
+                        if hasActive {
                             section("On this page") {
                                 ForEach(active) { item in
                                     ActiveCommentCard(item: item, theme: theme, onJump: onJump)
                                 }
                             }
                         }
-                        if showDetached, !detached.isEmpty {
+                        if hasDetached {
                             section("Detached (\(detached.count))") {
                                 Text("These comments' anchors are no longer in the document.")
                                     .font(.caption)
@@ -161,6 +158,20 @@
         }
     }
 
+    private let commentCardCornerRadius: CGFloat = 8
+
+    private extension View {
+        /// The flat, opaque card surface shared by both sidebar cards. The border
+        /// differs per card (solid vs dashed warning), so callers add their own
+        /// `.overlay`.
+        func commentCardSurface(theme: AppTheme) -> some View {
+            padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(theme.colors.background)
+                .clipShape(RoundedRectangle(cornerRadius: commentCardCornerRadius))
+        }
+    }
+
     /// A resolved comment: quote chip (in `commentHighlight`) + body, revealing a
     /// jump affordance on hover. The whole card jumps to the comment when clicked.
     private struct ActiveCommentCard: View {
@@ -192,11 +203,11 @@
                         .foregroundStyle(theme.colors.accent)
                 }
             }
-            .padding(10)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(theme.colors.background)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(theme.colors.border.opacity(0.4)))
+            .commentCardSurface(theme: theme)
+            .overlay(
+                RoundedRectangle(cornerRadius: commentCardCornerRadius)
+                    .strokeBorder(theme.colors.border.opacity(0.4))
+            )
             .contentShape(Rectangle())
             .onTapGesture { onJump(item.id) }
             .onHover { hovering = $0 }
@@ -230,12 +241,9 @@
                     .frame(maxWidth: .infinity, alignment: .leading)
                 actions
             }
-            .padding(10)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(theme.colors.background)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .commentCardSurface(theme: theme)
             .overlay(
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: commentCardCornerRadius)
                     .strokeBorder(
                         theme.colors.warning.opacity(0.5),
                         style: StrokeStyle(lineWidth: 1, dash: [4, 3])
@@ -244,16 +252,18 @@
         }
 
         private var context: some View {
-            let secondary = theme.colors.foregroundSecondary
-            var text = Text("was on ").foregroundColor(secondary)
+            var text = Text("was on ")
             if !item.prefix.isEmpty {
-                text = text + Text("…\(item.prefix)").foregroundColor(secondary)
+                text = text + Text("…\(item.prefix)")
             }
-            text = text + Text(item.quote).strikethrough().foregroundColor(secondary)
+            text = text + Text(item.quote).strikethrough()
             if !item.suffix.isEmpty {
-                text = text + Text("\(item.suffix)…").foregroundColor(secondary)
+                text = text + Text("\(item.suffix)…")
             }
-            return text.font(.caption).lineLimit(2)
+            return text
+                .font(.caption)
+                .foregroundColor(theme.colors.foregroundSecondary)
+                .lineLimit(2)
         }
 
         private var actions: some View {
