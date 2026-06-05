@@ -251,6 +251,10 @@
         /// drives the fill color in ``drawCommentHighlights(in:)``) — no storage
         /// edit, so locating a comment never relayouts.
         func setHoveredComment(_ id: String?) {
+            // Before the no-op guard: any emphasis touch — including a hover over
+            // the comment that's currently flashing (same id) — must supersede a
+            // pending flash-clear, so the timer can't later wipe a live hover.
+            commentFlashTask?.cancel()
             guard id != hoveredCommentID else { return }
             hoveredCommentID = id
             setNeedsDisplay(enclosingScrollView?.documentVisibleRect ?? bounds)
@@ -261,12 +265,11 @@
         /// no storage edit), so navigating never relayouts.
         func revealComment(id: String, range: NSRange) {
             scrollRangeToVisible(range)
-            commentFlashTask?.cancel()
-            setHoveredComment(id)
+            setHoveredComment(id) // cancels any prior flash before we schedule ours
             commentFlashTask = Task { @MainActor [weak self] in
                 try? await Task.sleep(for: AnimationConstants.commentFlashHold)
                 guard !Task.isCancelled else { return }
-                // Only clear our own flash — a live hover may have taken over.
+                // Still our flash (no hover/jump took over) — clear it.
                 if self?.hoveredCommentID == id { self?.setHoveredComment(nil) }
             }
         }

@@ -199,6 +199,7 @@
             return findTextView(in: contentView)
         }
 
+        @MainActor
         static func findTextView(in view: NSView) -> CodeBlockBackgroundTextView? {
             if let textView = view as? CodeBlockBackgroundTextView {
                 return textView
