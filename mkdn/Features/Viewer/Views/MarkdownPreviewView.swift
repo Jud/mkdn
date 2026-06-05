@@ -1,6 +1,15 @@
 #if os(macOS)
     import SwiftUI
 
+    private extension CommentSidebarItem {
+        init(_ entry: CommentSidecar.Entry) {
+            self.init(
+                id: entry.id, body: entry.body, quote: entry.quote,
+                prefix: entry.prefix, suffix: entry.suffix
+            )
+        }
+    }
+
     /// Full-width Markdown preview (read-only mode).
     ///
     /// Rendering is debounced via `.task(id:)` so that rapid typing in the
@@ -72,7 +81,9 @@
             .id(documentState.viewRebuildGeneration)
             .background(appSettings.theme.colors.background)
             .overlay(alignment: .topTrailing) {
-                if !documentState.isCommentSidebarVisible {
+                // Preview-only: in split mode this view is the half-width right
+                // pane, so a right-docked rail would sit inside the preview.
+                if documentState.viewMode == .previewOnly, !documentState.isCommentSidebarVisible {
                     CommentSidebarToggle(count: commentCount, theme: appSettings.theme) {
                         documentState.toggleCommentSidebar()
                     }
@@ -81,7 +92,7 @@
                 }
             }
             .overlay(alignment: .trailing) {
-                if documentState.isCommentSidebarVisible {
+                if documentState.viewMode == .previewOnly, documentState.isCommentSidebarVisible {
                     CommentSidebarView(
                         active: activeItems,
                         detached: detachedItems,
@@ -141,21 +152,11 @@
         }
 
         private var activeItems: [CommentSidebarItem] {
-            (resolvedComments?.active ?? []).map {
-                CommentSidebarItem(
-                    id: $0.id, body: $0.entry.body, quote: $0.entry.quote,
-                    prefix: $0.entry.prefix, suffix: $0.entry.suffix
-                )
-            }
+            (resolvedComments?.active ?? []).map { CommentSidebarItem($0.entry) }
         }
 
         private var detachedItems: [CommentSidebarItem] {
-            (resolvedComments?.orphans ?? []).map {
-                CommentSidebarItem(
-                    id: $0.id, body: $0.body, quote: $0.quote,
-                    prefix: $0.prefix, suffix: $0.suffix
-                )
-            }
+            (resolvedComments?.orphans ?? []).map(CommentSidebarItem.init)
         }
 
         private var commentCount: Int {
