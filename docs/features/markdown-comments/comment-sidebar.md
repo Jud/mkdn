@@ -1,8 +1,7 @@
-# Comment sidebar + detached comments (unit 7)
+# Comment sidebar + detached comments
 
-**Status:** design locked; themed `warning`/`danger` tokens landed (`fd8b310`).
-The animated sidebar is the next build (resume after compaction). HTML mockups
-were delivered to the user (`/tmp/mkdn-themed.html` etc.); this doc is the spec.
+**Status:** shipped on `feature/comment-anchoring-v2`. This describes the shipped
+interaction model.
 
 ## Term
 
@@ -11,28 +10,42 @@ Comments whose stored quote can't be re-located are **Detached** (not
 
 ## Surface
 
-A right-docked **comment sidebar**, hotkey-toggled. The window is chrome-less
-(transparent titlebar, full-bleed content), so the open affordance lives **in
-the content**, not a toolbar.
+A right-docked **comment sidebar**, toggled by ⌘⇧C (markdown, preview-only) or a
+floating affordance. The window is chrome-less (transparent titlebar, full-bleed
+content), so the open affordance lives **in the content**, not a toolbar. It
+mounts as a trailing overlay on the markdown preview, so opening it never
+reflows the text.
 
 **Toggle** — floating, top-right of the content (traffic lights are top-left):
 - **No comments:** a circle, comment-bubble icon only.
-- **Has comments:** morphs to a rounded pill = icon + **count badge** (total
-  comments). Badge hidden at zero.
-- Toggled by a hotkey too (mirror the directory sidebar's binding); the hotkey
-  is **not shown** in the UI. Hidden while the sidebar is open.
-- Open: decide whether the count/badge also hints detached (warning tint/dot) —
-  default keep it a neutral count.
+- **Has comments:** morphs (gentle spring) to a rounded pill = icon + **count
+  badge** (total comments). Badge hidden at zero.
+- Toggled by ⌘⇧C too; the hotkey is **not shown** in the UI. Hidden while the
+  sidebar is open.
 
-**Sidebar** — header `Comments` + ✕; segmented filter **All / On page /
-Detached**; then:
-- **On this page** (active): cards = quote chip (in `commentHighlight`) + body +
-  hover "↳ jump".
-- **Detached** (+count): a one-line "why" note, then cards = `warning` dashed
-  treatment, chip "Detached", `was on …prefix `~~quote~~` suffix…` (quote struck,
-  context muted), body, **Re-place… / Delete**.
+**Sidebar** — header `Comments` + ✕; segmented filter **All / Detached** (the
+selector slides between segments):
+- **All:** on-page comments first, then detached below.
+- **Detached:** only the detached comments, under a `Detached (n)` header + a
+  one-line "why" note.
+- **On-page card:** quote chip (in `commentHighlight`) + body. The whole card is
+  a button (pointer cursor on hover).
+- **Detached card:** `warning` dashed treatment, a "Detached" chip,
+  `was on …prefix `~~quote~~` suffix…` (quote struck, context muted), body, and
+  **Delete**.
 
-## Theming — ALL colors from `ThemeColors`, no hardcoded hex
+## Interaction
+
+- **Hover an on-page card** → its span in the document eases into a bold accent
+  emphasis: a crossfade from the resting highlight into an accent fill + outline,
+  drawn layout-passively (no storage edit, so locating never relayouts). A
+  wrapped span draws as one connected highlight. Moving off clears it.
+- **Click an on-page card** → smooth-scrolls the span into view. The sidebar
+  stays open and the hover keeps the span emphasized — there's no separate flash.
+- **Delete** (detached cards) → `DocumentState.deleteComment(id:)` (sidecar-only;
+  the card fades out).
+
+## Theming — all colors from `ThemeColors`, no hardcoded hex
 
 | Element | token |
 |---|---|
@@ -42,44 +55,35 @@ Detached**; then:
 | body text | `foreground` |
 | counts, labels, "was on", close | `foregroundSecondary` |
 | panel title, headings, quote-chip text | `headingColor` |
-| active highlight + quote-chip fill | `commentHighlight` |
-| active filter, Re-place, count badge, jump/flash | `accent` |
+| resting comment highlight + quote-chip fill | `commentHighlight` |
+| active filter, count badge, hover emphasis | `accent` |
 | Detached chip / dashed / note | `warning` |
 | Delete | `danger` |
 
-`warning`/`danger` now exist on `ThemeColors` (Solarized orange/red).
+## Animation
 
-## Animation — CRITICAL: smooth slide in/out, NO content jump
+- **Slide:** the sidebar uses a `.move(edge: .trailing)` transition and the
+  toggle a `.opacity` transition, driven by `.animation(sidebarSlide, value:
+  isCommentSidebarVisible)`. The overlay slides over static content — nothing
+  reflows or resizes (zero jump). NOT NSWindow frame expansion (reverted on
+  macOS 14 — see MEMORY "Sidebar Toggle — Lessons Learned").
+- **Card add/remove, filter switch:** animated (`quickShift`); deleting fades the
+  card out, the filter selector slides via `matchedGeometryEffect`.
+- **Hover emphasis + smooth scroll:** the document-side emphasis crossfade and
+  the smooth scroll are manual per-frame ramps (`makeFrameRamp`) — the highlight
+  is drawn in `draw(_:)` (not layer-backed), and the scroll must keep TextKit 2's
+  viewport range current each frame or the layout-passive draw blanks out. Both
+  honor Reduce Motion.
 
-Inline-codex **every** unit that touches animation. Mirror the **directory
-sidebar** pattern, which already works:
-- `DocumentState.isSidebarVisible` flag + toggle (see `DocumentWindow.swift`),
-  `AnimationConstants.sidebarSlide` / `gentleSpring`.
-- Prefer a **ZStack overlay**: the sidebar slides in over the content from the
-  right; the content does **not** reflow or resize (zero-jump). Alternative:
-  `HStack` + `gentleSpring` (content reflows, but smoothly) like the directory
-  sidebar — overlay is safer for "no jump".
-- **Do NOT** expand the NSWindow frame + animate (reverted on macOS 14, jumps —
-  see MEMORY "Sidebar Toggle — Lessons Learned").
+## Implementation
 
-## Data + wiring
+- **Views:** `CommentSidebarView` / `CommentSidebarToggle`, mounted as overlays
+  in `MarkdownPreviewView` (gated to `DocumentState.canShowCommentSidebar`).
+- **Data:** `ResolvedComments.active` (resolved `(id, entry, range)` in document
+  order) + `.orphans`, mapped to `CommentSidebarItem`s.
+- **Document side:** `CodeBlockBackgroundTextView.setHoveredComment` (emphasis),
+  `scrollComment(to:)` (smooth scroll), `drawCommentHighlights` (the draw).
+- **State:** `DocumentState.isCommentSidebarVisible` + `canShowCommentSidebar`.
 
-- Reads `ResolvedComments` (already has `ranges` id→NSRange, `comments(containing:)`,
-  `comments(ids:)`, `orphans`). **Add** a public accessor for the *active* list —
-  resolved `(id, entry, range)` — for the "On this page" section (entriesByID is
-  currently private).
-- **Jump:** scroll the text view to the comment's range + a brief flash. Keep it
-  layout-passive (no storage edit) — a draw-based flash, not a `.backgroundColor`
-  write.
-- **Delete:** `DocumentState.deleteComment(id:)` (already sidecar-only, works on
-  detached entries).
-- **Re-place:** deferred stub (v2 — manual re-anchor onto a new selection).
-
-## Build units (resume here)
-
-1. `ResolvedComments` active-list accessor (`(id,entry,range)`), tested.
-2. Sidebar SwiftUI view — static, themed (sections, filter, cards). Snapshot/visual.
-3. Toggle morph (circle↔pill + count) + `isCommentSidebarVisible` state + hotkey.
-4. **Slide animation** (overlay/`gentleSpring`) — inline-codex; verify no jump.
-5. Jump-to-comment + Delete wiring; Re-place stub.
-6. Dev-build verify in Solarized **Light and Dark**; confirm smooth, no jumping.
+Re-place (manual re-anchor of a detached comment onto a new selection) is not
+implemented — detached cards only offer Delete.
