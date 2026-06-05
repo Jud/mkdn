@@ -91,10 +91,10 @@
         /// Hover emphasis: crossfade a comment's resting fill into a bolder accent
         /// fill + outline. A wrapped span's segments are filled clipped to one
         /// rounded outline so it reads as a single connected highlight rather than a
-        /// rounded pill per line; a single-line span is just the tight pill. No
-        /// storage edit, so locating a comment never relayouts. Assumes the span's
-        /// segments are contiguous (true for a comment's character range) — the
-        /// outline is their bounding union, not a traced perimeter.
+        /// rounded pill per line; a single-line span is just the tight pill.
+        /// Assumes the span's segments are contiguous (true for a comment's
+        /// character range) — the outline is their bounding union, not a traced
+        /// perimeter.
         private func drawEmphasizedHighlight(
             _ rects: [NSRect], dirtyRect: NSRect, base: NSColor, accent: NSColor, progress: CGFloat
         ) {
