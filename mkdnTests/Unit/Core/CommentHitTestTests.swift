@@ -7,23 +7,30 @@
     @MainActor
     @Suite("Comment hit-test (drawn comments)")
     struct CommentHitTestTests {
-        /// A laid-out text view rendering `markdown`, with `quote` captured as a
-        /// comment and resolved into the view's index — the same capture→resolve
-        /// chain the live authoring path uses. Touching `layoutManager` forces the
-        /// TextKit 1 stack so geometry and `characterIndex` agree in the test.
-        private func textView(_ markdown: String, comment quote: String) -> CodeBlockBackgroundTextView {
-            let blocks = MarkdownRenderer.render(text: markdown, theme: .solarizedDark)
-            let result = MarkdownTextStorageBuilder.build(blocks: blocks, theme: .solarizedDark)
-            let tape = AnchorTape.build(from: result.attributedString)
-            let builderRange = (result.attributedString.string as NSString).range(of: quote)
+        /// Capture `quote` as a comment over `attributed` and resolve it — the same
+        /// capture→resolve chain the live authoring path uses.
+        private func resolvedComments(
+            for attributed: NSAttributedString, comment quote: String
+        ) -> ResolvedComments {
+            let tape = AnchorTape.build(from: attributed)
+            let builderRange = (attributed.string as NSString).range(of: quote)
             let selector = CommentSelectorCapture.capture(builderRange: builderRange, in: tape)!
             var entry = CommentSidecar.Entry(id: "c1", body: "note")
             entry.setAnchor(selector)
+            return ResolvedComments.resolve([entry], in: tape)
+        }
+
+        /// A laid-out text view rendering `markdown`, with `quote` captured as a
+        /// comment and resolved into the view's index. Touching `layoutManager`
+        /// forces the TextKit 1 stack so geometry and `characterIndex` agree.
+        private func textView(_ markdown: String, comment quote: String) -> CodeBlockBackgroundTextView {
+            let blocks = MarkdownRenderer.render(text: markdown, theme: .solarizedDark)
+            let result = MarkdownTextStorageBuilder.build(blocks: blocks, theme: .solarizedDark)
 
             let view = CodeBlockBackgroundTextView(frame: NSRect(x: 0, y: 0, width: 600, height: 400))
             view.textContainerInset = NSSize(width: 16, height: 16)
             view.textStorage?.setAttributedString(result.attributedString)
-            view.resolvedComments = ResolvedComments.resolve([entry], in: tape)
+            view.resolvedComments = resolvedComments(for: result.attributedString, comment: quote)
             view.layoutManager?.ensureLayout(for: view.textContainer!)
             return view
         }
@@ -76,19 +83,14 @@
         private func tk2TextView(
             _ attributed: NSAttributedString, comment quote: String, width: CGFloat
         ) throws -> CodeBlockBackgroundTextView {
-            let tape = AnchorTape.build(from: attributed)
-            let builderRange = (attributed.string as NSString).range(of: quote)
-            let selector = try #require(CommentSelectorCapture.capture(builderRange: builderRange, in: tape))
-            var entry = CommentSidecar.Entry(id: "c1", body: "note")
-            entry.setAnchor(selector)
-
             let view = CodeBlockBackgroundTextView(frame: NSRect(x: 0, y: 0, width: width, height: 2000))
             view.textContainerInset = NSSize(width: 16, height: 16)
-            view.textContainer?.containerSize = NSSize(width: width - 32, height: .greatestFiniteMagnitude)
             view.textStorage?.setAttributedString(attributed)
-            view.resolvedComments = ResolvedComments.resolve([entry], in: tape)
+            view.resolvedComments = resolvedComments(for: attributed, comment: quote)
+            // Force layout via textLayoutManager (NOT layoutManager, which switches
+            // to TK1) so the whole document has real (not estimated) geometry.
             let tlm = try #require(view.textLayoutManager)
-            tlm.ensureLayout(for: try #require(tlm.textContentManager).documentRange)
+            tlm.ensureLayout(for: tlm.documentRange)
             return view
         }
 
