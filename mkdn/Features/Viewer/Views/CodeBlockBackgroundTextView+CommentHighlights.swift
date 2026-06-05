@@ -59,21 +59,31 @@
                       let textRange = textRange(from: clipped, contentManager: contentManager)
                 else { continue }
 
-                var rects: [NSRect] = []
-                layoutManager.enumerateTextSegments(
-                    in: textRange, type: .highlight, options: [.rangeNotRequired]
-                ) { _, segmentFrame, _, _ in
-                    let rect = segmentFrame.offsetBy(dx: origin.x, dy: origin.y)
-                    if rect.intersects(dirtyRect) { rects.append(rect) }
-                    return true
-                }
-                guard !rects.isEmpty else { continue }
-
                 if id == emphasisDrawID, progress > 0 {
-                    drawEmphasizedHighlight(rects, base: base, accent: accent, progress: progress)
+                    // Collect ALL the comment's viewport segments (not just the ones
+                    // in dirtyRect) so the outline spans the whole span even on a
+                    // partial (scroll-band) redraw; fills are clipped to dirtyRect.
+                    var rects: [NSRect] = []
+                    layoutManager.enumerateTextSegments(
+                        in: textRange, type: .highlight, options: [.rangeNotRequired]
+                    ) { _, segmentFrame, _, _ in
+                        rects.append(segmentFrame.offsetBy(dx: origin.x, dy: origin.y))
+                        return true
+                    }
+                    if !rects.isEmpty {
+                        drawEmphasizedHighlight(
+                            rects, dirtyRect: dirtyRect, base: base, accent: accent, progress: progress
+                        )
+                    }
                 } else {
                     base.setFill()
-                    rects.forEach { $0.fill() }
+                    layoutManager.enumerateTextSegments(
+                        in: textRange, type: .highlight, options: [.rangeNotRequired]
+                    ) { _, segmentFrame, _, _ in
+                        let rect = segmentFrame.offsetBy(dx: origin.x, dy: origin.y)
+                        if rect.intersects(dirtyRect) { rect.fill() }
+                        return true
+                    }
                 }
             }
         }
@@ -84,7 +94,7 @@
         /// rounded pill per line; a single-line span is just the tight pill. No
         /// storage edit, so locating a comment never relayouts.
         private func drawEmphasizedHighlight(
-            _ rects: [NSRect], base: NSColor, accent: NSColor, progress: CGFloat
+            _ rects: [NSRect], dirtyRect: NSRect, base: NSColor, accent: NSColor, progress: CGFloat
         ) {
             // alphaComponent traps on a color with no direct alpha (catalog/named);
             // normalize to sRGB first so a future themed color can't crash the draw.
@@ -95,9 +105,9 @@
             NSGraphicsContext.saveGraphicsState()
             outline.addClip()
             base.withAlphaComponent(baseAlpha * (1 - progress)).setFill()
-            rects.forEach { $0.fill() }
+            for rect in rects where rect.intersects(dirtyRect) { rect.fill() }
             accent.withAlphaComponent(0.4 * progress).setFill()
-            rects.forEach { $0.fill() }
+            for rect in rects where rect.intersects(dirtyRect) { rect.fill() }
             NSGraphicsContext.restoreGraphicsState()
 
             accent.withAlphaComponent(0.9 * progress).setStroke()
