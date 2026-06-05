@@ -42,6 +42,31 @@
             #expect(resolved.comments(containing: 17).isEmpty) // in "fox", no comment
         }
 
+        @Test("active lists resolved comments in document order with entries and ranges")
+        func activeInDocumentOrder() {
+            let resolved = ResolvedComments.resolve(
+                [entry("b", quote: "fox", body: "second"),
+                 entry("a", quote: "quick", body: "first"),
+                 entry("c", quote: "missing")],
+                in: tape("the quick brown fox")
+            )
+            let active = resolved.active
+            #expect(active.map(\.id) == ["a", "b"]) // "quick"@4 before "fox"@16; "c" orphaned
+            #expect(active.map(\.entry.body) == ["first", "second"])
+            #expect(active.map(\.range) == [NSRange(location: 4, length: 5), NSRange(location: 16, length: 3)])
+        }
+
+        @Test("active breaks location ties by id for stable ordering")
+        func activeTieBreak() {
+            // Two distinct comments resolving to the same location (identical quote)
+            // must order deterministically by id.
+            let resolved = ResolvedComments.resolve(
+                [entry("z", quote: "quick"), entry("a", quote: "quick")],
+                in: tape("the quick brown fox")
+            )
+            #expect(resolved.active.map(\.id) == ["a", "z"])
+        }
+
         @Test("Duplicate ids keep the first entry; resolved and orphaned stay disjoint")
         func duplicateIDs() {
             // Both entries share id "dup": first resolves, second would orphan.

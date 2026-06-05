@@ -42,6 +42,15 @@
             .sorted { $0.range.length < $1.range.length }
         }
 
+        /// Resolved comments in document order (by range location, ties broken by
+        /// id for stability), for the sidebar's "On this page" list.
+        var active: [(id: String, entry: CommentSidecar.Entry, range: NSRange)] {
+            index.ranges.compactMap { id, range in
+                entriesByID[id].map { (id: id, entry: $0, range: range) }
+            }
+            .sorted { ($0.range.location, $0.id) < ($1.range.location, $1.id) }
+        }
+
         /// Entries whose anchor couldn't be located, for the orphan sidebar.
         var orphans: [CommentSidecar.Entry] {
             index.orphaned.compactMap { entriesByID[$0] }
