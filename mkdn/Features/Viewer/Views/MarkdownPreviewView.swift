@@ -85,9 +85,10 @@
             .id(documentState.viewRebuildGeneration)
             .background(appSettings.theme.colors.background)
             .overlay(alignment: .topTrailing) {
-                // Preview-only: in split mode this view is the half-width right
-                // pane, so a right-docked rail would sit inside the preview.
-                if documentState.viewMode == .previewOnly, !documentState.isCommentSidebarVisible {
+                // canShowCommentSidebar gates to preview-only: in split mode this
+                // view is the half-width right pane, so a right-docked rail would
+                // sit inside the preview.
+                if documentState.canShowCommentSidebar, !documentState.isCommentSidebarVisible {
                     CommentSidebarToggle(count: commentCount, theme: appSettings.theme) {
                         documentState.toggleCommentSidebar()
                     }
@@ -97,7 +98,7 @@
                 }
             }
             .overlay(alignment: .trailing) {
-                if documentState.viewMode == .previewOnly, documentState.isCommentSidebarVisible {
+                if documentState.canShowCommentSidebar, documentState.isCommentSidebarVisible {
                     CommentSidebarView(
                         active: activeItems,
                         detached: detachedItems,

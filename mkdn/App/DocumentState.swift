@@ -75,6 +75,13 @@
         /// Whether the comment sidebar (right-docked) is visible.
         public var isCommentSidebarVisible = false
 
+        /// Whether the comment sidebar can mount: a loaded markdown document in
+        /// preview-only mode. The toggle command's enablement and the view's
+        /// mount condition both derive from this, so they can't drift apart.
+        public var canShowCommentSidebar: Bool {
+            currentFileURL != nil && fileKind == .markdown && viewMode == .previewOnly
+        }
+
         /// Current sidebar width in points.
         public var sidebarWidth: CGFloat = 240
 

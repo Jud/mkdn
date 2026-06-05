@@ -160,12 +160,9 @@
                         documentState?.toggleCommentSidebar()
                     }
                     .keyboardShortcut("c", modifiers: [.command, .shift])
-                    // Match the render gate (overlays mount only in preview-only
-                    // markdown), so the shortcut never flips an invisible flag.
-                    .disabled(
-                        documentState?.fileKind != .markdown
-                            || documentState?.viewMode != .previewOnly
-                    )
+                    // Match the render gate, so the shortcut never flips an
+                    // invisible flag (no document, wrong mode, non-markdown).
+                    .disabled(!(documentState?.canShowCommentSidebar ?? false))
                 }
 
                 Section {
