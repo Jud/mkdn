@@ -24,8 +24,7 @@
     /// The right-docked comment panel: an "On this page" section (resolved
     /// comments) and a "Detached" section (anchors that couldn't be located),
     /// gated by a segmented filter. Pure presentation — the host maps
-    /// ``ResolvedComments`` into items and supplies the jump/delete actions. All
-    /// colors come from ``ThemeColors``.
+    /// ``ResolvedComments`` into items and supplies the jump/delete actions.
     struct CommentSidebarView: View {
         let active: [CommentSidebarItem]
         let detached: [CommentSidebarItem]
