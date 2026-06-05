@@ -82,15 +82,16 @@
                     guard fragmentPoint.y >= lineBounds.minY,
                           fragmentPoint.y < lineBounds.maxY
                     else { continue }
+                    // `characterIndex(for:)` is already relative to the layout
+                    // fragment's start, so adding the line's start double-counts on
+                    // the 2nd+ line of a wrapped paragraph (overshooting the doc and
+                    // misreading the .link attribute).
                     let charIndex = lineFragment.characterIndex(for: fragmentPoint)
-
-                    // Convert line-fragment-relative index to document offset
-                    let lineStartInFragment = lineFragment.characterRange.location
                     let fragmentStartInDoc = textContentStorage.offset(
                         from: textContentStorage.documentRange.location,
                         to: fragment.rangeInElement.location
                     )
-                    let docOffset = fragmentStartInDoc + lineStartInFragment + charIndex
+                    let docOffset = fragmentStartInDoc + charIndex
                     guard docOffset >= 0, docOffset < textStorage.length else { return false }
                     return textStorage.attribute(.link, at: docOffset, effectiveRange: nil) != nil
                 }

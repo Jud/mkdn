@@ -26,13 +26,16 @@
                     let lineBounds = lineFragment.typographicBounds
                     guard fragmentPoint.y >= lineBounds.minY, fragmentPoint.y < lineBounds.maxY
                     else { continue }
+                    // `characterIndex(for:)` is already relative to the layout
+                    // fragment's start, not the line's, so it must NOT be offset by
+                    // the line's start again — doing so double-counts on the 2nd+
+                    // line of a wrapped paragraph and overshoots the document.
                     let charIndex = lineFragment.characterIndex(for: fragmentPoint)
-                    let lineStartInFragment = lineFragment.characterRange.location
                     let fragmentStartInDoc = textContentStorage.offset(
                         from: textContentStorage.documentRange.location,
                         to: fragment.rangeInElement.location
                     )
-                    let docOffset = fragmentStartInDoc + lineStartInFragment + charIndex
+                    let docOffset = fragmentStartInDoc + charIndex
                     guard docOffset >= 0, docOffset < textStorage.length else { return nil }
                     return docOffset
                 }
