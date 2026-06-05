@@ -12,10 +12,10 @@
         let suffix: String
     }
 
-    /// Which comments the sidebar lists.
+    /// Which comments the sidebar lists. `all` shows on-page comments then
+    /// detached ones below; `detached` shows only the detached.
     enum CommentFilter: String, CaseIterable, Identifiable {
         case all = "All"
-        case onPage = "On page"
         case detached = "Detached"
 
         var id: String { rawValue }
@@ -30,23 +30,33 @@
         let detached: [CommentSidebarItem]
         let theme: AppTheme
         let onJump: (String) -> Void
-        let onReplace: (String) -> Void
         let onDelete: (String) -> Void
         let onClose: () -> Void
+        /// Emphasize (id) / un-emphasize (nil) a comment's span in the document
+        /// while its card is hovered.
+        let onHover: (String?) -> Void
 
         static let width: CGFloat = 300
 
         @State private var filter: CommentFilter = .all
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-        private var hasActive: Bool { filter != .detached && !active.isEmpty }
-        private var hasDetached: Bool { filter != .onPage && !detached.isEmpty }
+        private var motion: MotionPreference {
+            MotionPreference(reduceMotion: reduceMotion)
+        }
+
+        private var hasActive: Bool { filter == .all && !active.isEmpty }
+        private var hasDetached: Bool { !detached.isEmpty }
         private var isEmpty: Bool { !hasActive && !hasDetached }
 
         var body: some View {
             VStack(alignment: .leading, spacing: 12) {
                 header
-                CommentFilterPicker(filter: $filter, theme: theme)
+                CommentFilterPicker(filter: $filter, theme: theme, motion: motion)
                 content
+                    .animation(motion.resolved(.quickShift), value: active)
+                    .animation(motion.resolved(.quickShift), value: detached)
+                    .animation(motion.resolved(.quickShift), value: filter)
             }
             .padding(16)
             .frame(width: Self.width, alignment: .leading)
@@ -76,13 +86,18 @@
         private var content: some View {
             if isEmpty {
                 emptyState
+                    .transition(.opacity)
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         if hasActive {
                             section("On this page") {
                                 ForEach(active) { item in
-                                    ActiveCommentCard(item: item, theme: theme, onJump: onJump)
+                                    ActiveCommentCard(
+                                        item: item, theme: theme,
+                                        onJump: onJump, onHover: onHover
+                                    )
+                                    .transition(.opacity)
                                 }
                             }
                         }
@@ -93,16 +108,18 @@
                                     .foregroundStyle(theme.colors.foregroundSecondary)
                                 ForEach(detached) { item in
                                     DetachedCommentCard(
-                                        item: item, theme: theme,
-                                        onReplace: onReplace, onDelete: onDelete
+                                        item: item, theme: theme, onDelete: onDelete
                                     )
+                                    .transition(.opacity)
                                 }
                             }
+                            .transition(.opacity)
                         }
                     }
                     .padding(.bottom, 8)
                 }
                 .scrollIndicators(.never)
+                .transition(.opacity)
             }
         }
 
@@ -135,6 +152,9 @@
     private struct CommentFilterPicker: View {
         @Binding var filter: CommentFilter
         let theme: AppTheme
+        let motion: MotionPreference
+
+        @Namespace private var selection
 
         var body: some View {
             HStack(spacing: 0) {
@@ -145,12 +165,23 @@
                         .foregroundStyle(selected ? theme.colors.background : theme.colors.foregroundSecondary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 5)
-                        .background(selected ? theme.colors.accent : Color.clear)
+                        .background {
+                            // One matched capsule that slides between segments
+                            // rather than two that blink on/off.
+                            if selected {
+                                RoundedRectangle(cornerRadius: 5)
+                                    .fill(theme.colors.accent)
+                                    .matchedGeometryEffect(id: "selection", in: selection)
+                            }
+                        }
                         .contentShape(Rectangle())
-                        .onTapGesture { filter = option }
+                        .onTapGesture {
+                            withAnimation(motion.resolved(.quickShift)) { filter = option }
+                        }
                         .pointingHandCursor()
                 }
             }
+            .padding(2)
             .background(theme.colors.background)
             .clipShape(RoundedRectangle(cornerRadius: 6))
             .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(theme.colors.border.opacity(0.5)))
@@ -171,19 +202,17 @@
         }
     }
 
-    /// A resolved comment: quote chip (in `commentHighlight`) + body, revealing a
-    /// jump affordance on hover. The whole card jumps to the comment when clicked.
+    /// A resolved comment: quote chip (in `commentHighlight`) + body. The whole
+    /// card is a button (pointer cursor + accent lift on hover) that scrolls to
+    /// the comment.
     private struct ActiveCommentCard: View {
         let item: CommentSidebarItem
         let theme: AppTheme
         let onJump: (String) -> Void
+        /// Emphasize (id) / un-emphasize (nil) the comment's span in the document.
+        let onHover: (String?) -> Void
 
         @State private var hovering = false
-        @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-        private var motion: MotionPreference {
-            MotionPreference(reduceMotion: reduceMotion)
-        }
 
         var body: some View {
             VStack(alignment: .leading, spacing: 6) {
@@ -201,34 +230,38 @@
                     .font(.body)
                     .foregroundStyle(theme.colors.foreground)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                if hovering {
-                    Text("↳ Jump")
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(theme.colors.accent)
-                        .transition(.opacity)
-                }
             }
             .commentCardSurface(theme: theme)
+            .overlay {
+                // Faint accent wash on hover — signals the card is clickable
+                // without changing its size (no reflow of the cards below).
+                RoundedRectangle(cornerRadius: commentCardCornerRadius)
+                    .fill(theme.colors.accent.opacity(hovering ? 0.06 : 0))
+            }
             .overlay(
                 RoundedRectangle(cornerRadius: commentCardCornerRadius)
-                    .strokeBorder(theme.colors.border.opacity(0.4))
+                    .strokeBorder(
+                        hovering
+                            ? theme.colors.accent.opacity(0.55)
+                            : theme.colors.border.opacity(0.4)
+                    )
             )
             .contentShape(Rectangle())
             .onTapGesture { onJump(item.id) }
-            .onHover { hovering = $0 }
+            .onHover { inside in
+                hovering = inside
+                onHover(inside ? item.id : nil)
+            }
             .pointingHandCursor()
-            // Fade the jump hint in/out (and ease the card's height change)
-            // instead of popping it.
-            .animation(motion.resolved(.quickShift), value: hovering)
+            .animation(.easeInOut(duration: 0.15), value: hovering)
         }
     }
 
     /// A detached comment: dashed `warning` treatment, the original quote shown
-    /// struck-through in its saved context, then Re-place / Delete.
+    /// struck-through in its saved context, then Delete.
     private struct DetachedCommentCard: View {
         let item: CommentSidebarItem
         let theme: AppTheme
-        let onReplace: (String) -> Void
         let onDelete: (String) -> Void
 
         var body: some View {
@@ -276,11 +309,6 @@
 
         private var actions: some View {
             HStack {
-                // Re-place (manual re-anchor) is deferred; show it disabled rather
-                // than as a live control that silently does nothing.
-                Button("Re-place…") { onReplace(item.id) }
-                    .foregroundStyle(theme.colors.accent)
-                    .disabled(true)
                 Spacer()
                 Button("Delete", role: .destructive) { onDelete(item.id) }
                     .foregroundStyle(theme.colors.danger)

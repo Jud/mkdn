@@ -104,9 +104,9 @@
                         detached: detachedItems,
                         theme: appSettings.theme,
                         onJump: { jumpToComment($0) },
-                        onReplace: { _ in },
                         onDelete: { documentState.deleteComment(id: $0) },
-                        onClose: { documentState.toggleCommentSidebar() }
+                        onClose: { documentState.toggleCommentSidebar() },
+                        onHover: { MkdnCommands.findTextView()?.setHoveredComment($0) }
                     )
                     // Slides in over the content (the overlay never displaces or
                     // resizes the text beneath it, so nothing reflows or jumps).
@@ -174,16 +174,11 @@
             return resolved.ranges.count + resolved.orphans.count
         }
 
-        /// Scroll to the comment's span and flash it, then close the sidebar so the
-        /// flashed text isn't left behind the panel.
+        /// Smooth-scroll to the comment's span. The sidebar stays open, and the
+        /// card's hover keeps the span emphasized.
         private func jumpToComment(_ id: String) {
-            // Only close the sidebar if we actually performed the jump — otherwise
-            // the user would lose the sidebar with nothing scrolled into view.
-            guard let range = resolvedComments?.ranges[id],
-                  let textView = MkdnCommands.findTextView()
-            else { return }
-            textView.revealComment(id: id, range: range)
-            documentState.toggleCommentSidebar()
+            guard let range = resolvedComments?.ranges[id] else { return }
+            MkdnCommands.findTextView()?.scrollComment(to: range)
         }
 
         /// `entries` is the already-parsed sidecar for the content-change path; the
