@@ -81,6 +81,8 @@ def main():
         elif cmd_name == "add-comment":
             body = sys.argv[3] if len(sys.argv) > 3 else "test comment"
             r = send(sock, {"addComment": {"substring": sys.argv[2], "body": body}})
+        elif cmd_name == "toggle-comments":
+            r = send(sock, {"toggleCommentSidebar": {}})
         elif cmd_name == "quit":
             r = send(sock, {"quit": {}})
         else:

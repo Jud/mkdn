@@ -72,6 +72,9 @@
         /// Whether the sidebar panel is visible.
         public var isSidebarVisible = false
 
+        /// Whether the comment sidebar (right-docked) is visible.
+        public var isCommentSidebarVisible = false
+
         /// Current sidebar width in points.
         public var sidebarWidth: CGFloat = 240
 
@@ -205,6 +208,11 @@
         /// Toggle sidebar visibility.
         public func toggleSidebar() {
             isSidebarVisible.toggle()
+        }
+
+        /// Toggle the comment sidebar's visibility.
+        public func toggleCommentSidebar() {
+            isCommentSidebarVisible.toggle()
         }
     }
 #endif

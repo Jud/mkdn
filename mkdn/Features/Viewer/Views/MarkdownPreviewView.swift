@@ -71,6 +71,28 @@
             // cold first-paint bugs; constant in normal use.
             .id(documentState.viewRebuildGeneration)
             .background(appSettings.theme.colors.background)
+            .overlay(alignment: .topTrailing) {
+                if !documentState.isCommentSidebarVisible {
+                    CommentSidebarToggle(count: commentCount, theme: appSettings.theme) {
+                        documentState.toggleCommentSidebar()
+                    }
+                    .padding(.top, 12)
+                    .padding(.trailing, 16)
+                }
+            }
+            .overlay(alignment: .trailing) {
+                if documentState.isCommentSidebarVisible {
+                    CommentSidebarView(
+                        active: activeItems,
+                        detached: detachedItems,
+                        theme: appSettings.theme,
+                        onJump: { _ in },
+                        onReplace: { _ in },
+                        onDelete: { documentState.deleteComment(id: $0) },
+                        onClose: { documentState.toggleCommentSidebar() }
+                    )
+                }
+            }
             .task(id: documentState.markdownContent) {
                 if isInitialRender {
                     isInitialRender = false
@@ -116,6 +138,29 @@
             .onChange(of: appSettings.scaleFactor) {
                 renderAndBuild(cachedBlocks, isFullReload: false)
             }
+        }
+
+        private var activeItems: [CommentSidebarItem] {
+            (resolvedComments?.active ?? []).map {
+                CommentSidebarItem(
+                    id: $0.id, body: $0.entry.body, quote: $0.entry.quote,
+                    prefix: $0.entry.prefix, suffix: $0.entry.suffix
+                )
+            }
+        }
+
+        private var detachedItems: [CommentSidebarItem] {
+            (resolvedComments?.orphans ?? []).map {
+                CommentSidebarItem(
+                    id: $0.id, body: $0.body, quote: $0.quote,
+                    prefix: $0.prefix, suffix: $0.suffix
+                )
+            }
+        }
+
+        private var commentCount: Int {
+            guard let resolved = resolvedComments else { return 0 }
+            return resolved.ranges.count + resolved.orphans.count
         }
 
         /// `entries` is the already-parsed sidecar for the content-change path; the

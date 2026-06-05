@@ -82,6 +82,9 @@
         /// Toggle sidebar visibility (directory mode only).
         case toggleSidebar
 
+        /// Toggle the right-docked comment sidebar's visibility.
+        case toggleCommentSidebar
+
         /// Simulate smooth scroll by animating contentView.scroll(to:) at 60Hz.
         case simulateScroll(deltaY: Double, duration: Double)
 

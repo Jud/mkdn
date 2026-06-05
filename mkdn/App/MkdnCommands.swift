@@ -155,6 +155,12 @@
                         }
                     }
                     .keyboardShortcut("l", modifiers: [.command, .shift])
+
+                    Button("Toggle Comments") {
+                        documentState?.toggleCommentSidebar()
+                    }
+                    .keyboardShortcut("c", modifiers: [.command, .shift])
+                    .disabled(documentState?.fileKind != .markdown)
                 }
 
                 Section {

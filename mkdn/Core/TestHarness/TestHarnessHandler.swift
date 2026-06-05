@@ -25,6 +25,8 @@
                 await handleRecreateView()
             case let .addComment(substring, body):
                 await handleAddComment(substring: substring, body: body)
+            case .toggleCommentSidebar:
+                await handleToggleCommentSidebar()
             case .captureWindow, .captureRegion,
                  .startFrameCapture, .stopFrameCapture,
                  .beginFrameCapture, .endFrameCapture:
@@ -118,6 +120,14 @@
                 return .ok(message: "Document view recreated")
             }
             return .ok(message: "No markdown preview to recreate")
+        }
+
+        private static func handleToggleCommentSidebar() async -> HarnessResponse {
+            guard let docState = documentState else {
+                return .error("No document state available")
+            }
+            docState.toggleCommentSidebar()
+            return .ok(message: "Comment sidebar: \(docState.isCommentSidebarVisible ? "open" : "closed")")
         }
 
         private static func handleAddComment(
