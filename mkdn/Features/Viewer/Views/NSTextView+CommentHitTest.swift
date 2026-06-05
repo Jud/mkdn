@@ -3,8 +3,9 @@
 
     extension NSTextView {
         /// The document character index under a view-coordinate `point`, or nil
-        /// when the point is over empty space or past the text. Mirrors the
-        /// TextKit 2 / TextKit 1 hit-test in `isOverLink(at:)`.
+        /// when the point is over empty space or past the text. The shared
+        /// TextKit 2 / TextKit 1 hit-test primitive behind `commentHits(at:)` and
+        /// `isOverLink(at:)`.
         func characterIndex(at point: CGPoint) -> Int? {
             guard let textStorage, textStorage.length > 0 else { return nil }
 
