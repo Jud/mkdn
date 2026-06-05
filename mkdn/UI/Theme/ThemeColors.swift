@@ -18,6 +18,10 @@ public struct ThemeColors: Sendable {
     /// Background tint for comment highlights (persistent, unlike the transient
     /// `findHighlight`).
     public let commentHighlight: Color
+    /// Attention accent — e.g. detached comments. (Solarized: orange.)
+    public let warning: Color
+    /// Destructive accent — e.g. delete. (Solarized: red.)
+    public let danger: Color
 
     public init(
         background: Color,
@@ -33,7 +37,9 @@ public struct ThemeColors: Sendable {
         blockquoteBorder: Color,
         blockquoteBackground: Color,
         findHighlight: Color,
-        commentHighlight: Color
+        commentHighlight: Color,
+        warning: Color,
+        danger: Color
     ) {
         self.background = background
         self.backgroundSecondary = backgroundSecondary
@@ -49,6 +55,8 @@ public struct ThemeColors: Sendable {
         self.blockquoteBackground = blockquoteBackground
         self.findHighlight = findHighlight
         self.commentHighlight = commentHighlight
+        self.warning = warning
+        self.danger = danger
     }
 }
 

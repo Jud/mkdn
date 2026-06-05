@@ -37,7 +37,9 @@ enum PrintPalette {
         blockquoteBorder: midGray,
         blockquoteBackground: nearWhite,
         findHighlight: darkAmber,
-        commentHighlight: darkAmber.opacity(0.20)
+        commentHighlight: darkAmber.opacity(0.20),
+        warning: darkOrange,
+        danger: darkRed
     )
 
     static let syntaxColors = SyntaxColors(
