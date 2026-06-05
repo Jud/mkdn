@@ -3,10 +3,19 @@
     import SwiftUI
 
     extension View {
-        /// Show the pointing-hand cursor while hovering — the comment overlay owns
-        /// its cursor (the text view defers over it), so its buttons opt in here.
+        /// Show the pointing-hand cursor while hovering. Uses `onContinuousHover`
+        /// (re-setting on every move) rather than `onHover` + a one-shot
+        /// `NSCursor.set()`: over the comment sidebar (a separate hosting view on
+        /// top of the text view) a one-shot set is reset to the arrow on the next
+        /// mouse move, so the pointer flickers back. Re-setting per move makes it
+        /// stick.
         func pointingHandCursor() -> some View {
-            onHover { $0 ? NSCursor.pointingHand.set() : NSCursor.arrow.set() }
+            onContinuousHover { phase in
+                switch phase {
+                case .active: NSCursor.pointingHand.set()
+                case .ended: NSCursor.arrow.set()
+                }
+            }
         }
     }
 
