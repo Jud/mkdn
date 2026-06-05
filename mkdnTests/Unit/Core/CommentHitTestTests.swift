@@ -69,5 +69,50 @@
             #expect(rect.width > 0 && rect.height > 0)
             #expect(view.commentHits(at: CGPoint(x: rect.midX, y: rect.midY)).map(\.entry.id) == ["c1"])
         }
+
+        /// A laid-out *TextKit 2* text view — does NOT touch `layoutManager` (which
+        /// would switch to TextKit 1); forces layout via `textLayoutManager`. This
+        /// exercises the TextKit 2 `characterIndex(at:)` branch the other tests skip.
+        private func tk2TextView(
+            _ attributed: NSAttributedString, comment quote: String, width: CGFloat
+        ) throws -> CodeBlockBackgroundTextView {
+            let tape = AnchorTape.build(from: attributed)
+            let builderRange = (attributed.string as NSString).range(of: quote)
+            let selector = try #require(CommentSelectorCapture.capture(builderRange: builderRange, in: tape))
+            var entry = CommentSidecar.Entry(id: "c1", body: "note")
+            entry.setAnchor(selector)
+
+            let view = CodeBlockBackgroundTextView(frame: NSRect(x: 0, y: 0, width: width, height: 2000))
+            view.textContainerInset = NSSize(width: 16, height: 16)
+            view.textContainer?.containerSize = NSSize(width: width - 32, height: .greatestFiniteMagnitude)
+            view.textStorage?.setAttributedString(attributed)
+            view.resolvedComments = ResolvedComments.resolve([entry], in: tape)
+            let tlm = try #require(view.textLayoutManager)
+            tlm.ensureLayout(for: try #require(tlm.textContentManager).documentRange)
+            return view
+        }
+
+        @Test("TextKit 2: a comment on a wrapped 2nd line hit-tests at its span center")
+        func hitOnWrappedSecondLineTK2() throws {
+            // A long single paragraph that must wrap; the commented phrase lands well
+            // past the first line. Regression guard for the wrapped-line hit-test
+            // offset fix (the old code double-counted the line-fragment start and
+            // returned nil for 2nd+ line spans).
+            let prose = "The quick brown fox jumps over the lazy dog and keeps running "
+                + "far past the right margin so this line is forced to wrap several "
+                + "times before the commented WRAPPEDPHRASE finally appears."
+            let attributed = NSAttributedString(string: prose)
+            let view = try tk2TextView(attributed, comment: "WRAPPEDPHRASE", width: 280)
+
+            let string = view.string as NSString
+            let quoteRect = try #require(view.boundingRect(forCharacterRange: string.range(of: "WRAPPEDPHRASE")))
+            let firstWordRect = try #require(view.boundingRect(forCharacterRange: string.range(of: "quick")))
+            // Non-vacuous: the phrase must be on a visual line below the first word.
+            #expect(quoteRect.minY > firstWordRect.maxY)
+
+            let hits = view.commentHits(at: CGPoint(x: quoteRect.midX, y: quoteRect.midY))
+            #expect(hits.map(\.entry.id) == ["c1"])
+            #expect(string.substring(with: hits[0].range) == "WRAPPEDPHRASE")
+        }
     }
 #endif
