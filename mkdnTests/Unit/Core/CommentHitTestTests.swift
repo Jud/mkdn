@@ -55,6 +55,13 @@
             #expect(view.commentHits(at: centerPoint(of: "docs", in: view)).map(\.entry.id) == ["c1"])
         }
 
+        @Test("isOverLink is true on a link label and false off it")
+        func isOverLinkDetection() {
+            let view = textView("see [docs](https://x.com) now", comment: "see")
+            #expect(view.isOverLink(at: centerPoint(of: "docs", in: view)))
+            #expect(!view.isOverLink(at: centerPoint(of: "now", in: view)))
+        }
+
         @Test("Returns no hits over text that is not commented")
         func missOnPlainText() {
             let view = textView("foo bar baz", comment: "bar")
