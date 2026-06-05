@@ -28,7 +28,11 @@
             case .toggleCommentSidebar:
                 await handleToggleCommentSidebar()
             case .jumpFirstComment:
-                await handleJumpFirstComment()
+                await handleJumpComment(index: 0)
+            case let .jumpCommentAt(index):
+                await handleJumpComment(index: index)
+            case let .diagnoseCommentClick(index):
+                await handleDiagnoseCommentClick(index: index)
             case .captureWindow, .captureRegion,
                  .startFrameCapture, .stopFrameCapture,
                  .beginFrameCapture, .endFrameCapture:
@@ -132,7 +136,7 @@
             return .ok(message: "Comment sidebar: \(docState.isCommentSidebarVisible ? "open" : "closed")")
         }
 
-        private static func handleJumpFirstComment() async -> HarnessResponse {
+        private static func handleJumpComment(index: Int) async -> HarnessResponse {
             // keyWindow is nil under the harness, so search the main window
             // directly rather than via the keyWindow-based MkdnCommands.findTextView().
             guard let window = findMainWindow(),
@@ -141,11 +145,43 @@
             else {
                 return .error("No markdown text view available")
             }
-            guard let first = textView.resolvedComments?.active.first else {
-                return .error("No resolved comments to jump to")
+            let active = textView.resolvedComments?.active ?? []
+            guard index >= 0, index < active.count else {
+                return .error("No resolved comment at index \(index)")
             }
-            textView.revealComment(id: first.id, range: first.range)
-            return .ok(message: "Jumped to: \(first.entry.quote)")
+            let target = active[index]
+            textView.revealComment(id: target.id, range: target.range)
+            return .ok(message: "Jumped to: \(target.entry.quote)")
+        }
+
+        /// Scroll the comment at `index` into view, hit-test the center of its span,
+        /// and (when it's clickable) open its popover — the full main-document
+        /// click path, for verifying comment clickability without a synthetic event.
+        private static func handleDiagnoseCommentClick(index: Int) async -> HarnessResponse {
+            guard let window = findMainWindow(),
+                  let content = window.contentView,
+                  let textView = MkdnCommands.findTextView(in: content)
+            else {
+                return .error("No markdown text view available")
+            }
+            let active = textView.resolvedComments?.active ?? []
+            guard index >= 0, index < active.count else {
+                return .error("No resolved comment at index \(index)")
+            }
+            let target = active[index]
+            textView.revealComment(id: target.id, range: target.range)
+            try? await Task.sleep(for: .milliseconds(450)) // let the smooth scroll settle
+
+            guard let rect = textView.boundingRect(forCharacterRange: target.range) else {
+                return .error("No bounding rect for \(target.entry.quote)")
+            }
+            let mid = CGPoint(x: rect.midX, y: rect.midY)
+            let hits = textView.commentHits(at: mid)
+            guard !hits.isEmpty else {
+                return .error("\(target.entry.quote) is not clickable at its center")
+            }
+            textView.toggleComments(hits)
+            return .ok(message: "Opened \(hits.map(\.entry.id)) for: \(target.entry.quote)")
         }
 
         private static func handleAddComment(
