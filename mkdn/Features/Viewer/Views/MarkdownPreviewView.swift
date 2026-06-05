@@ -165,7 +165,7 @@
         }
 
         private var detachedItems: [CommentSidebarItem] {
-            (resolvedComments?.orphans ?? []).map(CommentSidebarItem.init)
+            (resolvedComments?.orphans ?? []).map { CommentSidebarItem($0) }
         }
 
         private var commentCount: Int {
@@ -176,8 +176,12 @@
         /// Scroll to the comment's span and flash it, then close the sidebar so the
         /// flashed text isn't left behind the panel.
         private func jumpToComment(_ id: String) {
-            guard let range = resolvedComments?.ranges[id] else { return }
-            MkdnCommands.findTextView()?.revealComment(id: id, range: range)
+            // Only close the sidebar if we actually performed the jump — otherwise
+            // the user would lose the sidebar with nothing scrolled into view.
+            guard let range = resolvedComments?.ranges[id],
+                  let textView = MkdnCommands.findTextView()
+            else { return }
+            textView.revealComment(id: id, range: range)
             documentState.toggleCommentSidebar()
         }
 

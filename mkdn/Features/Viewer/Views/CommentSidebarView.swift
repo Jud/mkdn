@@ -267,9 +267,11 @@
 
         private var actions: some View {
             HStack {
+                // Re-place (manual re-anchor) is deferred; show it disabled rather
+                // than as a live control that silently does nothing.
                 Button("Re-place…") { onReplace(item.id) }
                     .foregroundStyle(theme.colors.accent)
-                    .pointingHandCursor()
+                    .disabled(true)
                 Spacer()
                 Button("Delete", role: .destructive) { onDelete(item.id) }
                     .foregroundStyle(theme.colors.danger)
