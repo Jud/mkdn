@@ -58,8 +58,7 @@
         /// when the text storage is empty, or when the character under the
         /// point has no link.
         func isOverLink(at point: CGPoint) -> Bool {
-            // Reuse the shared character hit-test (which handles both TextKit
-            // stacks and the wrapped-line offset) and just read the link there.
+            // Link detection rides on the shared characterIndex(at:) hit-test.
             guard let textStorage, let index = characterIndex(at: point) else { return false }
             return textStorage.attribute(.link, at: index, effectiveRange: nil) != nil
         }
