@@ -40,27 +40,43 @@
 
             let origin = textContainerOrigin
             let base = PlatformTypeConverter.color(from: theme.colors.commentHighlight)
-            // Hover emphasis is a draw-state change (a brighter fill for the hovered
-            // comment), not a storage edit — so locating a comment from its sidebar
-            // row never relayouts.
-            let emphasis = PlatformTypeConverter.color(from: theme.colors.accent).withAlphaComponent(0.3)
+            // Hover emphasis is a draw-state change (no storage edit, so locating a
+            // comment never relayouts): the span crossfades from its resting fill
+            // into a bolder accent fill + outline, eased by `emphasisProgress`.
+            let accent = PlatformTypeConverter.color(from: theme.colors.accent)
+            let baseAlpha = base.alphaComponent
+            let progress = emphasisProgress
 
-            // Draw the hovered comment last so a later overlapping base fill can't
+            // Draw the emphasized comment last so a later overlapping base fill can't
             // overpaint its emphasis.
             let ordered = resolved.ranges.sorted {
-                ($0.key == hoveredCommentID ? 1 : 0) < ($1.key == hoveredCommentID ? 1 : 0)
+                ($0.key == emphasisDrawID ? 1 : 0) < ($1.key == emphasisDrawID ? 1 : 0)
             }
             for (id, range) in ordered {
                 let clipped = NSIntersectionRange(range, visibleRange)
                 guard clipped.length > 0,
                       let textRange = textRange(from: clipped, contentManager: contentManager)
                 else { continue }
-                (id == hoveredCommentID ? emphasis : base).setFill()
+                let emphasized = (id == emphasisDrawID && progress > 0)
                 layoutManager.enumerateTextSegments(
                     in: textRange, type: .highlight, options: [.rangeNotRequired]
                 ) { _, segmentFrame, _, _ in
                     let rect = segmentFrame.offsetBy(dx: origin.x, dy: origin.y)
-                    if rect.intersects(dirtyRect) { rect.fill() }
+                    guard rect.intersects(dirtyRect) else { return true }
+                    if emphasized {
+                        // Crossfade: fade the resting fill out as the accent fades in.
+                        base.withAlphaComponent(baseAlpha * (1 - progress)).setFill()
+                        rect.fill()
+                        let pill = NSBezierPath(roundedRect: rect, xRadius: 3, yRadius: 3)
+                        accent.withAlphaComponent(0.4 * progress).setFill()
+                        pill.fill()
+                        accent.withAlphaComponent(0.9 * progress).setStroke()
+                        pill.lineWidth = 1.5
+                        pill.stroke()
+                    } else {
+                        base.setFill()
+                        rect.fill()
+                    }
                     return true
                 }
             }

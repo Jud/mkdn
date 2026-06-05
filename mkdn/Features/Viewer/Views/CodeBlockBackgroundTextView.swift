@@ -115,6 +115,17 @@
         /// Clears a jump-to-comment flash after its hold; cancelled when a newer
         /// flash or hover supersedes it.
         var commentFlashTask: Task<Void, Never>?
+        /// Drives the smooth scroll for a jump-to-comment; cancelled when a newer
+        /// jump supersedes it (e.g. clicking a second comment mid-scroll).
+        var commentScrollTimer: DispatchSourceTimer?
+        /// The comment whose span is drawn with hover emphasis. Lags
+        /// ``hoveredCommentID`` during the fade-out so the emphasis can animate away
+        /// rather than vanish.
+        var emphasisDrawID: String?
+        /// 0 → 1 fade of the hover emphasis for ``emphasisDrawID``, animated by
+        /// ``commentEmphasisTimer`` so the span eases into/out of the highlight.
+        var emphasisProgress: CGFloat = 0
+        var commentEmphasisTimer: DispatchSourceTimer?
 
         // MARK: - Print Support
 

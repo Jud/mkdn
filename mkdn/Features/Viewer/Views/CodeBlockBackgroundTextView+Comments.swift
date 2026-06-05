@@ -247,9 +247,9 @@
         // MARK: - Hover-to-locate
 
         /// Emphasize the hovered comment's span so the reader sees which text the
-        /// row they're reading refers to. A draw-state change (``hoveredCommentID``
-        /// drives the fill color in ``drawCommentHighlights(in:)``) — no storage
-        /// edit, so locating a comment never relayouts.
+        /// row they're reading refers to. A draw-state change (no storage edit, so
+        /// locating a comment never relayouts) that eases into/out of the highlight
+        /// via ``emphasisProgress`` rather than snapping.
         func setHoveredComment(_ id: String?) {
             // Cancel before the no-op guard: a hover over the currently-flashing
             // comment (same id) must still supersede a pending flash-clear, or the
@@ -257,14 +257,62 @@
             commentFlashTask?.cancel()
             guard id != hoveredCommentID else { return }
             hoveredCommentID = id
-            setNeedsDisplay(enclosingScrollView?.documentVisibleRect ?? bounds)
+            // A new id fades in from scratch; nil keeps the last id and fades it out.
+            if let id, id != emphasisDrawID {
+                emphasisDrawID = id
+                emphasisProgress = 0
+            }
+            animateCommentEmphasis(to: id == nil ? 0 : 1)
         }
 
-        /// Jump to a comment from the sidebar: scroll its span into view and flash
-        /// it. The flash reuses the hover emphasis channel (a draw-state change,
-        /// no storage edit), so navigating never relayouts.
+        /// Tween ``emphasisProgress`` to `target` (1 = hovered, 0 = cleared) at
+        /// 60fps, redrawing each frame; clears ``emphasisDrawID`` when it reaches 0.
+        private func animateCommentEmphasis(to target: CGFloat) {
+            commentEmphasisTimer?.cancel()
+            commentEmphasisTimer = nil
+
+            guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
+                emphasisProgress = target
+                if target == 0 { emphasisDrawID = nil }
+                setNeedsDisplay(enclosingScrollView?.documentVisibleRect ?? bounds)
+                return
+            }
+
+            let start = emphasisProgress
+            let steps = max(Int(0.16 * 60), 1)
+            var step = 0
+            let timer = DispatchSource.makeTimerSource(queue: .main)
+            timer.schedule(deadline: .now(), repeating: .milliseconds(16), leeway: .milliseconds(1))
+            timer.setEventHandler { [weak self] in
+                guard let self else { timer.cancel(); return }
+                step += 1
+                let t = min(CGFloat(step) / CGFloat(steps), 1)
+                let eased = t * t * (3 - 2 * t) // smoothstep
+                self.emphasisProgress = start + (target - start) * eased
+                if t >= 1 {
+                    self.emphasisProgress = target
+                    if target == 0 { self.emphasisDrawID = nil }
+                    timer.cancel()
+                    self.commentEmphasisTimer = nil
+                }
+                self.setNeedsDisplay(self.enclosingScrollView?.documentVisibleRect ?? self.bounds)
+            }
+            commentEmphasisTimer = timer
+            timer.resume()
+        }
+
+        /// Smooth-scroll a comment's span into view (no emphasis). Clicking a
+        /// sidebar card uses this; the card's hover already emphasizes the span, so
+        /// a flash here would only fight that hover.
+        func scrollComment(to range: NSRange) {
+            smoothScroll(to: range)
+        }
+
+        /// Scroll a comment into view and flash it (a self-clearing emphasis on the
+        /// hover channel, no storage edit). For navigating to a comment with no
+        /// hover to carry the emphasis (e.g. the test harness).
         func revealComment(id: String, range: NSRange) {
-            scrollRangeToVisible(range)
+            smoothScroll(to: range)
             setHoveredComment(id)
             commentFlashTask = Task { @MainActor [weak self] in
                 try? await Task.sleep(for: AnimationConstants.commentFlashHold)
@@ -272,6 +320,67 @@
                 // Still our flash — no newer hover/jump took ownership.
                 if self?.hoveredCommentID == id { self?.setHoveredComment(nil) }
             }
+        }
+
+        /// Animate the viewport to bring `range` into view. `scrollRangeToVisible`
+        /// resolves the correct destination (even when TextKit 2's off-viewport
+        /// layout is still estimated); we then snap back and animate the clip view
+        /// to it explicitly. The explicit `animator()` path (not
+        /// `allowsImplicitAnimation`) drives TextKit 2's viewport layout each frame,
+        /// so the comment-highlight draw's `viewportRange` stays valid — an implicit
+        /// animation leaves it stale and the highlights vanish.
+        private func smoothScroll(to range: NSRange) {
+            commentScrollTimer?.cancel()
+            commentScrollTimer = nil
+
+            guard let scrollView = enclosingScrollView else {
+                scrollRangeToVisible(range)
+                relayoutViewport()
+                return
+            }
+            let clipView = scrollView.contentView
+            let start = clipView.bounds.origin
+            scrollRangeToVisible(range) // resolve the destination AppKit would pick
+            let destination = clipView.bounds.origin
+            // Snap back to the start (before any draw) and tween there ourselves.
+            clipView.setBoundsOrigin(start)
+            scrollView.reflectScrolledClipView(clipView)
+            relayoutViewport()
+            guard destination != start else { return } // already in view
+
+            // Tween with a per-frame `scroll(to:)` rather than an implicit/animator
+            // bounds animation: only a real scroll keeps TextKit 2's viewport range
+            // current, and the layout-passive highlight draw clips to that range —
+            // an animated bounds change leaves it stale and the highlights blank.
+            let steps = max(Int(AnimationConstants.scrollToHeadingDuration * 60), 2)
+            var step = 0
+            let viewportController = textLayoutManager?.textViewportLayoutController
+            let timer = DispatchSource.makeTimerSource(queue: .main)
+            timer.schedule(deadline: .now(), repeating: .milliseconds(16), leeway: .milliseconds(1))
+            timer.setEventHandler {
+                step += 1
+                let t = min(Double(step) / Double(steps), 1)
+                let eased = t < 0.5 ? 2 * t * t : 1 - pow(-2 * t + 2, 2) / 2
+                let point = NSPoint(
+                    x: start.x + (destination.x - start.x) * eased,
+                    y: start.y + (destination.y - start.y) * eased
+                )
+                clipView.scroll(to: point)
+                scrollView.reflectScrolledClipView(clipView)
+                viewportController?.layoutViewport()
+                if step >= steps {
+                    timer.cancel()
+                }
+            }
+            commentScrollTimer = timer
+            timer.resume()
+        }
+
+        /// Force the viewport layout controller to refresh its range after a
+        /// programmatic scroll, so the layout-passive highlight draw (which clips
+        /// to that range) doesn't blank out.
+        private func relayoutViewport() {
+            textLayoutManager?.textViewportLayoutController.layoutViewport()
         }
 
         // MARK: - Dragging
