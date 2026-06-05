@@ -308,6 +308,14 @@
             smoothScroll(to: range)
         }
 
+        /// Cancel an in-flight jump scroll. Call before swapping storage so the
+        /// tween (which targets the old layout) can't fight the new content's
+        /// scroll position.
+        func cancelCommentScroll() {
+            commentScrollTimer?.cancel()
+            commentScrollTimer = nil
+        }
+
         /// Scroll a comment into view and flash it (a self-clearing emphasis on the
         /// hover channel, no storage edit). For navigating to a comment with no
         /// hover to carry the emphasis (e.g. the test harness).
@@ -324,11 +332,11 @@
 
         /// Animate the viewport to bring `range` into view. `scrollRangeToVisible`
         /// resolves the correct destination (even when TextKit 2's off-viewport
-        /// layout is still estimated); we then snap back and animate the clip view
-        /// to it explicitly. The explicit `animator()` path (not
-        /// `allowsImplicitAnimation`) drives TextKit 2's viewport layout each frame,
-        /// so the comment-highlight draw's `viewportRange` stays valid — an implicit
-        /// animation leaves it stale and the highlights vanish.
+        /// layout is still estimated); we then snap back and tween the clip view to
+        /// it with a per-frame `scroll(to:)`. A per-frame real scroll (not an
+        /// implicit/`animator()` bounds animation) keeps TextKit 2's viewport range
+        /// current each frame, so the layout-passive highlight draw — which clips to
+        /// that range — doesn't blank out mid-scroll.
         private func smoothScroll(to range: NSRange) {
             commentScrollTimer?.cancel()
             commentScrollTimer = nil
@@ -342,34 +350,46 @@
             let start = clipView.bounds.origin
             scrollRangeToVisible(range) // resolve the destination AppKit would pick
             let destination = clipView.bounds.origin
+            guard destination != start else { return } // already in view
+
+            // Reduce Motion: leave the view at the resolved destination, no tween.
+            guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
+                relayoutViewport()
+                return
+            }
+
             // Snap back to the start (before any draw) and tween there ourselves.
             clipView.setBoundsOrigin(start)
             scrollView.reflectScrolledClipView(clipView)
             relayoutViewport()
-            guard destination != start else { return } // already in view
 
-            // Tween with a per-frame `scroll(to:)` rather than an implicit/animator
-            // bounds animation: only a real scroll keeps TextKit 2's viewport range
-            // current, and the layout-passive highlight draw clips to that range —
-            // an animated bounds change leaves it stale and the highlights blank.
             let steps = max(Int(AnimationConstants.scrollToHeadingDuration * 60), 2)
             var step = 0
-            let viewportController = textLayoutManager?.textViewportLayoutController
             let timer = DispatchSource.makeTimerSource(queue: .main)
             timer.schedule(deadline: .now(), repeating: .milliseconds(16), leeway: .milliseconds(1))
-            timer.setEventHandler {
+            // Fetch the scroll view from self each tick (under [weak self]) rather
+            // than capturing it: a strong capture would cycle (self → timer →
+            // scrollView → documentView → self) and keep firing on a detached view
+            // after teardown. The window guard stops the tween once the view is gone.
+            timer.setEventHandler { [weak self] in
+                guard let self, self.window != nil, let scrollView = self.enclosingScrollView else {
+                    timer.cancel()
+                    self?.commentScrollTimer = nil
+                    return
+                }
+                let clipView = scrollView.contentView
                 step += 1
                 let t = min(Double(step) / Double(steps), 1)
                 let eased = t < 0.5 ? 2 * t * t : 1 - pow(-2 * t + 2, 2) / 2
-                let point = NSPoint(
+                clipView.scroll(to: NSPoint(
                     x: start.x + (destination.x - start.x) * eased,
                     y: start.y + (destination.y - start.y) * eased
-                )
-                clipView.scroll(to: point)
+                ))
                 scrollView.reflectScrolledClipView(clipView)
-                viewportController?.layoutViewport()
+                self.textLayoutManager?.textViewportLayoutController.layoutViewport()
                 if step >= steps {
                     timer.cancel()
+                    self.commentScrollTimer = nil
                 }
             }
             commentScrollTimer = timer

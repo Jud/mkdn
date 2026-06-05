@@ -127,6 +127,14 @@
         var emphasisProgress: CGFloat = 0
         var commentEmphasisTimer: DispatchSourceTimer?
 
+        deinit {
+            // Stop the comment animation timers/task if the view is torn down
+            // mid-flight, so none keep firing against a detached view.
+            commentScrollTimer?.cancel()
+            commentEmphasisTimer?.cancel()
+            commentFlashTask?.cancel()
+        }
+
         // MARK: - Print Support
 
         /// Current indexed blocks retained for print-time attributed string rebuild.

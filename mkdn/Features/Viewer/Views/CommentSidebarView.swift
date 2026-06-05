@@ -2,8 +2,8 @@
     import SwiftUI
 
     /// One row in the comment sidebar, decoupled from the resolver: `active` rows
-    /// (anchor located on the page) show a quote chip + body + jump; `detached`
-    /// rows (anchor lost) show the struck quote-in-context + Re-place / Delete.
+    /// (anchor located on the page) show a quote chip + body; `detached` rows
+    /// (anchor lost) show the struck quote-in-context + Delete.
     struct CommentSidebarItem: Identifiable, Equatable {
         let id: String
         let body: String
@@ -252,6 +252,10 @@
                 hovering = inside
                 onHover(inside ? item.id : nil)
             }
+            // Clear the document emphasis if this card is removed while hovered
+            // (filter switch, delete, sidebar close) — onHover(false) doesn't fire
+            // on removal, so the accent pill would otherwise stay painted.
+            .onDisappear { if hovering { onHover(nil) } }
             .pointingHandCursor()
             .animation(.easeInOut(duration: 0.15), value: hovering)
         }

@@ -44,7 +44,9 @@
             // comment never relayouts): the span crossfades from its resting fill
             // into a bolder accent fill + outline, eased by `emphasisProgress`.
             let accent = PlatformTypeConverter.color(from: theme.colors.accent)
-            let baseAlpha = base.alphaComponent
+            // alphaComponent traps on a color with no direct alpha (catalog/named);
+            // normalize to sRGB first so a future themed color can't crash the draw.
+            let baseAlpha = base.usingColorSpace(.sRGB)?.alphaComponent ?? 1
             let progress = emphasisProgress
 
             // Draw the emphasized comment last so a later overlapping base fill can't

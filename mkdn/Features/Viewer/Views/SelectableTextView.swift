@@ -229,6 +229,9 @@
             // Stop any in-flight footnote pulse before swapping storage; its
             // delayed fade would otherwise write stale ranges into new content.
             coordinator.cancelFootnotePulse()
+            // Likewise stop an in-flight jump scroll; it targets the old layout and
+            // would yank the viewport after the swap resets it.
+            textView.cancelCommentScroll()
             // Dismiss an open comment overlay; its position points into the old
             // layout and its body may no longer match the new content. A body edit
             // from the popover only changed the sidecar (layout unchanged), so it

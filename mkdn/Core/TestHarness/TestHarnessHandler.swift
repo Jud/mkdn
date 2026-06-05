@@ -136,20 +136,26 @@
             return .ok(message: "Comment sidebar: \(docState.isCommentSidebarVisible ? "open" : "closed")")
         }
 
-        private static func handleJumpComment(index: Int) async -> HarnessResponse {
-            // keyWindow is nil under the harness, so search the main window
-            // directly rather than via the keyWindow-based MkdnCommands.findTextView().
+        /// The text view and the resolved comment at `index` in document order, or
+        /// nil. keyWindow is nil under the harness, so search the main window
+        /// directly rather than via the keyWindow-based MkdnCommands.findTextView().
+        private static func resolvedComment(
+            at index: Int
+        ) -> (textView: CodeBlockBackgroundTextView,
+              target: (id: String, entry: CommentSidecar.Entry, range: NSRange))? {
             guard let window = findMainWindow(),
                   let content = window.contentView,
                   let textView = MkdnCommands.findTextView(in: content)
-            else {
-                return .error("No markdown text view available")
-            }
+            else { return nil }
             let active = textView.resolvedComments?.active ?? []
-            guard index >= 0, index < active.count else {
+            guard active.indices.contains(index) else { return nil }
+            return (textView, active[index])
+        }
+
+        private static func handleJumpComment(index: Int) async -> HarnessResponse {
+            guard let (textView, target) = resolvedComment(at: index) else {
                 return .error("No resolved comment at index \(index)")
             }
-            let target = active[index]
             textView.revealComment(id: target.id, range: target.range)
             return .ok(message: "Jumped to: \(target.entry.quote)")
         }
@@ -158,19 +164,13 @@
         /// and (when it's clickable) open its popover — the full main-document
         /// click path, for verifying comment clickability without a synthetic event.
         private static func handleDiagnoseCommentClick(index: Int) async -> HarnessResponse {
-            guard let window = findMainWindow(),
-                  let content = window.contentView,
-                  let textView = MkdnCommands.findTextView(in: content)
-            else {
-                return .error("No markdown text view available")
-            }
-            let active = textView.resolvedComments?.active ?? []
-            guard index >= 0, index < active.count else {
+            guard let (textView, target) = resolvedComment(at: index) else {
                 return .error("No resolved comment at index \(index)")
             }
-            let target = active[index]
             textView.revealComment(id: target.id, range: target.range)
-            try? await Task.sleep(for: .milliseconds(450)) // let the smooth scroll settle
+            // Let the smooth scroll settle before hit-testing (derived from the
+            // scroll duration so it can't drift out of sync).
+            try? await Task.sleep(for: .seconds(AnimationConstants.scrollToHeadingDuration + 0.1))
 
             guard let rect = textView.boundingRect(forCharacterRange: target.range) else {
                 return .error("No bounding rect for \(target.entry.quote)")
