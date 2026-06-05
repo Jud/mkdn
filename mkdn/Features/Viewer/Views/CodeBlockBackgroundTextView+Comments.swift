@@ -389,8 +389,8 @@
 
         /// Run an eased 0→1 ramp over `duration` at ~60fps on the main queue,
         /// invoking `onFrame(easedProgress)` each tick and `onComplete()` on the
-        /// final frame, then returns the running timer. The caller stores it (to
-        /// cancel a superseding animation) and owns Reduce Motion handling.
+        /// final frame. The caller stores the timer (to cancel a superseding
+        /// animation) and owns Reduce Motion handling.
         private func makeFrameRamp(
             duration: TimeInterval,
             easing: @escaping (CGFloat) -> CGFloat,
