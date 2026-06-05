@@ -279,26 +279,21 @@
             }
 
             let start = emphasisProgress
-            let steps = max(Int(0.16 * 60), 1)
-            var step = 0
-            let timer = DispatchSource.makeTimerSource(queue: .main)
-            timer.schedule(deadline: .now(), repeating: .milliseconds(16), leeway: .milliseconds(1))
-            timer.setEventHandler { [weak self] in
-                guard let self else { timer.cancel(); return }
-                step += 1
-                let t = min(CGFloat(step) / CGFloat(steps), 1)
-                let eased = t * t * (3 - 2 * t) // smoothstep
-                self.emphasisProgress = start + (target - start) * eased
-                if t >= 1 {
+            commentEmphasisTimer = makeFrameRamp(
+                duration: 0.16,
+                easing: { $0 * $0 * (3 - 2 * $0) }, // smoothstep
+                onFrame: { [weak self] progress in
+                    guard let self else { return }
+                    self.emphasisProgress = start + (target - start) * progress
+                    self.setNeedsDisplay(self.enclosingScrollView?.documentVisibleRect ?? self.bounds)
+                },
+                onComplete: { [weak self] in
+                    guard let self else { return }
                     self.emphasisProgress = target
                     if target == 0 { self.emphasisDrawID = nil }
-                    timer.cancel()
                     self.commentEmphasisTimer = nil
                 }
-                self.setNeedsDisplay(self.enclosingScrollView?.documentVisibleRect ?? self.bounds)
-            }
-            commentEmphasisTimer = timer
-            timer.resume()
+            )
         }
 
         /// Smooth-scroll a comment's span into view (no emphasis). Clicking a
@@ -363,37 +358,26 @@
             scrollView.reflectScrolledClipView(clipView)
             relayoutViewport()
 
-            let steps = max(Int(AnimationConstants.scrollToHeadingDuration * 60), 2)
-            var step = 0
-            let timer = DispatchSource.makeTimerSource(queue: .main)
-            timer.schedule(deadline: .now(), repeating: .milliseconds(16), leeway: .milliseconds(1))
             // Fetch the scroll view from self each tick (under [weak self]) rather
             // than capturing it: a strong capture would cycle (self → timer →
             // scrollView → documentView → self) and keep firing on a detached view
-            // after teardown. The window guard stops the tween once the view is gone.
-            timer.setEventHandler { [weak self] in
-                guard let self, self.window != nil, let scrollView = self.enclosingScrollView else {
-                    timer.cancel()
-                    self?.commentScrollTimer = nil
-                    return
-                }
-                let clipView = scrollView.contentView
-                step += 1
-                let t = min(Double(step) / Double(steps), 1)
-                let eased = t < 0.5 ? 2 * t * t : 1 - pow(-2 * t + 2, 2) / 2
-                clipView.scroll(to: NSPoint(
-                    x: start.x + (destination.x - start.x) * eased,
-                    y: start.y + (destination.y - start.y) * eased
-                ))
-                scrollView.reflectScrolledClipView(clipView)
-                self.textLayoutManager?.textViewportLayoutController.layoutViewport()
-                if step >= steps {
-                    timer.cancel()
-                    self.commentScrollTimer = nil
-                }
-            }
-            commentScrollTimer = timer
-            timer.resume()
+            // after teardown. The window guard no-ops the tween once the view is gone.
+            commentScrollTimer = makeFrameRamp(
+                duration: AnimationConstants.scrollToHeadingDuration,
+                easing: { $0 < 0.5 ? 2 * $0 * $0 : 1 - pow(-2 * $0 + 2, 2) / 2 },
+                onFrame: { [weak self] eased in
+                    guard let self, self.window != nil, let scrollView = self.enclosingScrollView
+                    else { return }
+                    let clipView = scrollView.contentView
+                    clipView.scroll(to: NSPoint(
+                        x: start.x + (destination.x - start.x) * eased,
+                        y: start.y + (destination.y - start.y) * eased
+                    ))
+                    scrollView.reflectScrolledClipView(clipView)
+                    self.textLayoutManager?.textViewportLayoutController.layoutViewport()
+                },
+                onComplete: { [weak self] in self?.commentScrollTimer = nil }
+            )
         }
 
         /// Force the viewport layout controller to refresh its range after a
@@ -401,6 +385,33 @@
         /// to that range) doesn't blank out.
         private func relayoutViewport() {
             textLayoutManager?.textViewportLayoutController.layoutViewport()
+        }
+
+        /// Run an eased 0→1 ramp over `duration` at ~60fps on the main queue,
+        /// invoking `onFrame(easedProgress)` each tick and `onComplete()` on the
+        /// final frame, then returns the running timer. The caller stores it (to
+        /// cancel a superseding animation) and owns Reduce Motion handling.
+        private func makeFrameRamp(
+            duration: TimeInterval,
+            easing: @escaping (CGFloat) -> CGFloat,
+            onFrame: @escaping (CGFloat) -> Void,
+            onComplete: @escaping () -> Void
+        ) -> DispatchSourceTimer {
+            let steps = max(Int(duration * 60), 1)
+            var step = 0
+            let timer = DispatchSource.makeTimerSource(queue: .main)
+            timer.schedule(deadline: .now(), repeating: .milliseconds(16), leeway: .milliseconds(1))
+            timer.setEventHandler {
+                step += 1
+                let t = min(CGFloat(step) / CGFloat(steps), 1)
+                onFrame(easing(t))
+                if t >= 1 {
+                    onComplete()
+                    timer.cancel()
+                }
+            }
+            timer.resume()
+            return timer
         }
 
         // MARK: - Dragging
