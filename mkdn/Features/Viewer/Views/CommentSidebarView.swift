@@ -179,6 +179,11 @@
         let onJump: (String) -> Void
 
         @State private var hovering = false
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+        private var motion: MotionPreference {
+            MotionPreference(reduceMotion: reduceMotion)
+        }
 
         var body: some View {
             VStack(alignment: .leading, spacing: 6) {
@@ -200,6 +205,7 @@
                     Text("↳ Jump")
                         .font(.caption.weight(.medium))
                         .foregroundStyle(theme.colors.accent)
+                        .transition(.opacity)
                 }
             }
             .commentCardSurface(theme: theme)
@@ -211,6 +217,9 @@
             .onTapGesture { onJump(item.id) }
             .onHover { hovering = $0 }
             .pointingHandCursor()
+            // Fade the jump hint in/out (and ease the card's height change)
+            // instead of popping it.
+            .animation(motion.resolved(.quickShift), value: hovering)
         }
     }
 
