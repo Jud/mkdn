@@ -92,7 +92,9 @@
         /// fill + outline. A wrapped span's segments are filled clipped to one
         /// rounded outline so it reads as a single connected highlight rather than a
         /// rounded pill per line; a single-line span is just the tight pill. No
-        /// storage edit, so locating a comment never relayouts.
+        /// storage edit, so locating a comment never relayouts. Assumes the span's
+        /// segments are contiguous (true for a comment's character range) — the
+        /// outline is their bounding union, not a traced perimeter.
         private func drawEmphasizedHighlight(
             _ rects: [NSRect], dirtyRect: NSRect, base: NSColor, accent: NSColor, progress: CGFloat
         ) {
@@ -101,13 +103,14 @@
             let baseAlpha = base.usingColorSpace(.sRGB)?.alphaComponent ?? 1
             let union = rects.dropFirst().reduce(rects[0]) { $0.union($1) }
             let outline = NSBezierPath(roundedRect: union, xRadius: 3, yRadius: 3)
+            let visible = rects.filter { $0.intersects(dirtyRect) }
 
             NSGraphicsContext.saveGraphicsState()
             outline.addClip()
             base.withAlphaComponent(baseAlpha * (1 - progress)).setFill()
-            for rect in rects where rect.intersects(dirtyRect) { rect.fill() }
+            visible.forEach { $0.fill() }
             accent.withAlphaComponent(0.4 * progress).setFill()
-            for rect in rects where rect.intersects(dirtyRect) { rect.fill() }
+            visible.forEach { $0.fill() }
             NSGraphicsContext.restoreGraphicsState()
 
             accent.withAlphaComponent(0.9 * progress).setStroke()
