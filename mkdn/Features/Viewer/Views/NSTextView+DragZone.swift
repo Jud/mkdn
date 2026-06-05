@@ -13,10 +13,11 @@
         /// Whether the view-coordinate point falls outside any text content —
         /// i.e. in the text container inset margins or below the last line.
         func isOverEmptyTextArea(_ point: CGPoint) -> Bool {
-            let containerPoint = CGPoint(
-                x: point.x - textContainerInset.width,
-                y: point.y - textContainerInset.height
-            )
+            // Convert via textContainerOrigin (not textContainerInset) to share the
+            // AppKit-correct container↔view offset with characterIndex(at:) — it
+            // folds in centering, so a centered code view hit-tests its margins right.
+            let origin = textContainerOrigin
+            let containerPoint = CGPoint(x: point.x - origin.x, y: point.y - origin.y)
 
             // TextKit 2 path
             if let textLayoutManager {

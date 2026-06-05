@@ -397,7 +397,9 @@
             onFrame: @escaping (CGFloat) -> Void,
             onComplete: @escaping () -> Void
         ) -> DispatchSourceTimer {
-            let steps = max(Int(duration * 60), 1)
+            // Floor at 2 so any sub-frame duration still yields one intermediate
+            // step (matches the prior hand-rolled scroll loop's max(…, 2)).
+            let steps = max(Int(duration * 60), 2)
             var step = 0
             let timer = DispatchSource.makeTimerSource(queue: .main)
             timer.schedule(deadline: .now(), repeating: .milliseconds(16), leeway: .milliseconds(1))

@@ -49,10 +49,13 @@
             let progress = emphasisProgress
 
             // Draw the emphasized comment last so a later overlapping base fill can't
-            // overpaint its emphasis.
-            let ordered = resolved.ranges.sorted {
-                ($0.key == emphasisDrawID ? 1 : 0) < ($1.key == emphasisDrawID ? 1 : 0)
-            }
+            // overpaint its emphasis; with nothing emphasized, skip the reorder (this
+            // runs on every viewport draw, including each scroll frame).
+            let ordered = emphasisDrawID == nil
+                ? Array(resolved.ranges)
+                : resolved.ranges.sorted {
+                    ($0.key == emphasisDrawID ? 1 : 0) < ($1.key == emphasisDrawID ? 1 : 0)
+                }
             for (id, range) in ordered {
                 let clipped = NSIntersectionRange(range, visibleRange)
                 guard clipped.length > 0,
@@ -70,11 +73,9 @@
                         rects.append(segmentFrame.offsetBy(dx: origin.x, dy: origin.y))
                         return true
                     }
-                    if !rects.isEmpty {
-                        drawEmphasizedHighlight(
-                            rects, dirtyRect: dirtyRect, base: base, accent: accent, progress: progress
-                        )
-                    }
+                    drawEmphasizedHighlight(
+                        rects, dirtyRect: dirtyRect, base: base, accent: accent, progress: progress
+                    )
                 } else {
                     base.setFill()
                     layoutManager.enumerateTextSegments(
@@ -100,8 +101,9 @@
         ) {
             // alphaComponent traps on a color with no direct alpha (catalog/named);
             // normalize to sRGB first so a future themed color can't crash the draw.
+            guard let first = rects.first else { return }
             let baseAlpha = base.usingColorSpace(.sRGB)?.alphaComponent ?? 1
-            let union = rects.dropFirst().reduce(rects[0]) { $0.union($1) }
+            let union = rects.dropFirst().reduce(first) { $0.union($1) }
             let outline = NSBezierPath(roundedRect: union, xRadius: 3, yRadius: 3)
             let visible = rects.filter { $0.intersects(dirtyRect) }
 
