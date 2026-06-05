@@ -134,9 +134,10 @@
 
         private static func handleJumpFirstComment() async -> HarnessResponse {
             // keyWindow is nil under the harness, so search the main window
-            // directly rather than via MkdnCommands.findTextView().
+            // directly rather than via the keyWindow-based MkdnCommands.findTextView().
             guard let window = findMainWindow(),
-                  let textView = findCommentTextView(in: window.contentView)
+                  let content = window.contentView,
+                  let textView = MkdnCommands.findTextView(in: content)
             else {
                 return .error("No markdown text view available")
             }
@@ -145,15 +146,6 @@
             }
             textView.revealComment(id: first.id, range: first.range)
             return .ok(message: "Jumped to: \(first.entry.quote)")
-        }
-
-        private static func findCommentTextView(in view: NSView?) -> CodeBlockBackgroundTextView? {
-            guard let view else { return nil }
-            if let textView = view as? CodeBlockBackgroundTextView { return textView }
-            for subview in view.subviews {
-                if let found = findCommentTextView(in: subview) { return found }
-            }
-            return nil
         }
 
         private static func handleAddComment(

@@ -308,6 +308,10 @@ enum AnimationConstants {
     /// How long the mode transition overlay remains visible before auto-dismiss.
     static let overlayDisplayDuration: Duration = .milliseconds(1_500)
 
+    /// How long a jump-to-comment flash (the accent emphasis on the navigated
+    /// span) holds before clearing back to the resting highlight.
+    static let commentFlashHold: Duration = .milliseconds(1_200)
+
     /// Duration of the overlay fade-out (for scheduling cleanup after fade completes).
     static let overlayFadeOutDuration: Duration = .milliseconds(300)
 

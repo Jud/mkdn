@@ -264,7 +264,7 @@
             commentFlashTask?.cancel()
             setHoveredComment(id)
             commentFlashTask = Task { @MainActor [weak self] in
-                try? await Task.sleep(for: .seconds(1.2))
+                try? await Task.sleep(for: AnimationConstants.commentFlashHold)
                 guard !Task.isCancelled else { return }
                 // Only clear our own flash — a live hover may have taken over.
                 if self?.hoveredCommentID == id { self?.setHoveredComment(nil) }
