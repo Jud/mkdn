@@ -112,6 +112,9 @@
         var commentOverlayLeading: NSLayoutConstraint?
         var commentOverlayTop: NSLayoutConstraint?
         var commentOverlayDragBase: CGPoint?
+        /// Clears a jump-to-comment flash after its hold; cancelled when a newer
+        /// flash or hover supersedes it.
+        var commentFlashTask: Task<Void, Never>?
 
         // MARK: - Print Support
 

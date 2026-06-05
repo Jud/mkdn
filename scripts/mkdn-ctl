@@ -83,6 +83,8 @@ def main():
             r = send(sock, {"addComment": {"substring": sys.argv[2], "body": body}})
         elif cmd_name == "toggle-comments":
             r = send(sock, {"toggleCommentSidebar": {}})
+        elif cmd_name == "jump-first-comment":
+            r = send(sock, {"jumpFirstComment": {}})
         elif cmd_name == "quit":
             r = send(sock, {"quit": {}})
         else:

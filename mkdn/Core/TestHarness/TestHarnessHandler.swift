@@ -27,6 +27,8 @@
                 await handleAddComment(substring: substring, body: body)
             case .toggleCommentSidebar:
                 await handleToggleCommentSidebar()
+            case .jumpFirstComment:
+                await handleJumpFirstComment()
             case .captureWindow, .captureRegion,
                  .startFrameCapture, .stopFrameCapture,
                  .beginFrameCapture, .endFrameCapture:
@@ -128,6 +130,30 @@
             }
             docState.toggleCommentSidebar()
             return .ok(message: "Comment sidebar: \(docState.isCommentSidebarVisible ? "open" : "closed")")
+        }
+
+        private static func handleJumpFirstComment() async -> HarnessResponse {
+            // keyWindow is nil under the harness, so search the main window
+            // directly rather than via MkdnCommands.findTextView().
+            guard let window = findMainWindow(),
+                  let textView = findCommentTextView(in: window.contentView)
+            else {
+                return .error("No markdown text view available")
+            }
+            guard let first = textView.resolvedComments?.active.first else {
+                return .error("No resolved comments to jump to")
+            }
+            textView.revealComment(id: first.id, range: first.range)
+            return .ok(message: "Jumped to: \(first.entry.quote)")
+        }
+
+        private static func findCommentTextView(in view: NSView?) -> CodeBlockBackgroundTextView? {
+            guard let view else { return nil }
+            if let textView = view as? CodeBlockBackgroundTextView { return textView }
+            for subview in view.subviews {
+                if let found = findCommentTextView(in: subview) { return found }
+            }
+            return nil
         }
 
         private static func handleAddComment(

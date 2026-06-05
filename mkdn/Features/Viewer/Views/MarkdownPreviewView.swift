@@ -102,7 +102,7 @@
                         active: activeItems,
                         detached: detachedItems,
                         theme: appSettings.theme,
-                        onJump: { _ in },
+                        onJump: { jumpToComment($0) },
                         onReplace: { _ in },
                         onDelete: { documentState.deleteComment(id: $0) },
                         onClose: { documentState.toggleCommentSidebar() }
@@ -171,6 +171,14 @@
         private var commentCount: Int {
             guard let resolved = resolvedComments else { return 0 }
             return resolved.ranges.count + resolved.orphans.count
+        }
+
+        /// Scroll to the comment's span and flash it, then close the sidebar so the
+        /// flashed text isn't left behind the panel.
+        private func jumpToComment(_ id: String) {
+            guard let range = resolvedComments?.ranges[id] else { return }
+            MkdnCommands.findTextView()?.revealComment(id: id, range: range)
+            documentState.toggleCommentSidebar()
         }
 
         /// `entries` is the already-parsed sidecar for the content-change path; the

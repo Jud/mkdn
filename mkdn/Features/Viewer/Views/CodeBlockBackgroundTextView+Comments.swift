@@ -256,6 +256,21 @@
             setNeedsDisplay(enclosingScrollView?.documentVisibleRect ?? bounds)
         }
 
+        /// Jump to a comment from the sidebar: scroll its span into view and flash
+        /// it. The flash reuses the hover emphasis channel (a draw-state change,
+        /// no storage edit), so navigating never relayouts.
+        func revealComment(id: String, range: NSRange) {
+            scrollRangeToVisible(range)
+            commentFlashTask?.cancel()
+            setHoveredComment(id)
+            commentFlashTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .seconds(1.2))
+                guard !Task.isCancelled else { return }
+                // Only clear our own flash — a live hover may have taken over.
+                if self?.hoveredCommentID == id { self?.setHoveredComment(nil) }
+            }
+        }
+
         // MARK: - Dragging
 
         /// Move the open overlay by a drag translation (from its header), so it can

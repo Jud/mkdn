@@ -85,6 +85,10 @@
         /// Toggle the right-docked comment sidebar's visibility.
         case toggleCommentSidebar
 
+        /// Scroll to + flash the first resolved comment (exercises the sidebar's
+        /// jump-to-comment path without simulating a card tap).
+        case jumpFirstComment
+
         /// Simulate smooth scroll by animating contentView.scroll(to:) at 60Hz.
         case simulateScroll(deltaY: Double, duration: Double)
 
