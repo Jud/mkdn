@@ -56,7 +56,7 @@ selector slides between segments):
 | counts, labels, "was on", close | `foregroundSecondary` |
 | panel title, headings, quote-chip text | `headingColor` |
 | resting comment highlight + quote-chip fill | `commentHighlight` |
-| active filter, count badge, hover emphasis | `accent` |
+| active filter, hover emphasis | `accent` |
 | Detached chip / dashed / note | `warning` |
 | Delete | `danger` |
 
