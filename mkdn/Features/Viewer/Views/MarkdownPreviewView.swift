@@ -32,6 +32,10 @@
         @Environment(OutlineState.self) private var outlineState
         @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+        private var motion: MotionPreference {
+            MotionPreference(reduceMotion: reduceMotion)
+        }
+
         @State private var renderedBlocks: [IndexedBlock] = []
         @State private var cachedBlocks: [IndexedBlock] = []
         @State private var isInitialRender = true
@@ -89,6 +93,7 @@
                     }
                     .padding(.top, 12)
                     .padding(.trailing, 16)
+                    .transition(.opacity)
                 }
             }
             .overlay(alignment: .trailing) {
@@ -102,8 +107,12 @@
                         onDelete: { documentState.deleteComment(id: $0) },
                         onClose: { documentState.toggleCommentSidebar() }
                     )
+                    // Slides in over the content (the overlay never displaces or
+                    // resizes the text beneath it, so nothing reflows or jumps).
+                    .transition(.move(edge: .trailing))
                 }
             }
+            .animation(motion.resolved(.sidebarSlide), value: documentState.isCommentSidebarVisible)
             .task(id: documentState.markdownContent) {
                 if isInitialRender {
                     isInitialRender = false
