@@ -38,15 +38,14 @@
                   let visibleRange = visibleCharacterRange()
             else { return }
 
+            // setFill/setStroke mutate global graphics state; bracket the whole
+            // draw so the emphasis colors can't leak into a sibling draw pass.
+            NSGraphicsContext.saveGraphicsState()
+            defer { NSGraphicsContext.restoreGraphicsState() }
+
             let origin = textContainerOrigin
             let base = PlatformTypeConverter.color(from: theme.colors.commentHighlight)
-            // Hover emphasis is a draw-state change (no storage edit, so locating a
-            // comment never relayouts): the span crossfades from its resting fill
-            // into a bolder accent fill + outline, eased by `emphasisProgress`.
             let accent = PlatformTypeConverter.color(from: theme.colors.accent)
-            // alphaComponent traps on a color with no direct alpha (catalog/named);
-            // normalize to sRGB first so a future themed color can't crash the draw.
-            let baseAlpha = base.usingColorSpace(.sRGB)?.alphaComponent ?? 1
             let progress = emphasisProgress
 
             // Draw the emphasized comment last so a later overlapping base fill can't
@@ -59,29 +58,51 @@
                 guard clipped.length > 0,
                       let textRange = textRange(from: clipped, contentManager: contentManager)
                 else { continue }
-                let emphasized = (id == emphasisDrawID && progress > 0)
+
+                var rects: [NSRect] = []
                 layoutManager.enumerateTextSegments(
                     in: textRange, type: .highlight, options: [.rangeNotRequired]
                 ) { _, segmentFrame, _, _ in
                     let rect = segmentFrame.offsetBy(dx: origin.x, dy: origin.y)
-                    guard rect.intersects(dirtyRect) else { return true }
-                    if emphasized {
-                        // Crossfade: fade the resting fill out as the accent fades in.
-                        base.withAlphaComponent(baseAlpha * (1 - progress)).setFill()
-                        rect.fill()
-                        let pill = NSBezierPath(roundedRect: rect, xRadius: 3, yRadius: 3)
-                        accent.withAlphaComponent(0.4 * progress).setFill()
-                        pill.fill()
-                        accent.withAlphaComponent(0.9 * progress).setStroke()
-                        pill.lineWidth = 1.5
-                        pill.stroke()
-                    } else {
-                        base.setFill()
-                        rect.fill()
-                    }
+                    if rect.intersects(dirtyRect) { rects.append(rect) }
                     return true
                 }
+                guard !rects.isEmpty else { continue }
+
+                if id == emphasisDrawID, progress > 0 {
+                    drawEmphasizedHighlight(rects, base: base, accent: accent, progress: progress)
+                } else {
+                    base.setFill()
+                    rects.forEach { $0.fill() }
+                }
             }
+        }
+
+        /// Hover emphasis: crossfade a comment's resting fill into a bolder accent
+        /// fill + outline. A wrapped span's segments are filled clipped to one
+        /// rounded outline so it reads as a single connected highlight rather than a
+        /// rounded pill per line; a single-line span is just the tight pill. No
+        /// storage edit, so locating a comment never relayouts.
+        private func drawEmphasizedHighlight(
+            _ rects: [NSRect], base: NSColor, accent: NSColor, progress: CGFloat
+        ) {
+            // alphaComponent traps on a color with no direct alpha (catalog/named);
+            // normalize to sRGB first so a future themed color can't crash the draw.
+            let baseAlpha = base.usingColorSpace(.sRGB)?.alphaComponent ?? 1
+            let union = rects.dropFirst().reduce(rects[0]) { $0.union($1) }
+            let outline = NSBezierPath(roundedRect: union, xRadius: 3, yRadius: 3)
+
+            NSGraphicsContext.saveGraphicsState()
+            outline.addClip()
+            base.withAlphaComponent(baseAlpha * (1 - progress)).setFill()
+            rects.forEach { $0.fill() }
+            accent.withAlphaComponent(0.4 * progress).setFill()
+            rects.forEach { $0.fill() }
+            NSGraphicsContext.restoreGraphicsState()
+
+            accent.withAlphaComponent(0.9 * progress).setStroke()
+            outline.lineWidth = 1.5
+            outline.stroke()
         }
     }
 #endif
