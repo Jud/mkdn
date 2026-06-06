@@ -60,6 +60,9 @@
         /// toggle's fade. Animated explicitly (not via `.animation(value:)`) so the
         /// scroll anchor can be captured before the width starts changing.
         @State private var sidebarProgress: CGFloat = 0
+        /// Bumped per toggle so a superseded slide's completion can't tear down the
+        /// anchor while a newer slide (fast re-toggle) is still re-pinning it.
+        @State private var sidebarResizeToken = 0
 
         var body: some View {
             @Bindable var docState = documentState
@@ -180,12 +183,16 @@
                 // Capture the viewport anchor while the layout still reflects the old
                 // width, animate the width, then settle the anchor once at the end.
                 // The per-frame re-pin runs from the text view's tile().
+                sidebarResizeToken += 1
+                let token = sidebarResizeToken
                 let textView = MkdnCommands.findTextView()
                 textView?.beginSidebarResize()
                 withAnimation(motion.resolved(.sidebarSlide)) {
                     sidebarProgress = visible ? 1 : 0
                 } completion: {
-                    textView?.endSidebarResize()
+                    // Only the latest slide tears down the anchor; a stale completion
+                    // from a superseded toggle leaves the live re-pin running.
+                    if token == sidebarResizeToken { textView?.endSidebarResize() }
                 }
             }
             .onChange(of: documentState.canShowCommentSidebar) { _, canShow in
