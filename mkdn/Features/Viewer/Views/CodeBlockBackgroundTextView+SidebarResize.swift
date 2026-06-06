@@ -64,6 +64,15 @@
         /// Re-pin the captured line to the same viewport y after the text has
         /// rewrapped to the current width. Driven from the scroll view's `tile()` on
         /// every resize frame while ``sidebarResizeAnchor`` is set.
+        ///
+        /// Known limit: re-measuring a *deep* anchor's absolute y every frame can't
+        /// converge during the fast middle of the slide (the height of everything
+        /// above it is changing faster than TextKit settles it), so far down a long
+        /// document the pin lurches briefly mid-slide, then recovers. It is exact at
+        /// the top of the document and at rest. This transient is an accepted
+        /// trade-off for live per-frame reflow — the alternatives (a fixed reading
+        /// column, or holding the text and settling once at the end) were weighed and
+        /// declined in favor of watching the text reflow live.
         func restoreSidebarResizeAnchor() {
             guard let anchor = sidebarResizeAnchor,
                   let scrollView = enclosingScrollView,

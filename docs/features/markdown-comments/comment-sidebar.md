@@ -11,9 +11,9 @@ Comments whose stored quote can't be re-located are **Detached** (not
 
 A right-docked **comment sidebar**, toggled by ⌘⇧C (markdown, preview-only) or a
 floating affordance. The window is chrome-less (transparent titlebar, full-bleed
-content), so the open affordance lives **in the content**, not a toolbar. It
-mounts as a trailing overlay on the markdown preview, so opening it never
-reflows the text.
+content), so the open affordance lives **in the content**, not a toolbar. It is a
+layout sibling of the preview (an `HStack`), so opening it narrows the preview and
+the text reflows into the smaller viewport rather than being covered.
 
 **Toggle** — floating, top-right of the content (traffic lights are top-left):
 - **No comments:** a circle, comment-bubble icon only.
@@ -61,11 +61,19 @@ selector slides between segments):
 
 ## Animation
 
-- **Slide:** the sidebar uses a `.move(edge: .trailing)` transition and the
-  toggle a `.opacity` transition, driven by `.animation(sidebarSlide, value:
-  isCommentSidebarVisible)`. The overlay slides over static content — nothing
-  reflows or resizes (zero jump). NOT NSWindow frame expansion (reverted on
-  macOS 14 — see MEMORY "Sidebar Toggle — Lessons Learned").
+- **Slide:** opening the rail animates `sidebarProgress` (0→1, `easeInOut` 0.35s)
+  via an explicit `withAnimation`, narrowing the preview's `.frame(width:)` so the
+  text reflows into the new viewport; the toggle fades (`opacity(1 - progress)`).
+  To keep the reflow from jumping vertically, a top-of-viewport line is captured
+  before the width changes (`beginSidebarResize`) and re-pinned to the same y on
+  every resize frame from the scroll view's `tile()` (`restoreSidebarResizeAnchor`).
+  NOT NSWindow frame expansion (reverted on macOS 14 — see MEMORY "Sidebar Toggle —
+  Lessons Learned").
+  - **Known limit:** the re-pin is exact at the top of a document and at rest, but
+    re-measuring a *deep* anchor can't converge during the fast middle of the slide,
+    so far down a long document the text lurches briefly mid-slide then recovers. An
+    accepted trade-off for live reflow — a fixed reading column and a hold-then-settle
+    were both weighed and declined.
 - **Card add/remove, filter switch:** animated (`quickShift`); deleting fades the
   card out, the filter selector slides via `matchedGeometryEffect`.
 - **Hover emphasis + smooth scroll:** the document-side emphasis crossfade and
@@ -76,8 +84,11 @@ selector slides between segments):
 
 ## Implementation
 
-- **Views:** `CommentSidebarView` / `CommentSidebarToggle`, mounted as overlays
-  in `MarkdownPreviewView` (gated to `DocumentState.canShowCommentSidebar`).
+- **Views:** `CommentSidebarView` / `CommentSidebarToggle` in `MarkdownPreviewView`
+  (gated to `DocumentState.canShowCommentSidebar`); the rail is an `HStack` sibling
+  of the preview, the toggle a fading `.overlay`. The viewport-resize anchor lives
+  in `CodeBlockBackgroundTextView+SidebarResize`, driven from
+  `LiveResizeScrollView.tile()`.
 - **Data:** `ResolvedComments.active` (resolved `(id, entry, range)` in document
   order) + `.orphans`, mapped to `CommentSidebarItem`s.
 - **Document side:** `CodeBlockBackgroundTextView.setHoveredComment` (emphasis),
