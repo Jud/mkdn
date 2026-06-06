@@ -111,6 +111,11 @@
                             onHover: { MkdnCommands.findTextView()?.setHoveredComment($0) }
                         )
                         .frame(width: CommentSidebarView.width)
+                        // Mounted whenever it can show so the slide has something to
+                        // reveal, but it sits off the clipped edge when closed —
+                        // clipping hides it visually, not from VoiceOver, so drop it
+                        // from the a11y tree until it's actually opening.
+                        .accessibilityHidden(sidebarProgress == 0)
                     }
                 }
                 // While the rail is partly open the row is wider than the viewport
@@ -180,6 +185,11 @@
                 renderAndBuild(cachedBlocks, isFullReload: false)
             }
             .onChange(of: documentState.isCommentSidebarVisible) { _, visible in
+                // Only resize when the rail can actually mount: in split mode the
+                // sidebar is gated off, so animating the width here would shrink the
+                // pane by 300pt with nothing to show (the harness can flip this flag
+                // directly, bypassing the gated menu/toggle).
+                guard documentState.canShowCommentSidebar else { return }
                 // Capture the viewport anchor while the layout still reflects the old
                 // width, animate the width, then settle the anchor once at the end.
                 // The per-frame re-pin runs from the text view's tile().
@@ -196,9 +206,14 @@
                 }
             }
             .onChange(of: documentState.canShowCommentSidebar) { _, canShow in
-                // A mode switch (e.g. into split) drops the rail; collapse instantly
-                // so the preview reclaims full width with no dangling animation.
-                if !canShow { sidebarProgress = 0 }
+                // A mode switch (e.g. into split) drops the rail; collapse instantly so
+                // the preview reclaims full width with no dangling animation, and clear
+                // any in-flight anchor so a dropped slide completion can't leave the
+                // text view's resize state stuck (every later tile() would no-op).
+                if !canShow {
+                    sidebarProgress = 0
+                    MkdnCommands.findTextView()?.endSidebarResize()
+                }
             }
             .onAppear {
                 sidebarProgress = documentState.canShowCommentSidebar
