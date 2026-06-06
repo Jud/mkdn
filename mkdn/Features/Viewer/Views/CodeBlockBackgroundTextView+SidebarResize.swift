@@ -21,7 +21,22 @@
                   let viewportRange = textLayoutManager.textViewportLayoutController.viewportRange
             else { return }
 
+            // Force real layout of the viewport and everything above it: a fragment's
+            // absolute Y is the sum of all heights above it, which `.ensuresLayout`
+            // alone leaves at TextKit 2's estimated (accumulating-error) values — and
+            // the capture must read the *same* coordinate space the restore will, or
+            // the pin starts from a wrong baseline.
+            if let prefix = NSTextRange(
+                location: textLayoutManager.documentRange.location,
+                end: viewportRange.endLocation
+            ) {
+                textLayoutManager.ensureLayout(for: prefix)
+            }
+
             let visibleTop = scrollView.contentView.bounds.origin.y
+            // Fragment frames are in text-container space; shift by textContainerOrigin
+            // to compare with the clip view's document-space scroll offset.
+            let originY = textContainerOrigin.y
             var anchorLocation: NSTextLocation?
             var anchorTop = visibleTop
             textLayoutManager.enumerateTextLayoutFragments(
@@ -29,9 +44,9 @@
             ) { fragment in
                 // The first fragment reaching past the viewport top is the line the
                 // reader sees at the top edge.
-                if fragment.layoutFragmentFrame.maxY > visibleTop {
+                if fragment.layoutFragmentFrame.maxY + originY > visibleTop {
                     anchorLocation = fragment.rangeInElement.location
-                    anchorTop = fragment.layoutFragmentFrame.minY
+                    anchorTop = fragment.layoutFragmentFrame.minY + originY
                     return false
                 }
                 return true
@@ -56,13 +71,23 @@
             else { return }
 
             let controller = textLayoutManager.textViewportLayoutController
+            // First layout: settle the viewport at the just-applied width.
             controller.layoutViewport()
+            // Then force real layout of the whole prefix through the anchor so its
+            // absolute Y is final — without this, estimated heights above the anchor
+            // make the pin drift vertically, the exact jump this exists to prevent.
+            if let prefix = NSTextRange(
+                location: textLayoutManager.documentRange.location, end: anchor.location
+            ) {
+                textLayoutManager.ensureLayout(for: prefix)
+            }
 
+            let originY = textContainerOrigin.y
             var newTop: CGFloat?
             textLayoutManager.enumerateTextLayoutFragments(
                 from: anchor.location, options: [.ensuresLayout]
             ) { fragment in
-                newTop = fragment.layoutFragmentFrame.minY
+                newTop = fragment.layoutFragmentFrame.minY + originY
                 return false
             }
             guard let newTop else { return }
@@ -72,6 +97,9 @@
                 NSPoint(x: clipView.bounds.origin.x, y: newTop + anchor.delta)
             )
             scrollView.reflectScrolledClipView(clipView)
+            // Second layout: refresh the viewport range for the new scroll origin so
+            // the layout-passive comment-highlight draw (which clips to that range)
+            // doesn't blank — same rationale as relayoutViewport after a scroll.
             controller.layoutViewport()
         }
 
