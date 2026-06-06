@@ -260,6 +260,15 @@
                       let outlineState
                 else { return }
 
+                // While the comment rail animates the width, the anchored line is
+                // held at a fixed viewport position, so the active heading can't
+                // change. Skip the per-frame work — each frame's bounds shift would
+                // otherwise rebuild the whole heading-position cache (it's
+                // invalidated every frame by the width change) for no change in the
+                // breadcrumb; it settles on the next real scroll.
+                guard (textView as? CodeBlockBackgroundTextView)?.sidebarResizeAnchor == nil
+                else { return }
+
                 let viewportTop = scrollView.contentView.bounds.origin.y
 
                 // At the very top of the document, hide the breadcrumb.
