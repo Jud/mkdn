@@ -42,8 +42,8 @@
             textLayoutManager.enumerateTextLayoutFragments(
                 from: viewportRange.location, options: [.ensuresLayout]
             ) { fragment in
-                // The first fragment reaching past the viewport top is the line the
-                // reader sees at the top edge.
+                // The line crossing the viewport top (maxY past it, not the first one
+                // fully below) is the one at the top edge.
                 if fragment.layoutFragmentFrame.maxY + originY > visibleTop {
                     anchorLocation = fragment.rangeInElement.location
                     anchorTop = fragment.layoutFragmentFrame.minY + originY
