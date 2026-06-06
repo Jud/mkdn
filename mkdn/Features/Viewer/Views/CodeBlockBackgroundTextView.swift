@@ -140,6 +140,14 @@
         /// Current indexed blocks retained for print-time attributed string rebuild.
         var printBlocks: [IndexedBlock] = []
 
+        // MARK: - Sidebar Resize
+
+        /// Top-of-viewport anchor captured while the comment rail animates the
+        /// preview width. Non-nil marks an in-flight sidebar resize: the scroll
+        /// view re-pins this line to the same viewport y on every layout pass, so
+        /// the text the reader is looking at holds still while everything rewraps.
+        var sidebarResizeAnchor: SidebarResizeAnchor?
+
         // MARK: - Live Resize
 
         override func setFrameSize(_ newSize: NSSize) {

@@ -396,6 +396,17 @@
 
         override func tile() {
             super.tile()
+            // While the comment rail animates the width, re-pin the captured line and
+            // follow the overlays: the same per-frame viewport layout the live-resize
+            // path runs, but anchored to a text line rather than a scroll point so the
+            // reflow doesn't drift vertically.
+            if let textView = documentView as? CodeBlockBackgroundTextView,
+               textView.sidebarResizeAnchor != nil
+            {
+                textView.restoreSidebarResizeAnchor()
+                overlayCoordinator?.repositionOverlays()
+                return
+            }
             // Backstop: viewDidEndLiveResize doesn't always fire (focus loss,
             // window close mid-drag). If the flag drifted out of sync, drain
             // here so deferred heights don't pile up forever.

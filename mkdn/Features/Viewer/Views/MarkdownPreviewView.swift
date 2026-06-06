@@ -55,65 +55,82 @@
         @State private var resolvedComments: ResolvedComments?
         /// Bumped on a comment-only change to drive the live highlight redraw.
         @State private var commentRevision = 0
+        /// Slide progress of the comment rail, 0 (closed) → 1 (open). Drives the
+        /// preview's width so the text occupies the narrowed viewport, and the
+        /// toggle's fade. Animated explicitly (not via `.animation(value:)`) so the
+        /// scroll anchor can be captured before the width starts changing.
+        @State private var sidebarProgress: CGFloat = 0
 
         var body: some View {
             @Bindable var docState = documentState
-            SelectableTextView(
-                attributedText: textStorageResult.attributedString,
-                attachments: textStorageResult.attachments,
-                blocks: renderedBlocks,
-                theme: appSettings.theme,
-                isFullReload: isFullReload,
-                reduceMotion: reduceMotion,
-                appSettings: appSettings,
-                documentState: documentState,
-                findQuery: findState.query,
-                findCurrentIndex: findState.currentMatchIndex,
-                findIsVisible: findState.isVisible,
-                findState: findState,
-                outlineState: outlineState,
-                headingOffsets: textStorageResult.headingOffsets,
-                resolvedComments: resolvedComments,
-                anchorTape: anchorTape,
-                commentRevision: commentRevision,
-                isLoadingGateActive: $docState.isLoadingGateActive
-            )
-            // Changing this identity tears down and recreates the text view's
-            // representable (a fresh cold makeNSView), reusing the already-built
-            // attributed content. Bumped only by the test harness to reproduce
-            // cold first-paint bugs; constant in normal use.
-            .id(documentState.viewRebuildGeneration)
-            .background(appSettings.theme.colors.background)
-            .overlay(alignment: .topTrailing) {
-                // canShowCommentSidebar gates to preview-only: in split mode this
-                // view is the half-width right pane, so a right-docked rail would
-                // sit inside the preview.
-                if documentState.canShowCommentSidebar, !documentState.isCommentSidebarVisible {
-                    CommentSidebarToggle(count: commentCount, theme: appSettings.theme) {
-                        documentState.toggleCommentSidebar()
-                    }
-                    .padding(.top, 12)
-                    .padding(.trailing, 16)
-                    .transition(.opacity)
-                }
-            }
-            .overlay(alignment: .trailing) {
-                if documentState.canShowCommentSidebar, documentState.isCommentSidebarVisible {
-                    CommentSidebarView(
-                        active: activeItems,
-                        detached: detachedItems,
+            GeometryReader { proxy in
+                let railWidth = CommentSidebarView.width * sidebarProgress
+                HStack(spacing: 0) {
+                    SelectableTextView(
+                        attributedText: textStorageResult.attributedString,
+                        attachments: textStorageResult.attachments,
+                        blocks: renderedBlocks,
                         theme: appSettings.theme,
-                        onJump: { jumpToComment($0) },
-                        onDelete: { documentState.deleteComment(id: $0) },
-                        onClose: { documentState.toggleCommentSidebar() },
-                        onHover: { MkdnCommands.findTextView()?.setHoveredComment($0) }
+                        isFullReload: isFullReload,
+                        reduceMotion: reduceMotion,
+                        appSettings: appSettings,
+                        documentState: documentState,
+                        findQuery: findState.query,
+                        findCurrentIndex: findState.currentMatchIndex,
+                        findIsVisible: findState.isVisible,
+                        findState: findState,
+                        outlineState: outlineState,
+                        headingOffsets: textStorageResult.headingOffsets,
+                        resolvedComments: resolvedComments,
+                        anchorTape: anchorTape,
+                        commentRevision: commentRevision,
+                        isLoadingGateActive: $docState.isLoadingGateActive
                     )
-                    // Slides in over the content (the overlay never displaces or
-                    // resizes the text beneath it, so nothing reflows or jumps).
-                    .transition(.move(edge: .trailing))
+                    // Changing this identity tears down and recreates the text view's
+                    // representable (a fresh cold makeNSView), reusing the already-built
+                    // attributed content. Bumped only by the test harness to reproduce
+                    // cold first-paint bugs; constant in normal use.
+                    .id(documentState.viewRebuildGeneration)
+                    .background(appSettings.theme.colors.background)
+                    // The rail is a layout sibling, not an overlay: the preview's
+                    // width shrinks as the rail opens, so the text reflows into the
+                    // narrowed viewport instead of being covered by it.
+                    .frame(width: max(proxy.size.width - railWidth, 0))
+
+                    if documentState.canShowCommentSidebar {
+                        CommentSidebarView(
+                            active: activeItems,
+                            detached: detachedItems,
+                            theme: appSettings.theme,
+                            onJump: { jumpToComment($0) },
+                            onDelete: { documentState.deleteComment(id: $0) },
+                            onClose: { documentState.toggleCommentSidebar() },
+                            onHover: { MkdnCommands.findTextView()?.setHoveredComment($0) }
+                        )
+                        .frame(width: CommentSidebarView.width)
+                    }
+                }
+                // While the rail is partly open the row is wider than the viewport
+                // (full preview + rail), so pin it leading and clip the overflow —
+                // the rail then slides in from the right edge as the preview narrows.
+                .frame(width: proxy.size.width, height: proxy.size.height, alignment: .leading)
+                .clipped()
+                .overlay(alignment: .topTrailing) {
+                    // canShowCommentSidebar gates to preview-only: in split mode this
+                    // view is the half-width right pane, so a right-docked rail would
+                    // sit inside the preview. The toggle fades out as the rail opens.
+                    if documentState.canShowCommentSidebar {
+                        CommentSidebarToggle(count: commentCount, theme: appSettings.theme) {
+                            documentState.toggleCommentSidebar()
+                        }
+                        .padding(.top, 12)
+                        .padding(.trailing, 16)
+                        .opacity(1 - sidebarProgress)
+                        .allowsHitTesting(sidebarProgress == 0)
+                        .accessibilityHidden(sidebarProgress > 0)
+                    }
                 }
             }
-            .animation(motion.resolved(.sidebarSlide), value: documentState.isCommentSidebarVisible)
             .task(id: documentState.markdownContent) {
                 if isInitialRender {
                     isInitialRender = false
@@ -158,6 +175,27 @@
             }
             .onChange(of: appSettings.scaleFactor) {
                 renderAndBuild(cachedBlocks, isFullReload: false)
+            }
+            .onChange(of: documentState.isCommentSidebarVisible) { _, visible in
+                // Capture the viewport anchor while the layout still reflects the old
+                // width, animate the width, then settle the anchor once at the end.
+                // The per-frame re-pin runs from the text view's tile().
+                let textView = MkdnCommands.findTextView()
+                textView?.beginSidebarResize()
+                withAnimation(motion.resolved(.sidebarSlide)) {
+                    sidebarProgress = visible ? 1 : 0
+                } completion: {
+                    textView?.endSidebarResize()
+                }
+            }
+            .onChange(of: documentState.canShowCommentSidebar) { _, canShow in
+                // A mode switch (e.g. into split) drops the rail; collapse instantly
+                // so the preview reclaims full width with no dangling animation.
+                if !canShow { sidebarProgress = 0 }
+            }
+            .onAppear {
+                sidebarProgress = documentState.canShowCommentSidebar
+                    && documentState.isCommentSidebarVisible ? 1 : 0
             }
         }
 
