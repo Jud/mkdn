@@ -39,12 +39,9 @@
                 try #require(textView.boundingRect(forCharacterRange: block.range)?.minY)
             }
             for position in modelBlocks.indices {
-                // With the trailing-newline phantom subtracted, the estimated top lands
-                // on the real TextKit block top (a couple px for rounding).
+                // The estimated top lands on the real TextKit block top (couple px for rounding).
                 #expect(abs(offsets.blocks[position].top - realTops[position]) < 4)
-                // A real y inside this block resolves to it, not the neighbour — the
-                // property a minimap/scrollbar needs, which the old self-consistent test
-                // (midpoints of the estimates themselves) could not see.
+                // A real y inside this block resolves to it, not the neighbour.
                 let nextReal = position + 1 < realTops.count ? realTops[position + 1] : offsets.totalHeight
                 #expect(offsets.blockIndex(atY: (realTops[position] + nextReal) / 2)
                     == modelBlocks[position].index)

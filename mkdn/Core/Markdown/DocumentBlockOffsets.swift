@@ -16,10 +16,9 @@ public struct BlockOffset {
 /// runs to `totalHeight`. Maps a document y to a block and back for
 /// scroll-to-anchor, the scrollbar, and a minimap.
 ///
-/// Each top is one cumulative-prefix measure with the prefix's trailing-newline
-/// phantom subtracted, so offsets land on the real TextKit block tops (validated
-/// against real layout). `O(blocks)` measures (`O(n^2)` in block count): computed
-/// once and cached, not per frame.
+/// Each top is a cumulative-prefix measure corrected to the real block position
+/// (see `compute`), so offsets land on the real TextKit block tops. `O(blocks)`
+/// measures (`O(n^2)` in block count): computed once and cached, not per frame.
 public struct DocumentBlockOffsets {
     public let blocks: [BlockOffset]
     public let totalHeight: CGFloat
