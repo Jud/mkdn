@@ -111,8 +111,6 @@
             let coordinator = context.coordinator
             if coordinator.headingOffsets != headingOffsets {
                 coordinator.headingOffsets = headingOffsets
-                coordinator.documentHeightModel = documentHeightModel
-                coordinator.invalidateHeadingPositionCache()
             }
 
             applyTheme(to: textView, scrollView: scrollView)
@@ -125,6 +123,11 @@
 
             let isNewContent = coordinator.lastAppliedText !== attributedText
             if isNewContent {
+                // The height model is content-derived; refresh it (and drop the heading
+                // position cache it feeds) on any text change, not only when the heading
+                // set changes.
+                coordinator.documentHeightModel = documentHeightModel
+                coordinator.invalidateHeadingPositionCache()
                 applyNewContent(
                     coordinator: coordinator, textView: textView, scrollView: scrollView
                 )
