@@ -230,6 +230,15 @@
             sidebarResizeAnchor == nil && !(enclosingScrollView?.inLiveResize ?? false)
         }
 
+        /// Width available to text: the container width (already minus the horizontal
+        /// inset) minus the line-fragment padding TextKit applies inside it; 0 when there
+        /// is no container or it has collapsed. Shared by the height estimate and the
+        /// per-block offsets so both measure at the same width.
+        var textWidth: CGFloat {
+            guard let textContainer else { return 0 }
+            return textContainer.size.width - 2 * textContainer.lineFragmentPadding
+        }
+
         /// Recompute the document-height estimate at the current container width and size
         /// the frame to it, so the scroller reflects the full height immediately instead
         /// of TextKit 2 building it up lazily as the reader scrolls. A whole-string Core
@@ -238,13 +247,9 @@
         /// enough to size the frame in both directions, so an attachment that resolves
         /// below its placeholder shrinks the frame instead of leaving dead scroll extent.
         func refreshEstimatedHeight() {
-            guard let textStorage, let textContainer else { return }
-            // The container width already excludes the horizontal inset; subtract the
-            // line-fragment padding TextKit applies inside it to get the text width.
-            let textWidth = textContainer.size.width - 2 * textContainer.lineFragmentPadding
             // Bail at a collapsed/degenerate width: a zero estimate must not shrink a
             // non-empty view to nothing now that sizing is bidirectional.
-            guard textWidth > 0 else { return }
+            guard let textStorage, textWidth > 0 else { return }
             let estimate = DocumentHeightEstimator.estimatedHeight(
                 of: textStorage,
                 textWidth: textWidth,

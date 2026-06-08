@@ -109,9 +109,7 @@
             }
 
             let coordinator = context.coordinator
-            if coordinator.headingOffsets != headingOffsets {
-                coordinator.headingOffsets = headingOffsets
-            }
+            coordinator.headingOffsets = headingOffsets
 
             applyTheme(to: textView, scrollView: scrollView)
             textView.findState = findState

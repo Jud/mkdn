@@ -273,7 +273,8 @@
                 // otherwise rebuild the whole heading-position cache (it's
                 // invalidated every frame by the width change) for no change in the
                 // breadcrumb; it settles on the next real scroll.
-                guard (textView as? CodeBlockBackgroundTextView)?.sidebarResizeAnchor == nil
+                guard (textView as? CodeBlockBackgroundTextView)?.sidebarResizeAnchor == nil,
+                      !scrollView.inLiveResize
                 else { return }
 
                 let viewportTop = scrollView.contentView.bounds.origin.y
@@ -323,25 +324,30 @@
             }
 
             private func rebuildHeadingPositionCache() {
-                guard let outlineState, let textView, let offsets = blockOffsets() else {
+                guard let outlineState, blockOffsets() != nil else {
                     cachedHeadingPositions = []
                     headingPositionsCacheValid = false
                     return
                 }
-
-                // DocumentBlockOffsets reports text-view-space tops; navigation works in
-                // the container space the previous fragment-frame path used, so drop the
-                // container origin.
-                let originY = textView.textContainerOrigin.y
                 var positions: [(blockIndex: Int, y: CGFloat)] = []
                 for heading in outlineState.flatHeadings {
-                    guard let y = offsets.offset(forBlockIndex: heading.blockIndex) else { continue }
-                    positions.append((blockIndex: heading.blockIndex, y: y - originY))
+                    guard let y = navigationY(forBlockIndex: heading.blockIndex) else { continue }
+                    positions.append((blockIndex: heading.blockIndex, y: y))
                 }
                 // Sort by y ascending for binary search.
                 positions.sort { $0.y < $1.y }
                 cachedHeadingPositions = positions
                 headingPositionsCacheValid = true
+            }
+
+            /// Heading top in the container coordinate space navigation scrolls in:
+            /// DocumentBlockOffsets reports text-view space, so drop the container origin
+            /// (matching the fragment-frame y the previous path used).
+            private func navigationY(forBlockIndex blockIndex: Int) -> CGFloat? {
+                guard let viewY = blockOffsets()?.offset(forBlockIndex: blockIndex),
+                      let originY = textView?.textContainerOrigin.y
+                else { return nil }
+                return viewY - originY
             }
 
             /// Per-block offsets at the current container width, computed once and cached.
@@ -353,13 +359,11 @@
                 guard let textView = textView as? CodeBlockBackgroundTextView,
                       let model = documentHeightModel,
                       let textStorage = textView.textStorage,
-                      let textContainer = textView.textContainer,
-                      textContainer.size.width > 0
+                      textView.textWidth > 0
                 else { return nil }
-                let textWidth = textContainer.size.width - 2 * textContainer.lineFragmentPadding
                 let offsets = DocumentBlockOffsets.compute(
                     of: textStorage, model: model,
-                    textWidth: textWidth, verticalInset: textView.textContainerInset.height)
+                    textWidth: textView.textWidth, verticalInset: textView.textContainerInset.height)
                 documentBlockOffsets = offsets
                 return offsets
             }
@@ -396,11 +400,7 @@
 
             /// Smooth-scroll the view to position a heading at the viewport top.
             func scrollToHeading(blockIndex: Int, in scrollView: NSScrollView) {
-                guard let textView,
-                      let viewY = blockOffsets()?.offset(forBlockIndex: blockIndex)
-                else { return }
-                // text-view space -> container space (see rebuildHeadingPositionCache).
-                let headingY = viewY - textView.textContainerOrigin.y
+                guard let headingY = navigationY(forBlockIndex: blockIndex) else { return }
 
                 isProgrammaticScroll = true
                 if let charOffset = headingOffsets[blockIndex] {
