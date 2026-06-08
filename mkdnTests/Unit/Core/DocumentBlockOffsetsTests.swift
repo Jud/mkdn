@@ -69,5 +69,16 @@
             #expect(offsets.blockIndex(atY: -100) == offsets.blocks.first?.index)
             #expect(offsets.blockIndex(atY: offsets.totalHeight + 1000) == offsets.blocks.last?.index)
         }
+
+        @Test("An empty document yields no offsets")
+        @MainActor func emptyDocumentYieldsNoOffsets() {
+            let model = DocumentHeightModel(
+                blocks: [BlockSpan(index: 0, range: NSRange(location: 0, length: 0))])
+            let offsets = DocumentBlockOffsets.compute(
+                of: NSAttributedString(string: ""), model: model, textWidth: 600, verticalInset: 32)
+            #expect(offsets.blocks.isEmpty)
+            #expect(offsets.totalHeight == 0)
+            #expect(offsets.blockIndex(atY: 10) == nil)
+        }
     }
 #endif

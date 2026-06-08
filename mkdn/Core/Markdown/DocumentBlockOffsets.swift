@@ -54,32 +54,32 @@ public struct DocumentBlockOffsets {
         textWidth: CGFloat,
         verticalInset: CGFloat
     ) -> DocumentBlockOffsets {
-        guard textWidth > 0, !model.blocks.isEmpty else {
+        guard textWidth > 0, !model.blocks.isEmpty, attributedString.length > 0 else {
             return DocumentBlockOffsets(blocks: [], totalHeight: 0)
         }
         let blocks = model.blocks.map { block -> BlockOffset in
             let start = block.range.location
-            guard start > 0 else { return BlockOffset(index: block.index, top: verticalInset) }
-            let prefixHeight = DocumentHeightEstimator.contentHeight(
-                of: attributedString.attributedSubstring(from: NSRange(location: 0, length: start)),
-                textWidth: textWidth
-            )
-            // Two corrections land the top on the real first-glyph position that
-            // boundingRect(forCharacterRange:) reports:
-            //  - the prefix ends in the previous block's terminating newline, which
-            //    boundingRect renders as a phantom empty line the contiguous layout
-            //    doesn't have at a boundary — subtract that line (the previous block's
-            //    real trailing paragraphSpacing stays in prefixHeight);
-            //  - the prefix excludes this block's own paragraphSpacingBefore (a heading
-            //    top-margin, a code-block top padding) which sits above its first
-            //    glyph — add it back.
-            let phantom = trailingNewlinePhantom(at: start - 1, in: attributedString)
-            // A zero-length trailing block (e.g. an empty list) can have start == length;
-            // only read its leading spacing when there's a character there.
+            // This block's own leading spacing (heading top-margin, code-block top
+            // padding) sits above its first glyph but is excluded from the prefix; add
+            // it back. Read it only when the block has a character — a zero-length
+            // trailing block has start == length. Applies to the first block too: a
+            // leading empty block can leave a later block's spacing-before uncollapsed.
             let spacingBefore = start < attributedString.length
                 ? ((attributedString.attribute(.paragraphStyle, at: start, effectiveRange: nil)
                         as? NSParagraphStyle)?.paragraphSpacingBefore ?? 0)
                 : 0
+            guard start > 0 else {
+                return BlockOffset(index: block.index, top: verticalInset + spacingBefore)
+            }
+            let prefixHeight = DocumentHeightEstimator.contentHeight(
+                of: attributedString.attributedSubstring(from: NSRange(location: 0, length: start)),
+                textWidth: textWidth
+            )
+            // The prefix ends in the previous block's terminating newline, which
+            // boundingRect renders as a phantom empty line the contiguous layout doesn't
+            // have at a boundary — subtract that line (the previous block's real trailing
+            // paragraphSpacing stays in prefixHeight).
+            let phantom = trailingNewlinePhantom(at: start - 1, in: attributedString)
             return BlockOffset(
                 index: block.index, top: verticalInset + prefixHeight - phantom + spacingBefore)
         }
