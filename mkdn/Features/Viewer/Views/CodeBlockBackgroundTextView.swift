@@ -154,6 +154,9 @@
         /// (load, resize end); cleared during a slide/drag so the reflow is free.
         var estimatedHeightFloor: CGFloat?
 
+        /// Pending debounced ``refreshEstimatedHeight`` from attachment resolution.
+        private var refreshHeightWorkItem: DispatchWorkItem?
+
         // MARK: - Live Resize
 
         override func setFrameSize(_ newSize: NSSize) {
@@ -235,6 +238,19 @@
             if frame.height < estimate {
                 setFrameSize(NSSize(width: frame.width, height: estimate))
             }
+        }
+
+        /// Debounced ``refreshEstimatedHeight``. Attachment overlays (image, Mermaid,
+        /// math) resolve their real heights asynchronously and in bursts, each firing a
+        /// layout invalidation; coalesce those into a single re-estimate once they
+        /// settle rather than re-measuring the whole string on every callback.
+        func scheduleRefreshEstimatedHeight() {
+            refreshHeightWorkItem?.cancel()
+            let workItem = DispatchWorkItem { [weak self] in
+                self?.refreshEstimatedHeight()
+            }
+            refreshHeightWorkItem = workItem
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: workItem)
         }
 
         // MARK: - Text Change Invalidation

@@ -56,10 +56,13 @@
             textView.delegate = coordinator
             coordinator.overlayCoordinator.onLayoutInvalidation = { [weak coordinator] in
                 guard let coordinator else { return }
-                // Attachment height changes shift fragment y-positions below;
-                // code-block geometry cached in viewWillDraw must be rebuilt.
-                (coordinator.textView as? CodeBlockBackgroundTextView)?
-                    .invalidateCodeBlockCache()
+                if let textView = coordinator.textView as? CodeBlockBackgroundTextView {
+                    // Attachment height changes shift fragment y-positions below: cached
+                    // code-block geometry must be rebuilt, and the scroller re-estimated
+                    // now that an attachment resolved its real height.
+                    textView.invalidateCodeBlockCache()
+                    textView.scheduleRefreshEstimatedHeight()
+                }
                 guard !coordinator.gate.isGateActive else { return }
                 guard coordinator.animator.isAnimating else { return }
                 coordinator.animator.animateVisibleFragments()

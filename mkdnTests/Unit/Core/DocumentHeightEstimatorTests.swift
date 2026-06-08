@@ -119,5 +119,30 @@
             #expect(estimate >= real)
             #expect(estimate <= real + 30)
         }
+
+        @Test("Estimate tracks an attachment whose bounds change after build")
+        @MainActor func tracksAttachmentBoundsChange() throws {
+            let blocks: [MarkdownBlock] = [
+                .paragraph(text: AttributedString("Before the image.")),
+                .image(source: "x.png", alt: "alt"),
+                .paragraph(text: AttributedString("After the image.")),
+            ]
+            let indexed = blocks.enumerated().map { IndexedBlock(index: $0.offset, block: $0.element) }
+            let result = MarkdownTextStorageBuilder.build(blocks: indexed, theme: .solarizedDark)
+            let textWidth: CGFloat = 526
+            let attachment = try #require(result.attachments.first { $0.blockIndex == 1 }?.attachment)
+            let placeholder = attachment.bounds.height
+            let before = DocumentHeightEstimator.estimatedHeight(
+                of: result.attributedString, textWidth: textWidth, verticalInset: 32)
+            // Simulate the image overlay resolving to a real height above the placeholder;
+            // re-measuring must grow the estimate by that delta (what the debounced
+            // refresh relies on).
+            attachment.bounds = CGRect(
+                x: 0, y: 0, width: attachment.bounds.width, height: placeholder + 200)
+            let after = DocumentHeightEstimator.estimatedHeight(
+                of: result.attributedString, textWidth: textWidth, verticalInset: 32)
+            #expect(after > before)
+            #expect(abs((after - before) - 200) < 2)
+        }
     }
 #endif
