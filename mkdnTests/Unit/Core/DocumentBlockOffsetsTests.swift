@@ -14,6 +14,10 @@
                 .paragraph(text: AttributedString(
                     "A first paragraph long enough to wrap to a couple of lines at the "
                         + "narrow widths used in these tests.")),
+                // A heading at index >= 1 exercises a boundary with a real
+                // paragraphSpacingBefore (the heading top-margin), the seam case a
+                // first-block-only heading collapses away.
+                .heading(level: 2, text: AttributedString("A Later Section")),
                 .codeBlock(language: "swift", code: "let a = 1\nlet b = 2\nlet c = a + b"),
                 .paragraph(text: AttributedString(
                     "A second paragraph, also wrapping, to push the later blocks down.")),

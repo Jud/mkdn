@@ -74,9 +74,12 @@ public struct DocumentBlockOffsets {
             //    top-margin, a code-block top padding) which sits above its first
             //    glyph — add it back.
             let phantom = trailingNewlinePhantom(at: start - 1, in: attributedString)
-            let spacingBefore = (attributedString.attribute(
-                .paragraphStyle, at: start, effectiveRange: nil) as? NSParagraphStyle)?
-                .paragraphSpacingBefore ?? 0
+            // A zero-length trailing block (e.g. an empty list) can have start == length;
+            // only read its leading spacing when there's a character there.
+            let spacingBefore = start < attributedString.length
+                ? ((attributedString.attribute(.paragraphStyle, at: start, effectiveRange: nil)
+                        as? NSParagraphStyle)?.paragraphSpacingBefore ?? 0)
+                : 0
             return BlockOffset(
                 index: block.index, top: verticalInset + prefixHeight - phantom + spacingBefore)
         }
@@ -98,8 +101,11 @@ public struct DocumentBlockOffsets {
         var attributes = attributedString.attributes(at: location, effectiveRange: nil)
         if let style = (attributes[.paragraphStyle] as? NSParagraphStyle)?
             .mutableCopy() as? NSMutableParagraphStyle {
+            // Zero only the trailing paragraphSpacing (the previous block's real spacing
+            // is already in prefixHeight). KEEP paragraphSpacingBefore: boundingRect
+            // applies it to the phantom empty line, so it is part of the seam — a heading
+            // terminator's 24pt top-margin would otherwise be under-subtracted.
             style.paragraphSpacing = 0
-            style.paragraphSpacingBefore = 0
             attributes[.paragraphStyle] = style
         }
         let wide = CGFloat.greatestFiniteMagnitude
