@@ -247,7 +247,14 @@
         func scheduleRefreshEstimatedHeight() {
             refreshHeightWorkItem?.cancel()
             let workItem = DispatchWorkItem { [weak self] in
-                self?.refreshEstimatedHeight()
+                // The slide/resize end-handlers re-estimate; a refresh fired mid-gesture
+                // would re-arm the height floor that beginSidebarResize freed and grow
+                // the frame under the slide. Skip it — nothing is lost.
+                guard let self,
+                      self.sidebarResizeAnchor == nil,
+                      !(self.enclosingScrollView?.inLiveResize ?? false)
+                else { return }
+                self.refreshEstimatedHeight()
             }
             refreshHeightWorkItem = workItem
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: workItem)
