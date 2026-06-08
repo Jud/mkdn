@@ -156,13 +156,18 @@
                 if coordinator.scrollToHeading(blockIndex: targetBlockIndex, in: scrollView) {
                     coordinator.lastScrolledTarget = targetBlockIndex
                 }
-                // Clear both halves of the one-shot once the consume window closes.
-                // lastScrolledTarget only suppresses a double-scroll of THIS pending
-                // value; persisting it would wrongly ignore a fresh re-selection of
-                // the same heading after the reader scrolls away.
+                // Release this one-shot when its async window closes, but only if a
+                // newer selection hasn't replaced it: an unconditional clear could
+                // drop a rapid re-target's scroll or wipe a newer target's
+                // double-scroll guard. Resetting lastScrolledTarget the same way lets
+                // a later re-selection of the same heading scroll again.
                 Task { @MainActor in
-                    outlineState.pendingScrollTarget = nil
-                    coordinator.lastScrolledTarget = nil
+                    if outlineState.pendingScrollTarget == targetBlockIndex {
+                        outlineState.pendingScrollTarget = nil
+                    }
+                    if coordinator.lastScrolledTarget == targetBlockIndex {
+                        coordinator.lastScrolledTarget = nil
+                    }
                 }
             }
         }
