@@ -37,34 +37,11 @@
         @MainActor private func realLayout(
             _ attributed: NSAttributedString, viewWidth: CGFloat
         ) -> (real: CGFloat, textWidth: CGFloat) {
-            let textContainer = NSTextContainer()
-            textContainer.size = NSSize(width: viewWidth - 64, height: .greatestFiniteMagnitude)
-            let layoutManager = NSTextLayoutManager()
-            layoutManager.textContainer = textContainer
-            let contentStorage = NSTextContentStorage()
-            contentStorage.addTextLayoutManager(layoutManager)
-
-            let textView = CodeBlockBackgroundTextView(
-                frame: NSRect(x: 0, y: 0, width: viewWidth, height: 400),
-                textContainer: textContainer
-            )
-            textView.isVerticallyResizable = true
-            textView.textContainerInset = NSSize(width: 32, height: 32)
-
-            let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: viewWidth, height: 400))
-            scrollView.documentView = textView
-            let window = NSWindow(
-                contentRect: scrollView.frame, styleMask: [.borderless],
-                backing: .buffered, defer: false
-            )
-            window.contentView = scrollView
-            textView.textStorage?.setAttributedString(attributed)
-            window.layoutIfNeeded()
-
-            layoutManager.ensureLayout(for: layoutManager.documentRange)
-            let real = ceil(layoutManager.usageBoundsForTextContainer.height) + 32 * 2
-            let textWidth = textContainer.size.width - 2 * textContainer.lineFragmentPadding
-            return (real, textWidth)
+            let (textView, window, textWidth) =
+                LayoutMeasurementHarness.layOut(attributed, viewWidth: viewWidth)
+            _ = window
+            let usage = textView.textLayoutManager?.usageBoundsForTextContainer ?? .zero
+            return (ceil(usage.height) + 32 * 2, textWidth)
         }
 
         @Test("Estimate tracks real TextKit layout across widths", arguments: [360.0, 600.0, 900.0])
