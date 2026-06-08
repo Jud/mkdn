@@ -148,12 +148,11 @@
         /// the text the reader is looking at holds still while everything rewraps.
         var sidebarResizeAnchor: SidebarResizeAnchor?
 
-        /// Floor for the document-view height from a cheap content estimate, so the
-        /// scroller reflects the approximate full height immediately instead of TextKit
-        /// 2 building it up lazily as the reader scrolls. Recomputed at each settled
-        /// width (load, resize end); cleared during a slide/drag so the reflow is free.
+        /// Floor for the document-view height from the whole-string height estimate, so
+        /// the scroller reflects the full height immediately instead of TextKit 2
+        /// building it up lazily as the reader scrolls. Recomputed at each settled width
+        /// (load, resize end); cleared during a slide/drag so the reflow is free.
         var estimatedHeightFloor: CGFloat?
-        private var estimatedWidthCache: [String: CGFloat] = [:]
 
         // MARK: - Live Resize
 
@@ -217,53 +216,25 @@
             setNeedsDisplay(enclosingScrollView?.documentVisibleRect ?? bounds)
         }
 
-        /// Recompute the content-based height estimate at the current container width
-        /// and grow the frame to it, so the scroller reflects the (approximate) full
-        /// height immediately. Cheap (no TextKit layout); call on load and at each
+        /// Recompute the document-height estimate at the current container width and
+        /// grow the frame to it, so the scroller reflects the full height immediately
+        /// instead of TextKit 2 building it up lazily as the reader scrolls. A
+        /// whole-string Core Text measure — no fragment layout; call on load and at each
         /// width settle.
         func refreshEstimatedHeight() {
-            guard let textContainer, textContainer.size.width > 0 else { return }
-            let estimate = estimatedDocumentHeight(forContainerWidth: textContainer.size.width)
+            guard let textStorage, let textContainer, textContainer.size.width > 0 else { return }
+            // The container width already excludes the horizontal inset; subtract the
+            // line-fragment padding TextKit applies inside it to get the text width.
+            let textWidth = textContainer.size.width - 2 * textContainer.lineFragmentPadding
+            let estimate = DocumentHeightEstimator.estimatedHeight(
+                of: textStorage,
+                textWidth: textWidth,
+                verticalInset: textContainerInset.height
+            )
             estimatedHeightFloor = estimate
             if frame.height < estimate {
                 setFrameSize(NSSize(width: frame.width, height: estimate))
             }
-        }
-
-        /// A cheap O(length) estimate of the laid-out document height at `width`,
-        /// without running TextKit layout. Code blocks — the worst case for TextKit 2's
-        /// own off-viewport estimate — get an exact visual-line count from their hard
-        /// line breaks; wrapped prose is approximated from each line's real font width.
-        func estimatedDocumentHeight(forContainerWidth width: CGFloat) -> CGFloat {
-            guard let textStorage, textStorage.length > 0, width > 0 else { return 0 }
-            let ns = textStorage.string as NSString
-            let length = ns.length
-            var total: CGFloat = 0
-            var index = 0
-            while index < length {
-                let lineRange = ns.lineRange(for: NSRange(location: index, length: 0))
-                let font = (textStorage.attribute(.font, at: index, effectiveRange: nil)
-                    as? NSFont) ?? .systemFont(ofSize: NSFont.systemFontSize)
-                let para = textStorage.attribute(.paragraphStyle, at: index, effectiveRange: nil)
-                    as? NSParagraphStyle
-                let lineHeight = max(
-                    ceil(font.ascender - font.descender + font.leading),
-                    para?.minimumLineHeight ?? 0
-                )
-                let key = "\(font.fontName):\(font.pointSize)"
-                let charWidth = estimatedWidthCache[key] ?? {
-                    let measured = max(1, ("n" as NSString)
-                        .size(withAttributes: [.font: font]).width)
-                    estimatedWidthCache[key] = measured
-                    return measured
-                }()
-                let indent = (para?.headIndent ?? 0) + (para?.tailIndent ?? 0)
-                let usable = max(charWidth, width - indent)
-                let visualLines = max(1, ceil(CGFloat(lineRange.length) / max(1, usable / charWidth)))
-                total += visualLines * lineHeight + (para?.paragraphSpacing ?? 0)
-                index = NSMaxRange(lineRange)
-            }
-            return ceil(total + textContainerInset.height * 2)
         }
 
         // MARK: - Text Change Invalidation
