@@ -150,5 +150,16 @@
                 of: result.attributedString, textWidth: textWidth, verticalInset: 32)
             #expect(shrunk < before)
         }
+
+        @Test("A non-positive text width estimates to zero")
+        @MainActor func nonPositiveWidthIsZero() {
+            let result = MarkdownTextStorageBuilder.build(
+                blocks: [IndexedBlock(index: 0, block: .paragraph(text: AttributedString("Content.")))],
+                theme: .solarizedDark)
+            #expect(DocumentHeightEstimator.estimatedHeight(
+                of: result.attributedString, textWidth: 0, verticalInset: 32) == 0)
+            #expect(DocumentHeightEstimator.estimatedHeight(
+                of: result.attributedString, textWidth: -5, verticalInset: 32) == 0)
+        }
     }
 #endif

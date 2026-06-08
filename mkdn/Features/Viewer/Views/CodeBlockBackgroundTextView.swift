@@ -238,10 +238,13 @@
         /// enough to size the frame in both directions, so an attachment that resolves
         /// below its placeholder shrinks the frame instead of leaving dead scroll extent.
         func refreshEstimatedHeight() {
-            guard let textStorage, let textContainer, textContainer.size.width > 0 else { return }
+            guard let textStorage, let textContainer else { return }
             // The container width already excludes the horizontal inset; subtract the
             // line-fragment padding TextKit applies inside it to get the text width.
             let textWidth = textContainer.size.width - 2 * textContainer.lineFragmentPadding
+            // Bail at a collapsed/degenerate width: a zero estimate must not shrink a
+            // non-empty view to nothing now that sizing is bidirectional.
+            guard textWidth > 0 else { return }
             let estimate = DocumentHeightEstimator.estimatedHeight(
                 of: textStorage,
                 textWidth: textWidth,
