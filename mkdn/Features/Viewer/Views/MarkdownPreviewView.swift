@@ -84,6 +84,7 @@
                         findState: findState,
                         outlineState: outlineState,
                         headingOffsets: textStorageResult.headingOffsets,
+                        documentHeightModel: textStorageResult.documentHeightModel,
                         resolvedComments: resolvedComments,
                         anchorTape: anchorTape,
                         commentRevision: commentRevision,

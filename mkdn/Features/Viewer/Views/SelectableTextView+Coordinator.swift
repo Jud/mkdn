@@ -24,6 +24,11 @@
             /// Invalidated when content changes or view resizes.
             private var cachedHeadingPositions: [(blockIndex: Int, y: CGFloat)] = []
             private var headingPositionsCacheValid = false
+            var documentHeightModel: DocumentHeightModel?
+            /// Per-block offsets, computed lazily from the height model at the current
+            /// width and reused for heading navigation. Invalidated on content/width
+            /// change (same as the heading cache). O(blocks^2) but one-shot.
+            private var documentBlockOffsets: DocumentBlockOffsets?
 
             // MARK: - Link Navigation
 
@@ -237,6 +242,7 @@
             func invalidateHeadingPositionCache() {
                 headingPositionsCacheValid = false
                 cachedHeadingPositions = []
+                documentBlockOffsets = nil
             }
 
             func wireScrollSpy() {
@@ -247,6 +253,7 @@
                 }
                 overlayCoordinator.onFrameChange = { [weak self] in
                     self?.headingPositionsCacheValid = false
+                    self?.documentBlockOffsets = nil
                 }
             }
 
@@ -316,23 +323,45 @@
             }
 
             private func rebuildHeadingPositionCache() {
-                guard let outlineState else {
+                guard let outlineState, let textView, let offsets = blockOffsets() else {
                     cachedHeadingPositions = []
                     headingPositionsCacheValid = false
                     return
                 }
 
+                // DocumentBlockOffsets reports text-view-space tops; navigation works in
+                // the container space the previous fragment-frame path used, so drop the
+                // container origin.
+                let originY = textView.textContainerOrigin.y
                 var positions: [(blockIndex: Int, y: CGFloat)] = []
                 for heading in outlineState.flatHeadings {
-                    guard let charOffset = headingOffsets[heading.blockIndex],
-                          let y = yPosition(forCharacterOffset: charOffset)
-                    else { continue }
-                    positions.append((blockIndex: heading.blockIndex, y: y))
+                    guard let y = offsets.offset(forBlockIndex: heading.blockIndex) else { continue }
+                    positions.append((blockIndex: heading.blockIndex, y: y - originY))
                 }
                 // Sort by y ascending for binary search.
                 positions.sort { $0.y < $1.y }
                 cachedHeadingPositions = positions
                 headingPositionsCacheValid = true
+            }
+
+            /// Per-block offsets at the current container width, computed once and cached.
+            /// Replaces TextKit fragment realization for heading positions with a Core
+            /// Text measure — accurate even off-viewport, where `.ensuresLayout` returns
+            /// estimated frames.
+            private func blockOffsets() -> DocumentBlockOffsets? {
+                if let documentBlockOffsets { return documentBlockOffsets }
+                guard let textView = textView as? CodeBlockBackgroundTextView,
+                      let model = documentHeightModel,
+                      let textStorage = textView.textStorage,
+                      let textContainer = textView.textContainer,
+                      textContainer.size.width > 0
+                else { return nil }
+                let textWidth = textContainer.size.width - 2 * textContainer.lineFragmentPadding
+                let offsets = DocumentBlockOffsets.compute(
+                    of: textStorage, model: model,
+                    textWidth: textWidth, verticalInset: textView.textContainerInset.height)
+                documentBlockOffsets = offsets
+                return offsets
             }
 
             /// Map a character offset in the text storage to a y-coordinate
@@ -367,12 +396,16 @@
 
             /// Smooth-scroll the view to position a heading at the viewport top.
             func scrollToHeading(blockIndex: Int, in scrollView: NSScrollView) {
-                guard let charOffset = headingOffsets[blockIndex],
-                      let headingY = yPosition(forCharacterOffset: charOffset)
+                guard let textView,
+                      let viewY = blockOffsets()?.offset(forBlockIndex: blockIndex)
                 else { return }
+                // text-view space -> container space (see rebuildHeadingPositionCache).
+                let headingY = viewY - textView.textContainerOrigin.y
 
                 isProgrammaticScroll = true
-                showHeadingDot(forCharacterOffset: charOffset)
+                if let charOffset = headingOffsets[blockIndex] {
+                    showHeadingDot(forCharacterOffset: charOffset)
+                }
                 let clipView = scrollView.contentView
                 let destination = NSPoint(x: 0, y: headingY)
                 NSAnimationContext.runAnimationGroup { context in

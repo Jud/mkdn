@@ -28,6 +28,8 @@
         let findState: FindState
         let outlineState: OutlineState
         let headingOffsets: [Int: Int]
+        /// Per-block spans, for computing heading y-positions without TextKit layout.
+        let documentHeightModel: DocumentHeightModel
         /// Comments resolved against the rendered text, drawn as a background fill.
         let resolvedComments: ResolvedComments?
         /// The rendered anchor tape, for capturing a selector when authoring.
@@ -76,6 +78,7 @@
 
             coordinator.outlineState = outlineState
             coordinator.headingOffsets = headingOffsets
+            coordinator.documentHeightModel = documentHeightModel
 
             applyTheme(to: textView, scrollView: scrollView)
             textView.findState = findState
@@ -108,6 +111,7 @@
             let coordinator = context.coordinator
             if coordinator.headingOffsets != headingOffsets {
                 coordinator.headingOffsets = headingOffsets
+                coordinator.documentHeightModel = documentHeightModel
                 coordinator.invalidateHeadingPositionCache()
             }
 
