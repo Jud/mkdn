@@ -260,6 +260,11 @@
                     // the resize settles (coalesced; it self-guards during the gesture).
                     scheduleScrollSpyRefresh()
                 }
+                // A settle whose final layout posts no frame/scroll change would
+                // otherwise leave the spy unscheduled past the in-resize guard.
+                (textView as? CodeBlockBackgroundTextView)?.onResizeSettled = { [weak self] in
+                    self?.scheduleScrollSpyRefresh()
+                }
             }
 
             private var scrollSpyRefreshScheduled = false
@@ -415,13 +420,16 @@
             }
 
             /// Smooth-scroll the view to position a heading at the viewport top.
-            func scrollToHeading(blockIndex: Int, in scrollView: NSScrollView) {
-                guard let headingY = navigationY(forBlockIndex: blockIndex) else { return }
+            /// Returns `false` without scrolling when `blockIndex` isn't a heading or
+            /// the block offsets aren't ready yet (e.g. width not laid out), so the
+            /// caller doesn't record a no-op as the last scrolled target.
+            func scrollToHeading(blockIndex: Int, in scrollView: NSScrollView) -> Bool {
+                guard let charOffset = headingOffsets[blockIndex],
+                      let headingY = navigationY(forBlockIndex: blockIndex)
+                else { return false }
 
                 isProgrammaticScroll = true
-                if let charOffset = headingOffsets[blockIndex] {
-                    showHeadingDot(forCharacterOffset: charOffset)
-                }
+                showHeadingDot(forCharacterOffset: charOffset)
                 let clipView = scrollView.contentView
                 let destination = NSPoint(x: 0, y: headingY)
                 NSAnimationContext.runAnimationGroup { context in
@@ -436,6 +444,7 @@
                         self?.handleScrollForSpy()
                     }
                 }
+                return true
             }
 
             /// Show a temporary accent dot in the left margin at the navigated heading.

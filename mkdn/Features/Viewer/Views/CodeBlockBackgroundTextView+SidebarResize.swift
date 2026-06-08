@@ -127,6 +127,9 @@
             refreshEstimatedHeight()
             restoreSidebarResizeAnchor()
             sidebarResizeAnchor = nil
+            // The settle's final layout may produce no further frame/scroll change;
+            // nudge the scroll-spy so the breadcrumb reflects the reflowed viewport.
+            onResizeSettled?()
         }
     }
 #endif

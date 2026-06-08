@@ -57,6 +57,10 @@
         var isCodeBlockCacheValid = false
         var areBlockRectsValid = false
 
+        /// Invoked when a sidebar slide or window live-resize settles, so the
+        /// coordinator runs a final scroll-spy pass once its in-resize guard lifts.
+        var onResizeSettled: (() -> Void)?
+
         // MARK: - Copy Button State
 
         var hoveredBlockID: String?

@@ -151,8 +151,12 @@
             if let targetBlockIndex = outlineState.pendingScrollTarget,
                targetBlockIndex != coordinator.lastScrolledTarget
             {
-                coordinator.lastScrolledTarget = targetBlockIndex
-                coordinator.scrollToHeading(blockIndex: targetBlockIndex, in: scrollView)
+                // Record the target as scrolled only when the scroll actually
+                // started; otherwise leave lastScrolledTarget clear so re-selecting
+                // the same heading isn't ignored as a duplicate.
+                if coordinator.scrollToHeading(blockIndex: targetBlockIndex, in: scrollView) {
+                    coordinator.lastScrolledTarget = targetBlockIndex
+                }
                 Task { @MainActor in
                     outlineState.pendingScrollTarget = nil
                 }
@@ -482,6 +486,7 @@
                 reflectScrolledClipView(contentView)
                 liveResizeBoundsOrigin = nil
             }
+            (documentView as? CodeBlockBackgroundTextView)?.onResizeSettled?()
         }
     }
 #endif
