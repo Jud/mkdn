@@ -252,8 +252,26 @@
                     self?.handleScrollForSpy()
                 }
                 overlayCoordinator.onFrameChange = { [weak self] in
-                    self?.headingPositionsCacheValid = false
-                    self?.documentBlockOffsets = nil
+                    guard let self else { return }
+                    headingPositionsCacheValid = false
+                    documentBlockOffsets = nil
+                    // A width change rewraps text above the viewport, so the active
+                    // heading can move. Scroll-spy is skipped mid-resize; re-run it once
+                    // the resize settles (coalesced; it self-guards during the gesture).
+                    scheduleScrollSpyRefresh()
+                }
+            }
+
+            private var scrollSpyRefreshScheduled = false
+
+            /// Coalesced scroll-spy pass for after a resize settles (handleScrollForSpy
+            /// early-returns while the gesture is live).
+            private func scheduleScrollSpyRefresh() {
+                guard !scrollSpyRefreshScheduled else { return }
+                scrollSpyRefreshScheduled = true
+                DispatchQueue.main.async { [weak self] in
+                    self?.scrollSpyRefreshScheduled = false
+                    self?.handleScrollForSpy()
                 }
             }
 

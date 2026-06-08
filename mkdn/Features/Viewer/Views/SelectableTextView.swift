@@ -65,6 +65,9 @@
                     textView.invalidateCodeBlockCache()
                     textView.scheduleRefreshEstimatedHeight()
                 }
+                // Same shift moves every block below the attachment: drop the heading
+                // position / offset cache so navigation re-measures at resolved heights.
+                coordinator.invalidateHeadingPositionCache()
                 guard !coordinator.gate.isGateActive else { return }
                 guard coordinator.animator.isAnimating else { return }
                 coordinator.animator.animateVisibleFragments()
