@@ -121,8 +121,8 @@
             guard sidebarResizeAnchor != nil else { return }
             // Re-estimate the height at the new width so the scroller is right, then
             // re-pin (the frame may have grown to the estimate). The contiguous
-            // container realizes exact geometry as the reader scrolls; the cheap
-            // estimate just sizes the scroller up front — no full-document layout.
+            // container realizes exact geometry as the reader scrolls; the whole-string
+            // measure just sizes the scroller up front — no full-document layout.
             restoreSidebarResizeAnchor()
             refreshEstimatedHeight()
             restoreSidebarResizeAnchor()

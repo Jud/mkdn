@@ -169,7 +169,7 @@
                 // the viewport for real, or the document stays blank until a scroll.
                 realizeViewportAfterContainerResize(hardInvalidate: true)
                 // Recompute the height estimate at a settled width. Skip during a slide
-                // or window drag (the O(length) walk would run every frame); those
+                // or window drag (the whole-string measure would run every frame); those
                 // refresh once at their end.
                 if sidebarResizeAnchor == nil, !(enclosingScrollView?.inLiveResize ?? false) {
                     refreshEstimatedHeight()

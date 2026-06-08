@@ -82,5 +82,42 @@
             #expect(estimate >= real - 1)
             #expect(estimate <= real + 1)
         }
+
+        @Test("Estimate matches real layout for a document ending in an attachment",
+              arguments: [360.0, 800.0])
+        @MainActor func endsInAttachment(viewWidth: CGFloat) {
+            let blocks: [MarkdownBlock] = [
+                .paragraph(text: AttributedString("Lead-in prose before a trailing attachment.")),
+                .image(source: "diagram.png", alt: "A diagram"),
+            ]
+            let indexed = blocks.enumerated().map { IndexedBlock(index: $0.offset, block: $0.element) }
+            let result = MarkdownTextStorageBuilder.build(blocks: indexed, theme: .solarizedDark)
+            let (real, textWidth) = realLayout(result.attributedString, viewWidth: viewWidth)
+            let estimate = DocumentHeightEstimator.estimatedHeight(
+                of: result.attributedString, textWidth: textWidth, verticalInset: 32)
+            #expect(estimate >= real - 1)
+            #expect(estimate <= real + 1)
+        }
+
+        @Test("Estimate matches real layout for a long unbroken code line",
+              arguments: [360.0, 800.0])
+        @MainActor func longUnbrokenCodeLine(viewWidth: CGFloat) {
+            let token = String(repeating: "abcdefghij", count: 20) // 200 chars, no break points
+            let blocks: [MarkdownBlock] = [
+                .paragraph(text: AttributedString("Intro.")),
+                .codeBlock(language: "swift", code: "let value = \"\(token)\""),
+            ]
+            let indexed = blocks.enumerated().map { IndexedBlock(index: $0.offset, block: $0.element) }
+            let result = MarkdownTextStorageBuilder.build(blocks: indexed, theme: .solarizedDark)
+            let (real, textWidth) = realLayout(result.attributedString, viewWidth: viewWidth)
+            let estimate = DocumentHeightEstimator.estimatedHeight(
+                of: result.attributedString, textWidth: textWidth, verticalInset: 32)
+            // A long unbroken token (URL, minified code) is the one case where Core
+            // Text's char-wrap diverges from TextKit 2: boundingRect rounds up by about
+            // one extra mono line. That's the safe direction — the scroller is a hair
+            // long, never short — so assert never-under with a bounded over-estimate.
+            #expect(estimate >= real)
+            #expect(estimate <= real + 30)
+        }
     }
 #endif

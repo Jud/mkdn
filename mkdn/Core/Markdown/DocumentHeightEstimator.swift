@@ -10,10 +10,6 @@
 /// layout height to the pixel — at far less cost than realizing every layout
 /// fragment — so it can size the scroll view's vertical extent up front,
 /// before the document is laid out.
-///
-/// Per-block summing was measured against the same oracle and over-counts by
-/// one phantom trailing-newline line per block; the whole-string measure has
-/// no such seam, so the total is taken in one pass.
 @MainActor
 public enum DocumentHeightEstimator {
     /// - Parameters:

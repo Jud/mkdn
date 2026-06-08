@@ -20,9 +20,6 @@ public struct TextStorageResult {
     /// Maps heading block indices to their character offsets in the attributed string.
     public let headingOffsets: [Int: Int]
 
-    /// Per-block height handles for sizing the scroller without layout.
-    public let documentHeightModel: DocumentHeightModel
-
     /// Maps built attributed-string ranges back to source offsets.
     let sourceMap: SourceMap
 
@@ -30,13 +27,11 @@ public struct TextStorageResult {
         attributedString: NSAttributedString,
         attachments: [AttachmentInfo],
         headingOffsets: [Int: Int] = [:],
-        sourceMap: SourceMap = SourceMap(segments: []),
-        documentHeightModel: DocumentHeightModel = DocumentHeightModel(blocks: [])
+        sourceMap: SourceMap = SourceMap(segments: [])
     ) {
         self.attributedString = attributedString
         self.attachments = attachments
         self.headingOffsets = headingOffsets
-        self.documentHeightModel = documentHeightModel
         self.sourceMap = sourceMap
     }
 }
@@ -130,7 +125,6 @@ public enum MarkdownTextStorageBuilder {
         let result = NSMutableAttributedString()
         var attachments: [AttachmentInfo] = []
         var headingOffsets: [Int: Int] = [:]
-        var blockRanges: [(blockIndex: Int, range: NSRange)] = []
 
         for (offset, indexedBlock) in blocks.enumerated() {
             // Record character offset before appending heading blocks.
@@ -138,7 +132,6 @@ public enum MarkdownTextStorageBuilder {
                 headingOffsets[indexedBlock.index] = result.length
             }
 
-            let blockStart = result.length
             appendBlock(
                 indexedBlock,
                 to: result,
@@ -149,10 +142,6 @@ public enum MarkdownTextStorageBuilder {
                 isPrint: isPrint,
                 appSettings: appSettings
             )
-            blockRanges.append((
-                indexedBlock.index,
-                NSRange(location: blockStart, length: result.length - blockStart)
-            ))
 
             // Collapse the first block's top spacing so textContainerInset
             // alone controls the window-top-to-text distance.
@@ -170,26 +159,11 @@ public enum MarkdownTextStorageBuilder {
             }
         }
 
-        let attachmentByIndex = Dictionary(
-            attachments.map { ($0.blockIndex, $0.attachment) },
-            uniquingKeysWith: { first, _ in first }
-        )
-        let documentHeightModel = DocumentHeightModel(
-            blocks: blockRanges.map { entry in
-                BlockHeightDescriptor(
-                    blockIndex: entry.blockIndex,
-                    attributedRange: entry.range,
-                    attachment: attachmentByIndex[entry.blockIndex]
-                )
-            }
-        )
-
         return TextStorageResult(
             attributedString: result,
             attachments: attachments,
             headingOffsets: headingOffsets,
-            sourceMap: SourceMap(attributedString: result),
-            documentHeightModel: documentHeightModel
+            sourceMap: SourceMap(attributedString: result)
         )
     }
 
