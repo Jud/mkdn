@@ -22,11 +22,18 @@ public enum DocumentHeightEstimator {
         verticalInset: CGFloat
     ) -> CGFloat {
         guard attributedString.length > 0, textWidth > 0 else { return 0 }
-        let measured = attributedString.boundingRect(
+        return ceil(contentHeight(of: attributedString, textWidth: textWidth)) + verticalInset * 2
+    }
+
+    /// The wrapped text height of `attributedString` at `textWidth` — the Core Text
+    /// measure underlying both the document estimate and per-block offsets, without
+    /// the vertical inset. Returns 0 for empty input or non-positive width.
+    static func contentHeight(of attributedString: NSAttributedString, textWidth: CGFloat) -> CGFloat {
+        guard attributedString.length > 0, textWidth > 0 else { return 0 }
+        return attributedString.boundingRect(
             with: CGSize(width: textWidth, height: .greatestFiniteMagnitude),
             options: [.usesLineFragmentOrigin, .usesFontLeading],
             context: nil
         ).height
-        return ceil(measured) + verticalInset * 2
     }
 }
