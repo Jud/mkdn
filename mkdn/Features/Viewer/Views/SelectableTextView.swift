@@ -83,6 +83,8 @@
             textView.commentTheme = theme
 
             textView.textStorage?.setAttributedString(attributedText)
+            textView.realizeViewportAfterContainerResize(hardInvalidate: false)
+            textView.refreshEstimatedHeight()
             textView.window?.invalidateCursorRects(for: textView)
             applyEntranceOrGate(
                 coordinator: coordinator, textView: textView, scrollView: scrollView
@@ -153,8 +155,17 @@
         private static func makeScrollableCodeBlockTextView() -> (
             NSScrollView, CodeBlockBackgroundTextView
         ) {
-            let textContainer = NSTextContainer()
-            textContainer.widthTracksTextView = true
+            // A non-simple container makes NSTextLayoutManager lay out contiguously
+            // from the top rather than lazily with estimated off-viewport heights —
+            // the lazy path leaves the document-view frame height unstable (TextKit
+            // keeps re-asserting a smaller estimate), which makes a scroll after a
+            // width reflow snap. widthTracksTextView is unreliable for a non-simple
+            // container, so the width is set explicitly via `syncTextContainerSize`.
+            let textContainer = ContiguousTextContainer(
+                size: NSSize(width: 0, height: CGFloat.greatestFiniteMagnitude)
+            )
+            textContainer.widthTracksTextView = false
+            textContainer.heightTracksTextView = false
 
             let layoutManager = NSTextLayoutManager()
             layoutManager.textContainer = textContainer
@@ -193,7 +204,9 @@
             textView.isRichText = true
             textView.isHorizontallyResizable = false
             textView.isVerticallyResizable = true
-            textView.textContainer?.widthTracksTextView = true
+            // The non-simple container doesn't track the view width; size it now that
+            // the inset is set, then keep it in sync from setFrameSize.
+            (textView as? CodeBlockBackgroundTextView)?.syncTextContainerSize()
             textView.isAutomaticSpellingCorrectionEnabled = false
             textView.isAutomaticTextReplacementEnabled = false
             textView.isAutomaticQuoteSubstitutionEnabled = false
@@ -236,6 +249,7 @@
             // so an in-flight sidebar slide's tile() doesn't re-pin against the
             // replaced document (the stale NSTextLocation would enumerate out of range).
             textView.sidebarResizeAnchor = nil
+            textView.estimatedHeightFloor = nil
             // Dismiss an open comment overlay; its position points into the old
             // layout and its body may no longer match the new content. A body edit
             // from the popover only changed the sidecar (layout unchanged), so it
@@ -249,6 +263,8 @@
                 textView.dismissCommentOverlay()
             }
             textView.textStorage?.setAttributedString(attributedText)
+            textView.realizeViewportAfterContainerResize(hardInvalidate: false)
+            textView.refreshEstimatedHeight()
             textView.window?.invalidateCursorRects(for: textView)
 
             if textChanged {
@@ -381,6 +397,19 @@
         }
     }
 
+    // MARK: - Contiguous Text Container
+
+    /// Reports `isSimpleRectangularTextContainer == false` so `NSTextLayoutManager`
+    /// lays out contiguously from the top instead of the default lazy, non-contiguous
+    /// viewport layout with estimated off-viewport heights. The estimated path leaves
+    /// the document-view frame height unstable (TextKit re-asserts a smaller estimate
+    /// after a reflow), which makes a post-reflow scroll snap. The trade is synchronous
+    /// full-document layout; the container width must be set explicitly (see
+    /// ``CodeBlockBackgroundTextView/syncTextContainerSize(forViewWidth:)``).
+    private final class ContiguousTextContainer: NSTextContainer {
+        override var isSimpleRectangularTextContainer: Bool { false }
+    }
+
     // MARK: - Live Resize Scroll View
 
     /// NSScrollView subclass that forces TextKit 2 to lay out text in the visible
@@ -396,6 +425,8 @@
         override func viewWillStartLiveResize() {
             super.viewWillStartLiveResize()
             overlayCoordinator?.enterLiveResize()
+            // The estimate is for the old width; free the height for the drag.
+            (documentView as? CodeBlockBackgroundTextView)?.estimatedHeightFloor = nil
         }
 
         override func tile() {
@@ -432,6 +463,8 @@
             // layoutViewport + repositionOverlays so overlays sit on the
             // settled fragments before the scroll-origin restore below.
             overlayCoordinator?.exitLiveResize()
+            // Re-estimate the height at the settled width so the scroller is right.
+            (documentView as? CodeBlockBackgroundTextView)?.refreshEstimatedHeight()
 
             if let savedOrigin = liveResizeBoundsOrigin {
                 contentView.setBoundsOrigin(savedOrigin)

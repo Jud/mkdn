@@ -16,6 +16,8 @@
         /// can be re-pinned as the width changes. Called from the preview ahead of the
         /// width animation, while the layout still reflects the old width.
         func beginSidebarResize() {
+            // The estimate is for the old width; free the height for the slide.
+            estimatedHeightFloor = nil
             guard let scrollView = enclosingScrollView,
                   let textLayoutManager,
                   let viewportRange = textLayoutManager.textViewportLayoutController.viewportRange
@@ -112,8 +114,17 @@
             controller.layoutViewport()
         }
 
-        /// Final settle and teardown once the slide finishes.
+        /// Final settle and teardown once the slide finishes. Two things must be made
+        /// exact here, both one-shot (full-document work, never per frame): the scroll
+        /// *extent* and TextKit 2's *logical viewport*.
         func endSidebarResize() {
+            guard sidebarResizeAnchor != nil else { return }
+            // Re-estimate the height at the new width so the scroller is right, then
+            // re-pin (the frame may have grown to the estimate). The contiguous
+            // container realizes exact geometry as the reader scrolls; the cheap
+            // estimate just sizes the scroller up front — no full-document layout.
+            restoreSidebarResizeAnchor()
+            refreshEstimatedHeight()
             restoreSidebarResizeAnchor()
             sidebarResizeAnchor = nil
         }
