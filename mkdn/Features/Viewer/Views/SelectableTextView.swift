@@ -151,14 +151,18 @@
             if let targetBlockIndex = outlineState.pendingScrollTarget,
                targetBlockIndex != coordinator.lastScrolledTarget
             {
-                // Record the target as scrolled only when the scroll actually
-                // started; otherwise leave lastScrolledTarget clear so re-selecting
-                // the same heading isn't ignored as a duplicate.
+                // Mark the target scrolled only when the scroll actually started, so
+                // a deferred attempt (offsets not ready) stays re-triggerable.
                 if coordinator.scrollToHeading(blockIndex: targetBlockIndex, in: scrollView) {
                     coordinator.lastScrolledTarget = targetBlockIndex
                 }
+                // Clear both halves of the one-shot once the consume window closes.
+                // lastScrolledTarget only suppresses a double-scroll of THIS pending
+                // value; persisting it would wrongly ignore a fresh re-selection of
+                // the same heading after the reader scrolls away.
                 Task { @MainActor in
                     outlineState.pendingScrollTarget = nil
+                    coordinator.lastScrolledTarget = nil
                 }
             }
         }
