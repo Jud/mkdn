@@ -20,19 +20,23 @@ public struct TextStorageResult {
     /// Maps heading block indices to their character offsets in the attributed string.
     public let headingOffsets: [Int: Int]
 
-    /// Maps built attributed-string ranges back to source offsets, for resolving
-    /// editor selections to source (see `CommentRangeResolver`).
+    /// Per-block spans for mapping document y-positions to blocks (and back).
+    public let documentHeightModel: DocumentHeightModel
+
+    /// Maps built attributed-string ranges back to source offsets.
     let sourceMap: SourceMap
 
     init(
         attributedString: NSAttributedString,
         attachments: [AttachmentInfo],
         headingOffsets: [Int: Int] = [:],
+        documentHeightModel: DocumentHeightModel = DocumentHeightModel(blocks: []),
         sourceMap: SourceMap = SourceMap(segments: [])
     ) {
         self.attributedString = attributedString
         self.attachments = attachments
         self.headingOffsets = headingOffsets
+        self.documentHeightModel = documentHeightModel
         self.sourceMap = sourceMap
     }
 }
@@ -126,6 +130,7 @@ public enum MarkdownTextStorageBuilder {
         let result = NSMutableAttributedString()
         var attachments: [AttachmentInfo] = []
         var headingOffsets: [Int: Int] = [:]
+        var blockSpans: [BlockSpan] = []
 
         for (offset, indexedBlock) in blocks.enumerated() {
             // Record character offset before appending heading blocks.
@@ -133,6 +138,7 @@ public enum MarkdownTextStorageBuilder {
                 headingOffsets[indexedBlock.index] = result.length
             }
 
+            let blockStart = result.length
             appendBlock(
                 indexedBlock,
                 to: result,
@@ -143,6 +149,10 @@ public enum MarkdownTextStorageBuilder {
                 isPrint: isPrint,
                 appSettings: appSettings
             )
+            blockSpans.append(BlockSpan(
+                index: indexedBlock.index,
+                range: NSRange(location: blockStart, length: result.length - blockStart)
+            ))
 
             // Collapse the first block's top spacing so textContainerInset
             // alone controls the window-top-to-text distance.
@@ -164,6 +174,7 @@ public enum MarkdownTextStorageBuilder {
             attributedString: result,
             attachments: attachments,
             headingOffsets: headingOffsets,
+            documentHeightModel: DocumentHeightModel(blocks: blockSpans),
             sourceMap: SourceMap(attributedString: result)
         )
     }
@@ -324,6 +335,7 @@ public enum MarkdownTextStorageBuilder {
 
             if intent.contains(.code) {
                 font = PlatformTypeConverter.monospacedFont(scaleFactor: scaleFactor)
+                attributes[CodeBlockAttributes.inlineCode] = true
             } else {
                 let isBold = intent.contains(.stronglyEmphasized)
                 let isItalic = intent.contains(.emphasized)

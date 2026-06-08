@@ -155,6 +155,14 @@
                         }
                     }
                     .keyboardShortcut("l", modifiers: [.command, .shift])
+
+                    Button("Toggle Comments") {
+                        documentState?.toggleCommentSidebar()
+                    }
+                    .keyboardShortcut("c", modifiers: [.command, .shift])
+                    // Match the render gate, so the shortcut never flips an
+                    // invisible flag (no document, wrong mode, non-markdown).
+                    .disabled(!(documentState?.canShowCommentSidebar ?? false))
                 }
 
                 Section {
@@ -189,11 +197,25 @@
 
         @MainActor
         static func findTextView() -> CodeBlockBackgroundTextView? {
-            guard let contentView = NSApp.keyWindow?.contentView else { return nil }
-            return findTextView(in: contentView)
+            // keyWindow is the focused document in normal interactive use, but it's nil
+            // when the app runs as a test-harness accessory (and can be transiently nil
+            // otherwise). Fall back to the main / first visible window so the live text
+            // view is still found — without this the comment-rail resize anchor silently
+            // never engages off the key window.
+            let windows = [NSApp.keyWindow, NSApp.mainWindow].compactMap { $0 }
+                + NSApp.windows.filter(\.isVisible)
+            for window in windows {
+                if let content = window.contentView,
+                   let textView = findTextView(in: content)
+                {
+                    return textView
+                }
+            }
+            return nil
         }
 
-        private static func findTextView(in view: NSView) -> CodeBlockBackgroundTextView? {
+        @MainActor
+        static func findTextView(in view: NSView) -> CodeBlockBackgroundTextView? {
             if let textView = view as? CodeBlockBackgroundTextView {
                 return textView
             }

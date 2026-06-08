@@ -4,14 +4,13 @@
     @testable import mkdnLib
 
     /// Drives the actual gate the "Add Comment…" menu item and click path use —
-    /// `commentableSelectionRange()` on a real text view with a live selection,
-    /// `criticDocument`, and `commentSourceMap` — rather than the resolver alone.
+    /// `commentableSelection()` on a real text view with a live selection and the
+    /// rendered anchor tape — rather than the resolver alone.
     @Suite("CommentMenuGating")
     @MainActor
     struct CommentMenuGatingTests {
-        private func makeTextView(_ raw: String) -> (CodeBlockBackgroundTextView, NSString) {
-            let document = CriticMarkup.preprocess(raw)
-            let blocks = MarkdownRenderer.render(text: document.transformedSource, theme: .solarizedDark)
+        private func makeTextView(_ markdown: String) -> (CodeBlockBackgroundTextView, NSString) {
+            let blocks = MarkdownRenderer.render(text: markdown, theme: .solarizedDark)
             let result = MarkdownTextStorageBuilder.build(blocks: blocks, theme: .solarizedDark)
 
             let textContainer = NSTextContainer()
@@ -25,29 +24,28 @@
                 textContainer: textContainer
             )
             textView.textStorage?.setAttributedString(result.attributedString)
-            textView.criticDocument = document
-            textView.commentSourceMap = result.sourceMap
+            textView.anchorTape = AnchorTape.build(from: result.attributedString)
             return (textView, textView.string as NSString)
         }
 
-        @Test("Selecting a quoted phrase enables commenting (the menu gate)")
-        func quotedPhraseIsCommentable() {
-            let raw = "the partials commute, so\n\"recipient last\" is an orchestration rule"
-            let (textView, rendered) = makeTextView(raw)
-
+        @Test("Selecting a phrase enables commenting (the menu gate)")
+        func phraseIsCommentable() {
+            let (textView, rendered) = makeTextView(
+                "the partials commute, so recipient last is an orchestration rule"
+            )
             let range = rendered.range(of: "recipient last")
             #expect(range.location != NSNotFound)
             textView.setSelectedRange(range)
 
             // This is exactly what menu(for:) checks before adding "Add Comment…".
-            #expect(textView.commentableSelectionRange() != nil)
+            #expect(textView.commentableSelection() != nil)
         }
 
         @Test("Empty selection is not commentable")
         func emptySelectionNotCommentable() {
             let (textView, _) = makeTextView("plain prose here")
             textView.setSelectedRange(NSRange(location: 0, length: 0))
-            #expect(textView.commentableSelectionRange() == nil)
+            #expect(textView.commentableSelection() == nil)
         }
     }
 #endif

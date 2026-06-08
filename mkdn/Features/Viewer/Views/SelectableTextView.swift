@@ -28,8 +28,15 @@
         let findState: FindState
         let outlineState: OutlineState
         let headingOffsets: [Int: Int]
-        let criticDocument: CriticMarkupDocument?
-        let commentSourceMap: SourceMap
+        /// Per-block spans, for computing heading y-positions without TextKit layout.
+        let documentHeightModel: DocumentHeightModel
+        /// Comments resolved against the rendered text, drawn as a background fill.
+        let resolvedComments: ResolvedComments?
+        /// The rendered anchor tape, for capturing a selector when authoring.
+        let anchorTape: AnchorTape?
+        /// Bumped by the preview when only comments changed; swaps the resolved
+        /// index and redraws — no storage edit, so the viewport never jumps.
+        let commentRevision: Int
         @Binding var isLoadingGateActive: Bool
 
         // MARK: - NSViewRepresentable
@@ -51,10 +58,16 @@
             textView.delegate = coordinator
             coordinator.overlayCoordinator.onLayoutInvalidation = { [weak coordinator] in
                 guard let coordinator else { return }
-                // Attachment height changes shift fragment y-positions below;
-                // code-block geometry cached in viewWillDraw must be rebuilt.
-                (coordinator.textView as? CodeBlockBackgroundTextView)?
-                    .invalidateCodeBlockCache()
+                if let textView = coordinator.textView as? CodeBlockBackgroundTextView {
+                    // Attachment height changes shift fragment y-positions below: cached
+                    // code-block geometry must be rebuilt, and the scroller re-estimated
+                    // now that an attachment resolved its real height.
+                    textView.invalidateCodeBlockCache()
+                    textView.scheduleRefreshEstimatedHeight()
+                }
+                // Same shift moves every block below the attachment: drop the heading
+                // position / offset cache so navigation re-measures at resolved heights.
+                coordinator.invalidateHeadingPositionCache()
                 guard !coordinator.gate.isGateActive else { return }
                 guard coordinator.animator.isAnimating else { return }
                 coordinator.animator.animateVisibleFragments()
@@ -68,21 +81,25 @@
 
             coordinator.outlineState = outlineState
             coordinator.headingOffsets = headingOffsets
+            coordinator.documentHeightModel = documentHeightModel
 
             applyTheme(to: textView, scrollView: scrollView)
             textView.findState = findState
             textView.printBlocks = blocks
-            textView.criticDocument = criticDocument
-            textView.commentSourceMap = commentSourceMap
+            textView.resolvedComments = resolvedComments
+            textView.anchorTape = anchorTape
             textView.documentState = documentState
             textView.commentTheme = theme
 
             textView.textStorage?.setAttributedString(attributedText)
+            textView.realizeViewportAfterContainerResize(hardInvalidate: false)
+            textView.refreshEstimatedHeight()
             textView.window?.invalidateCursorRects(for: textView)
             applyEntranceOrGate(
                 coordinator: coordinator, textView: textView, scrollView: scrollView
             )
             coordinator.lastAppliedText = attributedText
+            coordinator.lastCommentRevision = commentRevision
             coordinator.wireScrollSpy()
             RenderCompletionSignal.shared.signalRenderComplete()
 
@@ -95,24 +112,29 @@
             }
 
             let coordinator = context.coordinator
-            if coordinator.headingOffsets != headingOffsets {
-                coordinator.headingOffsets = headingOffsets
-                coordinator.invalidateHeadingPositionCache()
-            }
+            coordinator.headingOffsets = headingOffsets
 
             applyTheme(to: textView, scrollView: scrollView)
             textView.findState = findState
             textView.printBlocks = blocks
-            textView.criticDocument = criticDocument
-            textView.commentSourceMap = commentSourceMap
+            textView.resolvedComments = resolvedComments
+            textView.anchorTape = anchorTape
             textView.documentState = documentState
             textView.commentTheme = theme
 
             let isNewContent = coordinator.lastAppliedText !== attributedText
             if isNewContent {
+                // The height model is content-derived; refresh it (and drop the heading
+                // position cache it feeds) on any text change, not only when the heading
+                // set changes.
+                coordinator.documentHeightModel = documentHeightModel
+                coordinator.invalidateHeadingPositionCache()
                 applyNewContent(
                     coordinator: coordinator, textView: textView, scrollView: scrollView
                 )
+            } else if coordinator.lastCommentRevision != commentRevision {
+                coordinator.lastCommentRevision = commentRevision
+                repaintCommentHighlights(textView: textView)
             }
 
             coordinator.handleFindUpdate(
@@ -129,10 +151,23 @@
             if let targetBlockIndex = outlineState.pendingScrollTarget,
                targetBlockIndex != coordinator.lastScrolledTarget
             {
-                coordinator.lastScrolledTarget = targetBlockIndex
-                coordinator.scrollToHeading(blockIndex: targetBlockIndex, in: scrollView)
+                // Mark the target scrolled only when the scroll actually started, so
+                // a deferred attempt (offsets not ready) stays re-triggerable.
+                if coordinator.scrollToHeading(blockIndex: targetBlockIndex, in: scrollView) {
+                    coordinator.lastScrolledTarget = targetBlockIndex
+                }
+                // Release this one-shot when its async window closes, but only if a
+                // newer selection hasn't replaced it: an unconditional clear could
+                // drop a rapid re-target's scroll or wipe a newer target's
+                // double-scroll guard. Resetting lastScrolledTarget the same way lets
+                // a later re-selection of the same heading scroll again.
                 Task { @MainActor in
-                    outlineState.pendingScrollTarget = nil
+                    if outlineState.pendingScrollTarget == targetBlockIndex {
+                        outlineState.pendingScrollTarget = nil
+                    }
+                    if coordinator.lastScrolledTarget == targetBlockIndex {
+                        coordinator.lastScrolledTarget = nil
+                    }
                 }
             }
         }
@@ -144,8 +179,17 @@
         private static func makeScrollableCodeBlockTextView() -> (
             NSScrollView, CodeBlockBackgroundTextView
         ) {
-            let textContainer = NSTextContainer()
-            textContainer.widthTracksTextView = true
+            // A non-simple container makes NSTextLayoutManager lay out contiguously
+            // from the top rather than lazily with estimated off-viewport heights —
+            // the lazy path leaves the document-view frame height unstable (TextKit
+            // keeps re-asserting a smaller estimate), which makes a scroll after a
+            // width reflow snap. widthTracksTextView is unreliable for a non-simple
+            // container, so the width is set explicitly via `syncTextContainerSize`.
+            let textContainer = ContiguousTextContainer(
+                size: NSSize(width: 0, height: CGFloat.greatestFiniteMagnitude)
+            )
+            textContainer.widthTracksTextView = false
+            textContainer.heightTracksTextView = false
 
             let layoutManager = NSTextLayoutManager()
             layoutManager.textContainer = textContainer
@@ -184,7 +228,9 @@
             textView.isRichText = true
             textView.isHorizontallyResizable = false
             textView.isVerticallyResizable = true
-            textView.textContainer?.widthTracksTextView = true
+            // The non-simple container doesn't track the view width; size it now that
+            // the inset is set, then keep it in sync from setFrameSize.
+            (textView as? CodeBlockBackgroundTextView)?.syncTextContainerSize()
             textView.isAutomaticSpellingCorrectionEnabled = false
             textView.isAutomaticTextReplacementEnabled = false
             textView.isAutomaticQuoteSubstitutionEnabled = false
@@ -220,6 +266,14 @@
             // Stop any in-flight footnote pulse before swapping storage; its
             // delayed fade would otherwise write stale ranges into new content.
             coordinator.cancelFootnotePulse()
+            // Likewise stop an in-flight jump scroll; it targets the old layout and
+            // would yank the viewport after the swap resets it.
+            textView.cancelCommentScroll()
+            // A content swap invalidates the captured anchor's text location; drop it
+            // so an in-flight sidebar slide's tile() doesn't re-pin against the
+            // replaced document (the stale NSTextLocation would enumerate out of range).
+            textView.sidebarResizeAnchor = nil
+            textView.estimatedHeightFloor = nil
             // Dismiss an open comment overlay; its position points into the old
             // layout and its body may no longer match the new content. A body edit
             // from the popover only changed the sidecar (layout unchanged), so it
@@ -233,6 +287,8 @@
                 textView.dismissCommentOverlay()
             }
             textView.textStorage?.setAttributedString(attributedText)
+            textView.realizeViewportAfterContainerResize(hardInvalidate: false)
+            textView.refreshEstimatedHeight()
             textView.window?.invalidateCursorRects(for: textView)
 
             if textChanged {
@@ -245,6 +301,23 @@
                 coordinator: coordinator, textView: textView, scrollView: scrollView
             )
             coordinator.lastAppliedText = attributedText
+            RenderCompletionSignal.shared.signalRenderComplete()
+        }
+
+        /// Apply a comment-only change (visible text unchanged) by swapping the
+        /// resolved-comment index and redrawing the viewport. No storage edit, so no
+        /// attachment re-estimation and no scroll jump — the whole point of drawing
+        /// comments instead of baking them.
+        private func repaintCommentHighlights(textView: CodeBlockBackgroundTextView) {
+            textView.resolvedComments = resolvedComments
+            // The rebuild path clears hover emphasis before swapping; this path
+            // skips that, so clear it here or a hovered row stays emphasized.
+            textView.setHoveredComment(nil)
+            // The add-comment flow sets this expecting applyNewContent to consume
+            // it; the comment-only path skips that pass, so clear it here.
+            textView.keepCommentOverlayThroughRebuild = false
+            textView.setNeedsDisplay(textView.enclosingScrollView?.documentVisibleRect ?? textView.bounds)
+            textView.commentBadgeOverlay?.needsDisplay = true
             RenderCompletionSignal.shared.signalRenderComplete()
         }
 
@@ -348,6 +421,19 @@
         }
     }
 
+    // MARK: - Contiguous Text Container
+
+    /// Reports `isSimpleRectangularTextContainer == false` so `NSTextLayoutManager`
+    /// lays out contiguously from the top instead of the default lazy, non-contiguous
+    /// viewport layout with estimated off-viewport heights. The estimated path leaves
+    /// the document-view frame height unstable (TextKit re-asserts a smaller estimate
+    /// after a reflow), which makes a post-reflow scroll snap. The trade is synchronous
+    /// full-document layout; the container width must be set explicitly (see
+    /// ``CodeBlockBackgroundTextView/syncTextContainerSize(forViewWidth:)``).
+    private final class ContiguousTextContainer: NSTextContainer {
+        override var isSimpleRectangularTextContainer: Bool { false }
+    }
+
     // MARK: - Live Resize Scroll View
 
     /// NSScrollView subclass that forces TextKit 2 to lay out text in the visible
@@ -363,10 +449,22 @@
         override func viewWillStartLiveResize() {
             super.viewWillStartLiveResize()
             overlayCoordinator?.enterLiveResize()
+            // The estimate is for the old width; free the height for the drag.
+            (documentView as? CodeBlockBackgroundTextView)?.estimatedHeightFloor = nil
         }
 
         override func tile() {
             super.tile()
+            // Same per-frame viewport layout as the live-resize path, but anchored to
+            // a text line rather than a scroll point so the reflow doesn't drift
+            // vertically.
+            if let textView = documentView as? CodeBlockBackgroundTextView,
+               textView.sidebarResizeAnchor != nil
+            {
+                textView.restoreSidebarResizeAnchor()
+                overlayCoordinator?.repositionOverlays()
+                return
+            }
             // Backstop: viewDidEndLiveResize doesn't always fire (focus loss,
             // window close mid-drag). If the flag drifted out of sync, drain
             // here so deferred heights don't pile up forever.
@@ -389,12 +487,15 @@
             // layoutViewport + repositionOverlays so overlays sit on the
             // settled fragments before the scroll-origin restore below.
             overlayCoordinator?.exitLiveResize()
+            // Re-estimate the height at the settled width so the scroller is right.
+            (documentView as? CodeBlockBackgroundTextView)?.refreshEstimatedHeight()
 
             if let savedOrigin = liveResizeBoundsOrigin {
                 contentView.setBoundsOrigin(savedOrigin)
                 reflectScrolledClipView(contentView)
                 liveResizeBoundsOrigin = nil
             }
+            (documentView as? CodeBlockBackgroundTextView)?.onResizeSettled?()
         }
     }
 #endif

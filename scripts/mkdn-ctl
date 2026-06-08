@@ -78,6 +78,17 @@ def main():
             r = send(sock, {"captureRegion": {"region": {"x": x, "y": y, "width": w, "height": h}, "outputPath": os.path.abspath(path)}})
         elif cmd_name == "recreate-view":
             r = send(sock, {"recreateView": {}})
+        elif cmd_name == "add-comment":
+            body = sys.argv[3] if len(sys.argv) > 3 else "test comment"
+            r = send(sock, {"addComment": {"substring": sys.argv[2], "body": body}})
+        elif cmd_name == "toggle-comments":
+            r = send(sock, {"toggleCommentSidebar": {}})
+        elif cmd_name == "jump-first-comment":
+            r = send(sock, {"jumpFirstComment": {}})
+        elif cmd_name == "jump-comment-at":
+            r = send(sock, {"jumpCommentAt": {"index": int(sys.argv[2])}})
+        elif cmd_name == "diagnose-click":
+            r = send(sock, {"diagnoseCommentClick": {"index": int(sys.argv[2])}})
         elif cmd_name == "quit":
             r = send(sock, {"quit": {}})
         else:

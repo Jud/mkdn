@@ -23,6 +23,16 @@
                 await handleReloadFile()
             case .recreateView:
                 await handleRecreateView()
+            case let .addComment(substring, body):
+                await handleAddComment(substring: substring, body: body)
+            case .toggleCommentSidebar:
+                await handleToggleCommentSidebar()
+            case .jumpFirstComment:
+                await handleJumpComment(index: 0)
+            case let .jumpCommentAt(index):
+                await handleJumpComment(index: index)
+            case let .diagnoseCommentClick(index):
+                await handleDiagnoseCommentClick(index: index)
             case .captureWindow, .captureRegion,
                  .startFrameCapture, .stopFrameCapture,
                  .beginFrameCapture, .endFrameCapture:
@@ -116,6 +126,90 @@
                 return .ok(message: "Document view recreated")
             }
             return .ok(message: "No markdown preview to recreate")
+        }
+
+        private static func handleToggleCommentSidebar() async -> HarnessResponse {
+            guard let docState = documentState else {
+                return .error("No document state available")
+            }
+            docState.toggleCommentSidebar()
+            return .ok(message: "Comment sidebar: \(docState.isCommentSidebarVisible ? "open" : "closed")")
+        }
+
+        /// The text view and the resolved comment at `index` in document order, or
+        /// nil. keyWindow is nil under the harness, so search the main window
+        /// directly rather than via the keyWindow-based MkdnCommands.findTextView().
+        private static func resolvedComment(
+            at index: Int
+        ) -> (textView: CodeBlockBackgroundTextView,
+              target: (id: String, entry: CommentSidecar.Entry, range: NSRange))? {
+            guard let window = findMainWindow(),
+                  let content = window.contentView,
+                  let textView = MkdnCommands.findTextView(in: content)
+            else { return nil }
+            let active = textView.resolvedComments?.active ?? []
+            guard active.indices.contains(index) else { return nil }
+            return (textView, active[index])
+        }
+
+        private static func handleJumpComment(index: Int) async -> HarnessResponse {
+            guard let (textView, target) = resolvedComment(at: index) else {
+                return .error("No resolved comment at index \(index)")
+            }
+            textView.revealComment(id: target.id, range: target.range)
+            return .ok(message: "Jumped to: \(target.entry.quote)")
+        }
+
+        /// Scroll the comment at `index` into view, hit-test the center of its span,
+        /// and (when it's clickable) open its popover — the full main-document
+        /// click path, for verifying comment clickability without a synthetic event.
+        private static func handleDiagnoseCommentClick(index: Int) async -> HarnessResponse {
+            guard let (textView, target) = resolvedComment(at: index) else {
+                return .error("No resolved comment at index \(index)")
+            }
+            textView.revealComment(id: target.id, range: target.range)
+            // Let the smooth scroll settle before hit-testing (derived from the
+            // scroll duration so it can't drift out of sync).
+            try? await Task.sleep(for: .seconds(AnimationConstants.scrollToHeadingDuration + 0.1))
+
+            guard let rect = textView.boundingRect(forCharacterRange: target.range) else {
+                return .error("No bounding rect for \(target.entry.quote)")
+            }
+            let mid = CGPoint(x: rect.midX, y: rect.midY)
+            let hits = textView.commentHits(at: mid)
+            guard !hits.isEmpty else {
+                return .error("\(target.entry.quote) is not clickable at its center")
+            }
+            textView.toggleComments(hits)
+            return .ok(message: "Opened \(hits.map(\.entry.id)) for: \(target.entry.quote)")
+        }
+
+        private static func handleAddComment(
+            substring: String, body: String
+        ) async -> HarnessResponse {
+            guard let docState = documentState else {
+                return .error("No document state available")
+            }
+            // Capture a content-anchored selector for the substring against a fresh
+            // render of the body, mirroring the live authoring path.
+            let theme = appSettings?.theme ?? .solarizedDark
+            let body0 = CommentDocument.parse(docState.markdownContent).body
+            let blocks = MarkdownRenderer.render(text: body0, theme: theme)
+            let result = MarkdownTextStorageBuilder.build(blocks: blocks, theme: theme)
+            let rendered = result.attributedString.string as NSString
+            let builderRange = rendered.range(of: substring)
+            guard builderRange.location != NSNotFound else {
+                return .error("Substring not found in rendered text: \(substring)")
+            }
+            let tape = AnchorTape.build(from: result.attributedString)
+            guard let selector = CommentSelectorCapture.capture(builderRange: builderRange, in: tape) else {
+                return .error("Could not capture selector for: \(substring)")
+            }
+            let signal = RenderCompletionSignal.shared
+            signal.prepareForRender()
+            docState.addComment(selector, body: body)
+            try? await signal.awaitPreparedRender(timeout: .seconds(5))
+            return .ok(message: "Comment added over: \(substring)")
         }
 
         // MARK: - Mode Commands

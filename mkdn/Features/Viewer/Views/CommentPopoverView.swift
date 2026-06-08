@@ -163,7 +163,7 @@
             // the current content. Keep the editor open (and the draft) if the
             // edit is rejected.
             guard let documentState,
-                  documentState.editComment(id: comment.id, of: documentState.markdownContent, newBody: trimmed)
+                  documentState.editComment(id: comment.id, newBody: trimmed)
             else {
                 return
             }
@@ -183,7 +183,7 @@
                 .pointingHandCursor()
                 Spacer()
                 Button("Delete", role: .destructive) {
-                    if documentState.deleteComment(id: comment.id, of: documentState.markdownContent) {
+                    if documentState.deleteComment(id: comment.id) {
                         onClose()
                     }
                 }

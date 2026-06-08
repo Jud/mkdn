@@ -3,8 +3,9 @@
 
     extension NSTextView {
         /// The document character index under a view-coordinate `point`, or nil
-        /// when the point is over empty space or past the text. Mirrors the
-        /// TextKit 2 / TextKit 1 hit-test in `isOverLink(at:)`.
+        /// when the point is over empty space or past the text. The shared
+        /// TextKit 2 / TextKit 1 hit-test primitive behind `commentHits(at:)` and
+        /// `isOverLink(at:)`.
         func characterIndex(at point: CGPoint) -> Int? {
             guard let textStorage, textStorage.length > 0 else { return nil }
 
@@ -26,13 +27,16 @@
                     let lineBounds = lineFragment.typographicBounds
                     guard fragmentPoint.y >= lineBounds.minY, fragmentPoint.y < lineBounds.maxY
                     else { continue }
+                    // `characterIndex(for:)` is already relative to the layout
+                    // fragment's start, not the line's, so it must NOT be offset by
+                    // the line's start again — doing so double-counts on the 2nd+
+                    // line of a wrapped paragraph and overshoots the document.
                     let charIndex = lineFragment.characterIndex(for: fragmentPoint)
-                    let lineStartInFragment = lineFragment.characterRange.location
                     let fragmentStartInDoc = textContentStorage.offset(
                         from: textContentStorage.documentRange.location,
                         to: fragment.rangeInElement.location
                     )
-                    let docOffset = fragmentStartInDoc + lineStartInFragment + charIndex
+                    let docOffset = fragmentStartInDoc + charIndex
                     guard docOffset >= 0, docOffset < textStorage.length else { return nil }
                     return docOffset
                 }
@@ -51,22 +55,6 @@
             }
 
             return nil
-        }
-
-        /// The comment ids under `point` and the effective range of the run there,
-        /// or nil if no comment is present. Multiple ids mean overlapping comments;
-        /// the caller picks the innermost. The range is the attribute's
-        /// `effectiveRange`, used to anchor the popover near the click.
-        func commentInfo(at point: CGPoint) -> (ids: [String], range: NSRange)? {
-            guard let textStorage, let index = characterIndex(at: point) else { return nil }
-            var range = NSRange(location: 0, length: 0)
-            guard let ids = textStorage.attribute(
-                .mkdnCommentID, at: index, effectiveRange: &range
-            ) as? [String], !ids.isEmpty
-            else {
-                return nil
-            }
-            return (ids, range)
         }
 
         /// The bounding rect (view coordinates) of a character range, for

@@ -28,13 +28,29 @@ enum CommentSidecar {
         /// non-unique quote during re-anchoring.
         var prefix: String
         var suffix: String
+        /// v2 TextPositionSelector — start/end offsets into the normalized anchor
+        /// tape, captured at creation. A *hint* used only to disambiguate when the
+        /// quote+context still matches more than once (W3C calls the position
+        /// selector "very brittle"), never the primary locator. nil for v1 entries.
+        var start: Int?
+        var end: Int?
+        /// Version of the text normalizer the quote/prefix/suffix/offsets were
+        /// recorded under, so a future normalizer change can re-anchor rather than
+        /// silently mismatch. nil for v1 entries.
+        var norm: Int?
 
-        init(id: String, body: String, quote: String = "", prefix: String = "", suffix: String = "") {
+        init(
+            id: String, body: String, quote: String = "", prefix: String = "", suffix: String = "",
+            start: Int? = nil, end: Int? = nil, norm: Int? = nil
+        ) {
             self.id = id
             self.body = body
             self.quote = quote
             self.prefix = prefix
             self.suffix = suffix
+            self.start = start
+            self.end = end
+            self.norm = norm
         }
 
         init(from decoder: any Decoder) throws {
@@ -44,11 +60,29 @@ enum CommentSidecar {
             quote = try container.decodeIfPresent(String.self, forKey: .quote) ?? ""
             prefix = try container.decodeIfPresent(String.self, forKey: .prefix) ?? ""
             suffix = try container.decodeIfPresent(String.self, forKey: .suffix) ?? ""
+            start = try container.decodeIfPresent(Int.self, forKey: .start)
+            end = try container.decodeIfPresent(Int.self, forKey: .end)
+            norm = try container.decodeIfPresent(Int.self, forKey: .norm)
         }
+
+        // `encode(to:)` is synthesized: it emits the non-optional fields and uses
+        // `encodeIfPresent` for the optionals, so an absent start/end/norm writes
+        // no key — a v1 entry re-encodes byte-for-byte as before (guarded by
+        // `v1EntryOmitsV2Keys`). Only `init(from:)` is hand-written, to default
+        // absent strings to "".
     }
 
-    /// The schema version written into the block; bumped if the shape changes.
+    /// The sidecar format version, written into the block. There is one comment
+    /// format: the writer always emits the content-anchor fields
+    /// (quote/prefix/suffix/start/end/norm). Resolution gates on `norm`, not this
+    /// version, so nothing branches on it — it's a marker, pinned at 1. A legacy
+    /// entry lacking `norm` simply orphans on resolve.
     static let currentVersion = 1
+
+    /// TextQuote context kept on each side of the quote (prefix/suffix), in
+    /// characters. Shared by every capture path so the v1 (raw-source) and v2
+    /// (rendered-tape) windows can't drift apart. ~32 per W3C/Hypothes.is.
+    static let contextLength = 32
 
     static let blockOpen = "<!--mkdn-comments"
     static let blockClose = "-->"
@@ -125,6 +159,65 @@ enum CommentSidecar {
             guard rest.hasPrefix("<!--"), let close = rest.range(of: "-->") else { return false }
             rest = rest[close.upperBound...]
         }
+    }
+
+    // MARK: - Authoring
+
+    /// A short random base-36 id (anchor-attribute safe: no quotes/`<>`/spaces).
+    static func randomID() -> String {
+        let alphabet = Array("abcdefghijklmnopqrstuvwxyz0123456789")
+        return String((0 ..< 5).map { _ in alphabet.randomElement()! })
+    }
+
+    /// An id not already used by an entry in `raw`.
+    static func uniqueID(in raw: String) -> String {
+        let used = Set(decode(from: raw)?.entries.map(\.id) ?? [])
+        for _ in 0 ..< 100 {
+            let id = randomID()
+            if !used.contains(id) { return id }
+        }
+        let base = randomID()
+        var suffix = 1
+        var id = base
+        while used.contains(id) {
+            id = "\(base)\(suffix)"
+            suffix += 1
+        }
+        return id
+    }
+
+    /// Insert or replace `entry` (by id) in `raw`'s sidecar block, creating the
+    /// block at the end of the document if none exists yet.
+    static func upsert(_ entry: Entry, into raw: String) -> String {
+        guard let decoded = decode(from: raw) else {
+            var trimmed = raw
+            while let last = trimmed.last, last.isNewline { trimmed.removeLast() }
+            let separator = trimmed.isEmpty ? "" : "\n\n"
+            return trimmed + separator + encode([entry]) + "\n"
+        }
+        var entries = decoded.entries.filter { $0.id != entry.id }
+        entries.append(entry)
+        var result = raw
+        result.replaceSubrange(decoded.blockRange, with: encode(entries))
+        return result
+    }
+
+    /// Remove the entry with `id` (no-op if absent), removing the block and its
+    /// trailing blank line when no entries remain. Removes orphaned entries too.
+    static func remove(id: String, from raw: String) -> String {
+        guard let decoded = decode(from: raw) else { return raw }
+        let entries = decoded.entries.filter { $0.id != id }
+        guard entries.count != decoded.entries.count else { return raw }
+        var result = raw
+        guard !entries.isEmpty else {
+            result.removeSubrange(decoded.blockRange)
+            // Trim only trailing newlines (the separator), never spaces (a hard break).
+            while let last = result.last, last.isNewline { result.removeLast() }
+            if !result.isEmpty { result.append("\n") }
+            return result
+        }
+        result.replaceSubrange(decoded.blockRange, with: encode(entries))
+        return result
     }
 
     // MARK: - `-->`-safe escaping

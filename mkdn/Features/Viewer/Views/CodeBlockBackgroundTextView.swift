@@ -57,6 +57,10 @@
         var isCodeBlockCacheValid = false
         var areBlockRectsValid = false
 
+        /// Invoked when a sidebar slide or window live-resize settles, so the
+        /// coordinator runs a final scroll-spy pass once its in-resize guard lifts.
+        var onResizeSettled: (() -> Void)?
+
         // MARK: - Copy Button State
 
         var hoveredBlockID: String?
@@ -83,8 +87,11 @@
 
         // MARK: - Comment State
 
-        var criticDocument: CriticMarkupDocument?
-        var commentSourceMap: SourceMap?
+        /// Comments resolved against the rendered text, drawn as a background fill
+        /// (see ``drawCommentHighlights(in:)``) and queried for hit-testing.
+        var resolvedComments: ResolvedComments?
+        /// The rendered anchor tape, for capturing a selector when authoring a comment.
+        var anchorTape: AnchorTape?
         weak var documentState: DocumentState?
         var commentTheme: AppTheme?
         /// The currently presented comment overlay (read popover or add input), a
@@ -109,18 +116,169 @@
         var commentOverlayLeading: NSLayoutConstraint?
         var commentOverlayTop: NSLayoutConstraint?
         var commentOverlayDragBase: CGPoint?
+        /// Clears a jump-to-comment flash after its hold; cancelled when a newer
+        /// flash or hover supersedes it.
+        var commentFlashTask: Task<Void, Never>?
+        /// Drives the smooth scroll for a jump-to-comment; cancelled when a newer
+        /// jump supersedes it (e.g. clicking a second comment mid-scroll).
+        var commentScrollTimer: DispatchSourceTimer?
+        /// The comment whose span is drawn with hover emphasis. Lags
+        /// ``hoveredCommentID`` during the fade-out so the emphasis can animate away
+        /// rather than vanish.
+        var emphasisDrawID: String?
+        /// 0 → 1 fade of the hover emphasis for ``emphasisDrawID``, animated by
+        /// ``commentEmphasisTimer`` so the span eases into/out of the highlight.
+        var emphasisProgress: CGFloat = 0
+        var commentEmphasisTimer: DispatchSourceTimer?
+
+        deinit {
+            // Stop the comment animation timers/task if the view is torn down
+            // mid-flight, so none keep firing against a detached view.
+            commentScrollTimer?.cancel()
+            commentEmphasisTimer?.cancel()
+            commentFlashTask?.cancel()
+        }
 
         // MARK: - Print Support
 
         /// Current indexed blocks retained for print-time attributed string rebuild.
         var printBlocks: [IndexedBlock] = []
 
+        // MARK: - Sidebar Resize
+
+        /// Top-of-viewport anchor captured while the comment rail animates the
+        /// preview width. Non-nil marks an in-flight sidebar resize: the scroll
+        /// view re-pins this line to the same viewport y on every layout pass, so
+        /// the text the reader is looking at holds still while everything rewraps.
+        var sidebarResizeAnchor: SidebarResizeAnchor?
+
+        /// Floor for the document-view height from the whole-string height estimate, so
+        /// the scroller reflects the full height immediately instead of TextKit 2
+        /// building it up lazily as the reader scrolls. Recomputed at each settled width
+        /// (load, resize end); cleared during a slide/drag so the reflow is free.
+        var estimatedHeightFloor: CGFloat?
+
+        private var refreshHeightWorkItem: DispatchWorkItem?
+
+        /// How long to wait for an attachment-resolution burst to settle before
+        /// re-estimating, so the whole-string measure runs once rather than per overlay.
+        private static let attachmentRefreshDebounce: TimeInterval = 0.1
+
         // MARK: - Live Resize
 
         override func setFrameSize(_ newSize: NSSize) {
-            super.setFrameSize(newSize)
+            var size = newSize
+            if let floor = estimatedHeightFloor {
+                size.height = max(size.height, floor)
+            }
+            let containerChanged = syncTextContainerSize(forViewWidth: newSize.width)
+            super.setFrameSize(size)
+            if containerChanged {
+                // The cold paint installs content while the width is still 0; the first
+                // real width must discard that zero-width viewport layout and lay out
+                // the viewport for real, or the document stays blank until a scroll.
+                realizeViewportAfterContainerResize(hardInvalidate: true)
+                // Recompute the height estimate at a settled width. Skip during a slide
+                // or window drag (the whole-string measure would run every frame); those
+                // refresh once at their end.
+                if canRefreshEstimatedHeight {
+                    refreshEstimatedHeight()
+                }
+            }
             invalidateCodeBlockCache()
             needsDisplay = true
+        }
+
+        /// Size the non-simple text container to the view's current width (minus the
+        /// horizontal inset; TextKit subtracts `lineFragmentPadding` internally). The
+        /// container can't track the view width on its own, and `setFrameSize` is the
+        /// width hook for every sidebar and window resize since the scroll view
+        /// autoresizes the text view's frame. Returns whether the width changed.
+        @discardableResult
+        func syncTextContainerSize(forViewWidth viewWidth: CGFloat? = nil) -> Bool {
+            guard let textContainer else { return false }
+            let width = max(0, (viewWidth ?? bounds.width) - 2 * textContainerInset.width)
+            let desired = NSSize(width: width, height: CGFloat.greatestFiniteMagnitude)
+            guard abs(textContainer.size.width - desired.width) > 0.5
+                || textContainer.size.height != desired.height
+            else { return false }
+            textContainer.size = desired
+            invalidateCodeBlockCache()
+            needsDisplay = true
+            return true
+        }
+
+        /// Lay out and draw the viewport at the current real container width. Content
+        /// installed while the width was 0 (cold paint) otherwise keeps its zero-width
+        /// viewport layout and paints blank until a scroll. Cheap (viewport only) — it
+        /// deliberately does NOT lay out the whole document, so the scroll height stays
+        /// lazy; full-document layout would be exact but crush load/toggle on big docs.
+        func realizeViewportAfterContainerResize(hardInvalidate: Bool) {
+            guard let textLayoutManager,
+                  (textStorage?.length ?? 0) > 0,
+                  (textContainer?.size.width ?? 0) > 0,
+                  bounds.width > 0
+            else { return }
+            if hardInvalidate {
+                textLayoutManager.invalidateLayout(for: textLayoutManager.documentRange)
+            }
+            textLayoutManager.textViewportLayoutController.layoutViewport()
+            setNeedsDisplay(enclosingScrollView?.documentVisibleRect ?? bounds)
+        }
+
+        /// The estimate must not be refreshed mid-gesture: it would re-arm the height
+        /// floor that beginSidebarResize freed and resize the frame under the slide. The
+        /// slide/resize end-handlers re-estimate, so a skipped mid-gesture refresh loses
+        /// nothing.
+        private var canRefreshEstimatedHeight: Bool {
+            sidebarResizeAnchor == nil && !(enclosingScrollView?.inLiveResize ?? false)
+        }
+
+        /// Width available to text: the container width (already minus the horizontal
+        /// inset) minus the line-fragment padding TextKit applies inside it; 0 when there
+        /// is no container or it has collapsed. Shared by the height estimate and the
+        /// per-block offsets so both measure at the same width.
+        var textWidth: CGFloat {
+            guard let textContainer else { return 0 }
+            return textContainer.size.width - 2 * textContainer.lineFragmentPadding
+        }
+
+        /// Recompute the document-height estimate at the current container width and size
+        /// the frame to it, so the scroller reflects the full height immediately instead
+        /// of TextKit 2 building it up lazily as the reader scrolls. A whole-string Core
+        /// Text measure — no fragment layout; call on load and at each width settle. The
+        /// estimate tracks real layout (including resolved attachment heights) closely
+        /// enough to size the frame in both directions, so an attachment that resolves
+        /// below its placeholder shrinks the frame instead of leaving dead scroll extent.
+        func refreshEstimatedHeight() {
+            // Bail at a collapsed/degenerate width: a zero estimate must not shrink a
+            // non-empty view to nothing now that sizing is bidirectional.
+            guard let textStorage, textWidth > 0 else { return }
+            let estimate = DocumentHeightEstimator.estimatedHeight(
+                of: textStorage,
+                textWidth: textWidth,
+                verticalInset: textContainerInset.height
+            )
+            estimatedHeightFloor = estimate
+            if abs(frame.height - estimate) > 0.5 {
+                setFrameSize(NSSize(width: frame.width, height: estimate))
+            }
+        }
+
+        /// Debounced ``refreshEstimatedHeight``. Attachment overlays (image, Mermaid,
+        /// math) resolve their real heights asynchronously and in bursts, each firing a
+        /// layout invalidation; coalesce those into a single re-estimate once they
+        /// settle rather than re-measuring the whole string on every callback.
+        func scheduleRefreshEstimatedHeight() {
+            refreshHeightWorkItem?.cancel()
+            let workItem = DispatchWorkItem { [weak self] in
+                guard let self, self.canRefreshEstimatedHeight else { return }
+                self.refreshEstimatedHeight()
+            }
+            refreshHeightWorkItem = workItem
+            DispatchQueue.main.asyncAfter(
+                deadline: .now() + Self.attachmentRefreshDebounce, execute: workItem
+            )
         }
 
         // MARK: - Text Change Invalidation
@@ -179,7 +337,7 @@
         /// no modifiers), preserving selection, double-click and modifier-click. A
         /// click on a commented link opens the comment (its navigation is
         /// suppressed in the clickedOnLink delegate); an uncommented link still
-        /// follows normally because `commentInfo` is nil there.
+        /// follows normally because `commentHits` is empty there.
         private func openCommentPopoverIfNeeded(for event: NSEvent, at point: CGPoint) {
             guard event.clickCount == 1,
                   event.modifierFlags.intersection([.shift, .command, .option, .control]).isEmpty,
@@ -187,16 +345,17 @@
             else {
                 return
             }
-            guard let info = commentInfo(at: point) else {
+            let hits = commentHits(at: point)
+            guard !hits.isEmpty else {
                 dismissCommentOverlay() // a plain-text click closes any open comment
                 return
             }
-            toggleComments(ids: info.ids, range: info.range)
+            toggleComments(hits)
         }
 
         override func menu(for event: NSEvent) -> NSMenu? {
             let menu = super.menu(for: event) ?? NSMenu()
-            if commentableSelectionRange() != nil {
+            if commentableSelection() != nil {
                 let item = NSMenuItem(
                     title: "Add Comment…",
                     action: #selector(addCommentToSelection(_:)),
@@ -230,7 +389,7 @@
             if commentOverlay?.frame.contains(point) == true { return nil }
             if isOverOverlapBadge(point) { return .pointingHand }
             if isOverEmptyTextArea(point) { return .arrow }
-            if isOverLink(at: point) || commentInfo(at: point) != nil { return .pointingHand }
+            if isOverLink(at: point) || !commentHits(at: point).isEmpty { return .pointingHand }
             return .iBeam
         }
 
@@ -267,6 +426,7 @@
         override func drawBackground(in rect: NSRect) {
             super.drawBackground(in: rect)
             drawCodeBlockContainers(in: rect)
+            drawCommentHighlights(in: rect)
         }
 
         // MARK: - Print
@@ -279,6 +439,11 @@
 
             let savedString = textStorage.map { NSAttributedString(attributedString: $0) }
             let savedBgColor = backgroundColor
+            // Comment highlights are drawn from screen-resolved ranges; suppress them
+            // for the print canvas (its rebuilt storage has no comments) so they
+            // don't bleed onto the page.
+            let savedResolvedComments = resolvedComments
+            resolvedComments = nil
             let result = MarkdownTextStorageBuilder.build(
                 blocks: printBlocks,
                 colors: PrintPalette.colors,
@@ -299,6 +464,7 @@
                 textStorage?.setAttributedString(saved)
             }
             backgroundColor = savedBgColor
+            resolvedComments = savedResolvedComments
         }
     }
 #endif

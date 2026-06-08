@@ -3,28 +3,46 @@
     import SwiftUI
 
     extension CodeBlockBackgroundTextView {
+        /// The comments under a view-coordinate point — innermost (smallest span)
+        /// first — resolved from the drawn-comment index rather than a baked
+        /// attribute. Empty when no comment covers the point.
+        func commentHits(at point: CGPoint) -> [(entry: CommentSidecar.Entry, range: NSRange)] {
+            guard let index = characterIndex(at: point) else { return [] }
+            return resolvedComments?.comments(containing: index) ?? []
+        }
+
         /// Open the given comments, or close them if that same set is already open
         /// (re-click toggle), shared by highlight clicks and badge clicks.
-        func toggleComments(ids: [String], range: NSRange) {
-            if Set(ids) == Set(openCommentIDs) {
+        func toggleComments(_ hits: [(entry: CommentSidecar.Entry, range: NSRange)]) {
+            if Set(hits.map(\.entry.id)) == Set(openCommentIDs) {
                 dismissCommentOverlay()
             } else {
-                showComments(ids: ids, range: range)
+                showComments(hits)
             }
+        }
+
+        /// Toggle a badge cluster's comments by id — resolved from the index, since
+        /// no single offset lies inside every overlapping comment.
+        func toggleComments(ids: [String]) {
+            toggleComments(resolvedComments?.comments(ids: ids) ?? [])
         }
 
         /// Show the comment(s) covering a click as a hosted overlay near the span.
         /// Overlapping comments are stacked innermost-first; the whole box pops in.
-        func showComments(ids: [String], range: NSRange) {
+        func showComments(_ hits: [(entry: CommentSidecar.Entry, range: NSRange)]) {
+            // Anchor on the smallest hit that's on screen (hits are innermost-first),
+            // so a badge whose smallest comment is offscreen doesn't force layout
+            // there and mis-place the box.
+            let visible = visibleCharacterRange()
+            let anchor = hits.first { visible == nil || NSIntersectionRange($0.range, visible!).length > 0 }?.range
             guard window != nil,
-                  let document = criticDocument,
                   let theme = commentTheme,
-                  let rect = boundingRect(forCharacterRange: range)
+                  let anchor,
+                  let rect = boundingRect(forCharacterRange: anchor)
             else {
                 return
             }
-            let comments = document.commentsInnermostFirst(among: ids)
-                .map { DisplayedComment(id: $0.id, body: $0.body) }
+            let comments = hits.map { DisplayedComment(id: $0.entry.id, body: $0.entry.body) }
             guard !comments.isEmpty else { return }
 
             let model = CommentOverlayModel()
@@ -44,44 +62,42 @@
 
         // MARK: - Overlap indicator
 
-        /// One count badge per contiguous cluster of overlapping comments, so a
-        /// reader can tell how many comments are there (clicking shows them
-        /// stacked). `enumerateAttribute` emits a new run wherever the covering id
-        /// set changes, so a staircase of overlaps (depth 2→3→2) arrives as several
-        /// abutting runs; merging them into one cluster avoids a row of badges
-        /// (`2 3 2`) across a single overlapping region. The count is the distinct
-        /// comments in the cluster — exactly what clicking the badge opens.
+        /// One count badge per cluster of overlapping comments, so a reader can tell
+        /// how many are there (clicking shows them stacked). Clusters are merged
+        /// from the resolved-range index; only clusters whose anchor character is in
+        /// the laid-out viewport get a badge, so an offscreen overlap never forces
+        /// layout (no `boundingRect` on unlaid text).
         func refreshCachedCommentOverlapBadges() {
-            guard let textStorage, !textStorage.string.isEmpty else {
+            guard let resolved = resolvedComments, !resolved.ranges.isEmpty,
+                  let visibleRange = visibleCharacterRange()
+            else {
                 cachedCommentOverlapBadges = []
                 return
             }
+            // Cluster the VISIBLE portions of each comment, so a badge's count
+            // reflects the comments actually overlapping on screen and its anchor is
+            // always laid out (no offscreen `boundingRect`).
+            let visible = resolved.ranges.compactMap { id, range -> (id: String, range: NSRange)? in
+                let clipped = NSIntersectionRange(range, visibleRange)
+                return clipped.length > 0 ? (id, clipped) : nil
+            }
+            .sorted { $0.range.location < $1.range.location }
+
             var clusters: [(range: NSRange, ids: [String])] = []
-            textStorage.enumerateAttribute(
-                .mkdnCommentID, in: NSRange(location: 0, length: textStorage.length)
-            ) { value, range, _ in
-                guard let ids = value as? [String], ids.count >= 2 else { return }
-                // Merge into the previous cluster only when the runs abut AND
-                // share a comment — i.e. one connected overlap region (a 2→3→2
-                // staircase). Two unrelated overlap pairs that merely touch stay
-                // separate badges.
-                let i = clusters.count - 1
-                if let last = clusters.last, NSMaxRange(last.range) == range.location,
-                   ids.contains(where: last.ids.contains) {
-                    clusters[i].range = NSUnionRange(last.range, range)
-                    clusters[i].ids += ids.filter { !last.ids.contains($0) }
+            for entry in visible {
+                if let last = clusters.last, NSMaxRange(last.range) > entry.range.location {
+                    clusters[clusters.count - 1].range = NSUnionRange(last.range, entry.range)
+                    clusters[clusters.count - 1].ids.append(entry.id)
                 } else {
-                    clusters.append((range, ids))
+                    clusters.append((entry.range, [entry.id]))
                 }
             }
             cachedCommentOverlapBadges = clusters.compactMap { cluster in
-                // Anchor the badge at the cluster's last character so it sits at the
-                // end of the overlapping text (a multi-line cluster's union rect
-                // would misplace it).
-                let endRange = NSRange(location: NSMaxRange(cluster.range) - 1, length: 1)
-                guard let rect = boundingRect(forCharacterRange: endRange) else { return nil }
-                // Scale the badge with the line height so it tracks the text size,
-                // and straddle the span's top-right corner.
+                guard cluster.ids.count >= 2,
+                      let rect = boundingRect(
+                          forCharacterRange: NSRange(location: NSMaxRange(cluster.range) - 1, length: 1)
+                      )
+                else { return nil }
                 let size = max(rect.height * Self.overlapBadgeLineFraction, Self.overlapBadgeMinDiameter)
                 let badgeRect = CGRect(
                     x: rect.maxX - size * 0.5, y: rect.minY - size * 0.5, width: size, height: size
@@ -136,31 +152,41 @@
 
         // MARK: - Authoring
 
-        /// The raw-source range for the current selection, if it maps to source
-        /// text (nil for an empty selection or one that can't be mapped). A
-        /// selection inside or across existing comments is allowed — v3 supports
-        /// nesting/overlap, so wrapping it adds another comment.
-        func commentableSelectionRange() -> Range<String.Index>? {
+        /// The current selection if it can be commented: non-empty, mappable to a
+        /// normalized tape range, and free of attachments (tables/math/images are
+        /// not yet anchorable). nil otherwise. A selection inside or across existing
+        /// comments is allowed — overlap adds another comment.
+        func commentableSelection() -> NSRange? {
             let selection = selectedRange()
             guard selection.length > 0,
-                  let document = criticDocument,
-                  let sourceMap = commentSourceMap
+                  let tape = anchorTape,
+                  tape.normalizedRange(forBuilder: selection) != nil,
+                  !selectionContainsAttachment(selection)
             else {
                 return nil
             }
-            return CommentRangeResolver(document: document, sourceMap: sourceMap)
-                .rawRange(forBuilderRange: selection)
+            return selection
         }
 
-        /// Present the add-comment input over the current selection. The raw range
-        /// is captured now (valid against the rendered document); on submit it's
-        /// applied to the live content via DocumentState.
+        private func selectionContainsAttachment(_ range: NSRange) -> Bool {
+            guard let textStorage else { return false }
+            var found = false
+            textStorage.enumerateAttribute(.attachment, in: range, options: []) { value, _, stop in
+                if value != nil { found = true; stop.pointee = true }
+            }
+            return found
+        }
+
+        /// Present the add-comment input over the current selection. The selector
+        /// is captured now (against the rendered text); on submit it's stored in
+        /// the sidecar via DocumentState — no inline markers.
         @objc func addCommentToSelection(_: Any?) {
-            guard let rawRange = commentableSelectionRange(),
-                  let source = criticDocument?.rawSource,
+            guard let selection = commentableSelection(),
+                  let tape = anchorTape,
+                  let selector = CommentSelectorCapture.capture(builderRange: selection, in: tape),
                   let theme = commentTheme,
                   let documentState,
-                  let rect = boundingRect(forCharacterRange: selectedRange())
+                  let rect = boundingRect(forCharacterRange: selection)
             else {
                 return
             }
@@ -169,7 +195,7 @@
                 model: model,
                 theme: theme,
                 documentState: documentState,
-                addComment: { body in documentState.addComment(in: rawRange, of: source, body: body) },
+                addComment: { body in documentState.addComment(selector, body: body) },
                 onClose: { [weak self] in self?.dismissCommentOverlay() },
                 onAdded: { [weak self] id in
                     // The box morphs in place to show the new comment; keep it
@@ -220,33 +246,174 @@
 
         // MARK: - Hover-to-locate
 
-        /// Emphasize the hovered comment's span in the document so the reader sees
-        /// which text the row they're reading refers to. Restores the previous one.
+        /// Emphasize the hovered comment's span so the reader sees which text the
+        /// row they're reading refers to. A draw-state change (no storage edit, so
+        /// locating a comment never relayouts) that eases into/out of the highlight
+        /// via ``emphasisProgress`` rather than snapping.
         func setHoveredComment(_ id: String?) {
+            // Cancel before the no-op guard: a hover over the currently-flashing
+            // comment (same id) must still supersede a pending flash-clear, or the
+            // timer would later wipe a live hover.
+            commentFlashTask?.cancel()
             guard id != hoveredCommentID else { return }
-            if let previous = hoveredCommentID { paintCommentHighlight(previous, emphasized: false) }
             hoveredCommentID = id
-            if let id { paintCommentHighlight(id, emphasized: true) }
+            // A new id fades in from scratch; nil keeps the last id and fades it out.
+            if let id, id != emphasisDrawID {
+                emphasisDrawID = id
+                emphasisProgress = 0
+            }
+            animateCommentEmphasis(to: id == nil ? 0 : 1)
         }
 
-        private func paintCommentHighlight(_ id: String, emphasized: Bool) {
-            guard let document = criticDocument, let sourceMap = commentSourceMap,
-                  let theme = commentTheme, let textStorage,
-                  let comment = document.commentsByID[id]
-            else {
+        /// Tween ``emphasisProgress`` to `target` (1 = hovered, 0 = cleared) at
+        /// 60fps, redrawing each frame; clears ``emphasisDrawID`` when it reaches 0.
+        private func animateCommentEmphasis(to target: CGFloat) {
+            commentEmphasisTimer?.cancel()
+            commentEmphasisTimer = nil
+
+            guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
+                emphasisProgress = target
+                if target == 0 { emphasisDrawID = nil }
+                setNeedsDisplay(enclosingScrollView?.documentVisibleRect ?? bounds)
                 return
             }
-            let color = emphasized
-                ? PlatformTypeConverter.color(from: theme.colors.accent).withAlphaComponent(0.3)
-                : PlatformTypeConverter.color(from: theme.colors.commentHighlight)
-            // Reuse the build-time highlight mapping; hover only repaints the
-            // colour, never the comment-id list (it's transient).
-            let ranges = MarkdownTextStorageBuilder.highlightRanges(
-                for: comment, in: document, sourceMap: sourceMap, maxLength: textStorage.length
+
+            let start = emphasisProgress
+            commentEmphasisTimer = makeFrameRamp(
+                duration: 0.16,
+                easing: { $0 * $0 * (3 - 2 * $0) }, // smoothstep
+                onFrame: { [weak self] progress in
+                    guard let self else { return }
+                    self.emphasisProgress = start + (target - start) * progress
+                    self.setNeedsDisplay(self.enclosingScrollView?.documentVisibleRect ?? self.bounds)
+                },
+                onComplete: { [weak self] in
+                    guard let self else { return }
+                    self.emphasisProgress = target
+                    if target == 0 { self.emphasisDrawID = nil }
+                    self.commentEmphasisTimer = nil
+                }
             )
-            for nsRange in ranges {
-                textStorage.addAttribute(.backgroundColor, value: color, range: nsRange)
+        }
+
+        /// Smooth-scroll a comment's span into view (no emphasis). Clicking a
+        /// sidebar card uses this; the card's hover already emphasizes the span, so
+        /// a flash here would only fight that hover.
+        func scrollComment(to range: NSRange) {
+            smoothScroll(to: range)
+        }
+
+        /// Cancel an in-flight jump scroll. Call before swapping storage so the
+        /// tween (which targets the old layout) can't fight the new content's
+        /// scroll position.
+        func cancelCommentScroll() {
+            commentScrollTimer?.cancel()
+            commentScrollTimer = nil
+        }
+
+        /// Scroll a comment into view and flash it (a self-clearing emphasis on the
+        /// hover channel, no storage edit). For navigating to a comment with no
+        /// hover to carry the emphasis (e.g. the test harness).
+        func revealComment(id: String, range: NSRange) {
+            smoothScroll(to: range)
+            setHoveredComment(id)
+            commentFlashTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: AnimationConstants.commentFlashHold)
+                guard !Task.isCancelled else { return }
+                // Still our flash — no newer hover/jump took ownership.
+                if self?.hoveredCommentID == id { self?.setHoveredComment(nil) }
             }
+        }
+
+        /// Animate the viewport to bring `range` into view. `scrollRangeToVisible`
+        /// resolves the correct destination (even when TextKit 2's off-viewport
+        /// layout is still estimated); we then snap back and tween the clip view to
+        /// it with a per-frame `scroll(to:)`. A per-frame real scroll (not an
+        /// implicit/`animator()` bounds animation) keeps TextKit 2's viewport range
+        /// current each frame, so the layout-passive highlight draw — which clips to
+        /// that range — doesn't blank out mid-scroll.
+        private func smoothScroll(to range: NSRange) {
+            commentScrollTimer?.cancel()
+            commentScrollTimer = nil
+
+            guard let scrollView = enclosingScrollView else {
+                scrollRangeToVisible(range)
+                relayoutViewport()
+                return
+            }
+            let clipView = scrollView.contentView
+            let start = clipView.bounds.origin
+            scrollRangeToVisible(range) // resolve the destination AppKit would pick
+            let destination = clipView.bounds.origin
+            guard destination != start else { return } // already in view
+
+            // Reduce Motion: leave the view at the resolved destination, no tween.
+            guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
+                relayoutViewport()
+                return
+            }
+
+            // Snap back to the start (before any draw) and tween there ourselves.
+            clipView.setBoundsOrigin(start)
+            scrollView.reflectScrolledClipView(clipView)
+            relayoutViewport()
+
+            // Fetch the scroll view from self each tick (under [weak self]) rather
+            // than capturing it: a strong capture would cycle (self → timer →
+            // scrollView → documentView → self) and keep firing on a detached view
+            // after teardown. The window guard no-ops the tween once the view is gone.
+            commentScrollTimer = makeFrameRamp(
+                duration: AnimationConstants.scrollToHeadingDuration,
+                easing: { $0 < 0.5 ? 2 * $0 * $0 : 1 - pow(-2 * $0 + 2, 2) / 2 },
+                onFrame: { [weak self] eased in
+                    guard let self, self.window != nil, let scrollView = self.enclosingScrollView
+                    else { return }
+                    let clipView = scrollView.contentView
+                    clipView.scroll(to: NSPoint(
+                        x: start.x + (destination.x - start.x) * eased,
+                        y: start.y + (destination.y - start.y) * eased
+                    ))
+                    scrollView.reflectScrolledClipView(clipView)
+                    self.textLayoutManager?.textViewportLayoutController.layoutViewport()
+                },
+                onComplete: { [weak self] in self?.commentScrollTimer = nil }
+            )
+        }
+
+        /// Force the viewport layout controller to refresh its range after a
+        /// programmatic scroll, so the layout-passive highlight draw (which clips
+        /// to that range) doesn't blank out.
+        private func relayoutViewport() {
+            textLayoutManager?.textViewportLayoutController.layoutViewport()
+        }
+
+        /// Run an eased 0→1 ramp over `duration` at ~60fps on the main queue,
+        /// invoking `onFrame(easedProgress)` each tick and `onComplete()` on the
+        /// final frame. The caller stores the timer (to cancel a superseding
+        /// animation) and owns Reduce Motion handling.
+        private func makeFrameRamp(
+            duration: TimeInterval,
+            easing: @escaping (CGFloat) -> CGFloat,
+            onFrame: @escaping (CGFloat) -> Void,
+            onComplete: @escaping () -> Void
+        ) -> DispatchSourceTimer {
+            // Floor at 2 so any sub-frame duration still yields one intermediate
+            // step (matches the prior hand-rolled scroll loop's max(…, 2)).
+            let steps = max(Int(duration * 60), 2)
+            var step = 0
+            let timer = DispatchSource.makeTimerSource(queue: .main)
+            timer.schedule(deadline: .now(), repeating: .milliseconds(16), leeway: .milliseconds(1))
+            timer.setEventHandler {
+                step += 1
+                let t = min(CGFloat(step) / CGFloat(steps), 1)
+                onFrame(easing(t))
+                if t >= 1 {
+                    onComplete()
+                    timer.cancel()
+                }
+            }
+            timer.resume()
+            return timer
         }
 
         // MARK: - Dragging
@@ -376,7 +543,7 @@
         override func mouseDown(with event: NSEvent) {
             let local = convert(event.locationInWindow, from: nil)
             if let badge = badge(at: local) {
-                textView?.toggleComments(ids: badge.ids, range: badge.range)
+                textView?.toggleComments(ids: badge.ids)
             }
         }
 

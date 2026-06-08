@@ -15,6 +15,7 @@
             let overlayCoordinator = OverlayCoordinator()
             let gate = EntranceGate()
             var lastAppliedText: NSAttributedString?
+            var lastCommentRevision = 0
             var headingOffsets: [Int: Int] = [:]
             var lastScrolledTarget: Int?
             private var headingDotView: NSView?
@@ -23,6 +24,11 @@
             /// Invalidated when content changes or view resizes.
             private var cachedHeadingPositions: [(blockIndex: Int, y: CGFloat)] = []
             private var headingPositionsCacheValid = false
+            var documentHeightModel: DocumentHeightModel?
+            /// Per-block offsets, computed lazily from the height model at the current
+            /// width and reused for heading navigation. Invalidated on content/width
+            /// change (same as the heading cache). O(blocks^2) but one-shot.
+            private var documentBlockOffsets: DocumentBlockOffsets?
 
             // MARK: - Link Navigation
 
@@ -34,8 +40,8 @@
                 // A commented link opens its comment (in openCommentPopoverIfNeeded,
                 // after super.mouseDown) rather than navigating — suppress the
                 // navigation here so the two don't both fire on one click.
-                if let storage = textView.textStorage, charIndex < storage.length,
-                   storage.attribute(.mkdnCommentID, at: charIndex, effectiveRange: nil) != nil {
+                if let codeView = textView as? CodeBlockBackgroundTextView,
+                   codeView.resolvedComments?.comments(containing: charIndex).isEmpty == false {
                     return true
                 }
 
@@ -236,6 +242,7 @@
             func invalidateHeadingPositionCache() {
                 headingPositionsCacheValid = false
                 cachedHeadingPositions = []
+                documentBlockOffsets = nil
             }
 
             func wireScrollSpy() {
@@ -245,7 +252,31 @@
                     self?.handleScrollForSpy()
                 }
                 overlayCoordinator.onFrameChange = { [weak self] in
-                    self?.headingPositionsCacheValid = false
+                    guard let self else { return }
+                    headingPositionsCacheValid = false
+                    documentBlockOffsets = nil
+                    // A width change rewraps text above the viewport, so the active
+                    // heading can move. Scroll-spy is skipped mid-resize; re-run it once
+                    // the resize settles (coalesced; it self-guards during the gesture).
+                    scheduleScrollSpyRefresh()
+                }
+                // A settle whose final layout posts no frame/scroll change would
+                // otherwise leave the spy unscheduled past the in-resize guard.
+                (textView as? CodeBlockBackgroundTextView)?.onResizeSettled = { [weak self] in
+                    self?.scheduleScrollSpyRefresh()
+                }
+            }
+
+            private var scrollSpyRefreshScheduled = false
+
+            /// Coalesced scroll-spy pass for after a resize settles (handleScrollForSpy
+            /// early-returns while the gesture is live).
+            private func scheduleScrollSpyRefresh() {
+                guard !scrollSpyRefreshScheduled else { return }
+                scrollSpyRefreshScheduled = true
+                DispatchQueue.main.async { [weak self] in
+                    self?.scrollSpyRefreshScheduled = false
+                    self?.handleScrollForSpy()
                 }
             }
 
@@ -257,6 +288,16 @@
                 guard let textView,
                       let scrollView = textView.enclosingScrollView,
                       let outlineState
+                else { return }
+
+                // While the comment rail animates the width, or the window is being
+                // live-resized, the active heading can't change (the anchored line is
+                // held, or the gesture is in flight). Skip the per-frame work — each
+                // frame's bounds shift would otherwise rebuild the whole O(blocks^2)
+                // heading-position cache for no change in the breadcrumb; it settles on
+                // the next real scroll.
+                guard (textView as? CodeBlockBackgroundTextView)?.sidebarResizeAnchor == nil,
+                      !scrollView.inLiveResize
                 else { return }
 
                 let viewportTop = scrollView.contentView.bounds.origin.y
@@ -306,23 +347,46 @@
             }
 
             private func rebuildHeadingPositionCache() {
-                guard let outlineState else {
+                guard let outlineState, blockOffsets() != nil else {
                     cachedHeadingPositions = []
                     headingPositionsCacheValid = false
                     return
                 }
-
                 var positions: [(blockIndex: Int, y: CGFloat)] = []
                 for heading in outlineState.flatHeadings {
-                    guard let charOffset = headingOffsets[heading.blockIndex],
-                          let y = yPosition(forCharacterOffset: charOffset)
-                    else { continue }
+                    guard let y = navigationY(forBlockIndex: heading.blockIndex) else { continue }
                     positions.append((blockIndex: heading.blockIndex, y: y))
                 }
                 // Sort by y ascending for binary search.
                 positions.sort { $0.y < $1.y }
                 cachedHeadingPositions = positions
                 headingPositionsCacheValid = true
+            }
+
+            /// Heading top in the container coordinate space navigation scrolls in:
+            /// DocumentBlockOffsets reports text-view space, so drop the container origin.
+            private func navigationY(forBlockIndex blockIndex: Int) -> CGFloat? {
+                guard let viewY = blockOffsets()?.offset(forBlockIndex: blockIndex),
+                      let originY = textView?.textContainerOrigin.y
+                else { return nil }
+                return viewY - originY
+            }
+
+            /// Per-block offsets at the current container width, computed once and cached.
+            /// A Core Text measure rather than TextKit fragment realization — accurate
+            /// even off-viewport, where `.ensuresLayout` returns estimated frames.
+            private func blockOffsets() -> DocumentBlockOffsets? {
+                if let documentBlockOffsets { return documentBlockOffsets }
+                guard let textView = textView as? CodeBlockBackgroundTextView,
+                      let model = documentHeightModel,
+                      let textStorage = textView.textStorage,
+                      textView.textWidth > 0
+                else { return nil }
+                let offsets = DocumentBlockOffsets.compute(
+                    of: textStorage, model: model,
+                    textWidth: textView.textWidth, verticalInset: textView.textContainerInset.height)
+                documentBlockOffsets = offsets
+                return offsets
             }
 
             /// Map a character offset in the text storage to a y-coordinate
@@ -356,10 +420,13 @@
             }
 
             /// Smooth-scroll the view to position a heading at the viewport top.
-            func scrollToHeading(blockIndex: Int, in scrollView: NSScrollView) {
+            /// Returns `false` without scrolling when `blockIndex` isn't a heading or
+            /// the block offsets aren't ready yet (e.g. width not laid out), so the
+            /// caller doesn't record a no-op as the last scrolled target.
+            func scrollToHeading(blockIndex: Int, in scrollView: NSScrollView) -> Bool {
                 guard let charOffset = headingOffsets[blockIndex],
-                      let headingY = yPosition(forCharacterOffset: charOffset)
-                else { return }
+                      let headingY = navigationY(forBlockIndex: blockIndex)
+                else { return false }
 
                 isProgrammaticScroll = true
                 showHeadingDot(forCharacterOffset: charOffset)
@@ -377,6 +444,7 @@
                         self?.handleScrollForSpy()
                     }
                 }
+                return true
             }
 
             /// Show a temporary accent dot in the left margin at the navigated heading.
@@ -710,6 +778,18 @@
                 }
                 textStorage.endEditing()
                 savedBackgrounds = []
+            }
+
+            /// Tear down any in-flight find highlight or dismissal fade before a
+            /// comment-only repaint. The fade restores `.backgroundColor` from state
+            /// captured *before* the comment change, which would otherwise fight the
+            /// repaint — losing an added comment's tint or resurrecting a deleted
+            /// one where a find match overlapped it.
+            func cancelFindHighlightFade(in textStorage: NSTextStorage) {
+                highlightFadeTask?.cancel()
+                highlightFadeTask = nil
+                restoreBackgrounds(in: textStorage)
+                lastHighlightedRanges = []
             }
         }
     }

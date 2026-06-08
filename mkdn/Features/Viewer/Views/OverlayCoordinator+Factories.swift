@@ -93,6 +93,7 @@
                 containerWidth: containerWidth
             )
             .environment(appSettings)
+            .environment(containerState)
             .onGeometryChange(for: CGSize.self) { proxy in
                 proxy.size
             } action: { [weak self] newSize in

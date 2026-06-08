@@ -23,6 +23,14 @@ public enum CodeBlockAttributes {
     /// Stores the raw code string (without language label, trimmed) for clipboard copy.
     /// Value: a `String` containing the unformatted code content.
     public static let rawCode = NSAttributedString.Key("mkdn.codeBlock.rawCode")
+
+    /// Marks an inline-code run. Value: `true` (`NSNumber`).
+    ///
+    /// The builder lowers the `.code` inline presentation intent to a monospaced
+    /// font and otherwise drops the intent, so this attribute is the surviving
+    /// signal that a run is inline code — distinct from other monospaced runs
+    /// (e.g. the inline-math fallback font).
+    public static let inlineCode = NSAttributedString.Key("mkdn.inlineCode")
 }
 
 /// Resolved color values for drawing a code block container.

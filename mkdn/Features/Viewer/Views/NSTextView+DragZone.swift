@@ -13,10 +13,11 @@
         /// Whether the view-coordinate point falls outside any text content —
         /// i.e. in the text container inset margins or below the last line.
         func isOverEmptyTextArea(_ point: CGPoint) -> Bool {
-            let containerPoint = CGPoint(
-                x: point.x - textContainerInset.width,
-                y: point.y - textContainerInset.height
-            )
+            // Convert via textContainerOrigin (not textContainerInset) to share the
+            // AppKit-correct container↔view offset with characterIndex(at:) — it
+            // folds in centering, so a centered code view hit-tests its margins right.
+            let origin = textContainerOrigin
+            let containerPoint = CGPoint(x: point.x - origin.x, y: point.y - origin.y)
 
             // TextKit 2 path
             if let textLayoutManager {
@@ -58,58 +59,9 @@
         /// when the text storage is empty, or when the character under the
         /// point has no link.
         func isOverLink(at point: CGPoint) -> Bool {
-            guard let textStorage, textStorage.length > 0 else { return false }
-
-            let containerPoint = CGPoint(
-                x: point.x - textContainerInset.width,
-                y: point.y - textContainerInset.height
-            )
-
-            // TextKit 2 path
-            if let textLayoutManager, let textContentStorage {
-                guard let fragment = textLayoutManager.textLayoutFragment(
-                    for: containerPoint
-                )
-                else {
-                    return false
-                }
-                let fragmentPoint = CGPoint(
-                    x: containerPoint.x - fragment.layoutFragmentFrame.origin.x,
-                    y: containerPoint.y - fragment.layoutFragmentFrame.origin.y
-                )
-                for lineFragment in fragment.textLineFragments {
-                    let lineBounds = lineFragment.typographicBounds
-                    guard fragmentPoint.y >= lineBounds.minY,
-                          fragmentPoint.y < lineBounds.maxY
-                    else { continue }
-                    let charIndex = lineFragment.characterIndex(for: fragmentPoint)
-
-                    // Convert line-fragment-relative index to document offset
-                    let lineStartInFragment = lineFragment.characterRange.location
-                    let fragmentStartInDoc = textContentStorage.offset(
-                        from: textContentStorage.documentRange.location,
-                        to: fragment.rangeInElement.location
-                    )
-                    let docOffset = fragmentStartInDoc + lineStartInFragment + charIndex
-                    guard docOffset >= 0, docOffset < textStorage.length else { return false }
-                    return textStorage.attribute(.link, at: docOffset, effectiveRange: nil) != nil
-                }
-                return false
-            }
-
-            // TextKit 1 fallback
-            if let layoutManager, let textContainer {
-                var fraction: CGFloat = 0
-                let charIndex = layoutManager.characterIndex(
-                    for: containerPoint,
-                    in: textContainer,
-                    fractionOfDistanceBetweenInsertionPoints: &fraction
-                )
-                guard charIndex < textStorage.length else { return false }
-                return textStorage.attribute(.link, at: charIndex, effectiveRange: nil) != nil
-            }
-
-            return false
+            // Link detection rides on the shared characterIndex(at:) hit-test.
+            guard let textStorage, let index = characterIndex(at: point) else { return false }
+            return textStorage.attribute(.link, at: index, effectiveRange: nil) != nil
         }
 
         /// Handles a mouse-down on empty text area with a 3pt drag threshold.

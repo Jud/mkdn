@@ -82,6 +82,21 @@
         /// Toggle sidebar visibility (directory mode only).
         case toggleSidebar
 
+        /// Toggle the right-docked comment sidebar's visibility.
+        case toggleCommentSidebar
+
+        /// Scroll to + flash the first resolved comment (exercises the sidebar's
+        /// jump-to-comment path without simulating a card tap).
+        case jumpFirstComment
+
+        /// Scroll to + flash the resolved comment at `index` in document order.
+        case jumpCommentAt(index: Int)
+
+        /// Diagnose whether the comment at `index` is clickable in the main
+        /// document: scroll it into view, then run the real hit-test path at the
+        /// center of its span and report each step.
+        case diagnoseCommentClick(index: Int)
+
         /// Simulate smooth scroll by animating contentView.scroll(to:) at 60Hz.
         case simulateScroll(deltaY: Double, duration: Double)
 
@@ -106,6 +121,11 @@
         /// Reproduces cold first-paint rendering bugs in-session without
         /// relaunching. Only has an effect when a markdown preview is visible.
         case recreateView
+
+        /// Add a comment over the first occurrence of `substring` in the current
+        /// markdown content (test harness only — exercises the comment-save
+        /// rebuild path without simulating a text selection + menu).
+        case addComment(substring: String, body: String)
 
         /// Connectivity check. The server responds with `pong`.
         case ping

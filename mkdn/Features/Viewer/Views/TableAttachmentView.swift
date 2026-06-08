@@ -17,8 +17,15 @@
 
         @Environment(AppSettings.self) private var appSettings
         @Environment(FindState.self) private var findState: FindState?
+        @Environment(OverlayContainerState.self) private var containerState
         @State private var sizingCache = SizingCache()
         @State private var selectionState = TableSelectionState()
+
+        /// Live container width so the table re-sizes on window/sidebar width
+        /// changes (mirrors image/Mermaid); the captured width is the fallback.
+        private var effectiveWidth: CGFloat {
+            containerState.containerWidth > 0 ? containerState.containerWidth : containerWidth
+        }
 
         private var colors: ThemeColors {
             appSettings.theme.colors
@@ -33,7 +40,7 @@
         }
 
         private func cachedSizingResult() -> TableColumnSizer.Result {
-            let width = containerWidth
+            let width = effectiveWidth
             let scale = scaleFactor
             if let cached = sizingCache.result,
                sizingCache.lastWidth == width,

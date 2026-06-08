@@ -8,21 +8,15 @@
     @MainActor
     @Suite("Comment popover wiring")
     struct CommentPopoverWiringTests {
-        private func makeView(_ raw: String) -> (CodeBlockBackgroundTextView, CriticMarkupDocument) {
-            let document = CriticMarkup.preprocess(raw)
-            let blocks = MarkdownRenderer.render(text: document.transformedSource, theme: .solarizedDark)
+        private func makeView(_ markdown: String) -> CodeBlockBackgroundTextView {
+            let blocks = MarkdownRenderer.render(text: markdown, theme: .solarizedDark)
             let result = MarkdownTextStorageBuilder.build(blocks: blocks, theme: .solarizedDark)
-            let mutable = NSMutableAttributedString(attributedString: result.attributedString)
-            MarkdownTextStorageBuilder.applyCommentHighlights(
-                to: mutable, document: document, sourceMap: result.sourceMap, color: .yellow
-            )
 
             let view = CodeBlockBackgroundTextView(frame: NSRect(x: 0, y: 0, width: 600, height: 400))
             view.textContainerInset = NSSize(width: 16, height: 16)
-            view.criticDocument = document
-            view.commentSourceMap = result.sourceMap
             view.commentTheme = .solarizedDark
-            view.textStorage?.setAttributedString(mutable)
+            view.textStorage?.setAttributedString(result.attributedString)
+            view.anchorTape = AnchorTape.build(from: result.attributedString)
             view.layoutManager?.ensureLayout(for: view.textContainer!)
 
             let window = NSWindow(
@@ -30,44 +24,36 @@
                 styleMask: [.borderless], backing: .buffered, defer: false
             )
             window.contentView?.addSubview(view)
-            return (view, document)
+            return view
         }
 
-        @Test("Presents an overlay for a known comment id")
+        @Test("Presents an overlay for a resolved comment hit")
         func presentsForKnownComment() {
-            let (view, _) = makeView(CommentFixture.doc("foo bar baz", comment: "bar"))
+            let view = makeView("foo bar baz")
             let range = (view.string as NSString).range(of: "bar")
-            view.showComments(ids: ["c1"], range: range)
+            let entry = CommentSidecar.Entry(id: "c1", body: "note")
+            view.showComments([(entry: entry, range: range)])
             #expect(view.commentOverlay is NSHostingView<CommentPopoverView>)
             view.dismissCommentOverlay() // avoid an open overlay/monitor at teardown
         }
 
-        @Test("commentableSelectionRange maps a selection to its raw span")
+        @Test("commentableSelection accepts a non-empty prose selection")
         func resolvesSelection() {
-            let (view, document) = makeView("The quick brown fox")
+            let view = makeView("The quick brown fox")
             view.setSelectedRange((view.string as NSString).range(of: "quick"))
-            let raw = try! #require(view.commentableSelectionRange())
-            #expect(document.rawSource[raw] == "quick")
+            #expect(view.commentableSelection() != nil)
         }
 
-        @Test("commentableSelectionRange maps a selection inside an existing comment")
-        func resolvesSelectionInsideComment() {
-            let (view, document) = makeView(CommentFixture.doc("foo bar baz", comment: "bar"))
-            view.setSelectedRange((view.string as NSString).range(of: "bar"))
-            let raw = try! #require(view.commentableSelectionRange())
-            #expect(document.rawSource[raw] == "bar")
-        }
-
-        @Test("commentableSelectionRange is nil for an empty selection")
+        @Test("commentableSelection is nil for an empty selection")
         func emptySelectionNoRange() {
-            let (view, _) = makeView("The quick brown fox")
+            let view = makeView("The quick brown fox")
             view.setSelectedRange(NSRange(location: 2, length: 0))
-            #expect(view.commentableSelectionRange() == nil)
+            #expect(view.commentableSelection() == nil)
         }
 
         @Test("addCommentToSelection presents the input overlay for a valid selection")
         func presentsAddPopover() {
-            let (view, _) = makeView("The quick brown fox")
+            let view = makeView("The quick brown fox")
             let state = DocumentState() // documentState is weak; hold it strongly
             view.documentState = state
             view.setSelectedRange((view.string as NSString).range(of: "quick"))
@@ -78,11 +64,10 @@
             }
         }
 
-        @Test("Does nothing for an unknown comment id")
-        func ignoresUnknownComment() {
-            let (view, _) = makeView(CommentFixture.doc("foo bar baz", comment: "bar"))
-            let range = (view.string as NSString).range(of: "bar")
-            view.showComments(ids: ["does-not-exist"], range: range)
+        @Test("Does nothing when there are no comment hits")
+        func ignoresNoHits() {
+            let view = makeView("foo bar baz")
+            view.showComments([])
             #expect(view.commentOverlay == nil)
         }
     }
