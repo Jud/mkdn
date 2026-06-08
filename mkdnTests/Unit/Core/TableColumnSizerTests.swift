@@ -269,4 +269,51 @@ struct TableColumnSizerTests {
 
         #expect(longHeight > shortHeight)
     }
+
+    @Test("Column widths and height track the container width")
+    func sizingTracksContainerWidth() {
+        let columns = [
+            TableColumn(header: AttributedString("Info"), alignment: .left),
+        ]
+        let longContent = String(repeating: "word ", count: 80)
+        let rows: [[AttributedString]] = [
+            [AttributedString(longContent)],
+        ]
+        let narrowWidth: CGFloat = 300
+        let wideWidth: CGFloat = 900
+
+        let narrow = TableColumnSizer.computeWidths(
+            columns: columns,
+            rows: rows,
+            containerWidth: narrowWidth,
+            font: font
+        )
+        let wide = TableColumnSizer.computeWidths(
+            columns: columns,
+            rows: rows,
+            containerWidth: wideWidth,
+            font: font
+        )
+
+        // A reflow must change the column layout, not merely clamp the total.
+        #expect(narrow.columnWidths != wide.columnWidths)
+        #expect(narrow.totalWidth <= narrowWidth)
+
+        let narrowHeight = TableColumnSizer.estimateTableHeight(
+            columns: columns,
+            rows: rows,
+            columnWidths: narrow.columnWidths,
+            font: font
+        )
+        let wideHeight = TableColumnSizer.estimateTableHeight(
+            columns: columns,
+            rows: rows,
+            columnWidths: wide.columnWidths,
+            font: font
+        )
+
+        // Narrower columns wrap more, so the table is taller — the property the
+        // reactive overlay relies on to re-report its height on resize.
+        #expect(narrowHeight > wideHeight)
+    }
 }
