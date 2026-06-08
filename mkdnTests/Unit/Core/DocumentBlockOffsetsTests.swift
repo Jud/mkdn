@@ -77,6 +77,10 @@
                 let mid = (offsets.offsets[position] + offsets.offsets[position + 1]) / 2
                 #expect(offsets.blockIndex(atY: mid) == result.documentHeightModel.blocks[position].index)
             }
+            // Clamp: a y above the first block resolves to the first; past the end, the last.
+            let blocks = result.documentHeightModel.blocks
+            #expect(offsets.blockIndex(atY: -100) == blocks.first?.index)
+            #expect(offsets.blockIndex(atY: offsets.totalHeight + 1000) == blocks.last?.index)
         }
     }
 #endif
