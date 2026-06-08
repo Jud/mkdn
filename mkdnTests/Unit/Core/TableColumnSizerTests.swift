@@ -312,8 +312,7 @@ struct TableColumnSizerTests {
             font: font
         )
 
-        // Narrower columns wrap more, so the table is taller — the property the
-        // reactive overlay relies on to re-report its height on resize.
+        // Narrower columns wrap more, so the table is taller.
         #expect(narrowHeight > wideHeight)
     }
 }
