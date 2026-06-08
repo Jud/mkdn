@@ -154,8 +154,11 @@
         /// (load, resize end); cleared during a slide/drag so the reflow is free.
         var estimatedHeightFloor: CGFloat?
 
-        /// Pending debounced ``refreshEstimatedHeight`` from attachment resolution.
         private var refreshHeightWorkItem: DispatchWorkItem?
+
+        /// How long to wait for an attachment-resolution burst to settle before
+        /// re-estimating, so the whole-string measure runs once rather than per overlay.
+        private static let attachmentRefreshDebounce: TimeInterval = 0.1
 
         // MARK: - Live Resize
 
@@ -174,7 +177,7 @@
                 // Recompute the height estimate at a settled width. Skip during a slide
                 // or window drag (the whole-string measure would run every frame); those
                 // refresh once at their end.
-                if sidebarResizeAnchor == nil, !(enclosingScrollView?.inLiveResize ?? false) {
+                if canRefreshEstimatedHeight {
                     refreshEstimatedHeight()
                 }
             }
@@ -219,11 +222,21 @@
             setNeedsDisplay(enclosingScrollView?.documentVisibleRect ?? bounds)
         }
 
-        /// Recompute the document-height estimate at the current container width and
-        /// grow the frame to it, so the scroller reflects the full height immediately
-        /// instead of TextKit 2 building it up lazily as the reader scrolls. A
-        /// whole-string Core Text measure — no fragment layout; call on load and at each
-        /// width settle.
+        /// The estimate must not be refreshed mid-gesture: it would re-arm the height
+        /// floor that beginSidebarResize freed and resize the frame under the slide. The
+        /// slide/resize end-handlers re-estimate, so a skipped mid-gesture refresh loses
+        /// nothing.
+        private var canRefreshEstimatedHeight: Bool {
+            sidebarResizeAnchor == nil && !(enclosingScrollView?.inLiveResize ?? false)
+        }
+
+        /// Recompute the document-height estimate at the current container width and size
+        /// the frame to it, so the scroller reflects the full height immediately instead
+        /// of TextKit 2 building it up lazily as the reader scrolls. A whole-string Core
+        /// Text measure — no fragment layout; call on load and at each width settle. The
+        /// estimate tracks real layout (including resolved attachment heights) closely
+        /// enough to size the frame in both directions, so an attachment that resolves
+        /// below its placeholder shrinks the frame instead of leaving dead scroll extent.
         func refreshEstimatedHeight() {
             guard let textStorage, let textContainer, textContainer.size.width > 0 else { return }
             // The container width already excludes the horizontal inset; subtract the
@@ -235,7 +248,7 @@
                 verticalInset: textContainerInset.height
             )
             estimatedHeightFloor = estimate
-            if frame.height < estimate {
+            if abs(frame.height - estimate) > 0.5 {
                 setFrameSize(NSSize(width: frame.width, height: estimate))
             }
         }
@@ -247,17 +260,13 @@
         func scheduleRefreshEstimatedHeight() {
             refreshHeightWorkItem?.cancel()
             let workItem = DispatchWorkItem { [weak self] in
-                // The slide/resize end-handlers re-estimate; a refresh fired mid-gesture
-                // would re-arm the height floor that beginSidebarResize freed and grow
-                // the frame under the slide. Skip it — nothing is lost.
-                guard let self,
-                      self.sidebarResizeAnchor == nil,
-                      !(self.enclosingScrollView?.inLiveResize ?? false)
-                else { return }
+                guard let self, self.canRefreshEstimatedHeight else { return }
                 self.refreshEstimatedHeight()
             }
             refreshHeightWorkItem = workItem
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: workItem)
+            DispatchQueue.main.asyncAfter(
+                deadline: .now() + Self.attachmentRefreshDebounce, execute: workItem
+            )
         }
 
         // MARK: - Text Change Invalidation

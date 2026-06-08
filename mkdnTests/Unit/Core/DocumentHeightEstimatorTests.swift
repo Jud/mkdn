@@ -143,6 +143,12 @@
                 of: result.attributedString, textWidth: textWidth, verticalInset: 32)
             #expect(after > before)
             #expect(abs((after - before) - 200) < 2)
+            // And below the placeholder: resolving smaller shrinks the estimate, which is
+            // what lets refreshEstimatedHeight size the frame back down.
+            attachment.bounds = CGRect(x: 0, y: 0, width: attachment.bounds.width, height: 40)
+            let shrunk = DocumentHeightEstimator.estimatedHeight(
+                of: result.attributedString, textWidth: textWidth, verticalInset: 32)
+            #expect(shrunk < before)
         }
     }
 #endif
