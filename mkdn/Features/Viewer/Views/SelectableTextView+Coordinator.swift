@@ -267,12 +267,12 @@
                       let outlineState
                 else { return }
 
-                // While the comment rail animates the width, the anchored line is
-                // held at a fixed viewport position, so the active heading can't
-                // change. Skip the per-frame work — each frame's bounds shift would
-                // otherwise rebuild the whole heading-position cache (it's
-                // invalidated every frame by the width change) for no change in the
-                // breadcrumb; it settles on the next real scroll.
+                // While the comment rail animates the width, or the window is being
+                // live-resized, the active heading can't change (the anchored line is
+                // held, or the gesture is in flight). Skip the per-frame work — each
+                // frame's bounds shift would otherwise rebuild the whole O(blocks^2)
+                // heading-position cache for no change in the breadcrumb; it settles on
+                // the next real scroll.
                 guard (textView as? CodeBlockBackgroundTextView)?.sidebarResizeAnchor == nil,
                       !scrollView.inLiveResize
                 else { return }
@@ -341,8 +341,7 @@
             }
 
             /// Heading top in the container coordinate space navigation scrolls in:
-            /// DocumentBlockOffsets reports text-view space, so drop the container origin
-            /// (matching the fragment-frame y the previous path used).
+            /// DocumentBlockOffsets reports text-view space, so drop the container origin.
             private func navigationY(forBlockIndex blockIndex: Int) -> CGFloat? {
                 guard let viewY = blockOffsets()?.offset(forBlockIndex: blockIndex),
                       let originY = textView?.textContainerOrigin.y
@@ -351,9 +350,8 @@
             }
 
             /// Per-block offsets at the current container width, computed once and cached.
-            /// Replaces TextKit fragment realization for heading positions with a Core
-            /// Text measure — accurate even off-viewport, where `.ensuresLayout` returns
-            /// estimated frames.
+            /// A Core Text measure rather than TextKit fragment realization — accurate
+            /// even off-viewport, where `.ensuresLayout` returns estimated frames.
             private func blockOffsets() -> DocumentBlockOffsets? {
                 if let documentBlockOffsets { return documentBlockOffsets }
                 guard let textView = textView as? CodeBlockBackgroundTextView,
