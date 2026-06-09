@@ -8,6 +8,9 @@
     struct ResolvedComments: Equatable {
         private let index: CommentAnchorResolver.Index
         private let entriesByID: [String: CommentSidecar.Entry]
+        /// id → position in the sidecar (creation order, oldest first). Comment ids are
+        /// random, so this is what orders comments that share an anchor.
+        private let creationOrder: [String: Int]
 
         static func resolve(_ entries: [CommentSidecar.Entry], in tape: AnchorTape) -> ResolvedComments {
             // The sidecar is user-editable, so guard against duplicate ids: keep the
@@ -17,7 +20,8 @@
             let unique = entries.filter { seen.insert($0.id).inserted }
             let index = CommentAnchorResolver.resolveAll(unique, in: tape)
             let byID = Dictionary(uniqueKeysWithValues: unique.map { ($0.id, $0) })
-            return ResolvedComments(index: index, entriesByID: byID)
+            let order = Dictionary(uniqueKeysWithValues: unique.enumerated().map { ($0.element.id, $0.offset) })
+            return ResolvedComments(index: index, entriesByID: byID, creationOrder: order)
         }
 
         /// Resolved highlight ranges keyed by comment id, for the overlay draw.
@@ -42,13 +46,17 @@
             .sorted { $0.range.length < $1.range.length }
         }
 
-        /// Resolved comments in document order (by range location, ties broken by
-        /// id for stability), for the sidebar's "On this page" list.
+        /// Resolved comments in document order (by range location), ties broken by
+        /// creation order — oldest first — so comments sharing an anchor read top-down
+        /// as a thread. Drives the sidebar's anchored cards and the gutter marks.
         var active: [(id: String, entry: CommentSidecar.Entry, range: NSRange)] {
             index.ranges.compactMap { id, range in
                 entriesByID[id].map { (id: id, entry: $0, range: range) }
             }
-            .sorted { ($0.range.location, $0.id) < ($1.range.location, $1.id) }
+            .sorted {
+                ($0.range.location, creationOrder[$0.id] ?? .max)
+                    < ($1.range.location, creationOrder[$1.id] ?? .max)
+            }
         }
 
         /// Entries whose anchor couldn't be located, for the orphan sidebar.
