@@ -104,12 +104,15 @@
             totalHeight: CGFloat
         ) -> [BlockBand] {
             let spans = blockModel.blocks
+            // Index the block tops once: offset(forBlockIndex:) is a linear scan, so
+            // looking up each band's top and its next-top would be O(blocks^2). This
+            // runs on every rebuild, including the comment-only ones where the offsets
+            // are cached and this would otherwise be the dominant cost.
+            let topByIndex = Dictionary(uniqueKeysWithValues: offsets.blocks.map { ($0.index, $0.top) })
             return spans.enumerated().compactMap { offset, span -> BlockBand? in
-                guard let top = offsets.offset(forBlockIndex: span.index) else { return nil }
+                guard let top = topByIndex[span.index] else { return nil }
                 let y = top - textContainerOriginY
-                let nextTop = offset + 1 < spans.count
-                    ? offsets.offset(forBlockIndex: spans[offset + 1].index)
-                    : nil
+                let nextTop = offset + 1 < spans.count ? topByIndex[spans[offset + 1].index] : nil
                 let bottom = nextTop.map { $0 - textContainerOriginY } ?? totalHeight
                 return BlockBand(id: span.index, kind: span.kind, y: y, height: max(bottom - y, 0))
             }
