@@ -495,6 +495,11 @@
             /// the block offsets aren't ready yet (e.g. width not laid out), so the
             /// caller doesn't record a no-op as the last scrolled target.
             func scrollToHeading(blockIndex: Int, in scrollView: NSScrollView) -> Bool {
+                // Mid-gesture the width is still animating, so the offsets a lazy
+                // navigationY would compute and cache sit at a transient width — and a window
+                // drag that ends without viewDidEndLiveResize wouldn't refresh them. Defer
+                // like the not-ready case below; the settle re-pins and a re-trigger scrolls.
+                guard !isResizeGestureActive else { return false }
                 guard let charOffset = headingOffsets[blockIndex],
                       let headingY = navigationY(forBlockIndex: blockIndex)
                 else { return false }

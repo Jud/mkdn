@@ -299,6 +299,10 @@
             textView.sidebarResizeAnchor = nil
             textView.isSidebarResizeInFlight = false
             textView.estimatedHeightFloor = nil
+            // Drop the shared offsets too. The refreshEstimatedHeight below recomputes them,
+            // but it bails at zero width (narrow pane, hidden tab), which would otherwise
+            // leave the previous document's offsets live for the queued map rebuild.
+            textView.blockOffsets = nil
             // Dismiss an open comment overlay; its position points into the old
             // layout and its body may no longer match the new content. A body edit
             // from the popover only changed the sidecar (layout unchanged), so it
