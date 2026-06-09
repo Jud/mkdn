@@ -45,8 +45,7 @@ public enum ProvisionalHeightEstimator {
     // MARK: - Per-Block Estimate
 
     /// The loop-invariant font metrics, with heading metrics cached per
-    /// level so a document with many headings measures each level's sample
-    /// once instead of per block.
+    /// level.
     @MainActor
     private struct Context {
         let scaleFactor: CGFloat
@@ -155,8 +154,8 @@ public enum ProvisionalHeightEstimator {
     }
 
     /// Wrapped line count of `text` when each line holds `charsPerLine`
-    /// width units, in one scalar pass: hard newlines split, each piece
-    /// wraps by its weighted length — CJK and fullwidth glyphs count double,
+    /// width units: hard newlines split, each piece wraps by its weighted
+    /// length — CJK and fullwidth glyphs count double,
     /// since they run about twice the width of the ASCII sample average.
     private static func wrappedLines(_ text: String, charsPerLine: CGFloat) -> CGFloat {
         guard charsPerLine >= 1 else { return CGFloat(max(1, text.count)) }
@@ -181,7 +180,7 @@ public enum ProvisionalHeightEstimator {
     }
 
     /// Line height and average glyph width for one font, derived from a
-    /// single sample-string measurement rather than per-character tables.
+    /// single sample-string measurement.
     private struct FontMetrics {
         let lineHeight: CGFloat
         let averageCharWidth: CGFloat
