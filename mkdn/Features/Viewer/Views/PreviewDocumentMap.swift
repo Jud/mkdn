@@ -95,9 +95,8 @@
             )
         }
 
-        /// Each block's scroll-space `[y, y+height)` extent, by kind, for the minimap.
-        /// `height` runs to the next block's top; the last block fills to `totalHeight`,
-        /// so the bands tile the full document with no gaps.
+        /// Each block's scroll-space extent by kind, tiling the document with no gaps
+        /// (``BlockBand`` defines the per-band `height` convention).
         private static func blockBands(
             blockModel: DocumentHeightModel,
             offsets: DocumentBlockOffsets,
