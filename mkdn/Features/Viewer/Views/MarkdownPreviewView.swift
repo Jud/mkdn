@@ -63,6 +63,9 @@
         /// Bumped per toggle so a superseded slide's completion can't tear down the
         /// anchor while a newer slide (fast re-toggle) is still re-pinning it.
         @State private var sidebarResizeToken = 0
+        /// Positions the coordinator publishes for the scroll-marker track, and the
+        /// track's scroll-to bridge back into it.
+        @State private var mapState = PreviewMapState()
 
         var body: some View {
             @Bindable var docState = documentState
@@ -88,6 +91,7 @@
                         resolvedComments: resolvedComments,
                         anchorTape: anchorTape,
                         commentRevision: commentRevision,
+                        mapState: mapState,
                         isLoadingGateActive: $docState.isLoadingGateActive
                     )
                     // Changing this identity tears down and recreates the text view's
