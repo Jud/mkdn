@@ -67,6 +67,27 @@ struct ProvisionalHeightEstimatorTests {
         """
     }.joined(separator: "\n\n")
 
+    /// Wide-glyph prose: each ideograph runs ~2x the ASCII sample average,
+    /// the breach case for a character-count wrap estimate.
+    private let cjkDocument = (0 ..< 10).map { _ in
+        String(repeating: "視覚的な高さの見積もりは文字幅の平均に依存しているため、"
+            + "全角文字が続く段落では行数を過小評価しやすい。", count: 3)
+    }.joined(separator: "\n\n")
+
+    /// Sentence-length cells wrap to several lines per row — the case a
+    /// flat per-row height misses.
+    private let tableDocument = """
+    # Tables
+
+    | Phase | What happens | Why it matters |
+    | --- | --- | --- |
+    \((0 ..< 8).map { index in
+        "| step \(index) | a sentence-length cell describing the phase in enough "
+            + "words to wrap | another long explanation that wraps across "
+            + "several lines at the estimation width |"
+    }.joined(separator: "\n"))
+    """
+
     /// The floor must sit at or above the exact placeholder-based measure
     /// (what the post-tail pass computes before attachments resolve) at every
     /// width and scale — an under-estimate would let a deep scroll land past
@@ -74,8 +95,10 @@ struct ProvisionalHeightEstimatorTests {
     @Test("Floor covers the exact measure without ballooning")
     @MainActor func floorCoversExactMeasure() {
         let inset: CGFloat = 32
-        for markdown in [mixedDocument, proseDocument, codeDocument] {
-            for scale in [1.0, 1.25] as [CGFloat] {
+        for markdown in [
+            mixedDocument, proseDocument, codeDocument, cjkDocument, tableDocument,
+        ] {
+            for scale in [0.5, 1.0, 1.25] as [CGFloat] {
                 let blocks = MarkdownRenderer.render(text: markdown, theme: theme)
                 let result = MarkdownTextStorageBuilder.build(
                     blocks: blocks, theme: theme, scaleFactor: scale
