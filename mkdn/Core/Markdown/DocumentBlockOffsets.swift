@@ -92,9 +92,11 @@ public struct DocumentBlockOffsets {
         textWidth: CGFloat,
         verticalInset: CGFloat
     ) -> DocumentBlockOffsets {
-        let measured = measure(
-            of: attributedString, model: model, textWidth: textWidth,
-            verticalInset: verticalInset, buildOffsets: true)
+        let measured = OpenTimeline.shared.time("blockOffsets.compute") {
+            measure(
+                of: attributedString, model: model, textWidth: textWidth,
+                verticalInset: verticalInset, buildOffsets: true)
+        }
         return DocumentBlockOffsets(blocks: measured.blocks, totalHeight: measured.totalHeight)
     }
 
@@ -109,9 +111,11 @@ public struct DocumentBlockOffsets {
         textWidth: CGFloat,
         verticalInset: CGFloat
     ) -> CGFloat {
-        measure(
-            of: attributedString, model: model, textWidth: textWidth,
-            verticalInset: verticalInset, buildOffsets: false).totalHeight
+        OpenTimeline.shared.time("blockOffsets.estimate") {
+            measure(
+                of: attributedString, model: model, textWidth: textWidth,
+                verticalInset: verticalInset, buildOffsets: false).totalHeight
+        }
     }
 
     /// The one per-block pass behind both the offsets and the height-only estimate, so the
@@ -128,6 +132,7 @@ public struct DocumentBlockOffsets {
         guard textWidth > 0, !model.blocks.isEmpty, attributedString.length > 0 else {
             return (0, [])
         }
+        OpenTimeline.shared.noteBlockOffsetsMeasure()
         let string = attributedString.string as NSString
         var blocks: [BlockOffset] = []
         if buildOffsets { blocks.reserveCapacity(model.blocks.count) }

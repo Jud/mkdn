@@ -163,9 +163,12 @@
                     guard !Task.isCancelled else { return }
                 }
 
+                OpenTimeline.shared.begin()
                 // Strip the sidecar + any stray markers before rendering so they
                 // never reach the screen.
-                let document = CommentDocument.parse(documentState.markdownContent)
+                let document = OpenTimeline.shared.time("parse") {
+                    CommentDocument.parse(documentState.markdownContent)
+                }
 
                 // A comment add/edit/delete changes the raw source but not the
                 // visible (body) text. Re-resolve + redraw the overlay instead of
@@ -182,11 +185,13 @@
                 }
 
                 lastRenderedBody = document.body
-                let newBlocks = MarkdownRenderer.render(
-                    text: document.body,
-                    theme: appSettings.theme,
-                    generation: documentState.loadGeneration
-                )
+                let newBlocks = OpenTimeline.shared.time("render") {
+                    MarkdownRenderer.render(
+                        text: document.body,
+                        theme: appSettings.theme,
+                        generation: documentState.loadGeneration
+                    )
+                }
                 cachedBlocks = newBlocks
 
                 let anyKnown = newBlocks.contains { knownBlockIDs.contains($0.id) }
@@ -272,17 +277,23 @@
             renderedBlocks = newBlocks
             knownBlockIDs = Set(newBlocks.map(\.id))
             isFullReload = animate
-            let result = MarkdownTextStorageBuilder.build(
-                blocks: newBlocks,
-                theme: appSettings.theme,
-                scaleFactor: appSettings.scaleFactor,
-                appSettings: appSettings
-            )
+            let result = OpenTimeline.shared.time("build") {
+                MarkdownTextStorageBuilder.build(
+                    blocks: newBlocks,
+                    theme: appSettings.theme,
+                    scaleFactor: appSettings.scaleFactor,
+                    appSettings: appSettings
+                )
+            }
             textStorageResult = result
-            let tape = AnchorTape.build(from: result.attributedString)
+            let tape = OpenTimeline.shared.time("anchorTape") {
+                AnchorTape.build(from: result.attributedString)
+            }
             anchorTape = tape
             let resolved = entries ?? CommentDocument.parse(documentState.markdownContent).entries
-            resolvedComments = ResolvedComments.resolve(resolved, in: tape)
+            resolvedComments = OpenTimeline.shared.time("resolveComments") {
+                ResolvedComments.resolve(resolved, in: tape)
+            }
             outlineState.updateHeadings(from: newBlocks)
         }
     }

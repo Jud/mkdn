@@ -54,6 +54,8 @@ def main():
             r = send(sock, {"cycleTheme": {}})
         elif cmd_name == "info":
             r = send(sock, {"getWindowInfo": {}})
+        elif cmd_name == "open-timings":
+            r = send(sock, {"getOpenTimings": {}})
         elif cmd_name == "setSidebarWidth":
             r = send(sock, {"setSidebarWidth": {"width": float(sys.argv[2])}})
         elif cmd_name == "toggleSidebar":

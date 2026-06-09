@@ -130,6 +130,9 @@
         /// rebuild path without simulating a text selection + menu).
         case addComment(substring: String, body: String)
 
+        /// Read the phase timings recorded for the most recent document open.
+        case getOpenTimings
+
         /// Connectivity check. The server responds with `pong`.
         case ping
 

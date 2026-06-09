@@ -109,7 +109,9 @@
             textView.commentTheme = theme
 
             textView.documentHeightModel = documentHeightModel
-            textView.textStorage?.setAttributedString(attributedText)
+            OpenTimeline.shared.time("install") {
+                textView.textStorage?.setAttributedString(attributedText)
+            }
             textView.realizeViewportAfterContainerResize(hardInvalidate: false)
             textView.refreshEstimatedHeight()
             textView.window?.invalidateCursorRects(for: textView)
@@ -120,6 +122,7 @@
             coordinator.lastCommentRevision = commentRevision
             coordinator.wireScrollSpy()
             coordinator.scheduleDocumentMapRebuild()
+            OpenTimeline.shared.mark("renderComplete")
             RenderCompletionSignal.shared.signalRenderComplete()
 
             return scrollView
@@ -316,7 +319,9 @@
                 textView.dismissCommentOverlay()
             }
             textView.documentHeightModel = documentHeightModel
-            textView.textStorage?.setAttributedString(attributedText)
+            OpenTimeline.shared.time("install") {
+                textView.textStorage?.setAttributedString(attributedText)
+            }
             textView.realizeViewportAfterContainerResize(hardInvalidate: false)
             textView.refreshEstimatedHeight()
             textView.window?.invalidateCursorRects(for: textView)
@@ -331,6 +336,7 @@
                 coordinator: coordinator, textView: textView, scrollView: scrollView
             )
             coordinator.lastAppliedText = attributedText
+            OpenTimeline.shared.mark("renderComplete")
             RenderCompletionSignal.shared.signalRenderComplete()
         }
 

@@ -254,10 +254,12 @@
                   (textContainer?.size.width ?? 0) > 0,
                   bounds.width > 0
             else { return }
-            if hardInvalidate {
-                textLayoutManager.invalidateLayout(for: textLayoutManager.documentRange)
+            OpenTimeline.shared.time("viewportLayout") {
+                if hardInvalidate {
+                    textLayoutManager.invalidateLayout(for: textLayoutManager.documentRange)
+                }
+                textLayoutManager.textViewportLayoutController.layoutViewport()
             }
-            textLayoutManager.textViewportLayoutController.layoutViewport()
             setNeedsDisplay(enclosingScrollView?.documentVisibleRect ?? bounds)
         }
 

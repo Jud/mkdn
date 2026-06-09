@@ -404,7 +404,8 @@
                     // A rebuild scheduled just before a gesture began would otherwise fire
                     // mid-slide; the settle reschedules it once the width is final.
                     guard !isResizeGestureActive else { return }
-                    guard let map = buildDocumentMap() else { return }
+                    guard let map = OpenTimeline.shared.time("documentMap", { buildDocumentMap() })
+                    else { return }
                     mapState?.documentMap = map
                 }
             }
