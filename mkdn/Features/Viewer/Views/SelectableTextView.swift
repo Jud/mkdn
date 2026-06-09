@@ -497,7 +497,7 @@
             if let textView = documentView as? CodeBlockBackgroundTextView,
                textView.sidebarResizeAnchor != nil
             {
-                textView.restoreSidebarResizeAnchor()
+                textView.restoreSidebarResizeAnchor(exact: false)
                 overlayCoordinator?.repositionOverlays()
                 return
             }

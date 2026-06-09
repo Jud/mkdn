@@ -69,13 +69,14 @@
         ///
         /// Per frame (`exact == false`) the pin reads the anchor's position from
         /// `layoutViewport` alone — no prefix layout — and nudges the scroll origin so the line
-        /// holds its screen position. The anchor's absolute y stays estimate-backed, but the
-        /// frame-to-frame estimate shift is absorbed by the nudge, so the line stays put
-        /// visually. (This also retires the old deep-anchor lurch: re-measuring a deep anchor's
-        /// exact y every frame forced an O(document) prefix layout that couldn't converge
-        /// mid-slide.) The settle (`exact == true`) lays the prefix out once so the final
-        /// absolute scroll position — and the off-viewport content — is exact.
-        func restoreSidebarResizeAnchor(exact: Bool = false) {
+        /// holds its screen position. `newTop` and the scroll target both come from that one
+        /// layout pass, so `newTop + delta` is self-consistent within the frame even though the
+        /// absolute y is estimate-backed; the frame-to-frame estimate shift is absorbed by the
+        /// nudge, so the line stays put visually. (This also retires the old deep-anchor lurch:
+        /// re-measuring a deep anchor's exact y every frame forced an O(document) prefix layout
+        /// that couldn't converge mid-slide.) The settle (`exact == true`) lays the prefix out
+        /// once so the final absolute scroll position — and the off-viewport content — is exact.
+        func restoreSidebarResizeAnchor(exact: Bool) {
             guard let anchor = sidebarResizeAnchor,
                   let scrollView = enclosingScrollView,
                   let textLayoutManager
@@ -119,11 +120,10 @@
         /// *extent* and TextKit 2's *logical viewport*.
         func endSidebarResize() {
             guard isSidebarResizeInFlight || sidebarResizeAnchor != nil else { return }
-            // Re-estimate the height at the new width so the scroller is right, then
-            // re-pin (the frame may have grown to the estimate). The contiguous
-            // container realizes exact geometry as the reader scrolls; the whole-string
-            // measure just sizes the scroller up front — no full-document layout.
-            restoreSidebarResizeAnchor(exact: true)
+            // Re-estimate the height at the new width first so the document-view frame is tall
+            // enough, then re-pin exactly: the pin can't clamp against a still-short frame, and
+            // the prefix layout runs once instead of being thrown away by the resize. The whole-
+            // string measure just sizes the scroller up front — no full-document layout.
             refreshEstimatedHeight()
             restoreSidebarResizeAnchor(exact: true)
             sidebarResizeAnchor = nil
