@@ -22,32 +22,32 @@
         )
         private let originY: CGFloat = 32
 
-        // MARK: - blockIndex(forLocation:)
+        // MARK: - DocumentHeightModel.blockIndex(containing:)
 
         @Test("Location resolves to its containing block")
         func locationInsideBlocks() {
-            #expect(PreviewDocumentMap.blockIndex(forLocation: 5, in: model) == 0)
-            #expect(PreviewDocumentMap.blockIndex(forLocation: 20, in: model) == 1)
-            #expect(PreviewDocumentMap.blockIndex(forLocation: 44, in: model) == 2)
+            #expect(model.blockIndex(containing: 5) == 0)
+            #expect(model.blockIndex(containing: 20) == 1)
+            #expect(model.blockIndex(containing: 44) == 2)
         }
 
         @Test("A boundary location belongs to the later block")
         func locationOnBoundary() {
             // 10 ends block 0 and starts block 1; 30 ends block 1 and starts block 2.
-            #expect(PreviewDocumentMap.blockIndex(forLocation: 10, in: model) == 1)
-            #expect(PreviewDocumentMap.blockIndex(forLocation: 30, in: model) == 2)
+            #expect(model.blockIndex(containing: 10) == 1)
+            #expect(model.blockIndex(containing: 30) == 2)
         }
 
         @Test("A location at or past the end falls to the last block")
         func locationAtEnd() {
-            #expect(PreviewDocumentMap.blockIndex(forLocation: 45, in: model) == 2)
-            #expect(PreviewDocumentMap.blockIndex(forLocation: 99, in: model) == 2)
+            #expect(model.blockIndex(containing: 45) == 2)
+            #expect(model.blockIndex(containing: 99) == 2)
         }
 
         @Test("An empty model resolves no block")
         func emptyModel() {
             let empty = DocumentHeightModel(blocks: [])
-            #expect(PreviewDocumentMap.blockIndex(forLocation: 0, in: empty) == nil)
+            #expect(empty.blockIndex(containing: 0) == nil)
         }
 
         // MARK: - build

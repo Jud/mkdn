@@ -39,19 +39,6 @@
     }
 
     extension PreviewDocumentMap {
-        /// Source index of the block containing `location`. Blocks are contiguous
-        /// spans, so a location on a span boundary belongs to the later block; a
-        /// location at or past the document end falls to the last block.
-        static func blockIndex(forLocation location: Int, in model: DocumentHeightModel) -> Int? {
-            for block in model.blocks where NSLocationInRange(location, block.range) {
-                return block.index
-            }
-            if let last = model.blocks.last, location >= last.range.location {
-                return last.index
-            }
-            return nil
-        }
-
         /// Build the map from positions alone — no live `NSTextView` — so the math is
         /// testable. `y` converts each block top from text-view space to scroll space
         /// by subtracting `textContainerOriginY`, the basis heading navigation uses.
@@ -76,7 +63,7 @@
                 )
             }
             let commentMarks = comments.compactMap { comment -> CommentMark? in
-                guard let blockIndex = blockIndex(forLocation: comment.range.location, in: blockModel),
+                guard let blockIndex = blockModel.blockIndex(containing: comment.range.location),
                       let top = offsets.offset(forBlockIndex: blockIndex)
                 else { return nil }
                 return CommentMark(

@@ -14,3 +14,18 @@ public struct BlockSpan {
 public struct DocumentHeightModel {
     public let blocks: [BlockSpan]
 }
+
+extension DocumentHeightModel {
+    /// Source index of the block containing `location`. Blocks are contiguous
+    /// spans, so a location on a span boundary belongs to the later block; a
+    /// location at or past the document end falls to the last block.
+    public func blockIndex(containing location: Int) -> Int? {
+        for block in blocks where NSLocationInRange(location, block.range) {
+            return block.index
+        }
+        if let last = blocks.last, location >= last.range.location {
+            return last.index
+        }
+        return nil
+    }
+}
