@@ -80,6 +80,18 @@
             // The refinement actually moved below the block-granular top (wrapped line).
             let blockTop = try #require(offsets.offset(forBlockIndex: 1))
             #expect(estimated > blockTop + 4)
+
+            // Line 2 of the code block: the prefix ends at an internal newline (the
+            // phantom line compute() corrects at boundaries) and the block carries
+            // code-padding spacing-before — both must not throw the measure off.
+            let codeLoc = text.range(of: "let b").location
+            try #require(codeLoc != NSNotFound)
+            let codeEstimated = try #require(offsets.characterY(
+                at: codeLoc, in: result.attributedString,
+                model: result.documentHeightModel, textWidth: textWidth))
+            let codeReal = try #require(textView.boundingRect(
+                forCharacterRange: NSRange(location: codeLoc, length: 1))?.minY)
+            #expect(abs(codeEstimated - codeReal) < 6)
         }
 
         @Test("blockIndex(atY:) maps a y back to the block that contains it")

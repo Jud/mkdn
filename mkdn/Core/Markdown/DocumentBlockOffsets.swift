@@ -53,10 +53,15 @@ public struct DocumentBlockOffsets {
         // know — so this lands within one line: exact when `location` starts a line,
         // up to a line low otherwise. Biased low on purpose: a card never floats above
         // the comment it points at.
-        let intra = DocumentHeightEstimator.contentHeight(
+        var intra = DocumentHeightEstimator.contentHeight(
             of: attributedString.attributedSubstring(
                 from: NSRange(location: block.range.location, length: prefixLength)),
             textWidth: textWidth)
+        // A prefix ending at an internal newline (e.g. line 2+ of a code block) carries
+        // the same phantom empty line `compute` subtracts at block boundaries — drop it.
+        if (attributedString.string as NSString).character(at: location - 1) == 0x0A {
+            intra -= Self.trailingNewlinePhantom(at: location - 1, in: attributedString)
+        }
         return blockTop + intra
     }
 
