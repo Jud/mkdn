@@ -18,6 +18,20 @@ public struct TableColumn: Sendable {
     }
 }
 
+/// A block's visual category, for the minimap's per-block bands. Groups the
+/// renderer's block cases into the kinds that warrant distinct colouring.
+public enum BlockKind: Equatable {
+    case heading(level: Int)
+    case paragraph
+    case code
+    case list
+    case blockquote
+    case table
+    case image
+    case math
+    case divider
+}
+
 /// Represents a rendered Markdown block element.
 public enum MarkdownBlock: Identifiable {
     case heading(level: Int, text: AttributedString)
