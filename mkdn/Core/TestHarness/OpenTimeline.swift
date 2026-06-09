@@ -61,7 +61,10 @@ public final class OpenTimeline {
     /// Start a fresh record. Called when a content change begins rendering;
     /// phases recorded before the first `begin()` are dropped. The prior
     /// record is stashed until the caller knows whether the change is a real
-    /// open — a comment-only change `abandon()`s back to it.
+    /// open — a comment-only change `abandon()`s back to it. A `begin()` and
+    /// its `abandon()` must pair within one synchronous MainActor stretch (no
+    /// suspension between them): an interleaved `begin()` would replace the
+    /// stash, and the abandon would restore the wrong record.
     public func begin() {
         stashed = (phases, blockOffsetsMeasureCount, openStart)
         openStart = .now
@@ -84,7 +87,7 @@ public final class OpenTimeline {
         let start = ContinuousClock.now
         defer {
             Self.signposter.endInterval(name, state)
-            record(name: "\(name)", start: start, end: .now)
+            record(name: name, start: start, end: .now)
         }
         return try body()
     }
@@ -93,7 +96,7 @@ public final class OpenTimeline {
     public func mark(_ name: StaticString) {
         Self.signposter.emitEvent(name)
         let now = ContinuousClock.now
-        record(name: "\(name)", start: now, end: now)
+        record(name: name, start: now, end: now)
     }
 
     /// Count one whole-document `DocumentBlockOffsets` pass.
@@ -108,11 +111,14 @@ public final class OpenTimeline {
     }
 
     private func record(
-        name: String, start: ContinuousClock.Instant, end: ContinuousClock.Instant
+        name: StaticString, start: ContinuousClock.Instant, end: ContinuousClock.Instant
     ) {
+        // Guard before stringifying: once the cap is hit (or before any open),
+        // per-frame callers like viewportLayout shouldn't pay an allocation
+        // just to have the entry dropped.
         guard let openStart, phases.count < Self.maxPhases else { return }
         phases.append(OpenTimingsResult.Phase(
-            name: name,
+            name: "\(name)",
             startMs: (start - openStart) / .milliseconds(1),
             durationMs: (end - start) / .milliseconds(1)
         ))
