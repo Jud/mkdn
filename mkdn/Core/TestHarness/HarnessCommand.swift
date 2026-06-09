@@ -85,6 +85,9 @@
         /// Toggle the right-docked comment sidebar's visibility.
         case toggleCommentSidebar
 
+        /// Toggle the document minimap (swaps in for the marker track).
+        case toggleMinimap
+
         /// Scroll to + flash the first resolved comment (exercises the sidebar's
         /// jump-to-comment path without simulating a card tap).
         case jumpFirstComment

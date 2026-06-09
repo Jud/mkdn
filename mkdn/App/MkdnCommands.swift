@@ -163,6 +163,12 @@
                     // Match the render gate, so the shortcut never flips an
                     // invisible flag (no document, wrong mode, non-markdown).
                     .disabled(!(documentState?.canShowCommentSidebar ?? false))
+
+                    Button("Toggle Minimap") {
+                        documentState?.toggleMinimap()
+                    }
+                    .keyboardShortcut("m", modifiers: [.command, .shift])
+                    .disabled(!(documentState?.canShowMinimap ?? false))
                 }
 
                 Section {
