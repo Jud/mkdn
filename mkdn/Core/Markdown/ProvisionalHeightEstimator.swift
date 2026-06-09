@@ -155,27 +155,35 @@ public enum ProvisionalHeightEstimator {
 
     /// Wrapped line count of `text` when each line holds `charsPerLine`
     /// width units: hard newlines split, each piece wraps by its weighted
-    /// length — CJK and fullwidth glyphs count double,
-    /// since they run about twice the width of the ASCII sample average.
+    /// length. Glyph classes that run wider than the lowercase-heavy sample
+    /// average carry more weight — CJK/fullwidth and emoji about double,
+    /// uppercase Latin about half again, tabs a multi-character stop — so
+    /// documents dominated by wide glyphs still wrap to enough lines for
+    /// the floor to hold.
     private static func wrappedLines(_ text: String, charsPerLine: CGFloat) -> CGFloat {
         guard charsPerLine >= 1 else { return CGFloat(max(1, text.count)) }
         var lines: CGFloat = 0
-        var lineWeight = 0
+        var lineWeight: CGFloat = 0
         for scalar in text.unicodeScalars {
             if scalar == "\n" {
-                lines += max(1, (CGFloat(lineWeight) / charsPerLine).rounded(.up))
+                lines += max(1, (lineWeight / charsPerLine).rounded(.up))
                 lineWeight = 0
             } else {
                 switch scalar.value {
+                case 0x09:
+                    lineWeight += 4
+                case 0x41 ... 0x5A:
+                    lineWeight += 1.5
                 case 0x2E80 ... 0x9FFF, 0xAC00 ... 0xD7AF, 0xF900 ... 0xFAFF,
-                     0xFF00 ... 0xFF60:
+                     0xFF00 ... 0xFF60, 0x2600 ... 0x27BF, 0x2B00 ... 0x2BFF,
+                     0x1F000 ... 0x1FAFF:
                     lineWeight += 2
                 default:
                     lineWeight += 1
                 }
             }
         }
-        lines += max(1, (CGFloat(lineWeight) / charsPerLine).rounded(.up))
+        lines += max(1, (lineWeight / charsPerLine).rounded(.up))
         return lines
     }
 

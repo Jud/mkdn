@@ -74,6 +74,14 @@ struct ProvisionalHeightEstimatorTests {
             + "全角文字が続く段落では行数を過小評価しやすい。", count: 3)
     }.joined(separator: "\n\n")
 
+    /// Wide Latin glyphs and emoji: both run well past the lowercase sample
+    /// average, the breach case the weighted counting covers beyond CJK.
+    private let wideGlyphDocument = (0 ..< 10).map { index in
+        "SECTION \(index): THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG WHILE "
+            + "WAVING 🎉🚀🔥📦🧭 AND MORE CAPITALIZED WIDE TEXT WRAPS AGAIN "
+            + "WITH 😀😀😀 EMOJI MIXED THROUGH EVERY SINGLE LINE OF IT."
+    }.joined(separator: "\n\n")
+
     /// Maximally ragged word wrap: long unbreakable tokens force mid-word
     /// breaks and short words leave lines ragged — the documented failure
     /// mode of a character-count wrap estimate.
@@ -106,7 +114,7 @@ struct ProvisionalHeightEstimatorTests {
         let inset: CGFloat = 32
         for markdown in [
             mixedDocument, proseDocument, codeDocument, cjkDocument,
-            tableDocument, raggedDocument,
+            tableDocument, raggedDocument, wideGlyphDocument,
         ] {
             let blocks = MarkdownRenderer.render(text: markdown, theme: theme)
             for scale in [0.5, 1.0, 1.25] as [CGFloat] {
