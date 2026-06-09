@@ -29,6 +29,9 @@
             /// width and reused for heading navigation. Invalidated on content/width
             /// change (same as the heading cache). O(blocks^2) but one-shot.
             private var documentBlockOffsets: DocumentBlockOffsets?
+            /// Published heading/comment/viewport positions for the scroll-marker track.
+            weak var mapState: PreviewMapState?
+            private var mapRebuildScheduled = false
 
             // MARK: - Link Navigation
 
@@ -250,6 +253,7 @@
                 // rather than registering duplicates on the same notifications.
                 overlayCoordinator.onScrollChange = { [weak self] in
                     self?.handleScrollForSpy()
+                    self?.publishMapViewport()
                 }
                 overlayCoordinator.onFrameChange = { [weak self] in
                     guard let self else { return }
@@ -259,11 +263,14 @@
                     // heading can move. Scroll-spy is skipped mid-resize; re-run it once
                     // the resize settles (coalesced; it self-guards during the gesture).
                     scheduleScrollSpyRefresh()
+                    // Same rewrap moves every mark: rebuild the map at the new width.
+                    scheduleDocumentMapRebuild()
                 }
                 // A settle whose final layout posts no frame/scroll change would
                 // otherwise leave the spy unscheduled past the in-resize guard.
                 (textView as? CodeBlockBackgroundTextView)?.onResizeSettled = { [weak self] in
                     self?.scheduleScrollSpyRefresh()
+                    self?.scheduleDocumentMapRebuild()
                 }
             }
 
@@ -389,6 +396,74 @@
                 return offsets
             }
 
+            // MARK: - Document Map Publishing
+
+            /// Coalesced full rebuild of the document map. Scheduled (not run inline) so
+            /// a trigger from `updateNSView` doesn't mutate observable state mid-view-
+            /// update, and a burst of invalidations collapses to one rebuild.
+            func scheduleDocumentMapRebuild() {
+                guard !mapRebuildScheduled else { return }
+                mapRebuildScheduled = true
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    mapRebuildScheduled = false
+                    guard let map = buildDocumentMap() else { return }
+                    mapState?.documentMap = map
+                }
+            }
+
+            /// Viewport-only republish: the marks are width/content-keyed and don't move
+            /// on scroll, so reuse the published map and update just the viewport rect.
+            /// Skipped mid-resize/slide (the viewport is held) — the same guard as the
+            /// scroll-spy; the settle path triggers a full rebuild.
+            func publishMapViewport() {
+                guard let mapState,
+                      let textView = textView as? CodeBlockBackgroundTextView,
+                      let scrollView = textView.enclosingScrollView,
+                      textView.sidebarResizeAnchor == nil,
+                      !scrollView.inLiveResize
+                else { return }
+                let bounds = scrollView.contentView.bounds
+                var map = mapState.documentMap
+                guard map.viewportTop != bounds.origin.y || map.viewportHeight != bounds.height
+                else { return }
+                map.viewportTop = bounds.origin.y
+                map.viewportHeight = bounds.height
+                mapState.documentMap = map
+            }
+
+            private func buildDocumentMap() -> PreviewDocumentMap? {
+                guard let textView = textView as? CodeBlockBackgroundTextView,
+                      let outlineState,
+                      let model = documentHeightModel,
+                      let offsets = blockOffsets(),
+                      let textStorage = textView.textStorage
+                else { return nil }
+                let originY = textView.textContainerOrigin.y
+                // Measure each comment's y at intra-block precision (the line it sits on,
+                // not just its block top), then to scroll space — so a card anchors beside
+                // its own line and two comments in one paragraph don't stack on the top.
+                let comments: [(id: String, range: NSRange, y: CGFloat)] =
+                    (textView.resolvedComments?.active ?? []).compactMap { comment in
+                        guard let y = offsets.characterY(
+                            at: comment.range.location, in: textStorage,
+                            model: model, textWidth: textView.textWidth)
+                        else { return nil }
+                        return (id: comment.id, range: comment.range, y: y - originY)
+                    }
+                let bounds = textView.enclosingScrollView?.contentView.bounds ?? .zero
+                return PreviewDocumentMap.build(
+                    headings: outlineState.flatHeadings,
+                    comments: comments,
+                    offsets: offsets,
+                    blockModel: model,
+                    textContainerOriginY: originY,
+                    totalHeight: textView.frame.height,
+                    viewportTop: bounds.origin.y,
+                    viewportHeight: bounds.height
+                )
+            }
+
             /// Map a character offset in the text storage to a y-coordinate
             /// using the text layout manager.
             private func yPosition(forCharacterOffset offset: Int) -> CGFloat? {
@@ -428,10 +503,19 @@
                       let headingY = navigationY(forBlockIndex: blockIndex)
                 else { return false }
 
-                isProgrammaticScroll = true
                 showHeadingDot(forCharacterOffset: charOffset)
+                scrollTo(scrollY: headingY, in: scrollView)
+                return true
+            }
+
+            /// Smooth-scroll the clip view so document scroll-space `scrollY` sits at
+            /// the viewport top. Factored from ``scrollToHeading`` so any mark — a track
+            /// tick, not just a heading — can target an arbitrary y. Suppresses scroll-
+            /// spy for the duration so the programmatic move doesn't fight the breadcrumb.
+            func scrollTo(scrollY: CGFloat, in scrollView: NSScrollView) {
+                isProgrammaticScroll = true
                 let clipView = scrollView.contentView
-                let destination = NSPoint(x: 0, y: headingY)
+                let destination = NSPoint(x: 0, y: scrollY)
                 NSAnimationContext.runAnimationGroup { context in
                     context.duration = AnimationConstants.scrollToHeadingDuration
                     context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
@@ -444,7 +528,6 @@
                         self?.handleScrollForSpy()
                     }
                 }
-                return true
             }
 
             /// Show a temporary accent dot in the left margin at the navigated heading.

@@ -37,6 +37,9 @@
         /// Bumped by the preview when only comments changed; swaps the resolved
         /// index and redraws — no storage edit, so the viewport never jumps.
         let commentRevision: Int
+        /// Shared with the scroll-marker track: the coordinator publishes positions
+        /// here and reads back the track's scroll-to requests.
+        let mapState: PreviewMapState
         @Binding var isLoadingGateActive: Bool
 
         // MARK: - NSViewRepresentable
@@ -68,6 +71,8 @@
                 // Same shift moves every block below the attachment: drop the heading
                 // position / offset cache so navigation re-measures at resolved heights.
                 coordinator.invalidateHeadingPositionCache()
+                // Resolved heights move every mark below the attachment too.
+                coordinator.scheduleDocumentMapRebuild()
                 guard !coordinator.gate.isGateActive else { return }
                 guard coordinator.animator.isAnimating else { return }
                 coordinator.animator.animateVisibleFragments()
@@ -82,6 +87,15 @@
             coordinator.outlineState = outlineState
             coordinator.headingOffsets = headingOffsets
             coordinator.documentHeightModel = documentHeightModel
+            coordinator.mapState = mapState
+            // The track calls this to jump the preview; resolve the scroll view at
+            // call time rather than capturing it, so a later rebuild can't strand it.
+            mapState.scrollTo = { [weak coordinator] scrollY in
+                guard let coordinator,
+                      let scrollView = coordinator.textView?.enclosingScrollView
+                else { return }
+                coordinator.scrollTo(scrollY: scrollY, in: scrollView)
+            }
 
             applyTheme(to: textView, scrollView: scrollView)
             textView.findState = findState
@@ -101,6 +115,7 @@
             coordinator.lastAppliedText = attributedText
             coordinator.lastCommentRevision = commentRevision
             coordinator.wireScrollSpy()
+            coordinator.scheduleDocumentMapRebuild()
             RenderCompletionSignal.shared.signalRenderComplete()
 
             return scrollView
@@ -132,9 +147,12 @@
                 applyNewContent(
                     coordinator: coordinator, textView: textView, scrollView: scrollView
                 )
+                coordinator.scheduleDocumentMapRebuild()
             } else if coordinator.lastCommentRevision != commentRevision {
                 coordinator.lastCommentRevision = commentRevision
                 repaintCommentHighlights(textView: textView)
+                // Comment set changed: republish so comment marks track the edit.
+                coordinator.scheduleDocumentMapRebuild()
             }
 
             coordinator.handleFindUpdate(

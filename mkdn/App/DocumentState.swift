@@ -82,6 +82,14 @@
             currentFileURL != nil && fileKind == .markdown && viewMode == .previewOnly
         }
 
+        /// Whether the document minimap replaces the slim marker track in the gutter.
+        public var isMinimapVisible = false
+
+        /// Whether the minimap toggle is meaningful: a markdown document is loaded.
+        public var canShowMinimap: Bool {
+            currentFileURL != nil && fileKind == .markdown
+        }
+
         /// Current sidebar width in points.
         public var sidebarWidth: CGFloat = 240
 
@@ -220,6 +228,11 @@
         /// Toggle the comment sidebar's visibility.
         public func toggleCommentSidebar() {
             isCommentSidebarVisible.toggle()
+        }
+
+        /// Toggle the document minimap (it swaps in for the marker track).
+        public func toggleMinimap() {
+            isMinimapVisible.toggle()
         }
     }
 #endif

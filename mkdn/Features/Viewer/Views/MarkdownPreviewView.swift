@@ -63,11 +63,16 @@
         /// Bumped per toggle so a superseded slide's completion can't tear down the
         /// anchor while a newer slide (fast re-toggle) is still re-pinning it.
         @State private var sidebarResizeToken = 0
+        /// Positions the coordinator publishes for the scroll-marker track, and the
+        /// track's scroll-to bridge back into it.
+        @State private var mapState = PreviewMapState()
 
         var body: some View {
             @Bindable var docState = documentState
             GeometryReader { proxy in
                 let railWidth = CommentSidebarView.width * sidebarProgress
+                let gutterWidth = documentState.isMinimapVisible
+                    ? DocumentMinimap.width : ScrollMarkerTrack.width
                 HStack(spacing: 0) {
                     SelectableTextView(
                         attributedText: textStorageResult.attributedString,
@@ -88,6 +93,7 @@
                         resolvedComments: resolvedComments,
                         anchorTape: anchorTape,
                         commentRevision: commentRevision,
+                        mapState: mapState,
                         isLoadingGateActive: $docState.isLoadingGateActive
                     )
                     // Changing this identity tears down and recreates the text view's
@@ -98,14 +104,23 @@
                     .background(appSettings.theme.colors.background)
                     // The rail is a layout sibling, not an overlay: the preview's
                     // width shrinks as the rail opens, so the text reflows into the
-                    // narrowed viewport instead of being covered by it.
-                    .frame(width: max(proxy.size.width - railWidth, 0))
+                    // narrowed viewport instead of being covered by it. The gutter
+                    // (marker track, or the minimap when toggled) is a second,
+                    // constant-width sibling on the preview's right.
+                    .frame(width: max(proxy.size.width - railWidth - gutterWidth, 0))
+
+                    if documentState.isMinimapVisible {
+                        DocumentMinimap(state: mapState)
+                    } else {
+                        ScrollMarkerTrack(state: mapState)
+                    }
 
                     if documentState.canShowCommentSidebar {
                         CommentSidebarView(
                             active: activeItems,
                             detached: detachedItems,
                             theme: appSettings.theme,
+                            mapState: mapState,
                             onJump: { jumpToComment($0) },
                             onDelete: { documentState.deleteComment(id: $0) },
                             onClose: { documentState.toggleCommentSidebar() },

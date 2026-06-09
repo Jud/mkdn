@@ -18,6 +18,20 @@ public struct TableColumn: Sendable {
     }
 }
 
+/// A block's visual category, for the minimap's per-block bands. Groups the
+/// renderer's block cases into the kinds that warrant distinct colouring.
+public enum BlockKind: Equatable {
+    case heading(level: Int)
+    case paragraph
+    case code
+    case list
+    case blockquote
+    case table
+    case image
+    case math
+    case divider
+}
+
 /// Represents a rendered Markdown block element.
 public enum MarkdownBlock: Identifiable {
     case heading(level: Int, text: AttributedString)
@@ -40,6 +54,22 @@ public enum MarkdownBlock: Identifiable {
         switch self {
         case .mermaidBlock, .image: true
         default: false
+        }
+    }
+
+    /// The block's minimap category. Folds the rendered-as-visuals cases
+    /// (image, Mermaid) and the code-like cases (code, HTML) together.
+    public var blockKind: BlockKind {
+        switch self {
+        case let .heading(level, _): .heading(level: level)
+        case .paragraph: .paragraph
+        case .codeBlock, .htmlBlock: .code
+        case .orderedList, .unorderedList: .list
+        case .blockquote: .blockquote
+        case .table: .table
+        case .image, .mermaidBlock: .image
+        case .mathBlock: .math
+        case .thematicBreak: .divider
         }
     }
 

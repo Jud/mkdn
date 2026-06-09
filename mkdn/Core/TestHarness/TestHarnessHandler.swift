@@ -27,6 +27,8 @@
                 await handleAddComment(substring: substring, body: body)
             case .toggleCommentSidebar:
                 await handleToggleCommentSidebar()
+            case .toggleMinimap:
+                await handleToggleMinimap()
             case .jumpFirstComment:
                 await handleJumpComment(index: 0)
             case let .jumpCommentAt(index):
@@ -134,6 +136,14 @@
             }
             docState.toggleCommentSidebar()
             return .ok(message: "Comment sidebar: \(docState.isCommentSidebarVisible ? "open" : "closed")")
+        }
+
+        private static func handleToggleMinimap() async -> HarnessResponse {
+            guard let docState = documentState else {
+                return .error("No document state available")
+            }
+            docState.toggleMinimap()
+            return .ok(message: "Minimap: \(docState.isMinimapVisible ? "shown" : "hidden")")
         }
 
         /// The text view and the resolved comment at `index` in document order, or

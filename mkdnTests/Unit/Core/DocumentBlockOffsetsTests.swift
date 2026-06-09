@@ -52,6 +52,48 @@
             }
         }
 
+        @Test("characterY tracks the real line top of a character inside a block",
+              arguments: [380.0, 620.0])
+        @MainActor func characterYTracksRealLineTop(viewWidth: CGFloat) throws {
+            let result = MarkdownTextStorageBuilder.build(blocks: mixedBlocks(), theme: .solarizedDark)
+            let (textView, window, textWidth) =
+                LayoutMeasurementHarness.layOut(result.attributedString, viewWidth: viewWidth)
+            _ = window
+            let offsets = DocumentBlockOffsets.compute(
+                of: result.attributedString, model: result.documentHeightModel,
+                textWidth: textWidth, verticalInset: 32)
+
+            // A phrase well into the wrapping first paragraph, so its line sits below
+            // the block top — the intra-block refinement has to find it.
+            let text = result.attributedString.string as NSString
+            let location = text.range(of: "these tests").location
+            try #require(location != NSNotFound)
+            let estimated = try #require(offsets.characterY(
+                at: location, in: result.attributedString,
+                model: result.documentHeightModel, textWidth: textWidth))
+            let real = try #require(textView.boundingRect(
+                forCharacterRange: NSRange(location: location, length: 1))?.minY)
+            // Lands within one line of the real line top, biased low (a card never
+            // floats above its comment): real <= estimated <= real + ~1 line.
+            #expect(estimated >= real - 4)
+            #expect(estimated - real < 26)
+            // The refinement actually moved below the block-granular top (wrapped line).
+            let blockTop = try #require(offsets.offset(forBlockIndex: 1))
+            #expect(estimated > blockTop + 4)
+
+            // Line 2 of the code block: the prefix ends at an internal newline (the
+            // phantom line compute() corrects at boundaries) and the block carries
+            // code-padding spacing-before — both must not throw the measure off.
+            let codeLoc = text.range(of: "let b").location
+            try #require(codeLoc != NSNotFound)
+            let codeEstimated = try #require(offsets.characterY(
+                at: codeLoc, in: result.attributedString,
+                model: result.documentHeightModel, textWidth: textWidth))
+            let codeReal = try #require(textView.boundingRect(
+                forCharacterRange: NSRange(location: codeLoc, length: 1))?.minY)
+            #expect(abs(codeEstimated - codeReal) < 6)
+        }
+
         @Test("blockIndex(atY:) maps a y back to the block that contains it")
         @MainActor func yMapsToBlock() {
             let result = MarkdownTextStorageBuilder.build(blocks: mixedBlocks(), theme: .solarizedDark)

@@ -12,47 +12,53 @@ See the <mkdn-comment id="d2" edge="start"/>[documentation](https://example.com)
     {
       "body" : "Nice imagery — keep it.",
       "id" : "d1",
-      "prefix" : "# v3 Comments Demo\n\nThe ",
+      "norm" : 1,
+      "prefix" : "",
       "quote" : "quick brown fox",
-      "suffix" : " jumps over the lazy dog near th"
+      "suffix" : ""
     },
     {
       "body" : "Link the v3 page instead.",
       "id" : "d2",
-      "prefix" : "g near the river bank.\n\nSee the ",
-      "quote" : "[documentation](https://example.com)",
-      "suffix" : " and run `swift build` to begin."
+      "norm" : 1,
+      "prefix" : "",
+      "quote" : "documentation",
+      "suffix" : ""
     },
     {
       "body" : "Should this be `swift test`?",
       "id" : "d3",
-      "prefix" : "n](https://example.com) and run ",
-      "quote" : "`swift build`",
-      "suffix" : " to begin.\n\nFirst word of this p"
+      "norm" : 1,
+      "prefix" : "",
+      "quote" : "swift build",
+      "suffix" : ""
     },
     {
       "body" : "Line\u002dstart comment — works now!",
       "id" : "d4",
-      "prefix" : "nd run `swift build` to begin.\n\n",
-      "quote" : "First word",
-      "suffix" : " of this paragraph is commentabl"
+      "norm" : 1,
+      "prefix" : "",
+      "quote" : "first word",
+      "suffix" : ""
     },
     {
       "body" : "Whole clause.",
       "id" : "d5",
-      "prefix" : " quick brown fox jumps over the ",
+      "norm" : 1,
+      "prefix" : "",
       "quote" : "lazy dog near the river bank",
-      "suffix" : ".\n\nSee the [documentation](https"
+      "suffix" : ""
     },
     {
       "body" : "Inner comment (overlap).",
       "id" : "d6",
-      "prefix" : "umps over the lazy dog near the ",
+      "norm" : 1,
+      "prefix" : "",
       "quote" : "river bank",
-      "suffix" : ".\n\nSee the [documentation](https"
+      "suffix" : ""
     },
     {
-      "body" : "Recovered via TextQuote (no anchors).",
+      "body" : "Detached demo — no norm, so the anchor can't be trusted.",
       "id" : "orphan",
       "prefix" : "",
       "quote" : "jumps over",
