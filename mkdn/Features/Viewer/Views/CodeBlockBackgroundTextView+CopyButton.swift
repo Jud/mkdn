@@ -138,9 +138,10 @@
             // During a width gesture (rail slide / window live-resize) the visible blocks are
             // already laid out by the viewport pass the re-pin just ran; skip the O(document)
             // prefix layout that finalizes off-screen blocks — they aren't drawn mid-gesture,
-            // and the settle recomputes the exact rects once at the end.
+            // and the settle recomputes the exact rects once at the end. A progressive open's
+            // tail skips it for the same reason: the prefix layout would re-run per append.
             let lastBlockEnd = blocks.map(\.range.upperBound).max() ?? 0
-            if !isResizeGestureActive, let layoutRange = textRange(
+            if !isMetricsSuppressed, let layoutRange = textRange(
                 from: NSRange(location: 0, length: lastBlockEnd),
                 contentManager: contentManager
             ) {
@@ -177,7 +178,7 @@
             // layout above left the off-screen rects estimated, so leave the cache invalid to
             // force one exact recompute on the first post-gesture draw (covers both the rail
             // slide and window live-resize, including settles that don't resize the frame).
-            areBlockRectsValid = !isResizeGestureActive
+            areBlockRectsValid = !isMetricsSuppressed
         }
     }
 #endif

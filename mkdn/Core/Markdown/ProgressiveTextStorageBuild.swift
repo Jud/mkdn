@@ -32,6 +32,11 @@ public final class ProgressiveTextStorageBuild {
 
     public var isComplete: Bool { cursor == blocks.count }
 
+    /// UTF-16 length of everything built so far. Lets a consumer that holds
+    /// an older prefix snapshot (a recreated text view mid-tail) detect and
+    /// append the slice it's missing.
+    public var builtUTF16Length: Int { accumulated.length }
+
     public init(
         blocks: [IndexedBlock],
         colors: ThemeColors,

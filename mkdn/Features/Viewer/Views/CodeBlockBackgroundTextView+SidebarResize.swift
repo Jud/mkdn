@@ -120,7 +120,7 @@
             // enough, then re-pin exactly: the pin can't clamp against a still-short frame, and
             // the prefix layout runs once instead of being thrown away by the resize. The whole-
             // string measure just sizes the scroller up front — no full-document layout.
-            refreshEstimatedHeight()
+            refreshSettledHeight()
             restoreSidebarResizeAnchor(exact: true)
             sidebarResizeAnchor = nil
             isSidebarResizeInFlight = false

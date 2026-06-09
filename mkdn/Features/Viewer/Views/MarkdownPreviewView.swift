@@ -66,6 +66,13 @@
         /// Positions the coordinator publishes for the scroll-marker track, and the
         /// track's scroll-to bridge back into it.
         @State private var mapState = PreviewMapState()
+        /// Non-nil while a progressive open's tail is appending: the published
+        /// `textStorageResult` is the installed prefix, and the text view's
+        /// coordinator drives this session to completion.
+        @State private var progressiveSession: ProgressiveTextStorageBuild?
+        /// Comment entries parsed at open time, resolved once the tail lands a
+        /// full anchor tape (kept current by comment edits made mid-tail).
+        @State private var pendingCommentEntries: [CommentSidecar.Entry] = []
 
         var body: some View {
             @Bindable var docState = documentState
@@ -94,6 +101,11 @@
                         anchorTape: anchorTape,
                         commentRevision: commentRevision,
                         mapState: mapState,
+                        progressiveSession: progressiveSession,
+                        onProgressiveOpenFinished: { full in
+                            publishFullResult(full, entries: pendingCommentEntries)
+                            progressiveSession = nil
+                        },
                         isLoadingGateActive: $docState.isLoadingGateActive
                     )
                     // Changing this identity tears down and recreates the text view's
@@ -180,6 +192,10 @@
                     OpenTimeline.shared.abandon()
                     if let tape = anchorTape {
                         resolvedComments = ResolvedComments.resolve(document.entries, in: tape)
+                    } else if progressiveSession != nil {
+                        // No tape mid-tail; carry the edit so the finish
+                        // resolves the latest entries.
+                        pendingCommentEntries = document.entries
                     }
                     commentRevision += 1
                     return
@@ -198,7 +214,13 @@
                 let anyKnown = newBlocks.contains { knownBlockIDs.contains($0.id) }
                 let shouldAnimate = !anyKnown && !reduceMotion && !newBlocks.isEmpty
 
-                renderAndBuild(newBlocks, isFullReload: shouldAnimate, entries: document.entries)
+                if Self.shouldOpenProgressively(newBlocks, body: document.body) {
+                    openProgressively(
+                        newBlocks, isFullReload: shouldAnimate, entries: document.entries
+                    )
+                } else {
+                    renderAndBuild(newBlocks, isFullReload: shouldAnimate, entries: document.entries)
+                }
             }
             .onChange(of: appSettings.theme) {
                 renderAndBuild(cachedBlocks, isFullReload: false)
@@ -278,6 +300,9 @@
             renderedBlocks = newBlocks
             knownBlockIDs = Set(newBlocks.map(\.id))
             isFullReload = animate
+            // A theme/scale rebuild replaces the storage whole; a progressive
+            // session still in flight must not hand its tail to the new content.
+            progressiveSession = nil
             let result = OpenTimeline.shared.time("build") {
                 MarkdownTextStorageBuilder.build(
                     blocks: newBlocks,
@@ -286,16 +311,106 @@
                     appSettings: appSettings
                 )
             }
+            let resolved = entries ?? CommentDocument.parse(documentState.markdownContent).entries
+            publishFullResult(result, entries: resolved)
+            outlineState.updateHeadings(from: newBlocks)
+        }
+
+        // MARK: - Progressive Open
+
+        /// Documents below these sizes build fast enough to install whole; the
+        /// constants are calibrated against the perf fixtures (a 250-block /
+        /// 78KB document builds in roughly a third of a second).
+        private static let progressiveBlockThreshold = 200
+        private static let progressiveSourceThreshold = 200_000
+        /// First-paint prefix: enough blocks to cover a couple of viewports of
+        /// estimated height, capped so a pathological document still paints.
+        private static let prefixHeightTarget: CGFloat = 3000
+        private static let prefixDeadline: Duration = .milliseconds(250)
+        /// Width assumption for the prefix-height estimate (the real width is
+        /// unknown until AppKit lays out). Under-guessing only over-fills the
+        /// prefix, which costs a few extra blocks, never a short first paint.
+        private static let prefixMeasureWidth: CGFloat = 600
+
+        private static func shouldOpenProgressively(
+            _ blocks: [IndexedBlock], body: String
+        ) -> Bool {
+            blocks.count >= progressiveBlockThreshold
+                || body.utf16.count >= progressiveSourceThreshold
+        }
+
+        /// Viewport-first open: build and publish only the first viewport's
+        /// blocks, then hand the session to the text view's coordinator, which
+        /// appends the tail in main-actor slices and calls back with the full
+        /// result (docs/features/height-estimation/viewport-first-perf-plan.md).
+        private func openProgressively(
+            _ newBlocks: [IndexedBlock], isFullReload animate: Bool,
+            entries: [CommentSidecar.Entry]
+        ) {
+            renderedBlocks = newBlocks
+            knownBlockIDs = Set(newBlocks.map(\.id))
+            isFullReload = animate
+            let session = ProgressiveTextStorageBuild(
+                blocks: newBlocks,
+                theme: appSettings.theme,
+                scaleFactor: appSettings.scaleFactor,
+                appSettings: appSettings
+            )
+            let prefix = OpenTimeline.shared.time("buildPrefix") {
+                Self.buildPrefix(session)
+            }
+            if session.isComplete {
+                // The prefix loop swallowed the whole document (threshold-edge
+                // size); publish it like an ordinary open.
+                progressiveSession = nil
+                publishFullResult(session.result(), entries: entries)
+            } else {
+                pendingCommentEntries = entries
+                progressiveSession = session
+                textStorageResult = prefix
+                // No tape or comments until the tail lands the full text.
+                anchorTape = nil
+                resolvedComments = nil
+            }
+            outlineState.updateHeadings(from: newBlocks)
+        }
+
+        /// Build blocks until the estimated prefix height covers the target or
+        /// the deadline passes — "a viewport plus overdraw, time-capped".
+        private static func buildPrefix(
+            _ session: ProgressiveTextStorageBuild
+        ) -> TextStorageResult {
+            let deadline = ContinuousClock.now + prefixDeadline
+            var estimated: CGFloat = 0
+            while !session.isComplete, estimated < prefixHeightTarget,
+                  ContinuousClock.now < deadline
+            {
+                guard let fragment = session.buildNext(maxBlocks: 8, deadline: deadline)
+                else { break }
+                estimated += DocumentHeightEstimator.contentHeight(
+                    of: fragment, textWidth: prefixMeasureWidth
+                )
+            }
+            return session.partialResult()
+        }
+
+        /// Publish a complete build: the storage result, the anchor tape built
+        /// from its text, and comments resolved against that tape. Shared by the
+        /// synchronous open and the progressive finish.
+        private func publishFullResult(
+            _ result: TextStorageResult, entries: [CommentSidecar.Entry]
+        ) {
             textStorageResult = result
             let tape = OpenTimeline.shared.time("anchorTape") {
                 AnchorTape.build(from: result.attributedString)
             }
             anchorTape = tape
-            let resolved = entries ?? CommentDocument.parse(documentState.markdownContent).entries
             resolvedComments = OpenTimeline.shared.time("resolveComments") {
-                ResolvedComments.resolve(resolved, in: tape)
+                ResolvedComments.resolve(entries, in: tape)
             }
-            outlineState.updateHeadings(from: newBlocks)
+            // Bump so the comment-revision path repaints highlights that went
+            // from nil to resolved without a storage reinstall.
+            commentRevision += 1
         }
     }
 #endif

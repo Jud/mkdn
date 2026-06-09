@@ -167,6 +167,28 @@
                 || (enclosingScrollView?.inLiveResize ?? false)
         }
 
+        // MARK: - Progressive Open
+
+        /// A progressive open's tail is still appending chunks: the storage holds a
+        /// prefix and `documentHeightModel` covers only that prefix, so whole-string
+        /// measures would read a fraction of the document as its full height. Cleared
+        /// by the coordinator's finish once the tail (and the one exact pass) lands.
+        var isProgressiveOpenActive = false
+
+        /// Scale factor for the provisional floor while the tail runs (the text view
+        /// has no other route to the app's zoom).
+        var progressiveOpenScaleFactor: CGFloat = 1
+
+        /// Set by the coordinator while a tail is active; actions that need the full
+        /// document now (print) call it to drain the tail synchronously.
+        var forceFinishProgressiveOpen: (() -> Void)?
+
+        /// Whole-string measures suppressed: any width gesture, or a progressive
+        /// open's tail. One signal for the spy/map/heading/code-block-rect guards.
+        var isMetricsSuppressed: Bool {
+            isResizeGestureActive || isProgressiveOpenActive
+        }
+
         /// Floor for the document-view height from the whole-string height estimate, so
         /// the scroller reflects the full height immediately instead of TextKit 2
         /// building it up lazily as the reader scrolls. Recomputed at each settled width
@@ -217,7 +239,7 @@
                 // or window drag (the whole-string measure would run every frame); those
                 // refresh once at their end.
                 if canRefreshEstimatedHeight {
-                    refreshEstimatedHeight()
+                    refreshSettledHeight()
                 }
             }
             invalidateCodeBlockCache()
@@ -288,6 +310,11 @@
         /// enough to size the frame in both directions, so an attachment that resolves
         /// below its placeholder shrinks the frame instead of leaving dead scroll extent.
         func refreshEstimatedHeight() {
+            // Mid-tail the model covers only the installed prefix, so the "exact"
+            // measure would shrink the scroller to a fraction of the document; every
+            // caller (settles included) must wait for the finish, which clears the
+            // flag and runs the one exact pass.
+            guard !isProgressiveOpenActive else { return }
             // Bail at a collapsed/degenerate width: a zero estimate must not shrink a
             // non-empty view to nothing now that sizing is bidirectional.
             guard let textStorage, textWidth > 0 else { return }
@@ -307,7 +334,11 @@
                 // Any non-nil model routes through the shared offsets: the builder emits one
                 // block span per rendered block, so empty blocks pair only with empty text —
                 // both measure to 0, matching the whole-document fallback this replaced.
-                guard let offsets = computeBlockOffsets() else { return }
+                // The cached pass is reusable when present — every height-changing event
+                // (width change, attachment resolution, content swap) nils it, so a live
+                // cache is already at the current geometry; recomputing would repeat the
+                // measure a map rebuild just ran.
+                guard let offsets = currentBlockOffsets() else { return }
                 estimate = offsets.totalHeight
             } else {
                 estimate = DocumentHeightEstimator.estimatedHeight(
@@ -317,6 +348,34 @@
             estimatedHeightFloor = estimate
             if abs(frame.height - estimate) > 0.5 {
                 setFrameSize(NSSize(width: frame.width, height: estimate))
+            }
+        }
+
+        /// The settle-time height recompute: exact when the document is fully
+        /// materialized, the provisional floor while a progressive open's tail is
+        /// still appending. Width settles (load, resize end, slide end) call this
+        /// so a settle mid-tail can't collapse the scroller to the prefix height.
+        func refreshSettledHeight() {
+            if isProgressiveOpenActive {
+                seedProvisionalEstimatedHeightFloor()
+            } else {
+                refreshEstimatedHeight()
+            }
+        }
+
+        /// Size the frame from the parsed-blocks floor while the tail appends —
+        /// the scroller then reflects roughly the whole document from first paint.
+        func seedProvisionalEstimatedHeightFloor() {
+            guard isProgressiveOpenActive, textWidth > 0, !printBlocks.isEmpty else { return }
+            let floor = ProvisionalHeightEstimator.provisionalHeight(
+                of: printBlocks, textWidth: textWidth,
+                scaleFactor: progressiveOpenScaleFactor,
+                verticalInset: textContainerInset.height
+            )
+            guard floor > 0 else { return }
+            estimatedHeightFloor = floor
+            if abs(frame.height - floor) > 0.5 {
+                setFrameSize(NSSize(width: frame.width, height: floor))
             }
         }
 
@@ -508,6 +567,12 @@
         // MARK: - Print
 
         override func printView(_ sender: Any?) {
+            // The print run swaps the storage and spins a modal runloop; an active
+            // tail would append into the print canvas. Drain it first so the
+            // restore below puts back the complete document.
+            if isProgressiveOpenActive {
+                forceFinishProgressiveOpen?()
+            }
             guard !printBlocks.isEmpty else {
                 super.printView(sender)
                 return

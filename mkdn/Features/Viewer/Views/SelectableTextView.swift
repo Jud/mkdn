@@ -40,6 +40,13 @@
         /// Shared with the scroll-marker track: the coordinator publishes positions
         /// here and reads back the track's scroll-to requests.
         let mapState: PreviewMapState
+        /// Non-nil while a progressive open is in flight: `attributedText` is the
+        /// installed prefix, and the coordinator drives this session's tail into
+        /// the live storage. Nil for the ordinary whole-document install.
+        let progressiveSession: ProgressiveTextStorageBuild?
+        /// Called once the tail completes, with the full build result, so the
+        /// preview can publish the final storage result, anchor tape, and comments.
+        let onProgressiveOpenFinished: ((TextStorageResult) -> Void)?
         @Binding var isLoadingGateActive: Bool
 
         // MARK: - NSViewRepresentable
@@ -109,11 +116,12 @@
             textView.commentTheme = theme
 
             textView.documentHeightModel = documentHeightModel
+            configureProgressiveOpen(textView: textView)
             OpenTimeline.shared.time("install") {
                 textView.textStorage?.setAttributedString(attributedText)
             }
             textView.realizeViewportAfterContainerResize(hardInvalidate: false)
-            textView.refreshEstimatedHeight()
+            textView.refreshSettledHeight()
             textView.window?.invalidateCursorRects(for: textView)
             applyEntranceOrGate(
                 coordinator: coordinator, textView: textView, scrollView: scrollView
@@ -124,6 +132,7 @@
             coordinator.scheduleDocumentMapRebuild()
             OpenTimeline.shared.mark("renderComplete")
             RenderCompletionSignal.shared.signalRenderComplete()
+            beginProgressiveTailIfNeeded(coordinator: coordinator)
 
             return scrollView
         }
@@ -155,6 +164,7 @@
                     coordinator: coordinator, textView: textView, scrollView: scrollView
                 )
                 coordinator.scheduleDocumentMapRebuild()
+                beginProgressiveTailIfNeeded(coordinator: coordinator)
             } else if coordinator.lastCommentRevision != commentRevision {
                 coordinator.lastCommentRevision = commentRevision
                 repaintCommentHighlights(textView: textView)
@@ -278,6 +288,9 @@
         ) {
             let textChanged = textView.textStorage?.string != attributedText.string
 
+            // The storage is about to be replaced; a still-running tail would
+            // append the old document's blocks into it.
+            coordinator.cancelProgressiveTail()
             coordinator.gate.reset()
             coordinator.lastScrolledTarget = nil
             isLoadingGateActive = false
@@ -319,11 +332,12 @@
                 textView.dismissCommentOverlay()
             }
             textView.documentHeightModel = documentHeightModel
+            configureProgressiveOpen(textView: textView)
             OpenTimeline.shared.time("install") {
                 textView.textStorage?.setAttributedString(attributedText)
             }
             textView.realizeViewportAfterContainerResize(hardInvalidate: false)
-            textView.refreshEstimatedHeight()
+            textView.refreshSettledHeight()
             textView.window?.invalidateCursorRects(for: textView)
 
             if textChanged {
@@ -338,6 +352,27 @@
             coordinator.lastAppliedText = attributedText
             OpenTimeline.shared.mark("renderComplete")
             RenderCompletionSignal.shared.signalRenderComplete()
+        }
+
+        /// Mark the text view for the install that's about to run: during a
+        /// progressive open the storage holds only a prefix (whole-string measures
+        /// suppressed, selection gated until the tail lands); otherwise restore the
+        /// ordinary whole-document state.
+        private func configureProgressiveOpen(textView: CodeBlockBackgroundTextView) {
+            let isProgressive = progressiveSession.map { !$0.isComplete } ?? false
+            textView.isProgressiveOpenActive = isProgressive
+            textView.progressiveOpenScaleFactor = appSettings.scaleFactor
+            textView.isSelectable = !isProgressive
+        }
+
+        /// Hand the session to the coordinator's tail driver after the prefix is
+        /// installed and wired. No-op when the content isn't progressive or this
+        /// session's tail is already running.
+        private func beginProgressiveTailIfNeeded(coordinator: Coordinator) {
+            guard let session = progressiveSession, !session.isComplete else { return }
+            coordinator.beginProgressiveTail(
+                session: session, onFinished: onProgressiveOpenFinished
+            )
         }
 
         /// Apply a comment-only change (visible text unchanged) by swapping the
@@ -530,7 +565,7 @@
             // settled fragments before the scroll-origin restore below.
             overlayCoordinator?.exitLiveResize()
             // Re-estimate the height at the settled width so the scroller is right.
-            (documentView as? CodeBlockBackgroundTextView)?.refreshEstimatedHeight()
+            (documentView as? CodeBlockBackgroundTextView)?.refreshSettledHeight()
 
             if let savedOrigin = liveResizeBoundsOrigin {
                 contentView.setBoundsOrigin(savedOrigin)
