@@ -303,6 +303,9 @@
             // total equals the height-only estimate — `buildOffsets` only adds the array.
             let estimate: CGFloat
             if documentHeightModel != nil {
+                // Any non-nil model routes through the shared offsets: the builder emits one
+                // block span per rendered block, so empty blocks pair only with empty text —
+                // both measure to 0, matching the whole-document fallback this replaced.
                 blockOffsets = nil
                 guard let offsets = currentBlockOffsets() else { return }
                 estimate = offsets.totalHeight
