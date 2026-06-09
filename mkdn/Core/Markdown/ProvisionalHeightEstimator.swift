@@ -187,7 +187,7 @@ public enum ProvisionalHeightEstimator {
 
         @MainActor
         init(font: PlatformTypeConverter.PlatformFont) {
-            lineHeight = ceil(font.ascender - font.descender + font.leading)
+            lineHeight = PlatformTypeConverter.lineHeight(of: font)
                 + MarkdownTextStorageBuilder.lineSpacing
             let sample = "the quick brown fox jumps over 0123456789"
             let width = NSAttributedString(

@@ -74,17 +74,38 @@ public final class ProgressiveTextStorageBuild {
         maxBlocks: Int = .max, deadline: ContinuousClock.Instant? = nil
     ) -> NSAttributedString? {
         guard cursor < blocks.count else { return nil }
-        // Clamp so a computed budget that rounds to 0 (or negative) can't
-        // return an empty fragment without progress and livelock the caller.
-        let maxBlocks = max(1, maxBlocks)
         let fragment = NSMutableAttributedString()
+        appendBlocks(
+            into: fragment, baseOffset: accumulated.length,
+            maxBlocks: maxBlocks, deadline: deadline
+        )
+        accumulated.append(fragment)
+        return fragment
+    }
+
+    /// Build everything that remains in one pass, directly into the
+    /// accumulated document — the one-shot path skips the per-chunk
+    /// fragment and its whole-document copy.
+    public func buildRemaining() {
+        appendBlocks(into: accumulated, baseOffset: 0, maxBlocks: .max, deadline: nil)
+    }
+
+    private func appendBlocks(
+        into target: NSMutableAttributedString,
+        baseOffset: Int,
+        maxBlocks: Int,
+        deadline: ContinuousClock.Instant?
+    ) {
+        // Clamp so a computed budget that rounds to 0 (or negative) can't
+        // produce an empty chunk without progress and livelock the caller.
+        let maxBlocks = max(1, maxBlocks)
         var built = 0
         while cursor < blocks.count, built < maxBlocks {
             let indexedBlock = blocks[cursor]
-            let documentOffset = accumulated.length + fragment.length
+            let documentOffset = baseOffset + target.length
             MarkdownTextStorageBuilder.appendBlock(
                 indexedBlock,
-                to: fragment,
+                to: target,
                 colors: colors,
                 syntaxColors: syntaxColors,
                 scaleFactor: scaleFactor,
@@ -96,26 +117,19 @@ public final class ProgressiveTextStorageBuild {
                 index: indexedBlock.index,
                 range: NSRange(
                     location: documentOffset,
-                    length: accumulated.length + fragment.length - documentOffset
+                    length: baseOffset + target.length - documentOffset
                 ),
                 kind: indexedBlock.block.blockKind
             ))
             // Collapse the first block's top spacing so textContainerInset
             // alone controls the window-top-to-text distance.
             if cursor == 0 {
-                MarkdownTextStorageBuilder.setFirstParagraphSpacing(fragment, spacingBefore: 0)
+                MarkdownTextStorageBuilder.setFirstParagraphSpacing(target, spacingBefore: 0)
             }
             cursor += 1
             built += 1
             if let deadline, ContinuousClock.now >= deadline { break }
         }
-        accumulated.append(fragment)
-        return fragment
-    }
-
-    /// Build everything that remains in one pass.
-    public func buildRemaining() {
-        _ = buildNext()
     }
 
     /// Result over the blocks built so far. The string is copied so later

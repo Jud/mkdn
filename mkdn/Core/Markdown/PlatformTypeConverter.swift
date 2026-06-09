@@ -87,4 +87,11 @@ public enum PlatformTypeConverter {
     public static func captionMonospacedFont(scaleFactor: CGFloat = 1.0) -> PlatformFont {
         .monospacedSystemFont(ofSize: PlatformFont.smallSystemFontSize * scaleFactor, weight: .regular)
     }
+
+    /// One laid-out line of `font`: ascender minus descender plus leading,
+    /// ceiled — the height policy shared by the table sizer, print tables,
+    /// and the provisional height floor.
+    public static func lineHeight(of font: PlatformFont) -> CGFloat {
+        ceil(font.ascender - font.descender + font.leading)
+    }
 }
