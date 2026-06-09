@@ -1,11 +1,32 @@
 import Foundation
 
+/// A block's visual category, for the minimap's per-block bands. Groups the
+/// renderer's block cases into the kinds that warrant distinct colouring.
+public enum BlockKind: Equatable {
+    case heading(level: Int)
+    case paragraph
+    case code
+    case list
+    case blockquote
+    case table
+    case image
+    case math
+    case divider
+}
+
 /// One top-level block's span in the final attributed string, in document order.
 /// The builder emits these so the height engine can locate per-block boundaries
 /// without re-parsing the markdown.
 public struct BlockSpan {
     public let index: Int // source block index
     public let range: NSRange // range in the final attributed string
+    public let kind: BlockKind
+
+    public init(index: Int, range: NSRange, kind: BlockKind = .paragraph) {
+        self.index = index
+        self.range = range
+        self.kind = kind
+    }
 }
 
 /// Per-block spans emitted alongside the attributed string. Consumed by

@@ -151,7 +151,8 @@ public enum MarkdownTextStorageBuilder {
             )
             blockSpans.append(BlockSpan(
                 index: indexedBlock.index,
-                range: NSRange(location: blockStart, length: result.length - blockStart)
+                range: NSRange(location: blockStart, length: result.length - blockStart),
+                kind: indexedBlock.block.blockKind
             ))
 
             // Collapse the first block's top spacing so textContainerInset

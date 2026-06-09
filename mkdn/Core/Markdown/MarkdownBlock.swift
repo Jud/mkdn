@@ -43,6 +43,22 @@ public enum MarkdownBlock: Identifiable {
         }
     }
 
+    /// The block's minimap category. Folds the rendered-as-visuals cases
+    /// (image, Mermaid) and the code-like cases (code, HTML) together.
+    public var blockKind: BlockKind {
+        switch self {
+        case let .heading(level, _): .heading(level: level)
+        case .paragraph: .paragraph
+        case .codeBlock, .htmlBlock: .code
+        case .orderedList, .unorderedList: .list
+        case .blockquote: .blockquote
+        case .table: .table
+        case .image, .mermaidBlock: .image
+        case .mathBlock: .math
+        case .thematicBreak: .divider
+        }
+    }
+
     public var id: String {
         switch self {
         case let .heading(level, text):

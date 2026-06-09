@@ -20,11 +20,21 @@
         let y: CGFloat
     }
 
-    /// Heading, comment, and viewport positions within the preview's vertical
-    /// extent, all in scroll (clip-view) coordinates. The text-view coordinator
-    /// builds it from ``DocumentBlockOffsets`` once per content/width/scroll change;
-    /// the scroll-marker track consumes it, so those views never touch TextKit or
-    /// the coordinate conversions.
+    /// A block's vertical extent on the preview, in scroll coordinates, for the
+    /// minimap's per-kind bands. `height` spans the gap to the next block's top;
+    /// the last block fills to the document bottom.
+    struct BlockBand: Identifiable, Equatable {
+        let id: Int // source block index
+        let kind: BlockKind
+        let y: CGFloat
+        let height: CGFloat
+    }
+
+    /// Heading, comment, block-band, and viewport positions within the preview's
+    /// vertical extent, all in scroll (clip-view) coordinates. The text-view
+    /// coordinator builds it from ``DocumentBlockOffsets`` once per content/width/
+    /// scroll change; the scroll-marker track and minimap consume it, so those views
+    /// never touch TextKit or the coordinate conversions.
     struct PreviewDocumentMap: Equatable {
         /// The text view's real frame height — the denominator for normalizing a `y`
         /// onto a track, so marks track the actual scroller rather than the estimate.
@@ -33,6 +43,7 @@
         var viewportHeight: CGFloat = 0
         var headings: [HeadingMark] = []
         var comments: [CommentMark] = []
+        var blocks: [BlockBand] = []
     }
 
     extension PreviewDocumentMap {
@@ -70,13 +81,39 @@
                     y: top - textContainerOriginY
                 )
             }
+            let blocks = blockBands(
+                blockModel: blockModel, offsets: offsets,
+                textContainerOriginY: textContainerOriginY, totalHeight: totalHeight
+            )
             return PreviewDocumentMap(
                 totalHeight: totalHeight,
                 viewportTop: viewportTop,
                 viewportHeight: viewportHeight,
                 headings: headingMarks,
-                comments: commentMarks
+                comments: commentMarks,
+                blocks: blocks
             )
+        }
+
+        /// Each block's scroll-space `[y, y+height)` extent, by kind, for the minimap.
+        /// `height` runs to the next block's top; the last block fills to `totalHeight`,
+        /// so the bands tile the full document with no gaps.
+        private static func blockBands(
+            blockModel: DocumentHeightModel,
+            offsets: DocumentBlockOffsets,
+            textContainerOriginY: CGFloat,
+            totalHeight: CGFloat
+        ) -> [BlockBand] {
+            let spans = blockModel.blocks
+            return spans.enumerated().compactMap { offset, span -> BlockBand? in
+                guard let top = offsets.offset(forBlockIndex: span.index) else { return nil }
+                let y = top - textContainerOriginY
+                let nextTop = offset + 1 < spans.count
+                    ? offsets.offset(forBlockIndex: spans[offset + 1].index)
+                    : nil
+                let bottom = nextTop.map { $0 - textContainerOriginY } ?? totalHeight
+                return BlockBand(id: span.index, kind: span.kind, y: y, height: max(bottom - y, 0))
+            }
         }
 
         /// `y` as a fraction in [0, 1] of the document height, for placing a mark on a track.

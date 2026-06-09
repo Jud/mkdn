@@ -95,6 +95,40 @@
             #expect(map.comments.map(\.y) == [0, 100, 300, 300])
         }
 
+        // MARK: - block bands
+
+        @Test("Block bands tile the document by kind; the last fills to totalHeight")
+        func buildBlockBands() {
+            let kinded = DocumentHeightModel(blocks: [
+                BlockSpan(index: 0, range: NSRange(location: 0, length: 10), kind: .heading(level: 1)),
+                BlockSpan(index: 1, range: NSRange(location: 10, length: 20), kind: .code),
+                BlockSpan(index: 2, range: NSRange(location: 30, length: 15), kind: .table),
+            ])
+            let map = PreviewDocumentMap.build(
+                headings: [], comments: [], offsets: offsets, blockModel: kinded,
+                textContainerOriginY: originY, totalHeight: 480, viewportTop: 0, viewportHeight: 100
+            )
+            #expect(map.blocks.map(\.id) == [0, 1, 2])
+            #expect(map.blocks.map(\.kind) == [.heading(level: 1), .code, .table])
+            #expect(map.blocks.map(\.y) == [0, 100, 300]) // tops in scroll space
+            #expect(map.blocks.map(\.height) == [100, 200, 180]) // last fills 480-300
+        }
+
+        @Test("MarkdownBlock.blockKind folds the renderer cases into minimap kinds")
+        func blockKindMapping() {
+            #expect(MarkdownBlock.heading(level: 2, text: AttributedString("H")).blockKind == .heading(level: 2))
+            #expect(MarkdownBlock.paragraph(text: AttributedString("p")).blockKind == .paragraph)
+            #expect(MarkdownBlock.codeBlock(language: nil, code: "x").blockKind == .code)
+            #expect(MarkdownBlock.htmlBlock(content: "<b>").blockKind == .code)
+            #expect(MarkdownBlock.image(source: "a", alt: "").blockKind == .image)
+            #expect(MarkdownBlock.mermaidBlock(code: "g").blockKind == .image)
+            #expect(MarkdownBlock.orderedList(items: []).blockKind == .list)
+            #expect(MarkdownBlock.blockquote(blocks: []).blockKind == .blockquote)
+            #expect(MarkdownBlock.table(columns: [], rows: []).blockKind == .table)
+            #expect(MarkdownBlock.mathBlock(code: "x").blockKind == .math)
+            #expect(MarkdownBlock.thematicBreak.blockKind == .divider)
+        }
+
         // MARK: - normalization
 
         @Test("normalized maps y onto [0, 1] and clamps")
