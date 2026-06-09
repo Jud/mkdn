@@ -206,6 +206,12 @@
                 // pane by 300pt with nothing to show (the harness can flip this flag
                 // directly, bypassing the gated menu/toggle).
                 guard documentState.canShowCommentSidebar else { return }
+                // Skip a zero-delta toggle. Animating sidebarProgress to the value it
+                // already holds can drop the completion, so endSidebarResize never fires
+                // and the gesture flag latches — freezing the map/height for the session.
+                // It also resyncs after a mode-switch round-trip left isCommentSidebarVisible
+                // and sidebarProgress disagreeing.
+                guard sidebarProgress != (visible ? 1 : 0) else { return }
                 // Capture the viewport anchor while the layout still reflects the old
                 // width, animate the width, then settle the anchor once at the end.
                 // The per-frame re-pin runs from the text view's tile().

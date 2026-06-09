@@ -291,7 +291,10 @@
             // A content swap invalidates the captured anchor's text location; drop it
             // so an in-flight sidebar slide's tile() doesn't re-pin against the
             // replaced document (the stale NSTextLocation would enumerate out of range).
+            // Clear the gesture flag too — a reload mid-slide must not latch the per-frame
+            // map/height suppression on past the now-stale slide completion.
             textView.sidebarResizeAnchor = nil
+            textView.isSidebarResizeInFlight = false
             textView.estimatedHeightFloor = nil
             // Dismiss an open comment overlay; its position points into the old
             // layout and its body may no longer match the new content. A body edit
