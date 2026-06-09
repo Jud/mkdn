@@ -56,15 +56,16 @@
             #expect(active.map(\.range) == [NSRange(location: 4, length: 5), NSRange(location: 16, length: 3)])
         }
 
-        @Test("active breaks location ties by id for stable ordering")
+        @Test("active breaks location ties by creation order — oldest on top")
         func activeTieBreak() {
-            // Two distinct comments resolving to the same location (identical quote)
-            // must order deterministically by id.
+            // Two distinct comments resolving to the same location (identical quote):
+            // ids are random, so they order by sidecar position (oldest first), reading
+            // top-down as a thread. "z" is recorded first, so it stays on top of "a".
             let resolved = ResolvedComments.resolve(
                 [entry("z", quote: "quick"), entry("a", quote: "quick")],
                 in: tape("the quick brown fox")
             )
-            #expect(resolved.active.map(\.id) == ["a", "z"])
+            #expect(resolved.active.map(\.id) == ["z", "a"])
         }
 
         @Test("Duplicate ids keep the first entry; resolved and orphaned stay disjoint")

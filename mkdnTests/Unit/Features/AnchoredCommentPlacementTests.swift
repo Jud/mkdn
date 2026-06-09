@@ -38,5 +38,47 @@
         func empty() {
             #expect(AnchoredCommentPlacement.tops(anchors: [], heights: [], gap: 8).isEmpty)
         }
+
+        // MARK: - fitBottomOverflow (document-end reachability)
+
+        @Test("fitBottomOverflow leaves a tail that already fits untouched")
+        func fitNoOverflow() {
+            let tops = AnchoredCommentPlacement.tops(
+                anchors: [0, 100, 200], heights: [40, 40, 40], gap: 8,
+                visibleBottom: 600, fitBottomOverflow: true)
+            #expect(tops == [0, 100, 200])
+        }
+
+        @Test("A dense tail at the document end is lifted up to fit the panel")
+        func fitDenseTail() {
+            let tops = AnchoredCommentPlacement.tops(
+                anchors: [500, 500, 500], heights: [40, 40, 40], gap: 8,
+                visibleBottom: 600, fitBottomOverflow: true)
+            #expect(tops == [464, 512, 560]) // bottom card ends at 600
+        }
+
+        @Test("Fitting the tail leaves earlier anchored cards in place")
+        func fitKeepsEarlierCards() {
+            let tops = AnchoredCommentPlacement.tops(
+                anchors: [100, 500, 500, 500], heights: [40, 40, 40, 40], gap: 8,
+                visibleBottom: 600, fitBottomOverflow: true)
+            #expect(tops == [100, 464, 512, 560]) // the 100 card is undisturbed
+        }
+
+        @Test("Fitting the tail leaves an above-viewport card above")
+        func fitKeepsAboveCard() {
+            let tops = AnchoredCommentPlacement.tops(
+                anchors: [-100, 500, 500, 500], heights: [40, 40, 40, 40], gap: 8,
+                visibleBottom: 600, fitBottomOverflow: true)
+            #expect(tops == [-100, 464, 512, 560])
+        }
+
+        @Test("A card taller than the panel pins its bottom into view")
+        func fitOversizedCard() {
+            let tops = AnchoredCommentPlacement.tops(
+                anchors: [100], heights: [700], gap: 8,
+                visibleBottom: 600, fitBottomOverflow: true)
+            #expect(tops == [-100]) // bottom at 600; top clips above
+        }
     }
 #endif
