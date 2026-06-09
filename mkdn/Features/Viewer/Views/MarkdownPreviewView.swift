@@ -120,6 +120,7 @@
                             active: activeItems,
                             detached: detachedItems,
                             theme: appSettings.theme,
+                            mapState: mapState,
                             onJump: { jumpToComment($0) },
                             onDelete: { documentState.deleteComment(id: $0) },
                             onClose: { documentState.toggleCommentSidebar() },

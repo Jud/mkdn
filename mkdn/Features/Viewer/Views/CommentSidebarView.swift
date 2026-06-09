@@ -12,23 +12,19 @@
         let suffix: String
     }
 
-    /// Which comments the sidebar lists. `all` shows on-page comments then
-    /// detached ones below; `detached` shows only the detached.
-    enum CommentFilter: String, CaseIterable, Identifiable {
-        case all = "All"
-        case detached = "Detached"
-
-        var id: String { rawValue }
-    }
-
-    /// The right-docked comment panel: an "On this page" section (resolved
-    /// comments) and a "Detached" section (anchors that couldn't be located),
-    /// gated by a segmented filter. Pure presentation — the host maps
-    /// ``ResolvedComments`` into items and supplies the jump/delete actions.
+    /// The right-docked comment panel. Active cards float anchored beside the text
+    /// they annotate (``AnchoredCommentsLayout``) and follow it on scroll; a floating
+    /// header sits over the top, and detached comments (anchors that couldn't be
+    /// located) collect in a footer. Pure presentation — the host maps
+    /// ``ResolvedComments`` into items and supplies the jump/delete actions and the
+    /// ``PreviewMapState`` the anchors come from.
     struct CommentSidebarView: View {
         let active: [CommentSidebarItem]
         let detached: [CommentSidebarItem]
         let theme: AppTheme
+        /// Published positions: each active comment's scroll-space `y` plus the live
+        /// `viewportTop`, so cards anchor beside the text and follow it on scroll.
+        let mapState: PreviewMapState
         let onJump: (String) -> Void
         let onDelete: (String) -> Void
         let onClose: () -> Void
@@ -37,32 +33,61 @@
         let onHover: (String?) -> Void
 
         static let width: CGFloat = 300
-
-        @State private var filter: CommentFilter = .all
-        @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-        private var motion: MotionPreference {
-            MotionPreference(reduceMotion: reduceMotion)
-        }
-
-        private var hasActive: Bool { filter == .all && !active.isEmpty }
-        private var hasDetached: Bool { !detached.isEmpty }
-        private var isEmpty: Bool { !hasActive && !hasDetached }
+        /// The preview's `textContainerInset.height`, added back so a card lands
+        /// beside the live text rather than the inset-subtracted scroll-space mark.
+        private static let previewTopInset: CGFloat = 32
 
         var body: some View {
-            VStack(alignment: .leading, spacing: 12) {
-                header
-                CommentFilterPicker(filter: $filter, theme: theme, motion: motion)
-                content
-                    .animation(motion.resolved(.quickShift), value: active)
-                    .animation(motion.resolved(.quickShift), value: detached)
-                    .animation(motion.resolved(.quickShift), value: filter)
+            let map = mapState.documentMap
+            let cardTops = Dictionary(
+                map.comments.map { ($0.id, $0.y - map.viewportTop + Self.previewTopInset) },
+                uniquingKeysWith: { first, _ in first }
+            )
+            ZStack(alignment: .top) {
+                if active.isEmpty, detached.isEmpty {
+                    emptyState
+                } else {
+                    anchoredActiveCards(tops: cardTops)
+                }
+                headerBar
+                if !detached.isEmpty {
+                    VStack(spacing: 0) {
+                        Spacer(minLength: 0)
+                        detachedFooter
+                    }
+                }
             }
-            .padding(16)
-            .frame(width: Self.width, alignment: .leading)
+            .frame(width: Self.width)
             .frame(maxHeight: .infinity, alignment: .top)
             .background(theme.colors.backgroundSecondary)
             .environment(\.colorScheme, theme.colorScheme)
+        }
+
+        /// Active cards anchored beside their text, clipped to the panel. No implicit
+        /// animation: the per-frame reposition from the live `viewportTop` is the
+        /// scroll-follow, so animating it would lag the text.
+        private func anchoredActiveCards(tops: [String: CGFloat]) -> some View {
+            AnchoredCommentsLayout(gap: 8) {
+                ForEach(active) { item in
+                    ActiveCommentCard(item: item, theme: theme, onJump: onJump, onHover: onHover)
+                        .commentCardAnchor(tops[item.id] ?? 0)
+                }
+            }
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .clipped()
+        }
+
+        /// Opaque header pinned to the top; active cards scroll under it.
+        private var headerBar: some View {
+            VStack(spacing: 0) {
+                header
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .frame(maxWidth: .infinity)
+                    .background(theme.colors.backgroundSecondary)
+                Spacer(minLength: 0)
+            }
         }
 
         private var header: some View {
@@ -82,109 +107,35 @@
             }
         }
 
-        @ViewBuilder
-        private var content: some View {
-            if isEmpty {
-                emptyState
-                    .transition(.opacity)
-            } else {
+        private var detachedFooter: some View {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("DETACHED (\(detached.count))")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(theme.colors.foregroundSecondary)
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        if hasActive {
-                            section("On this page") {
-                                ForEach(active) { item in
-                                    ActiveCommentCard(
-                                        item: item, theme: theme,
-                                        onJump: onJump, onHover: onHover
-                                    )
-                                    .transition(.opacity)
-                                }
-                            }
-                        }
-                        if hasDetached {
-                            section("Detached (\(detached.count))") {
-                                Text("These comments' anchors are no longer in the document.")
-                                    .font(.caption)
-                                    .foregroundStyle(theme.colors.foregroundSecondary)
-                                ForEach(detached) { item in
-                                    DetachedCommentCard(
-                                        item: item, theme: theme, onDelete: onDelete
-                                    )
-                                    .transition(.opacity)
-                                }
-                            }
-                            .transition(.opacity)
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(detached) { item in
+                            DetachedCommentCard(item: item, theme: theme, onDelete: onDelete)
                         }
                     }
-                    .padding(.bottom, 8)
                 }
                 .scrollIndicators(.never)
-                .transition(.opacity)
+                .frame(maxHeight: 180)
             }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(theme.colors.backgroundSecondary)
         }
 
         private var emptyState: some View {
             VStack(spacing: 6) {
                 Image(systemName: "text.bubble")
                     .font(.system(size: 22))
-                Text(filter == .all ? "No comments yet" : "Nothing here")
+                Text("No comments yet")
                     .font(.callout)
             }
             .foregroundStyle(theme.colors.foregroundSecondary)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-
-        private func section(
-            _ title: String, @ViewBuilder _ rows: () -> some View
-        ) -> some View {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(title.uppercased())
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(theme.colors.foregroundSecondary)
-                rows()
-            }
-        }
-    }
-
-    /// Segmented filter control, themed (selected segment filled with `accent`).
-    /// Hand-rolled rather than a native segmented `Picker` so every color is a
-    /// ``ThemeColors`` token instead of the system accent.
-    private struct CommentFilterPicker: View {
-        @Binding var filter: CommentFilter
-        let theme: AppTheme
-        let motion: MotionPreference
-
-        @Namespace private var selection
-
-        var body: some View {
-            HStack(spacing: 0) {
-                ForEach(CommentFilter.allCases) { option in
-                    let selected = option == filter
-                    Text(option.rawValue)
-                        .font(.caption.weight(selected ? .semibold : .regular))
-                        .foregroundStyle(selected ? theme.colors.background : theme.colors.foregroundSecondary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 5)
-                        .background {
-                            // One matched capsule that slides between segments
-                            // rather than two that blink on/off.
-                            if selected {
-                                RoundedRectangle(cornerRadius: 5)
-                                    .fill(theme.colors.accent)
-                                    .matchedGeometryEffect(id: "selection", in: selection)
-                            }
-                        }
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            withAnimation(motion.resolved(.quickShift)) { filter = option }
-                        }
-                        .pointingHandCursor()
-                }
-            }
-            .padding(2)
-            .background(theme.colors.background)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
-            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(theme.colors.border.opacity(0.5)))
         }
     }
 
@@ -253,8 +204,8 @@
                 onHover(inside ? item.id : nil)
             }
             // Clear the document emphasis if this card is removed while hovered
-            // (filter switch, delete, sidebar close) — onHover(false) doesn't fire
-            // on removal, so the accent pill would otherwise stay painted.
+            // (delete, sidebar close) — onHover(false) doesn't fire on removal, so
+            // the accent pill would otherwise stay painted.
             .onDisappear { if hovering { onHover(nil) } }
             .pointingHandCursor()
             .animation(.easeInOut(duration: 0.15), value: hovering)
