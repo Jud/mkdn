@@ -70,17 +70,20 @@
                 .offset(x: Self.width - 7, y: top - 2)
         }
 
+        @ViewBuilder
         private func viewportThumb(map: PreviewDocumentMap, height: CGFloat) -> some View {
             let viewport = map.normalizedViewport
-            let thumbHeight = max(viewport.height * height, Self.minThumbHeight)
-            return RoundedRectangle(cornerRadius: 2)
-                .fill(colors.foreground.opacity(0.1))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 2)
-                        .stroke(colors.foreground.opacity(0.2), lineWidth: 1)
-                )
-                .frame(width: Self.width, height: thumbHeight)
-                .offset(y: max(min(viewport.top * height, height - thumbHeight), 0))
+            if viewport.height > 0 {
+                let thumbHeight = max(viewport.height * height, Self.minThumbHeight)
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(colors.foreground.opacity(0.1))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 2)
+                            .stroke(colors.foreground.opacity(0.2), lineWidth: 1)
+                    )
+                    .frame(width: Self.width, height: thumbHeight)
+                    .offset(y: max(min(viewport.top * height, height - thumbHeight), 0))
+            }
         }
 
         /// Band colour by kind — headings read strong and embedded content
