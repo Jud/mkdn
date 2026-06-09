@@ -76,6 +76,9 @@ public final class ProgressiveTextStorageBuild {
         maxBlocks: Int = .max, deadline: ContinuousClock.Instant? = nil
     ) -> NSAttributedString? {
         guard cursor < blocks.count else { return nil }
+        // Clamp so a computed budget that rounds to 0 (or negative) can't
+        // return an empty fragment without progress and livelock the caller.
+        let maxBlocks = max(1, maxBlocks)
         let fragment = NSMutableAttributedString()
         var built = 0
         while cursor < blocks.count, built < maxBlocks {
