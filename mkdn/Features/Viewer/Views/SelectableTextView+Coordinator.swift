@@ -436,17 +436,28 @@
                 guard let textView = textView as? CodeBlockBackgroundTextView,
                       let outlineState,
                       let model = documentHeightModel,
-                      let offsets = blockOffsets()
+                      let offsets = blockOffsets(),
+                      let textStorage = textView.textStorage
                 else { return nil }
-                let comments = (textView.resolvedComments?.active ?? [])
-                    .map { (id: $0.id, range: $0.range) }
+                let originY = textView.textContainerOrigin.y
+                // Measure each comment's y at intra-block precision (the line it sits on,
+                // not just its block top), then to scroll space — so a card anchors beside
+                // its own line and two comments in one paragraph don't stack on the top.
+                let comments: [(id: String, range: NSRange, y: CGFloat)] =
+                    (textView.resolvedComments?.active ?? []).compactMap { comment in
+                        guard let y = offsets.characterY(
+                            at: comment.range.location, in: textStorage,
+                            model: model, textWidth: textView.textWidth)
+                        else { return nil }
+                        return (id: comment.id, range: comment.range, y: y - originY)
+                    }
                 let bounds = textView.enclosingScrollView?.contentView.bounds ?? .zero
                 return PreviewDocumentMap.build(
                     headings: outlineState.flatHeadings,
                     comments: comments,
                     offsets: offsets,
                     blockModel: model,
-                    textContainerOriginY: textView.textContainerOrigin.y,
+                    textContainerOriginY: originY,
                     totalHeight: textView.frame.height,
                     viewportTop: bounds.origin.y,
                     viewportHeight: bounds.height

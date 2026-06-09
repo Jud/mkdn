@@ -47,12 +47,14 @@
     }
 
     extension PreviewDocumentMap {
-        /// Build the map from positions alone — no live `NSTextView`. `y` converts
-        /// each block top from text-view space to scroll space by subtracting
-        /// `textContainerOriginY`, the basis heading navigation uses.
+        /// Build the map from positions alone — no live `NSTextView`. Heading `y`
+        /// converts each block top from text-view space to scroll space by subtracting
+        /// `textContainerOriginY`. Comment `y` arrives already in scroll space (the
+        /// coordinator measured it at intra-block precision via ``DocumentBlockOffsets/
+        /// characterY(at:in:model:textWidth:)``); here it's only paired with its block.
         static func build(
             headings: [HeadingNode],
-            comments: [(id: String, range: NSRange)],
+            comments: [(id: String, range: NSRange, y: CGFloat)],
             offsets: DocumentBlockOffsets,
             blockModel: DocumentHeightModel,
             textContainerOriginY: CGFloat,
@@ -71,14 +73,13 @@
                 )
             }
             let commentMarks = comments.compactMap { comment -> CommentMark? in
-                guard let blockIndex = blockModel.blockIndex(containing: comment.range.location),
-                      let top = offsets.offset(forBlockIndex: blockIndex)
+                guard let blockIndex = blockModel.blockIndex(containing: comment.range.location)
                 else { return nil }
                 return CommentMark(
                     id: comment.id,
                     range: comment.range,
                     blockIndex: blockIndex,
-                    y: top - textContainerOriginY
+                    y: comment.y
                 )
             }
             let blocks = blockBands(

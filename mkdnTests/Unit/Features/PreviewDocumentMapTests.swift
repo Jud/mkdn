@@ -78,13 +78,15 @@
             #expect(map.headings.isEmpty)
         }
 
-        @Test("Comments map through their containing block to scroll-space y")
+        @Test("Comments carry their precomputed y and resolve their containing block")
         func buildComments() {
-            let comments: [(id: String, range: NSRange)] = [
-                (id: "a", range: NSRange(location: 5, length: 3)),   // block 0 -> y 0
-                (id: "b", range: NSRange(location: 10, length: 1)),  // boundary -> block 1 -> y 100
-                (id: "c", range: NSRange(location: 35, length: 2)),  // block 2 -> y 300
-                (id: "d", range: NSRange(location: 45, length: 0)),  // end -> block 2 -> y 300
+            // y is the coordinator's intra-block measure (tested in DocumentBlockOffsets);
+            // build pairs each comment with its block and passes the y straight through.
+            let comments: [(id: String, range: NSRange, y: CGFloat)] = [
+                (id: "a", range: NSRange(location: 5, length: 3), y: 12),   // block 0
+                (id: "b", range: NSRange(location: 10, length: 1), y: 108), // boundary -> block 1
+                (id: "c", range: NSRange(location: 35, length: 2), y: 305), // block 2
+                (id: "d", range: NSRange(location: 45, length: 0), y: 410), // end -> block 2
             ]
             let map = PreviewDocumentMap.build(
                 headings: [], comments: comments, offsets: offsets, blockModel: model,
@@ -92,7 +94,7 @@
             )
             #expect(map.comments.map(\.id) == ["a", "b", "c", "d"])
             #expect(map.comments.map(\.blockIndex) == [0, 1, 2, 2])
-            #expect(map.comments.map(\.y) == [0, 100, 300, 300])
+            #expect(map.comments.map(\.y) == [12, 108, 305, 410]) // passed through, not block tops
         }
 
         // MARK: - block bands
