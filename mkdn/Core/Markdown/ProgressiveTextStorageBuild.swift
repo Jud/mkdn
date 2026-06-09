@@ -8,7 +8,7 @@
 /// ``MarkdownTextStorageBuilder/build(blocks:colors:syntaxColors:scaleFactor:isPrint:appSettings:)``,
 /// produced block-at-a-time so the open path can build and install a
 /// first-viewport prefix, paint, then append the tail in main-actor slices
-/// (the viewport-first plan's progressive open).
+/// (docs/features/height-estimation/viewport-first-perf-plan.md).
 ///
 /// Heading offsets, block spans, and attachment block indices are recorded in
 /// final-document coordinates as chunks build, so ``partialResult()`` is a
@@ -24,7 +24,6 @@ public final class ProgressiveTextStorageBuild {
     private let isPrint: Bool
     private let appSettings: AppSettings?
 
-    /// Everything built so far; each chunk's fragment is appended here.
     private let accumulated = NSMutableAttributedString()
     private var attachments: [AttachmentInfo] = []
     private var blockSpans: [BlockSpan] = []
@@ -134,8 +133,7 @@ public final class ProgressiveTextStorageBuild {
 
     private func makeResult(with string: NSAttributedString) -> TextStorageResult {
         // Last-writer-wins on a duplicate source index (possible only with
-        // hand-built IndexedBlocks), matching the old loop's dictionary
-        // assignment rather than trapping.
+        // hand-built IndexedBlocks) rather than trapping.
         let headingOffsets = Dictionary(
             blockSpans.compactMap { span -> (Int, Int)? in
                 guard case .heading = span.kind else { return nil }

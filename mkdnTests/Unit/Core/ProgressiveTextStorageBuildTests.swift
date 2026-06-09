@@ -8,8 +8,8 @@ struct ProgressiveTextStorageBuildTests {
 
     /// Covers every block kind the builder dispatches on, including the
     /// attachment-backed ones (image, mermaid, math, table, thematic break),
-    /// nested lists, and inline styling, so chunk boundaries can land inside
-    /// any of them.
+    /// nested lists, and inline styling, so chunk boundaries can land next
+    /// to any of them.
     private let markdown = """
     # Title
 
@@ -100,8 +100,6 @@ struct ProgressiveTextStorageBuildTests {
                 guard let refValue = refAttrs[key] else { continue }
                 switch key {
                 case .attachment:
-                    // Independent builds create distinct attachment instances;
-                    // their placeholder geometry is the comparable part.
                     let bounds = (value as? NSTextAttachment)?.bounds
                     let refBounds = (refValue as? NSTextAttachment)?.bounds
                     #expect(bounds == refBounds, label)
