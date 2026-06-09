@@ -173,7 +173,11 @@
                     colorInfo: block.colorInfo
                 )
             }
-            areBlockRectsValid = true
+            // Don't validate an estimate-backed cache: a gesture that skipped the prefix
+            // layout above left the off-screen rects estimated, so leave the cache invalid to
+            // force one exact recompute on the first post-gesture draw (covers both the rail
+            // slide and window live-resize, including settles that don't resize the frame).
+            areBlockRectsValid = !isResizeGestureActive
         }
     }
 #endif
