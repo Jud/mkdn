@@ -102,8 +102,11 @@
                     .background(appSettings.theme.colors.background)
                     // The rail is a layout sibling, not an overlay: the preview's
                     // width shrinks as the rail opens, so the text reflows into the
-                    // narrowed viewport instead of being covered by it.
-                    .frame(width: max(proxy.size.width - railWidth, 0))
+                    // narrowed viewport instead of being covered by it. The marker
+                    // track is a second, constant-width sibling on the preview's right.
+                    .frame(width: max(proxy.size.width - railWidth - ScrollMarkerTrack.width, 0))
+
+                    ScrollMarkerTrack(state: mapState)
 
                     if documentState.canShowCommentSidebar {
                         CommentSidebarView(
