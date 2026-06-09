@@ -74,6 +74,15 @@ struct ProvisionalHeightEstimatorTests {
             + "全角文字が続く段落では行数を過小評価しやすい。", count: 3)
     }.joined(separator: "\n\n")
 
+    /// Maximally ragged word wrap: long unbreakable tokens force mid-word
+    /// breaks and short words leave lines ragged — the documented failure
+    /// mode of a character-count wrap estimate.
+    private let raggedDocument = (0 ..< 12).map { index in
+        "See https://example.com/very/long/unbreakable/path/segment-\(index)/"
+            + "abcdefghijklmnopqrstuvwxyz0123456789 or a b c d e f g h i j k l "
+            + "supercalifragilisticexpialidocious m n o p q r s t u v w x y z."
+    }.joined(separator: "\n\n")
+
     /// Sentence-length cells wrap to several lines per row — the case a
     /// flat per-row height misses.
     private let tableDocument = """
@@ -96,10 +105,11 @@ struct ProvisionalHeightEstimatorTests {
     @MainActor func floorCoversExactMeasure() {
         let inset: CGFloat = 32
         for markdown in [
-            mixedDocument, proseDocument, codeDocument, cjkDocument, tableDocument,
+            mixedDocument, proseDocument, codeDocument, cjkDocument,
+            tableDocument, raggedDocument,
         ] {
+            let blocks = MarkdownRenderer.render(text: markdown, theme: theme)
             for scale in [0.5, 1.0, 1.25] as [CGFloat] {
-                let blocks = MarkdownRenderer.render(text: markdown, theme: theme)
                 let result = MarkdownTextStorageBuilder.build(
                     blocks: blocks, theme: theme, scaleFactor: scale
                 )

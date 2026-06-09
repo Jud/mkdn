@@ -79,6 +79,7 @@ public enum MarkdownTextStorageBuilder {
     // MARK: - Constants
 
     static let blockSpacing: CGFloat = 16
+    static let lineSpacing: CGFloat = 2
     static let paragraphBottomMargin: CGFloat = 10
     /// GitHub's CSS uses uniform 1.5rem (24px) top-margin for h1-h6;
     /// per-level prominence comes from font size alone.
@@ -352,7 +353,7 @@ public enum MarkdownTextStorageBuilder {
     // MARK: - Paragraph Style Helpers
 
     static func makeParagraphStyle(
-        lineSpacing: CGFloat = 2,
+        lineSpacing: CGFloat = Self.lineSpacing,
         paragraphSpacing: CGFloat = 0,
         paragraphSpacingBefore: CGFloat = 0,
         headIndent: CGFloat = 0,

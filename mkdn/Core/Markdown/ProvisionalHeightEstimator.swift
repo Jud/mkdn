@@ -5,7 +5,7 @@
 #endif
 
 /// Cheap whole-document height floor computed from the parsed blocks alone —
-/// no Core Text over the content (two one-line sample measurements derive the
+/// no Core Text over the content (one-line sample measurements derive the
 /// per-font metrics). A progressive open seeds `estimatedHeightFloor` from
 /// this before any tail content exists, so the scroller reflects roughly the
 /// full document from first paint; the exact per-block pass replaces it when
@@ -22,6 +22,12 @@ public enum ProvisionalHeightEstimator {
     /// cover the worst fixture before the exact pass lands.
     private static let bias: CGFloat = 1.35
 
+    /// Table placeholders are sized with the unscaled body font (see
+    /// `tableEstimate`), so their metrics are a process-wide constant.
+    private static let tableBodyMetrics = FontMetrics(
+        font: PlatformTypeConverter.bodyFont()
+    )
+
     public static func provisionalHeight(
         of blocks: [IndexedBlock],
         textWidth: CGFloat,
@@ -29,84 +35,98 @@ public enum ProvisionalHeightEstimator {
         verticalInset: CGFloat
     ) -> CGFloat {
         guard !blocks.isEmpty, textWidth > 0 else { return 0 }
-        let body = FontMetrics(
-            font: PlatformTypeConverter.bodyFont(scaleFactor: scaleFactor)
-        )
-        let mono = FontMetrics(
-            font: PlatformTypeConverter.monospacedFont(scaleFactor: scaleFactor)
-        )
-        var height: CGFloat = 0
-        for indexed in blocks {
-            height += estimate(
-                indexed.block, textWidth: textWidth, scaleFactor: scaleFactor,
-                body: body, mono: mono
-            )
+        var context = Context(scaleFactor: scaleFactor)
+        let total = blocks.reduce(0) { sum, indexed in
+            sum + context.estimate(indexed.block, textWidth: textWidth)
         }
-        return ceil(height * Self.bias) + verticalInset * 2
+        return ceil(total * Self.bias) + verticalInset * 2
     }
 
     // MARK: - Per-Block Estimate
 
-    // Spacing constants (blockSpacing, margins, padding, indents) are used
-    // unscaled, matching the builder's paragraph styles — only fonts zoom.
-    private static func estimate(
-        _ block: MarkdownBlock,
-        textWidth: CGFloat,
-        scaleFactor: CGFloat,
-        body: FontMetrics,
-        mono: FontMetrics
-    ) -> CGFloat {
-        let spacing = MarkdownTextStorageBuilder.blockSpacing
-        switch block {
-        case let .heading(level, text):
-            let font = PlatformTypeConverter.headingFont(level: level, scaleFactor: scaleFactor)
-            let metrics = FontMetrics(font: font)
-            let lines = wrappedLines(
-                String(text.characters), charsPerLine: textWidth / metrics.averageCharWidth
+    /// The loop-invariant font metrics, with heading metrics cached per
+    /// level so a document with many headings measures each level's sample
+    /// once instead of per block.
+    @MainActor
+    private struct Context {
+        let scaleFactor: CGFloat
+        let body: FontMetrics
+        let mono: FontMetrics
+        private var headingMetrics = [FontMetrics?](repeating: nil, count: 6)
+
+        init(scaleFactor: CGFloat) {
+            self.scaleFactor = scaleFactor
+            body = FontMetrics(
+                font: PlatformTypeConverter.bodyFont(scaleFactor: scaleFactor)
             )
-            return lines * metrics.lineHeight
-                + MarkdownTextStorageBuilder.headingTopMargin + spacing
-        case let .paragraph(text):
-            let lines = wrappedLines(
-                String(text.characters), charsPerLine: textWidth / body.averageCharWidth
+            mono = FontMetrics(
+                font: PlatformTypeConverter.monospacedFont(scaleFactor: scaleFactor)
             )
-            return lines * body.lineHeight
-                + MarkdownTextStorageBuilder.paragraphBottomMargin + spacing
-        case let .htmlBlock(content):
-            let lines = wrappedLines(content, charsPerLine: textWidth / mono.averageCharWidth)
-            return lines * mono.lineHeight + spacing
-        case let .codeBlock(_, code):
-            let codeWidth = textWidth - 2 * MarkdownTextStorageBuilder.codeBlockPadding
-            let lines = wrappedLines(
-                code.trimmingCharacters(in: .whitespacesAndNewlines),
-                charsPerLine: codeWidth / mono.averageCharWidth
+        }
+
+        private mutating func headingMetrics(level: Int) -> FontMetrics {
+            let slot = min(max(level, 1), 6) - 1
+            if let cached = headingMetrics[slot] { return cached }
+            let metrics = FontMetrics(
+                font: PlatformTypeConverter.headingFont(level: level, scaleFactor: scaleFactor)
             )
-            // One extra line covers the language label row.
-            return (lines + 1) * mono.lineHeight
-                + 2 * MarkdownTextStorageBuilder.codeBlockPadding + spacing
-        case .mermaidBlock, .image, .mathBlock:
-            return MarkdownTextStorageBuilder.attachmentPlaceholderHeight + spacing
-        case .thematicBreak:
-            return MarkdownTextStorageBuilder.thematicBreakHeight + spacing
-        case let .table(columns, rows):
-            return tableEstimate(columns: columns, rows: rows) + spacing
-        case let .blockquote(blocks):
-            let indented = textWidth - MarkdownTextStorageBuilder.blockquoteIndent
-            return blocks.reduce(0) { sum, inner in
-                sum + estimate(
-                    inner, textWidth: max(indented, 1), scaleFactor: scaleFactor,
-                    body: body, mono: mono
-                )
+            headingMetrics[slot] = metrics
+            return metrics
+        }
+
+        private mutating func sum(_ blocks: [MarkdownBlock], textWidth: CGFloat) -> CGFloat {
+            blocks.reduce(0) { sum, block in
+                sum + estimate(block, textWidth: max(textWidth, 1))
             }
-        case let .orderedList(items), let .unorderedList(items):
-            let indented = textWidth - MarkdownTextStorageBuilder.listPrefixWidth
-            return items.reduce(0) { sum, item in
-                sum + item.blocks.reduce(0) { itemSum, inner in
-                    itemSum + estimate(
-                        inner, textWidth: max(indented, 1), scaleFactor: scaleFactor,
-                        body: body, mono: mono
-                    )
-                } + MarkdownTextStorageBuilder.listItemSpacing
+        }
+
+        // Spacing constants (blockSpacing, margins, padding, indents) are
+        // used unscaled, matching the builder's paragraph styles — only
+        // fonts zoom.
+        mutating func estimate(_ block: MarkdownBlock, textWidth: CGFloat) -> CGFloat {
+            let spacing = MarkdownTextStorageBuilder.blockSpacing
+            switch block {
+            case let .heading(level, text):
+                let metrics = headingMetrics(level: level)
+                let lines = wrappedLines(
+                    String(text.characters), charsPerLine: textWidth / metrics.averageCharWidth
+                )
+                return lines * metrics.lineHeight
+                    + MarkdownTextStorageBuilder.headingTopMargin + spacing
+            case let .paragraph(text):
+                let lines = wrappedLines(
+                    String(text.characters), charsPerLine: textWidth / body.averageCharWidth
+                )
+                return lines * body.lineHeight
+                    + MarkdownTextStorageBuilder.paragraphBottomMargin + spacing
+            case let .htmlBlock(content):
+                let lines = wrappedLines(content, charsPerLine: textWidth / mono.averageCharWidth)
+                return lines * mono.lineHeight + spacing
+            case let .codeBlock(_, code):
+                let codeWidth = textWidth - 2 * MarkdownTextStorageBuilder.codeBlockPadding
+                let lines = wrappedLines(
+                    code.trimmingCharacters(in: .whitespacesAndNewlines),
+                    charsPerLine: codeWidth / mono.averageCharWidth
+                )
+                // One extra line covers the language label row.
+                return (lines + 1) * mono.lineHeight
+                    + 2 * MarkdownTextStorageBuilder.codeBlockPadding + spacing
+            case .mermaidBlock, .image, .mathBlock:
+                return MarkdownTextStorageBuilder.attachmentPlaceholderHeight + spacing
+            case .thematicBreak:
+                return MarkdownTextStorageBuilder.thematicBreakHeight + spacing
+            case let .table(columns, rows):
+                return tableEstimate(columns: columns, rows: rows) + spacing
+            case let .blockquote(blocks):
+                return sum(
+                    blocks, textWidth: textWidth - MarkdownTextStorageBuilder.blockquoteIndent
+                )
+            case let .orderedList(items), let .unorderedList(items):
+                let indented = textWidth - MarkdownTextStorageBuilder.listPrefixWidth
+                return items.reduce(0) { sum, item in
+                    sum + self.sum(item.blocks, textWidth: indented)
+                        + MarkdownTextStorageBuilder.listItemSpacing
+                }
             }
         }
     }
@@ -121,46 +141,43 @@ public enum ProvisionalHeightEstimator {
         columns: [TableColumn],
         rows: [[AttributedString]]
     ) -> CGFloat {
-        let body = FontMetrics(font: PlatformTypeConverter.bodyFont())
+        let body = tableBodyMetrics
         let columnWidth = MarkdownTextStorageBuilder.defaultEstimationContainerWidth
             / CGFloat(max(columns.count, 1)) * 0.75
         let charsPerLine = columnWidth / body.averageCharWidth
-        let headerCells = columns.map { String($0.header.characters) }
-        let rowHeights = ([headerCells] + rows.map { row in
-            row.map { String($0.characters) }
-        }).map { cells -> CGFloat in
-            let cellLines = cells.map { wrappedLines($0, charsPerLine: charsPerLine) }
-            return (cellLines.max() ?? 1) * body.lineHeight * 1.2 + 12
+        return ([columns.map(\.header)] + rows).reduce(0) { sum, cells in
+            let maxLines = cells.reduce(CGFloat(1)) { maxSoFar, cell in
+                max(maxSoFar, wrappedLines(String(cell.characters), charsPerLine: charsPerLine))
+            }
+            return sum + maxLines * body.lineHeight * TableColumnSizer.wrappingOverhead
+                + TableColumnSizer.verticalCellPadding * 2
         }
-        return rowHeights.reduce(0, +)
     }
 
     /// Wrapped line count of `text` when each line holds `charsPerLine`
-    /// width units: hard newlines split, each piece wraps by its weighted
-    /// length — CJK and fullwidth glyphs count double, since they run about
-    /// twice the width of the ASCII sample average.
+    /// width units, in one scalar pass: hard newlines split, each piece
+    /// wraps by its weighted length — CJK and fullwidth glyphs count double,
+    /// since they run about twice the width of the ASCII sample average.
     private static func wrappedLines(_ text: String, charsPerLine: CGFloat) -> CGFloat {
         guard charsPerLine >= 1 else { return CGFloat(max(1, text.count)) }
         var lines: CGFloat = 0
-        for line in text.split(separator: "\n", omittingEmptySubsequences: false) {
-            lines += max(1, (CGFloat(weightedLength(of: line)) / charsPerLine).rounded(.up))
-        }
-        return max(1, lines)
-    }
-
-    /// Length with wide (East Asian) scalars counted as two units: CJK
-    /// radicals through ideographs, kana and CJK punctuation, Hangul, and
-    /// fullwidth forms.
-    private static func weightedLength(of line: Substring) -> Int {
-        line.unicodeScalars.reduce(0) { count, scalar in
-            switch scalar.value {
-            case 0x2E80 ... 0x9FFF, 0xAC00 ... 0xD7AF, 0xF900 ... 0xFAFF,
-                 0xFF00 ... 0xFF60:
-                count + 2
-            default:
-                count + 1
+        var lineWeight = 0
+        for scalar in text.unicodeScalars {
+            if scalar == "\n" {
+                lines += max(1, (CGFloat(lineWeight) / charsPerLine).rounded(.up))
+                lineWeight = 0
+            } else {
+                switch scalar.value {
+                case 0x2E80 ... 0x9FFF, 0xAC00 ... 0xD7AF, 0xF900 ... 0xFAFF,
+                     0xFF00 ... 0xFF60:
+                    lineWeight += 2
+                default:
+                    lineWeight += 1
+                }
             }
         }
+        lines += max(1, (CGFloat(lineWeight) / charsPerLine).rounded(.up))
+        return lines
     }
 
     /// Line height and average glyph width for one font, derived from a
@@ -171,8 +188,8 @@ public enum ProvisionalHeightEstimator {
 
         @MainActor
         init(font: PlatformTypeConverter.PlatformFont) {
-            // The builder's paragraph styles add 2pt line spacing.
-            lineHeight = ceil(font.ascender - font.descender + font.leading) + 2
+            lineHeight = ceil(font.ascender - font.descender + font.leading)
+                + MarkdownTextStorageBuilder.lineSpacing
             let sample = "the quick brown fox jumps over 0123456789"
             let width = NSAttributedString(
                 string: sample, attributes: [.font: font]
