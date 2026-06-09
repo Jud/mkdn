@@ -384,9 +384,8 @@
                 return viewY - originY
             }
 
-            /// The text view's shared per-block offsets — computed once alongside the height
-            /// floor and reused here for heading navigation and the document map, so the
-            /// per-block Core Text pass runs once per content/width, not once per consumer.
+            /// The text view's shared per-block offsets (see
+            /// `CodeBlockBackgroundTextView.blockOffsets`).
             private func blockOffsets() -> DocumentBlockOffsets? {
                 (textView as? CodeBlockBackgroundTextView)?.currentBlockOffsets()
             }

@@ -183,15 +183,14 @@
         /// height changes at a fixed width (attachment resolution) to force a recompute.
         private var lastEstimatedWidth: CGFloat?
 
-        /// Per-block offsets for the current content at `lastEstimatedWidth`, the single
-        /// shared product of the per-block Core Text pass: ``refreshEstimatedHeight``
-        /// recomputes and replaces it on every re-measure, and the coordinator's heading
-        /// navigation and document map read this same cache via ``currentBlockOffsets()`` —
-        /// so the pass runs once per content/width, not once per consumer. Freed wherever
-        /// block tops can shift before a synchronous refresh reaches it: the resize-gesture
-        /// starts (sidebar slide, window live-resize), which suppress the per-frame refresh,
-        /// and attachment resolution, whose height re-estimate is debounced — so a reader in
-        /// that window recomputes fresh instead of reading stale tops.
+        /// Shared cache of the per-block Core Text pass at `lastEstimatedWidth`:
+        /// ``refreshEstimatedHeight`` recomputes and replaces it on every re-measure, and the
+        /// heading navigation and document map read it via ``currentBlockOffsets()`` — one
+        /// pass per content/width. Freed wherever block tops can shift before a synchronous
+        /// refresh reaches it: the resize-gesture starts (sidebar slide, window live-resize),
+        /// which suppress the per-frame refresh, and attachment resolution, whose height
+        /// re-estimate is debounced — so a reader in that window recomputes fresh instead of
+        /// reading stale tops.
         var blockOffsets: DocumentBlockOffsets?
 
         private var refreshHeightWorkItem: DispatchWorkItem?
@@ -299,9 +298,8 @@
             lastEstimatedWidth = textWidth
             // Per-block sum when a model is present (dodges the super-linear whole-document
             // measure — the open-time freeze on large, fallback-heavy docs), else whole-doc.
-            // The per-block pass is cached in `blockOffsets` and shared with the heading
-            // navigation and document map, so it runs once per content/width. The cached
-            // total equals the height-only estimate — `buildOffsets` only adds the array.
+            // The cached total equals the old height-only estimate — `buildOffsets` only adds
+            // the per-block array, never the total.
             let estimate: CGFloat
             if documentHeightModel != nil {
                 // Any non-nil model routes through the shared offsets: the builder emits one
@@ -322,16 +320,13 @@
 
         /// Per-block offsets at the current width — the cached pass if present, else computed
         /// once and cached. A Core Text per-block measure, accurate off-viewport where TextKit
-        /// returns estimated frames. Shared by the height floor, heading navigation, and the
-        /// document map so the pass isn't repeated per consumer; nil until a model and real
-        /// width exist.
+        /// returns estimated frames; nil until a model and real width exist.
         func currentBlockOffsets() -> DocumentBlockOffsets? {
             blockOffsets ?? computeBlockOffsets()
         }
 
         /// Measure the per-block offsets at the current width and cache them, replacing any
-        /// prior generation — the sole compute site. `refreshEstimatedHeight` calls it to
-        /// force a fresh pass on each re-measure; `currentBlockOffsets()` calls it lazily.
+        /// prior generation — the sole compute site.
         private func computeBlockOffsets() -> DocumentBlockOffsets? {
             guard let textStorage, let documentHeightModel, textWidth > 0 else { return nil }
             let offsets = DocumentBlockOffsets.compute(
