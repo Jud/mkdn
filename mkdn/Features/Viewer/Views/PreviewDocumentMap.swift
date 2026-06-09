@@ -23,8 +23,8 @@
     /// Heading, comment, and viewport positions within the preview's vertical
     /// extent, all in scroll (clip-view) coordinates. The text-view coordinator
     /// builds it from ``DocumentBlockOffsets`` once per content/width/scroll change;
-    /// the scroll-marker track (and later the minimap) consume it, so those views
-    /// never touch TextKit or the coordinate conversions.
+    /// the scroll-marker track consumes it, so those views never touch TextKit or
+    /// the coordinate conversions.
     struct PreviewDocumentMap: Equatable {
         /// The text view's real frame height — the denominator for normalizing a `y`
         /// onto a track, so marks track the actual scroller rather than the estimate.
@@ -39,9 +39,9 @@
     }
 
     extension PreviewDocumentMap {
-        /// Build the map from positions alone — no live `NSTextView` — so the math is
-        /// testable. `y` converts each block top from text-view space to scroll space
-        /// by subtracting `textContainerOriginY`, the basis heading navigation uses.
+        /// Build the map from positions alone — no live `NSTextView`. `y` converts
+        /// each block top from text-view space to scroll space by subtracting
+        /// `textContainerOriginY`, the basis heading navigation uses.
         static func build(
             headings: [HeadingNode],
             comments: [(id: String, range: NSRange)],
