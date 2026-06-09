@@ -2,10 +2,9 @@
     import SwiftUI
 
     /// A wider navigation panel showing the document's block structure as per-kind
-    /// colored bands, with comment marks and a viewport thumb — ``ScrollMarkerTrack``
-    /// zoomed out to the whole-document shape. Reads ``PreviewMapState/documentMap``
-    /// and jumps via ``PreviewMapState/scrollTo``; a tap (or drag) scrolls to the
-    /// matching fraction of the document, so clicking a band lands on that block.
+    /// colored bands, with comment marks and a viewport thumb. Reads
+    /// ``PreviewMapState/documentMap`` and jumps via ``PreviewMapState/scrollTo``:
+    /// a tap (or drag) scrolls to the matching fraction of the document.
     struct DocumentMinimap: View {
         let state: PreviewMapState
 
@@ -85,8 +84,7 @@
         }
 
         /// Band colour by kind — headings read strong and embedded content
-        /// (code/table/image/math) gets accent hues; body text recedes, so the
-        /// panel takes on the document's shape.
+        /// (code/table/image/math) gets accent hues; body text recedes.
         private func fillColor(_ kind: BlockKind) -> Color {
             switch kind {
             case .heading: colors.headingColor
