@@ -92,12 +92,45 @@ public struct DocumentBlockOffsets {
         textWidth: CGFloat,
         verticalInset: CGFloat
     ) -> DocumentBlockOffsets {
+        let measured = measure(
+            of: attributedString, model: model, textWidth: textWidth,
+            verticalInset: verticalInset, buildOffsets: true)
+        return DocumentBlockOffsets(blocks: measured.blocks, totalHeight: measured.totalHeight)
+    }
+
+    /// The document's estimated height from the per-block sum, without building the
+    /// offsets array — the fast path for sizing the scroll view. A whole-document
+    /// `boundingRect` is super-linear in string length for some content (font fallback),
+    /// so the per-block sum is ~12x cheaper and lands on the same height (see `measure`).
+    @MainActor
+    public static func estimatedHeight(
+        of attributedString: NSAttributedString,
+        model: DocumentHeightModel,
+        textWidth: CGFloat,
+        verticalInset: CGFloat
+    ) -> CGFloat {
+        measure(
+            of: attributedString, model: model, textWidth: textWidth,
+            verticalInset: verticalInset, buildOffsets: false).totalHeight
+    }
+
+    /// The one per-block pass behind both the offsets and the height-only estimate, so the
+    /// seam math can't drift between them. Measures each block once and accumulates its
+    /// contiguous-layout contribution; records per-block tops only when `buildOffsets`.
+    @MainActor
+    private static func measure(
+        of attributedString: NSAttributedString,
+        model: DocumentHeightModel,
+        textWidth: CGFloat,
+        verticalInset: CGFloat,
+        buildOffsets: Bool
+    ) -> (totalHeight: CGFloat, blocks: [BlockOffset]) {
         guard textWidth > 0, !model.blocks.isEmpty, attributedString.length > 0 else {
-            return DocumentBlockOffsets(blocks: [], totalHeight: 0)
+            return (0, [])
         }
         let string = attributedString.string as NSString
         var blocks: [BlockOffset] = []
-        blocks.reserveCapacity(model.blocks.count)
+        if buildOffsets { blocks.reserveCapacity(model.blocks.count) }
         // Running height of every block above the current one. Each block is measured
         // once and accumulated (not the whole prefix re-measured per block), so the pass
         // is O(total characters), not O(blocks^2).
@@ -118,8 +151,10 @@ public struct DocumentBlockOffsets {
                 ? ((attributedString.attribute(.paragraphStyle, at: start, effectiveRange: nil)
                         as? NSParagraphStyle)?.paragraphSpacingBefore ?? 0)
                 : 0
-            blocks.append(
-                BlockOffset(index: block.index, top: verticalInset + cumulative + spacingBefore))
+            if buildOffsets {
+                blocks.append(
+                    BlockOffset(index: block.index, top: verticalInset + cumulative + spacingBefore))
+            }
             guard block.range.length > 0 else { continue }
             // Advance the running height by this block's contiguous-layout contribution.
             // Two corrections to the isolated measure: subtract the phantom empty line a
@@ -137,13 +172,11 @@ public struct DocumentBlockOffsets {
             cumulative += blockHeight - phantom + spacingBefore
             lastTrailingPhantom = phantom
         }
-        // Total from the per-block sum, not a whole-document `boundingRect`: Core Text
-        // layout is super-linear in string length for some content (font fallback), so one
-        // whole-document measure costs ~12x the sum of per-block measures. `cumulative`
-        // already telescopes to the document content height minus its final trailing empty
-        // line; add that line back, then ceil + insets (the over-estimate bias).
+        // Total from the per-block sum, not a whole-document `boundingRect`. `cumulative`
+        // telescopes to the document content height minus its final trailing empty line;
+        // add that line back, then ceil + insets (the over-estimate bias).
         let total = ceil(cumulative + lastTrailingPhantom) + verticalInset * 2
-        return DocumentBlockOffsets(blocks: blocks, totalHeight: total)
+        return (total, blocks)
     }
 
     /// Height of the lone empty line `boundingRect` adds for the newline at

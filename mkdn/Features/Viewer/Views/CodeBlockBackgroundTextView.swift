@@ -158,6 +158,11 @@
         /// (load, resize end); cleared during a slide/drag so the reflow is free.
         var estimatedHeightFloor: CGFloat?
 
+        /// Block spans for the current content, set alongside each storage swap. Lets
+        /// `refreshEstimatedHeight` size the scroller from the per-block sum (fast) rather
+        /// than a whole-document `boundingRect` (super-linear in length for some content).
+        var documentHeightModel: DocumentHeightModel?
+
         private var refreshHeightWorkItem: DispatchWorkItem?
 
         /// How long to wait for an attachment-resolution burst to settle before
@@ -254,11 +259,19 @@
             // Bail at a collapsed/degenerate width: a zero estimate must not shrink a
             // non-empty view to nothing now that sizing is bidirectional.
             guard let textStorage, textWidth > 0 else { return }
-            let estimate = DocumentHeightEstimator.estimatedHeight(
-                of: textStorage,
-                textWidth: textWidth,
-                verticalInset: textContainerInset.height
-            )
+            let estimate: CGFloat
+            if let model = documentHeightModel, !model.blocks.isEmpty {
+                // Fast path: sum per-block heights, dodging the super-linear whole-document
+                // measure (the open-time freeze on large, fallback-heavy documents).
+                estimate = DocumentBlockOffsets.estimatedHeight(
+                    of: textStorage, model: model,
+                    textWidth: textWidth, verticalInset: textContainerInset.height)
+            } else {
+                // No block model (non-markdown content, or before the model is wired): the
+                // whole-document measure is correct but slow on long strings.
+                estimate = DocumentHeightEstimator.estimatedHeight(
+                    of: textStorage, textWidth: textWidth, verticalInset: textContainerInset.height)
+            }
             estimatedHeightFloor = estimate
             if abs(frame.height - estimate) > 0.5 {
                 setFrameSize(NSSize(width: frame.width, height: estimate))

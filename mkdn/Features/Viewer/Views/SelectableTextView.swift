@@ -105,6 +105,7 @@
             textView.documentState = documentState
             textView.commentTheme = theme
 
+            textView.documentHeightModel = documentHeightModel
             textView.textStorage?.setAttributedString(attributedText)
             textView.realizeViewportAfterContainerResize(hardInvalidate: false)
             textView.refreshEstimatedHeight()
@@ -304,6 +305,7 @@
             } else {
                 textView.dismissCommentOverlay()
             }
+            textView.documentHeightModel = documentHeightModel
             textView.textStorage?.setAttributedString(attributedText)
             textView.realizeViewportAfterContainerResize(hardInvalidate: false)
             textView.refreshEstimatedHeight()
