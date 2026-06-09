@@ -135,8 +135,12 @@
             // every block's Y depends on all preceding layout — so the frames
             // below are final. (Trailing content can't affect a block rect, so
             // there's no need to lay out past the last block.)
+            // During a width gesture (rail slide / window live-resize) the visible blocks are
+            // already laid out by the viewport pass the re-pin just ran; skip the O(document)
+            // prefix layout that finalizes off-screen blocks — they aren't drawn mid-gesture,
+            // and the settle recomputes the exact rects once at the end.
             let lastBlockEnd = blocks.map(\.range.upperBound).max() ?? 0
-            if let layoutRange = textRange(
+            if !isResizeGestureActive, let layoutRange = textRange(
                 from: NSRange(location: 0, length: lastBlockEnd),
                 contentManager: contentManager
             ) {
