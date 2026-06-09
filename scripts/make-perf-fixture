@@ -3,8 +3,8 @@
 
 The block mix (prose-heavy with regular code blocks, lists, tables, quotes,
 and math) approximates a long technical design doc — the document class the
-viewport-first perf plan targets. Images and Mermaid are excluded by default
-so timings aren't dominated by async overlay loads.
+viewport-first perf plan targets. Images and Mermaid are excluded so timings
+aren't dominated by async overlay loads.
 """
 import argparse
 import random
