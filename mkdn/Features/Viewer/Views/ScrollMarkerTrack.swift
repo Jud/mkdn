@@ -45,15 +45,11 @@
 
         @ViewBuilder
         private func viewportThumb(map: PreviewDocumentMap, height: CGFloat) -> some View {
-            let viewport = map.normalizedViewport
-            if viewport.height > 0 {
-                // Floor the height so a tiny viewport stays visible, then clamp the
-                // offset so that floor can't push the thumb past the track's bottom.
-                let thumbHeight = max(viewport.height * height, Self.minThumbHeight)
+            if let thumb = map.thumbMetrics(trackHeight: height, minHeight: Self.minThumbHeight) {
                 RoundedRectangle(cornerRadius: 3)
                     .fill(colors.foreground.opacity(0.12))
-                    .frame(width: Self.width, height: thumbHeight)
-                    .offset(y: max(min(viewport.top * height, height - thumbHeight), 0))
+                    .frame(width: Self.width, height: thumb.height)
+                    .offset(y: thumb.offset)
             }
         }
 

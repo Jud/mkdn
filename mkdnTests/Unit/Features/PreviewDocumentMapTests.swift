@@ -153,5 +153,23 @@
 
             #expect(PreviewDocumentMap(totalHeight: 0).normalizedViewport.height == 0)
         }
+
+        @Test("thumbMetrics floors the height and clamps the offset into the track")
+        func thumbMetrics() {
+            let map = PreviewDocumentMap(totalHeight: 400, viewportTop: 100, viewportHeight: 200)
+            let metrics = map.thumbMetrics(trackHeight: 100, minHeight: 20)
+            #expect(metrics?.height == 50) // 0.5 * 100
+            #expect(metrics?.offset == 25) // 0.25 * 100
+
+            // A tiny viewport floors to minHeight; the offset clamps so the thumb's
+            // bottom stays at the track end (90 would overhang past 100-20).
+            let tiny = PreviewDocumentMap(totalHeight: 1000, viewportTop: 900, viewportHeight: 10)
+            let clamped = tiny.thumbMetrics(trackHeight: 100, minHeight: 20)
+            #expect(clamped?.height == 20)
+            #expect(clamped?.offset == 80)
+
+            // No viewport to show -> nil.
+            #expect(PreviewDocumentMap(totalHeight: 0).thumbMetrics(trackHeight: 100, minHeight: 20) == nil)
+        }
     }
 #endif

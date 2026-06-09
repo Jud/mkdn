@@ -129,5 +129,17 @@
             let height = min(max(viewportHeight / totalHeight, 0), 1 - top)
             return (top, height)
         }
+
+        /// The viewport thumb's `(height, offset)` on a track of `trackHeight`: the
+        /// height floored to `minHeight`, the offset clamped so the floored thumb stays
+        /// within the track. `nil` when there's no viewport to show. Shared by the
+        /// marker track and the minimap so the clamping can't drift between them.
+        func thumbMetrics(trackHeight: CGFloat, minHeight: CGFloat) -> (height: CGFloat, offset: CGFloat)? {
+            let viewport = normalizedViewport
+            guard viewport.height > 0 else { return nil }
+            let height = max(viewport.height * trackHeight, minHeight)
+            let offset = max(min(viewport.top * trackHeight, trackHeight - height), 0)
+            return (height, offset)
+        }
     }
 #endif
