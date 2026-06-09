@@ -44,18 +44,19 @@
                 uniquingKeysWith: { first, _ in first }
             )
             ZStack(alignment: .top) {
-                if active.isEmpty, detached.isEmpty {
-                    emptyState
-                } else {
-                    anchoredActiveCards(tops: cardTops)
-                }
-                headerBar
-                if !detached.isEmpty {
-                    VStack(spacing: 0) {
-                        Spacer(minLength: 0)
+                // Cards fill the space above the footer (not under it): the footer is
+                // opaque, so an overlapping ZStack sibling would occlude bottom cards.
+                VStack(spacing: 0) {
+                    if active.isEmpty, detached.isEmpty {
+                        emptyState
+                    } else {
+                        anchoredActiveCards(tops: cardTops)
+                    }
+                    if !detached.isEmpty {
                         detachedFooter
                     }
                 }
+                headerBar
             }
             .frame(width: Self.width)
             .frame(maxHeight: .infinity, alignment: .top)
