@@ -29,8 +29,7 @@
             // Lay out just the viewport (not the whole prefix above it) so the capture reads
             // the visible fragments' current on-screen positions. The pin tracks the anchor's
             // screen position via per-frame drift, so an estimate-backed absolute y is the
-            // right baseline here and in the restore — the one exact prefix layout is deferred
-            // to the settle.
+            // right baseline here and in the restore.
             let controller = textLayoutManager.textViewportLayoutController
             controller.layoutViewport()
             guard let viewportRange = controller.viewportRange else { return }
@@ -72,10 +71,8 @@
         /// holds its screen position. `newTop` and the scroll target both come from that one
         /// layout pass, so `newTop + delta` is self-consistent within the frame even though the
         /// absolute y is estimate-backed; the frame-to-frame estimate shift is absorbed by the
-        /// nudge, so the line stays put visually. (This also retires the old deep-anchor lurch:
-        /// re-measuring a deep anchor's exact y every frame forced an O(document) prefix layout
-        /// that couldn't converge mid-slide.) The settle (`exact == true`) lays the prefix out
-        /// once so the final absolute scroll position — and the off-viewport content — is exact.
+        /// nudge, so the line stays put visually. The settle (`exact == true`) lays the prefix
+        /// out once so the final absolute scroll position — and the off-viewport content — is exact.
         func restoreSidebarResizeAnchor(exact: Bool) {
             guard let anchor = sidebarResizeAnchor,
                   let scrollView = enclosingScrollView,
@@ -86,8 +83,7 @@
             // Settle the viewport at the just-applied width.
             controller.layoutViewport()
             // Settle only: force exact layout of the whole prefix through the anchor so its
-            // absolute y is final. Per frame this is skipped — the screen-position nudge below
-            // holds the line against the estimate-backed y.
+            // absolute y is final.
             if exact, let prefix = NSTextRange(
                 location: textLayoutManager.documentRange.location, end: anchor.location
             ) {
