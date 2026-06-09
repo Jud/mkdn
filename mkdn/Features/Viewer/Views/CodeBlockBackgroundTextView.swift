@@ -537,6 +537,9 @@
             if let saved = savedString {
                 textStorage?.setAttributedString(saved)
             }
+            // The print run lays out at page width; a rebuild during the modal could have
+            // cached page-width offsets. Drop them so the screen reads fresh tops.
+            blockOffsets = nil
             backgroundColor = savedBgColor
             resolvedComments = savedResolvedComments
         }
