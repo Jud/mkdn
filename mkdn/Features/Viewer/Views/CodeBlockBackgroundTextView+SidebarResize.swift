@@ -20,8 +20,10 @@
             // which can bail (a degenerate viewport) while the slide still animates the
             // width. The flag, not the anchor, is what suppresses per-frame measures.
             isSidebarResizeInFlight = true
-            // The estimate is for the old width; free the height for the slide.
+            // The estimate is for the old width; free the height for the slide. The cached
+            // per-block offsets are stale at the old width too — the settle recomputes both.
             estimatedHeightFloor = nil
+            blockOffsets = nil
             guard let scrollView = enclosingScrollView,
                   let textLayoutManager,
                   let viewportRange = textLayoutManager.textViewportLayoutController.viewportRange

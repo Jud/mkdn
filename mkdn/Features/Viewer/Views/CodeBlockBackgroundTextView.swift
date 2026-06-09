@@ -183,6 +183,15 @@
         /// height changes at a fixed width (attachment resolution) to force a recompute.
         private var lastEstimatedWidth: CGFloat?
 
+        /// Per-block offsets for the current content at `lastEstimatedWidth`, the single
+        /// shared product of the per-block Core Text pass. ``refreshEstimatedHeight``
+        /// computes it (or ``currentBlockOffsets()`` lazily) and the coordinator's heading
+        /// navigation and document map read this same cache — so the pass runs once per
+        /// content/width, not once per consumer. Co-invalidated with `estimatedHeightFloor`
+        /// (same access, twinned lifecycle): both are freed by the gesture start and the
+        /// content swap, and recomputed together by `refreshEstimatedHeight`.
+        var blockOffsets: DocumentBlockOffsets?
+
         private var refreshHeightWorkItem: DispatchWorkItem?
 
         /// How long to wait for an attachment-resolution burst to settle before
@@ -281,20 +290,45 @@
             guard let textStorage, textWidth > 0 else { return }
             // Skip a redundant re-measure at a width already estimated — a settle posts the
             // final width through several layout events, each of which would otherwise redo
-            // the per-block pass. A freed floor (content swap, gesture start) or the
-            // attachment path (which nils `lastEstimatedWidth`) still forces a recompute,
-            // since those change the height at an unchanged width.
-            guard textWidth != lastEstimatedWidth || estimatedHeightFloor == nil else { return }
+            // the per-block pass. A freed floor (content swap, gesture start), the attachment
+            // path (which nils `lastEstimatedWidth`), or a freed offsets cache still forces a
+            // recompute, since those change the height at an unchanged width.
+            guard textWidth != lastEstimatedWidth || estimatedHeightFloor == nil
+                || (documentHeightModel != nil && blockOffsets == nil) else { return }
             lastEstimatedWidth = textWidth
             // Per-block sum when a model is present (dodges the super-linear whole-document
             // measure — the open-time freeze on large, fallback-heavy docs), else whole-doc.
-            let estimate = DocumentHeightEstimator.estimatedHeight(
-                of: textStorage, model: documentHeightModel,
-                textWidth: textWidth, verticalInset: textContainerInset.height)
+            // The per-block pass is cached in `blockOffsets` and shared with the heading
+            // navigation and document map, so it runs once per content/width. The cached
+            // total equals the height-only estimate — `buildOffsets` only adds the array.
+            let estimate: CGFloat
+            if documentHeightModel != nil {
+                blockOffsets = nil
+                guard let offsets = currentBlockOffsets() else { return }
+                estimate = offsets.totalHeight
+            } else {
+                estimate = DocumentHeightEstimator.estimatedHeight(
+                    of: textStorage, model: nil,
+                    textWidth: textWidth, verticalInset: textContainerInset.height)
+            }
             estimatedHeightFloor = estimate
             if abs(frame.height - estimate) > 0.5 {
                 setFrameSize(NSSize(width: frame.width, height: estimate))
             }
+        }
+
+        /// Per-block offsets at the current width, computed once and cached. A Core Text
+        /// per-block measure — accurate off-viewport, where TextKit returns estimated
+        /// frames. Shared by the height floor, heading navigation, and the document map so
+        /// the pass isn't repeated per consumer; nil until a model and real width exist.
+        func currentBlockOffsets() -> DocumentBlockOffsets? {
+            if let blockOffsets { return blockOffsets }
+            guard let textStorage, let documentHeightModel, textWidth > 0 else { return nil }
+            let offsets = DocumentBlockOffsets.compute(
+                of: textStorage, model: documentHeightModel,
+                textWidth: textWidth, verticalInset: textContainerInset.height)
+            blockOffsets = offsets
+            return offsets
         }
 
         /// Debounced ``refreshEstimatedHeight``. Attachment overlays (image, Mermaid,

@@ -25,10 +25,6 @@
             private var cachedHeadingPositions: [(blockIndex: Int, y: CGFloat)] = []
             private var headingPositionsCacheValid = false
             var documentHeightModel: DocumentHeightModel?
-            /// Per-block offsets, computed lazily from the height model at the current
-            /// width and reused for heading navigation. Invalidated on content/width
-            /// change (same as the heading cache). O(blocks^2) but one-shot.
-            private var documentBlockOffsets: DocumentBlockOffsets?
             /// Published heading/comment/viewport positions for the scroll-marker track.
             weak var mapState: PreviewMapState?
             private var mapRebuildScheduled = false
@@ -245,7 +241,6 @@
             func invalidateHeadingPositionCache() {
                 headingPositionsCacheValid = false
                 cachedHeadingPositions = []
-                documentBlockOffsets = nil
             }
 
             func wireScrollSpy() {
@@ -258,10 +253,10 @@
                 overlayCoordinator.onFrameChange = { [weak self] in
                     guard let self else { return }
                     headingPositionsCacheValid = false
-                    documentBlockOffsets = nil
                     // Skip the per-frame heading + map rebuilds while a width gesture is in
                     // flight (rail slide, window live-resize): each frame's whole-string
-                    // measure would bog the gesture. The cache stays invalidated above, and
+                    // measure would bog the gesture. The heading cache stays invalidated
+                    // above (the text view's shared offsets recompute with the width), and
                     // onResizeSettled runs both once at the end. (publishMapViewport and the
                     // scroll-spy self-guard the same way.)
                     guard !isResizeGestureActive else { return }
@@ -273,7 +268,6 @@
                 // first: a settle that posted no frame change never nilled the cache.
                 (textView as? CodeBlockBackgroundTextView)?.onResizeSettled = { [weak self] in
                     self?.invalidateHeadingPositionCache()
-                    self?.documentBlockOffsets = nil
                     self?.scheduleScrollSpyRefresh()
                     self?.scheduleDocumentMapRebuild()
                 }
@@ -390,21 +384,11 @@
                 return viewY - originY
             }
 
-            /// Per-block offsets at the current container width, computed once and cached.
-            /// A Core Text measure rather than TextKit fragment realization — accurate
-            /// even off-viewport, where `.ensuresLayout` returns estimated frames.
+            /// The text view's shared per-block offsets — computed once alongside the height
+            /// floor and reused here for heading navigation and the document map, so the
+            /// per-block Core Text pass runs once per content/width, not once per consumer.
             private func blockOffsets() -> DocumentBlockOffsets? {
-                if let documentBlockOffsets { return documentBlockOffsets }
-                guard let textView = textView as? CodeBlockBackgroundTextView,
-                      let model = documentHeightModel,
-                      let textStorage = textView.textStorage,
-                      textView.textWidth > 0
-                else { return nil }
-                let offsets = DocumentBlockOffsets.compute(
-                    of: textStorage, model: model,
-                    textWidth: textView.textWidth, verticalInset: textView.textContainerInset.height)
-                documentBlockOffsets = offsets
-                return offsets
+                (textView as? CodeBlockBackgroundTextView)?.currentBlockOffsets()
             }
 
             // MARK: - Document Map Publishing
