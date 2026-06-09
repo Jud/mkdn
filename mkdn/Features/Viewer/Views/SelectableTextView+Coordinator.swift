@@ -493,25 +493,18 @@
                 else { return false }
 
                 showHeadingDot(forCharacterOffset: charOffset)
-                scrollTo(scrollY: headingY, in: scrollView, animated: true)
+                scrollTo(scrollY: headingY, in: scrollView)
                 return true
             }
 
-            /// Scroll the clip view so document scroll-space `scrollY` sits at the
-            /// viewport top. Factored from ``scrollToHeading`` so any mark — a track
+            /// Smooth-scroll the clip view so document scroll-space `scrollY` sits at
+            /// the viewport top. Factored from ``scrollToHeading`` so any mark — a track
             /// tick, not just a heading — can target an arbitrary y. Suppresses scroll-
             /// spy for the duration so the programmatic move doesn't fight the breadcrumb.
-            func scrollTo(scrollY: CGFloat, in scrollView: NSScrollView, animated: Bool) {
+            func scrollTo(scrollY: CGFloat, in scrollView: NSScrollView) {
                 isProgrammaticScroll = true
                 let clipView = scrollView.contentView
                 let destination = NSPoint(x: 0, y: scrollY)
-                guard animated else {
-                    clipView.setBoundsOrigin(destination)
-                    scrollView.reflectScrolledClipView(clipView)
-                    isProgrammaticScroll = false
-                    handleScrollForSpy()
-                    return
-                }
                 NSAnimationContext.runAnimationGroup { context in
                     context.duration = AnimationConstants.scrollToHeadingDuration
                     context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)

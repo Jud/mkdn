@@ -94,7 +94,7 @@
                 guard let coordinator,
                       let scrollView = coordinator.textView?.enclosingScrollView
                 else { return }
-                coordinator.scrollTo(scrollY: scrollY, in: scrollView, animated: true)
+                coordinator.scrollTo(scrollY: scrollY, in: scrollView)
             }
 
             applyTheme(to: textView, scrollView: scrollView)
