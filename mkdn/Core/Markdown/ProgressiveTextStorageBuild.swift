@@ -133,11 +133,15 @@ public final class ProgressiveTextStorageBuild {
     }
 
     private func makeResult(with string: NSAttributedString) -> TextStorageResult {
+        // Last-writer-wins on a duplicate source index (possible only with
+        // hand-built IndexedBlocks), matching the old loop's dictionary
+        // assignment rather than trapping.
         let headingOffsets = Dictionary(
-            uniqueKeysWithValues: blockSpans.compactMap { span -> (Int, Int)? in
+            blockSpans.compactMap { span -> (Int, Int)? in
                 guard case .heading = span.kind else { return nil }
                 return (span.index, span.range.location)
-            }
+            },
+            uniquingKeysWith: { _, last in last }
         )
         return TextStorageResult(
             attributedString: string,
