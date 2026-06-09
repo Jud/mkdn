@@ -152,6 +152,21 @@
         /// the text the reader is looking at holds still while everything rewraps.
         var sidebarResizeAnchor: SidebarResizeAnchor?
 
+        /// True for the whole comment-rail slide (begin…end), not just the frames where
+        /// `sidebarResizeAnchor` happens to be set. The anchor can be briefly nil at the
+        /// slide's edges (it's captured/cleared a frame off the width animation), so it
+        /// alone leaks per-frame estimate/map work; this flag spans the gesture.
+        var isSidebarResizeInFlight = false
+
+        /// Any width gesture in flight — the rail slide or a window live-resize — during
+        /// which per-frame whole-string measures (height estimate, document map) must be
+        /// skipped and run once on settle. The shared signal for every such guard.
+        var isResizeGestureActive: Bool {
+            isSidebarResizeInFlight
+                || sidebarResizeAnchor != nil
+                || (enclosingScrollView?.inLiveResize ?? false)
+        }
+
         /// Floor for the document-view height from the whole-string height estimate, so
         /// the scroller reflects the full height immediately instead of TextKit 2
         /// building it up lazily as the reader scrolls. Recomputed at each settled width
@@ -162,6 +177,11 @@
         /// `refreshEstimatedHeight` size the scroller from the per-block sum (fast) rather
         /// than a whole-document `boundingRect` (super-linear in length for some content).
         var documentHeightModel: DocumentHeightModel?
+
+        /// Container width of the last height estimate, so a redundant re-measure at an
+        /// unchanged width is skipped (see `refreshEstimatedHeight`). Nilled when the
+        /// height changes at a fixed width (attachment resolution) to force a recompute.
+        private var lastEstimatedWidth: CGFloat?
 
         private var refreshHeightWorkItem: DispatchWorkItem?
 
@@ -236,7 +256,7 @@
         /// slide/resize end-handlers re-estimate, so a skipped mid-gesture refresh loses
         /// nothing.
         private var canRefreshEstimatedHeight: Bool {
-            sidebarResizeAnchor == nil && !(enclosingScrollView?.inLiveResize ?? false)
+            !isResizeGestureActive
         }
 
         /// Width available to text: the container width (already minus the horizontal
@@ -259,6 +279,13 @@
             // Bail at a collapsed/degenerate width: a zero estimate must not shrink a
             // non-empty view to nothing now that sizing is bidirectional.
             guard let textStorage, textWidth > 0 else { return }
+            // Skip a redundant re-measure at a width already estimated — a settle posts the
+            // final width through several layout events, each of which would otherwise redo
+            // the per-block pass. A freed floor (content swap, gesture start) or the
+            // attachment path (which nils `lastEstimatedWidth`) still forces a recompute,
+            // since those change the height at an unchanged width.
+            guard textWidth != lastEstimatedWidth || estimatedHeightFloor == nil else { return }
+            lastEstimatedWidth = textWidth
             // Per-block sum when a model is present (dodges the super-linear whole-document
             // measure — the open-time freeze on large, fallback-heavy docs), else whole-doc.
             let estimate = DocumentHeightEstimator.estimatedHeight(
@@ -278,6 +305,9 @@
             refreshHeightWorkItem?.cancel()
             let workItem = DispatchWorkItem { [weak self] in
                 guard let self, self.canRefreshEstimatedHeight else { return }
+                // Attachments resolved to new heights at an unchanged width; clear the
+                // width memo so the re-estimate isn't skipped as redundant.
+                self.lastEstimatedWidth = nil
                 self.refreshEstimatedHeight()
             }
             refreshHeightWorkItem = workItem

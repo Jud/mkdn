@@ -16,6 +16,10 @@
         /// can be re-pinned as the width changes. Called from the preview ahead of the
         /// width animation, while the layout still reflects the old width.
         func beginSidebarResize() {
+            // Mark the gesture in flight up front — before the anchor-capture guards below,
+            // which can bail (a degenerate viewport) while the slide still animates the
+            // width. The flag, not the anchor, is what suppresses per-frame measures.
+            isSidebarResizeInFlight = true
             // The estimate is for the old width; free the height for the slide.
             estimatedHeightFloor = nil
             guard let scrollView = enclosingScrollView,
@@ -118,7 +122,7 @@
         /// exact here, both one-shot (full-document work, never per frame): the scroll
         /// *extent* and TextKit 2's *logical viewport*.
         func endSidebarResize() {
-            guard sidebarResizeAnchor != nil else { return }
+            guard isSidebarResizeInFlight || sidebarResizeAnchor != nil else { return }
             // Re-estimate the height at the new width so the scroller is right, then
             // re-pin (the frame may have grown to the estimate). The contiguous
             // container realizes exact geometry as the reader scrolls; the whole-string
@@ -127,6 +131,7 @@
             refreshEstimatedHeight()
             restoreSidebarResizeAnchor()
             sidebarResizeAnchor = nil
+            isSidebarResizeInFlight = false
             // The settle's final layout may produce no further frame/scroll change;
             // nudge the scroll-spy so the breadcrumb reflects the reflowed viewport.
             onResizeSettled?()

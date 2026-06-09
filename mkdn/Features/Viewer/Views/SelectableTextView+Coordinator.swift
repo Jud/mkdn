@@ -259,19 +259,32 @@
                     guard let self else { return }
                     headingPositionsCacheValid = false
                     documentBlockOffsets = nil
-                    // A width change rewraps text above the viewport, so the active
-                    // heading can move. Scroll-spy is skipped mid-resize; re-run it once
-                    // the resize settles (coalesced; it self-guards during the gesture).
+                    // Skip the per-frame heading + map rebuilds while a width gesture is in
+                    // flight (rail slide, window live-resize): each frame's whole-string
+                    // measure would bog the gesture. The cache stays invalidated above, and
+                    // onResizeSettled runs both once at the end. (publishMapViewport and the
+                    // scroll-spy self-guard the same way.)
+                    guard !isResizeGestureActive else { return }
                     scheduleScrollSpyRefresh()
-                    // Same rewrap moves every mark: rebuild the map at the new width.
                     scheduleDocumentMapRebuild()
                 }
-                // A settle whose final layout posts no frame/scroll change would
-                // otherwise leave the spy unscheduled past the in-resize guard.
+                // A settle whose final layout posts no frame/scroll change would otherwise
+                // leave the spy/map unscheduled past the in-gesture guard. Re-invalidate
+                // first: a settle that posted no frame change never nilled the cache.
                 (textView as? CodeBlockBackgroundTextView)?.onResizeSettled = { [weak self] in
+                    self?.invalidateHeadingPositionCache()
+                    self?.documentBlockOffsets = nil
                     self?.scheduleScrollSpyRefresh()
                     self?.scheduleDocumentMapRebuild()
                 }
+            }
+
+            /// A width gesture (comment-rail slide or window live-resize) is in flight, so
+            /// the per-frame whole-string measures (heading positions, document map,
+            /// height estimate) must be skipped and run once on settle. One signal for
+            /// every such guard.
+            private var isResizeGestureActive: Bool {
+                (textView as? CodeBlockBackgroundTextView)?.isResizeGestureActive ?? false
             }
 
             private var scrollSpyRefreshScheduled = false
@@ -303,9 +316,7 @@
                 // frame's bounds shift would otherwise rebuild the whole O(blocks^2)
                 // heading-position cache for no change in the breadcrumb; it settles on
                 // the next real scroll.
-                guard (textView as? CodeBlockBackgroundTextView)?.sidebarResizeAnchor == nil,
-                      !scrollView.inLiveResize
-                else { return }
+                guard !isResizeGestureActive else { return }
 
                 let viewportTop = scrollView.contentView.bounds.origin.y
 
@@ -407,6 +418,9 @@
                 DispatchQueue.main.async { [weak self] in
                     guard let self else { return }
                     mapRebuildScheduled = false
+                    // A rebuild scheduled just before a gesture began would otherwise fire
+                    // mid-slide; the settle reschedules it once the width is final.
+                    guard !isResizeGestureActive else { return }
                     guard let map = buildDocumentMap() else { return }
                     mapState?.documentMap = map
                 }
@@ -417,11 +431,10 @@
             /// Skipped mid-resize/slide (the viewport is held) — the same guard as the
             /// scroll-spy; the settle path triggers a full rebuild.
             func publishMapViewport() {
-                guard let mapState,
+                guard !isResizeGestureActive,
+                      let mapState,
                       let textView = textView as? CodeBlockBackgroundTextView,
-                      let scrollView = textView.enclosingScrollView,
-                      textView.sidebarResizeAnchor == nil,
-                      !scrollView.inLiveResize
+                      let scrollView = textView.enclosingScrollView
                 else { return }
                 let bounds = scrollView.contentView.bounds
                 var map = mapState.documentMap
