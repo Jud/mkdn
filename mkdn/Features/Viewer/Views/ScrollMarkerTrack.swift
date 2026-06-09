@@ -48,10 +48,13 @@
         private func viewportThumb(map: PreviewDocumentMap, height: CGFloat) -> some View {
             let viewport = map.normalizedViewport
             if viewport.height > 0 {
+                // Floor the height so a tiny viewport stays visible, then clamp the
+                // offset so that floor can't push the thumb past the track's bottom.
+                let thumbHeight = max(viewport.height * height, Self.minThumbHeight)
                 RoundedRectangle(cornerRadius: 3)
                     .fill(colors.foreground.opacity(0.12))
-                    .frame(width: Self.width, height: max(viewport.height * height, Self.minThumbHeight))
-                    .offset(y: viewport.top * height)
+                    .frame(width: Self.width, height: thumbHeight)
+                    .offset(y: max(min(viewport.top * height, height - thumbHeight), 0))
             }
         }
 
@@ -74,12 +77,12 @@
         /// Jump to the mark nearest the tapped y; with no marks, scrub proportionally.
         private func jump(toTrackY tapY: CGFloat, trackHeight: CGFloat, map: PreviewDocumentMap) {
             guard trackHeight > 0, map.totalHeight > 0 else { return }
+            let tapFraction = tapY / trackHeight
             let markYs = map.headings.map(\.y) + map.comments.map(\.y)
             let nearest = markYs.min {
-                abs(map.normalized($0) * trackHeight - tapY)
-                    < abs(map.normalized($1) * trackHeight - tapY)
+                abs(map.normalized($0) - tapFraction) < abs(map.normalized($1) - tapFraction)
             }
-            state.scrollTo?(nearest ?? (tapY / trackHeight) * map.totalHeight)
+            state.scrollTo?(nearest ?? tapFraction * map.totalHeight)
         }
     }
 #endif
