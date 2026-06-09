@@ -3,9 +3,8 @@
 
     /// A slim vertical gutter beside the preview that plots heading and comment
     /// positions and the current viewport, read from ``PreviewMapState/documentMap``.
-    /// Heading ticks sit flush right (length and opacity by level); comment ticks sit
-    /// flush left in the accent color; a faint thumb tracks the viewport. A tap jumps
-    /// the preview to the nearest mark via ``PreviewMapState/scrollTo``.
+    /// Heading tick length and opacity encode level; a faint thumb tracks the viewport.
+    /// A tap jumps the preview to the nearest mark via ``PreviewMapState/scrollTo``.
     ///
     /// All positions arrive pre-converted to scroll space and normalized against the
     /// real document height, so the view never touches TextKit or coordinate math —
