@@ -147,6 +147,22 @@
             #expect(offsets.totalHeight >= wholeDoc - 1)
         }
 
+        @Test("A block range past the string is skipped, not sliced out of bounds")
+        @MainActor func staleModelRangesDoNotCrash() {
+            // A model that outruns the live string (e.g. a stale model paired with a shorter
+            // storage during a swap): the second block's range extends well past the string.
+            // It must be dropped, not sliced — an out-of-bounds attributedSubstring throws.
+            let model = DocumentHeightModel(blocks: [
+                BlockSpan(index: 0, range: NSRange(location: 0, length: 4)),
+                BlockSpan(index: 1, range: NSRange(location: 4, length: 99)),
+            ])
+            let offsets = DocumentBlockOffsets.compute(
+                of: NSAttributedString(string: "abc\nxyz"), model: model,
+                textWidth: 200, verticalInset: 32)
+            #expect(offsets.totalHeight > 0)
+            #expect(offsets.blocks.map(\.index) == [0]) // the overflowing block is dropped
+        }
+
         @Test("An empty document yields no offsets")
         @MainActor func emptyDocumentYieldsNoOffsets() {
             let model = DocumentHeightModel(

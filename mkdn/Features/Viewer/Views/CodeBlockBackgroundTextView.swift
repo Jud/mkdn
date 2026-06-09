@@ -259,19 +259,11 @@
             // Bail at a collapsed/degenerate width: a zero estimate must not shrink a
             // non-empty view to nothing now that sizing is bidirectional.
             guard let textStorage, textWidth > 0 else { return }
-            let estimate: CGFloat
-            if let model = documentHeightModel, !model.blocks.isEmpty {
-                // Fast path: sum per-block heights, dodging the super-linear whole-document
-                // measure (the open-time freeze on large, fallback-heavy documents).
-                estimate = DocumentBlockOffsets.estimatedHeight(
-                    of: textStorage, model: model,
-                    textWidth: textWidth, verticalInset: textContainerInset.height)
-            } else {
-                // No block model (non-markdown content, or before the model is wired): the
-                // whole-document measure is correct but slow on long strings.
-                estimate = DocumentHeightEstimator.estimatedHeight(
-                    of: textStorage, textWidth: textWidth, verticalInset: textContainerInset.height)
-            }
+            // Per-block sum when a model is present (dodges the super-linear whole-document
+            // measure — the open-time freeze on large, fallback-heavy docs), else whole-doc.
+            let estimate = DocumentHeightEstimator.estimatedHeight(
+                of: textStorage, model: documentHeightModel,
+                textWidth: textWidth, verticalInset: textContainerInset.height)
             estimatedHeightFloor = estimate
             if abs(frame.height - estimate) > 0.5 {
                 setFrameSize(NSSize(width: frame.width, height: estimate))

@@ -141,6 +141,11 @@ public struct DocumentBlockOffsets {
         var lastTrailingPhantom: CGFloat = 0
         for block in model.blocks {
             let start = block.range.location
+            // Defensive: a stale model could describe blocks past the live string; stop
+            // before slicing out of bounds. Block ranges are monotonic, so once one
+            // overflows the rest do too. Not reachable in normal flow — the model and the
+            // text storage are swapped together — but the print path swaps storage alone.
+            guard NSMaxRange(block.range) <= attributedString.length else { break }
             // This block's own leading spacing (heading top-margin, code-block top
             // padding) sits above its first glyph. `boundingRect` suppresses it on the
             // first paragraph of a measurement, so it's absent from both the running
