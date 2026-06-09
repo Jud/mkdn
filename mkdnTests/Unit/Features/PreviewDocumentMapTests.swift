@@ -65,7 +65,6 @@
             #expect(map.headings.map(\.y) == [0, 300]) // 32-32, 332-32
             #expect(map.headings.map(\.level) == [1, 2])
             #expect(map.headings.map(\.title) == ["Intro", "Details"])
-            #expect(map.estimatedTotalHeight == 500)
             #expect(map.totalHeight == 480)
         }
 

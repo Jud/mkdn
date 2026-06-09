@@ -29,9 +29,6 @@
         /// The text view's real frame height — the denominator for normalizing a `y`
         /// onto a track, so marks track the actual scroller rather than the estimate.
         var totalHeight: CGFloat = 0
-        /// ``DocumentBlockOffsets/totalHeight`` — the semantic estimate, kept for
-        /// drift diagnostics; `totalHeight` is authoritative for normalization.
-        var estimatedTotalHeight: CGFloat = 0
         var viewportTop: CGFloat = 0
         var viewportHeight: CGFloat = 0
         var headings: [HeadingMark] = []
@@ -75,7 +72,6 @@
             }
             return PreviewDocumentMap(
                 totalHeight: totalHeight,
-                estimatedTotalHeight: offsets.totalHeight,
                 viewportTop: viewportTop,
                 viewportHeight: viewportHeight,
                 headings: headingMarks,
