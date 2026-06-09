@@ -24,7 +24,10 @@ public struct OpenTimingsResult: Codable, Sendable, Equatable {
 
     public let phases: [Phase]
     /// Whole-document `DocumentBlockOffsets` passes since the open began.
-    /// The plan's budget is exactly one per content/width generation.
+    /// The plan's budget is exactly one per content/width generation — but
+    /// the count (like the phases) keeps accumulating after the open settles
+    /// (theme changes, resizes, attachment resolutions), so budget checks
+    /// must read it right after the load they're checking.
     public let blockOffsetsMeasureCount: Int
 
     public init(phases: [Phase], blockOffsetsMeasureCount: Int) {
@@ -51,15 +54,28 @@ public final class OpenTimeline {
     private var phases: [OpenTimingsResult.Phase] = []
     private var blockOffsetsMeasureCount = 0
     private var openStart: ContinuousClock.Instant?
+    private var stashed: ([OpenTimingsResult.Phase], Int, ContinuousClock.Instant?)?
 
     private init() {}
 
     /// Start a fresh record. Called when a content change begins rendering;
-    /// phases recorded before the first `begin()` are dropped.
+    /// phases recorded before the first `begin()` are dropped. The prior
+    /// record is stashed until the caller knows whether the change is a real
+    /// open — a comment-only change `abandon()`s back to it.
     public func begin() {
+        stashed = (phases, blockOffsetsMeasureCount, openStart)
         openStart = .now
         phases = []
         blockOffsetsMeasureCount = 0
+    }
+
+    /// Roll back a `begin()` that turned out not to be an open (a comment-only
+    /// change repaints without rebuilding), restoring the previous open's
+    /// record so `getOpenTimings` keeps reporting the last real open.
+    public func abandon() {
+        guard let stashed else { return }
+        (phases, blockOffsetsMeasureCount, openStart) = stashed
+        self.stashed = nil
     }
 
     /// Run `body` as one named phase: a signpost interval plus a record entry.

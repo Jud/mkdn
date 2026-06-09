@@ -177,6 +177,7 @@
                 // find-match highlights live in the storage and carry save/restore
                 // bookkeeping the comment-only path doesn't run.
                 if document.body == lastRenderedBody, !findState.isVisible {
+                    OpenTimeline.shared.abandon()
                     if let tape = anchorTape {
                         resolvedComments = ResolvedComments.resolve(document.entries, in: tape)
                     }
