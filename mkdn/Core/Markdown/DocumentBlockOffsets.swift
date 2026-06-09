@@ -28,6 +28,38 @@ public struct DocumentBlockOffsets {
         blocks.first { $0.index == index }?.top
     }
 
+    /// Text-view-space top y of the line a character `location` sits on — the block
+    /// top plus the height of the block's text above that line. Refines the block-
+    /// granular `offset(forBlockIndex:)` to intra-block precision (so two comments in
+    /// one paragraph anchor at their own lines), still without TextKit fragment
+    /// layout: it's the same Core Text prefix measure `compute` uses, scoped to the
+    /// block. `nil` when the location maps to no block.
+    @MainActor
+    public func characterY(
+        at location: Int,
+        in attributedString: NSAttributedString,
+        model: DocumentHeightModel,
+        textWidth: CGFloat
+    ) -> CGFloat? {
+        guard textWidth > 0,
+              let blockIndex = model.blockIndex(containing: location),
+              let blockTop = offset(forBlockIndex: blockIndex),
+              let block = model.blocks.first(where: { $0.index == blockIndex })
+        else { return nil }
+        let prefixLength = location - block.range.location
+        guard prefixLength > 0, location <= attributedString.length else { return blockTop }
+        // Height of the block's text above `location`. Whether `location`'s own line is
+        // counted depends on it falling at a wrap boundary — which needs real layout to
+        // know — so this lands within one line: exact when `location` starts a line,
+        // up to a line low otherwise. Biased low on purpose: a card never floats above
+        // the comment it points at.
+        let intra = DocumentHeightEstimator.contentHeight(
+            of: attributedString.attributedSubstring(
+                from: NSRange(location: block.range.location, length: prefixLength)),
+            textWidth: textWidth)
+        return blockTop + intra
+    }
+
     /// Source index of the block whose span contains `y` (the last block whose top
     /// is at or above `y`), clamped to the document; nil when empty.
     public func blockIndex(atY y: CGFloat) -> Int? {
