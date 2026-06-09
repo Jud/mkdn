@@ -260,6 +260,12 @@
                 || textContainer.size.height != desired.height
             else { return false }
             textContainer.size = desired
+            // The shared offsets were measured at the old width. The gesture
+            // paths nil them at their start, but a non-gesture width change
+            // (minimap toggle, window zoom, tiling) only passes through here —
+            // and readers reuse a live cache assuming it matches the current
+            // geometry.
+            blockOffsets = nil
             invalidateCodeBlockCache()
             needsDisplay = true
             return true

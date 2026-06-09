@@ -396,6 +396,9 @@
             private var progressiveTailTask: Task<Void, Never>?
             private var activeTailSession: ProgressiveTextStorageBuild?
             private var onProgressiveOpenFinished: ((TextStorageResult) -> Void)?
+            /// A heading jump requested mid-tail, run by the finish once the
+            /// target is materialized and the offsets are exact.
+            private var headingTargetDeferredByTail: Int?
             /// Time each tail slice may spend appending before yielding the
             /// main actor, so frames keep painting while the tail builds.
             private static let tailSliceBudget: Duration = .milliseconds(10)
@@ -445,12 +448,14 @@
             }
 
             /// Stop an in-flight tail without finishing — the storage is about
-            /// to be replaced (new content, theme rebuild).
+            /// to be replaced (new content, theme rebuild) or the view is
+            /// being torn down.
             func cancelProgressiveTail() {
                 progressiveTailTask?.cancel()
                 progressiveTailTask = nil
                 activeTailSession = nil
                 onProgressiveOpenFinished = nil
+                headingTargetDeferredByTail = nil
                 (textView as? CodeBlockBackgroundTextView)?.forceFinishProgressiveOpen = nil
             }
 
@@ -515,6 +520,15 @@
                 }
                 lastAppliedText = full.attributedString
                 scheduleDocumentMapRebuild()
+                // The exact pass may land on the provisional floor's height to
+                // the point, posting no frame change — nudge the spy directly.
+                scheduleScrollSpyRefresh()
+                if let target = headingTargetDeferredByTail {
+                    headingTargetDeferredByTail = nil
+                    if let scrollView = textView.enclosingScrollView {
+                        _ = scrollToHeading(blockIndex: target, in: scrollView)
+                    }
+                }
                 OpenTimeline.shared.mark("tailComplete")
                 finished?(full)
             }
@@ -628,9 +642,15 @@
                 // Mid-gesture the width is still animating, so the offsets a lazy
                 // navigationY would compute and cache sit at a transient width — and a window
                 // drag that ends without viewDidEndLiveResize wouldn't refresh them. Mid-tail
-                // the target heading may not be materialized yet. Defer like the not-ready
-                // case below; the settle or tail finish re-triggers the scroll.
-                guard !isMetricsSuppressed else { return false }
+                // the target heading may not be materialized yet; remember it so the finish
+                // can run the jump (a gesture settle is sub-second and re-triggerable, but a
+                // tail can run for seconds — a silent drop reads as a dead click).
+                guard !isMetricsSuppressed else {
+                    if (textView as? CodeBlockBackgroundTextView)?.isProgressiveOpenActive == true {
+                        headingTargetDeferredByTail = blockIndex
+                    }
+                    return false
+                }
                 guard let charOffset = headingOffsets[blockIndex],
                       let headingY = navigationY(forBlockIndex: blockIndex)
                 else { return false }

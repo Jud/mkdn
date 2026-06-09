@@ -137,6 +137,13 @@
             return scrollView
         }
 
+        static func dismantleNSView(_ nsView: NSScrollView, coordinator: Coordinator) {
+            // A recreated view (or unmount) must not leave the tail task
+            // appending into the orphaned storage — and consuming session
+            // blocks the replacement view's driver will never see.
+            coordinator.cancelProgressiveTail()
+        }
+
         func updateNSView(_ scrollView: NSScrollView, context: Context) {
             guard let textView = scrollView.documentView as? CodeBlockBackgroundTextView else {
                 return
@@ -350,6 +357,9 @@
                 coordinator: coordinator, textView: textView, scrollView: scrollView
             )
             coordinator.lastAppliedText = attributedText
+            // Full rebuilds bump the revision (publishFullResult); sync it so
+            // the next unrelated update doesn't take the comment-repaint path.
+            coordinator.lastCommentRevision = commentRevision
             OpenTimeline.shared.mark("renderComplete")
             RenderCompletionSignal.shared.signalRenderComplete()
         }

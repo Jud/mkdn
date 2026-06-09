@@ -328,9 +328,11 @@
         private static let prefixHeightTarget: CGFloat = 3000
         private static let prefixDeadline: Duration = .milliseconds(250)
         /// Width assumption for the prefix-height estimate (the real width is
-        /// unknown until AppKit lays out). Under-guessing only over-fills the
-        /// prefix, which costs a few extra blocks, never a short first paint.
-        private static let prefixMeasureWidth: CGFloat = 600
+        /// unknown until AppKit lays out). Wider than any typical preview
+        /// column: over-guessing the width under-estimates each fragment's
+        /// height, so the loop builds more blocks — the error direction that
+        /// over-fills the prefix rather than leaving the first paint short.
+        private static let prefixMeasureWidth: CGFloat = 1200
 
         private static func shouldOpenProgressively(
             _ blocks: [IndexedBlock], body: String
