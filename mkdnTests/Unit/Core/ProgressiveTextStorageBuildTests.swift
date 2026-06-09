@@ -66,6 +66,18 @@ struct ProgressiveTextStorageBuildTests {
 
     // MARK: - Equivalence Helpers
 
+    private func attributeRuns(
+        of string: NSAttributedString
+    ) -> [(NSRange, [NSAttributedString.Key: Any])] {
+        var runs: [(NSRange, [NSAttributedString.Key: Any])] = []
+        string.enumerateAttributes(
+            in: NSRange(location: 0, length: string.length), options: []
+        ) { attrs, range, _ in
+            runs.append((range, attrs))
+        }
+        return runs
+    }
+
     /// Attributed equality that compares attachments by their placeholder
     /// bounds instead of identity: two independent builds create distinct
     /// `NSTextAttachment` instances, so `isEqual(to:)` would always fail on
@@ -74,24 +86,12 @@ struct ProgressiveTextStorageBuildTests {
         _ built: NSAttributedString,
         _ reference: NSAttributedString,
         _ label: Comment
-    ) {
-        #expect(built.string == reference.string, label)
-        guard built.string == reference.string else { return }
+    ) throws {
+        try #require(built.string == reference.string, label)
 
-        var runs: [(NSRange, [NSAttributedString.Key: Any])] = []
-        built.enumerateAttributes(
-            in: NSRange(location: 0, length: built.length), options: []
-        ) { attrs, range, _ in
-            runs.append((range, attrs))
-        }
-        var referenceRuns: [(NSRange, [NSAttributedString.Key: Any])] = []
-        reference.enumerateAttributes(
-            in: NSRange(location: 0, length: reference.length), options: []
-        ) { attrs, range, _ in
-            referenceRuns.append((range, attrs))
-        }
-        #expect(runs.count == referenceRuns.count, label)
-        guard runs.count == referenceRuns.count else { return }
+        let runs = attributeRuns(of: built)
+        let referenceRuns = attributeRuns(of: reference)
+        try #require(runs.count == referenceRuns.count, label)
 
         for ((range, attrs), (refRange, refAttrs)) in zip(runs, referenceRuns) {
             #expect(range == refRange, label)
@@ -150,7 +150,7 @@ struct ProgressiveTextStorageBuildTests {
     // MARK: - Tests
 
     @Test("Chunked builds match the one-shot build for any chunk size")
-    @MainActor func chunkedMatchesOneShot() {
+    @MainActor func chunkedMatchesOneShot() throws {
         let blocks = renderBlocks()
         let reference = MarkdownTextStorageBuilder.build(blocks: blocks, theme: theme)
         #expect(blocks.count > 10)
@@ -165,11 +165,11 @@ struct ProgressiveTextStorageBuildTests {
 
             let result = session.result()
             let label: Comment = "chunk size \(chunkSize)"
-            expectEquivalent(result.attributedString, reference.attributedString, label)
+            try expectEquivalent(result.attributedString, reference.attributedString, label)
             // The fragments appended chunk-wise must reassemble the same
             // document the session reports — the live text storage receives
             // only the fragments.
-            expectEquivalent(installed, reference.attributedString, label)
+            try expectEquivalent(installed, reference.attributedString, label)
             expectSameMetadata(result, reference, label)
         }
     }
@@ -187,7 +187,7 @@ struct ProgressiveTextStorageBuildTests {
     }
 
     @Test("partialResult covers exactly the blocks built so far")
-    @MainActor func partialResultIsPrefix() {
+    @MainActor func partialResultIsPrefix() throws {
         let blocks = renderBlocks()
         let reference = MarkdownTextStorageBuilder.build(blocks: blocks, theme: theme)
         let session = ProgressiveTextStorageBuild(blocks: blocks, theme: theme)
@@ -199,7 +199,7 @@ struct ProgressiveTextStorageBuildTests {
         let prefix = reference.attributedString.attributedSubstring(
             from: NSRange(location: 0, length: partial.attributedString.length)
         )
-        expectEquivalent(partial.attributedString, prefix, "prefix")
+        try expectEquivalent(partial.attributedString, prefix, "prefix")
         #expect(partial.documentHeightModel.blocks.count == prefixBlocks)
 
         // The partial string must be a snapshot: building the tail can't
@@ -208,7 +208,7 @@ struct ProgressiveTextStorageBuildTests {
         session.buildRemaining()
         #expect(partial.attributedString.length == lengthBefore)
         #expect(session.isComplete)
-        expectEquivalent(
+        try expectEquivalent(
             session.result().attributedString, reference.attributedString, "after tail"
         )
     }

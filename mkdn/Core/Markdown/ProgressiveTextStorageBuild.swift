@@ -27,7 +27,6 @@ public final class ProgressiveTextStorageBuild {
     /// Everything built so far; each chunk's fragment is appended here.
     private let accumulated = NSMutableAttributedString()
     private var attachments: [AttachmentInfo] = []
-    private var headingOffsets: [Int: Int] = [:]
     private var blockSpans: [BlockSpan] = []
     /// Array position of the next block to build.
     private var cursor = 0
@@ -84,9 +83,6 @@ public final class ProgressiveTextStorageBuild {
         while cursor < blocks.count, built < maxBlocks {
             let indexedBlock = blocks[cursor]
             let documentOffset = accumulated.length + fragment.length
-            if case .heading = indexedBlock.block {
-                headingOffsets[indexedBlock.index] = documentOffset
-            }
             MarkdownTextStorageBuilder.appendBlock(
                 indexedBlock,
                 to: fragment,
@@ -107,8 +103,8 @@ public final class ProgressiveTextStorageBuild {
             ))
             // Collapse the first block's top spacing so textContainerInset
             // alone controls the window-top-to-text distance.
-            if cursor == 0, fragment.length > 0 {
-                collapseFirstBlockTopSpacing(of: fragment)
+            if cursor == 0 {
+                MarkdownTextStorageBuilder.setFirstParagraphSpacing(fragment, spacingBefore: 0)
             }
             cursor += 1
             built += 1
@@ -124,7 +120,8 @@ public final class ProgressiveTextStorageBuild {
     }
 
     /// Result over the blocks built so far. The string is copied so later
-    /// chunks can't grow it under the caller.
+    /// chunks can't grow it under the caller — an O(built-so-far) snapshot
+    /// meant for the one prefix install, not for calling per tail chunk.
     public func partialResult() -> TextStorageResult {
         makeResult(with: NSAttributedString(attributedString: accumulated))
     }
@@ -136,24 +133,18 @@ public final class ProgressiveTextStorageBuild {
     }
 
     private func makeResult(with string: NSAttributedString) -> TextStorageResult {
-        TextStorageResult(
+        let headingOffsets = Dictionary(
+            uniqueKeysWithValues: blockSpans.compactMap { span -> (Int, Int)? in
+                guard case .heading = span.kind else { return nil }
+                return (span.index, span.range.location)
+            }
+        )
+        return TextStorageResult(
             attributedString: string,
             attachments: attachments,
             headingOffsets: headingOffsets,
             documentHeightModel: DocumentHeightModel(blocks: blockSpans),
             sourceMap: SourceMap(attributedString: string)
         )
-    }
-
-    private func collapseFirstBlockTopSpacing(of fragment: NSMutableAttributedString) {
-        let firstParaRange = (fragment.string as NSString) // swiftlint:disable:this legacy_objc_type
-            .paragraphRange(for: NSRange(location: 0, length: 0))
-        guard let style = fragment.attribute(
-            .paragraphStyle, at: 0, effectiveRange: nil
-        ) as? NSParagraphStyle else { return }
-        // swiftlint:disable:next force_cast
-        let mutable = style.mutableCopy() as! NSMutableParagraphStyle
-        mutable.paragraphSpacingBefore = 0
-        fragment.addAttribute(.paragraphStyle, value: mutable, range: firstParaRange)
     }
 }
