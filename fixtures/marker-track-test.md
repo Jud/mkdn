@@ -80,20 +80,23 @@ position still resolves a sensible nearest mark for the click-to-jump gesture.
     {
       "body" : "Define the scope here.",
       "id" : "c1",
+      "norm" : 1,
       "prefix" : "",
-      "quote" : "This sentence is a unique comment anchor.",
+      "quote" : "this sentence is a unique comment anchor.",
       "suffix" : ""
     },
     {
       "body" : "Spell out the basis.",
       "id" : "c2",
+      "norm" : 1,
       "prefix" : "",
-      "quote" : "the same\nbasis the heading navigation already uses",
+      "quote" : "the same basis the heading navigation already uses",
       "suffix" : ""
     },
     {
       "body" : "One span, one tick — good invariant.",
       "id" : "c3",
+      "norm" : 1,
       "prefix" : "",
       "quote" : "each span resolves to exactly one tick on the gutter",
       "suffix" : ""
@@ -101,8 +104,9 @@ position still resolves a sensible nearest mark for the click-to-jump gesture.
     {
       "body" : "Confirm animation feels right.",
       "id" : "c4",
+      "norm" : 1,
       "prefix" : "",
-      "quote" : "jumps the\npreview to the nearest mark, animated",
+      "quote" : "jumps the preview to the nearest mark, animated",
       "suffix" : ""
     }
   ],
