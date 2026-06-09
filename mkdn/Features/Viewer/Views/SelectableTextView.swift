@@ -63,13 +63,16 @@
                 guard let coordinator else { return }
                 if let textView = coordinator.textView as? CodeBlockBackgroundTextView {
                     // Attachment height changes shift fragment y-positions below: cached
-                    // code-block geometry must be rebuilt, and the scroller re-estimated
-                    // now that an attachment resolved its real height.
+                    // code-block geometry must be rebuilt, the scroller re-estimated now
+                    // that an attachment resolved its real height, and the shared per-block
+                    // offsets dropped. The re-estimate is debounced, so without this the
+                    // immediate map/heading rebuilds below would read pre-resolution tops.
                     textView.invalidateCodeBlockCache()
                     textView.scheduleRefreshEstimatedHeight()
+                    textView.blockOffsets = nil
                 }
                 // Same shift moves every block below the attachment: drop the heading
-                // position / offset cache so navigation re-measures at resolved heights.
+                // position cache so navigation re-measures at resolved heights.
                 coordinator.invalidateHeadingPositionCache()
                 // Resolved heights move every mark below the attachment too.
                 coordinator.scheduleDocumentMapRebuild()
@@ -472,8 +475,14 @@
         override func viewWillStartLiveResize() {
             super.viewWillStartLiveResize()
             overlayCoordinator?.enterLiveResize()
-            // The estimate is for the old width; free the height for the drag.
-            (documentView as? CodeBlockBackgroundTextView)?.estimatedHeightFloor = nil
+            // The estimate (and the per-block offsets it caches) is for the old width; free
+            // both for the drag. Mirrors beginSidebarResize: a drag that ends without
+            // viewDidEndLiveResize firing then leaves the cache nil — a reader recomputes at
+            // the new width — rather than stale at the old width.
+            if let textView = documentView as? CodeBlockBackgroundTextView {
+                textView.estimatedHeightFloor = nil
+                textView.blockOffsets = nil
+            }
         }
 
         override func tile() {

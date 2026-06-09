@@ -185,11 +185,13 @@
 
         /// Per-block offsets for the current content at `lastEstimatedWidth`, the single
         /// shared product of the per-block Core Text pass: ``refreshEstimatedHeight``
-        /// recomputes and replaces it on every re-measure (content swap, width change,
-        /// attachment settle), and the coordinator's heading navigation and document map
-        /// read this same cache via ``currentBlockOffsets()`` — so the pass runs once per
-        /// content/width, not once per consumer. `beginSidebarResize` frees it because the
-        /// slide suppresses the refresh that would otherwise replace it.
+        /// recomputes and replaces it on every re-measure, and the coordinator's heading
+        /// navigation and document map read this same cache via ``currentBlockOffsets()`` —
+        /// so the pass runs once per content/width, not once per consumer. Freed wherever
+        /// block tops can shift before a synchronous refresh reaches it: the resize-gesture
+        /// starts (sidebar slide, window live-resize), which suppress the per-frame refresh,
+        /// and attachment resolution, whose height re-estimate is debounced — so a reader in
+        /// that window recomputes fresh instead of reading stale tops.
         var blockOffsets: DocumentBlockOffsets?
 
         private var refreshHeightWorkItem: DispatchWorkItem?
