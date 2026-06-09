@@ -43,6 +43,10 @@
                 map.comments.map { ($0.id, $0.y - map.viewportTop + Self.previewTopInset) },
                 uniquingKeysWith: { first, _ in first }
             )
+            // At the scroll end a card tail can't be pulled up by scrolling; let the
+            // layout fit the overflow then. A short/unscrollable document reads as "end".
+            let atDocumentEnd = map.totalHeight > 0
+                && map.viewportTop + map.viewportHeight >= map.totalHeight - 1
             ZStack(alignment: .top) {
                 // Cards fill the space above the footer (not under it): the footer is
                 // opaque, so an overlapping ZStack sibling would occlude bottom cards.
@@ -50,7 +54,7 @@
                     if active.isEmpty, detached.isEmpty {
                         emptyState
                     } else {
-                        anchoredActiveCards(tops: cardTops)
+                        anchoredActiveCards(tops: cardTops, atDocumentEnd: atDocumentEnd)
                     }
                     if !detached.isEmpty {
                         detachedFooter
@@ -67,8 +71,8 @@
         /// Active cards anchored beside their text, clipped to the panel. No implicit
         /// animation: the per-frame reposition from the live `viewportTop` is the
         /// scroll-follow, so animating it would lag the text.
-        private func anchoredActiveCards(tops: [String: CGFloat]) -> some View {
-            AnchoredCommentsLayout(gap: 8) {
+        private func anchoredActiveCards(tops: [String: CGFloat], atDocumentEnd: Bool) -> some View {
+            AnchoredCommentsLayout(gap: 8, atDocumentEnd: atDocumentEnd) {
                 ForEach(active) { item in
                     ActiveCommentCard(item: item, theme: theme, onJump: onJump, onHover: onHover)
                         .commentCardAnchor(tops[item.id] ?? 0)
