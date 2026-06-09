@@ -24,22 +24,16 @@
             // per-block offsets are stale at the old width too — the settle recomputes both.
             estimatedHeightFloor = nil
             blockOffsets = nil
-            guard let scrollView = enclosingScrollView,
-                  let textLayoutManager,
-                  let viewportRange = textLayoutManager.textViewportLayoutController.viewportRange
-            else { return }
+            guard let scrollView = enclosingScrollView, let textLayoutManager else { return }
 
-            // Force real layout of the viewport and everything above it: a fragment's
-            // absolute Y is the sum of all heights above it, which `.ensuresLayout`
-            // alone leaves at TextKit 2's estimated (accumulating-error) values — and
-            // the capture must read the *same* coordinate space the restore will, or
-            // the pin starts from a wrong baseline.
-            if let prefix = NSTextRange(
-                location: textLayoutManager.documentRange.location,
-                end: viewportRange.endLocation
-            ) {
-                textLayoutManager.ensureLayout(for: prefix)
-            }
+            // Lay out just the viewport (not the whole prefix above it) so the capture reads
+            // the visible fragments' current on-screen positions. The pin tracks the anchor's
+            // screen position via per-frame drift, so an estimate-backed absolute y is the
+            // right baseline here and in the restore — the one exact prefix layout is deferred
+            // to the settle.
+            let controller = textLayoutManager.textViewportLayoutController
+            controller.layoutViewport()
+            guard let viewportRange = controller.viewportRange else { return }
 
             let visibleTop = scrollView.contentView.bounds.origin.y
             // Fragment frames are in text-container space; shift by textContainerOrigin
@@ -69,31 +63,31 @@
             dismissCommentOverlay()
         }
 
-        /// Re-pin the captured line to the same viewport y after the text has
-        /// rewrapped to the current width. Driven from the scroll view's `tile()` on
-        /// every resize frame while ``sidebarResizeAnchor`` is set.
+        /// Re-pin the captured line to the same viewport y after the text has rewrapped to the
+        /// current width. Driven from the scroll view's `tile()` on every resize frame while
+        /// ``sidebarResizeAnchor`` is set.
         ///
-        /// Known limit: re-measuring a *deep* anchor's absolute y every frame can't
-        /// converge during the fast middle of the slide (the height of everything
-        /// above it is changing faster than TextKit settles it), so far down a long
-        /// document the pin lurches briefly mid-slide, then recovers. It is exact at
-        /// the top of the document and at rest. This transient is an accepted
-        /// trade-off for live per-frame reflow — the alternatives (a fixed reading
-        /// column, or holding the text and settling once at the end) were weighed and
-        /// declined in favor of watching the text reflow live.
-        func restoreSidebarResizeAnchor() {
+        /// Per frame (`exact == false`) the pin reads the anchor's position from
+        /// `layoutViewport` alone — no prefix layout — and nudges the scroll origin so the line
+        /// holds its screen position. The anchor's absolute y stays estimate-backed, but the
+        /// frame-to-frame estimate shift is absorbed by the nudge, so the line stays put
+        /// visually. (This also retires the old deep-anchor lurch: re-measuring a deep anchor's
+        /// exact y every frame forced an O(document) prefix layout that couldn't converge
+        /// mid-slide.) The settle (`exact == true`) lays the prefix out once so the final
+        /// absolute scroll position — and the off-viewport content — is exact.
+        func restoreSidebarResizeAnchor(exact: Bool = false) {
             guard let anchor = sidebarResizeAnchor,
                   let scrollView = enclosingScrollView,
                   let textLayoutManager
             else { return }
 
             let controller = textLayoutManager.textViewportLayoutController
-            // First layout: settle the viewport at the just-applied width.
+            // Settle the viewport at the just-applied width.
             controller.layoutViewport()
-            // Then force real layout of the whole prefix through the anchor so its
-            // absolute Y is final — without this, estimated heights above the anchor
-            // make the pin drift vertically, the exact jump this exists to prevent.
-            if let prefix = NSTextRange(
+            // Settle only: force exact layout of the whole prefix through the anchor so its
+            // absolute y is final. Per frame this is skipped — the screen-position nudge below
+            // holds the line against the estimate-backed y.
+            if exact, let prefix = NSTextRange(
                 location: textLayoutManager.documentRange.location, end: anchor.location
             ) {
                 textLayoutManager.ensureLayout(for: prefix)
@@ -129,9 +123,9 @@
             // re-pin (the frame may have grown to the estimate). The contiguous
             // container realizes exact geometry as the reader scrolls; the whole-string
             // measure just sizes the scroller up front — no full-document layout.
-            restoreSidebarResizeAnchor()
+            restoreSidebarResizeAnchor(exact: true)
             refreshEstimatedHeight()
-            restoreSidebarResizeAnchor()
+            restoreSidebarResizeAnchor(exact: true)
             sidebarResizeAnchor = nil
             isSidebarResizeInFlight = false
             // The settle's final layout may produce no further frame/scroll change;
