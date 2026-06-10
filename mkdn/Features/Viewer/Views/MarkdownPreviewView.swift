@@ -70,9 +70,6 @@
         /// `textStorageResult` is the installed prefix, and the text view's
         /// coordinator drives this session to completion.
         @State private var progressiveSession: ProgressiveTextStorageBuild?
-        /// Comment entries parsed at open time, resolved once the tail lands a
-        /// full anchor tape (kept current by comment edits made mid-tail).
-        @State private var pendingCommentEntries: [CommentSidecar.Entry] = []
 
         var body: some View {
             @Bindable var docState = documentState
@@ -103,7 +100,12 @@
                         mapState: mapState,
                         progressiveSession: progressiveSession,
                         onProgressiveOpenFinished: { full in
-                            publishFullResult(full, entries: pendingCommentEntries)
+                            // Re-parse rather than cache the open-time entries:
+                            // a comment edit made mid-tail is in the source.
+                            publishFullResult(
+                                full,
+                                entries: CommentDocument.parse(documentState.markdownContent).entries
+                            )
                             progressiveSession = nil
                         },
                         isLoadingGateActive: $docState.isLoadingGateActive
@@ -188,14 +190,12 @@
                 // scroll jump. Fall back to a full rebuild while Find is open:
                 // find-match highlights live in the storage and carry save/restore
                 // bookkeeping the comment-only path doesn't run.
+                // Mid-tail (anchorTape nil) the edit needs no carrying either:
+                // the finish re-parses the source, which already holds it.
                 if document.body == lastRenderedBody, !findState.isVisible {
                     OpenTimeline.shared.abandon()
                     if let tape = anchorTape {
                         resolvedComments = ResolvedComments.resolve(document.entries, in: tape)
-                    } else if progressiveSession != nil {
-                        // No tape mid-tail; carry the edit so the finish
-                        // resolves the latest entries.
-                        pendingCommentEntries = document.entries
                     }
                     commentRevision += 1
                     return
@@ -367,7 +367,6 @@
                 progressiveSession = nil
                 publishFullResult(session.result(), entries: entries)
             } else {
-                pendingCommentEntries = entries
                 progressiveSession = session
                 textStorageResult = prefix
                 // No tape or comments until the tail lands the full text.

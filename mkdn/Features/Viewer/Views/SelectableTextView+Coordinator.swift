@@ -268,9 +268,23 @@
                 // leave the spy/map unscheduled past the in-gesture guard. Re-invalidate
                 // first: a settle that posted no frame change never nilled the cache.
                 (textView as? CodeBlockBackgroundTextView)?.onResizeSettled = { [weak self] in
-                    self?.invalidateHeadingPositionCache()
-                    self?.scheduleScrollSpyRefresh()
-                    self?.scheduleDocumentMapRebuild()
+                    self?.runSettleRefresh()
+                }
+            }
+
+            /// The refresh every measure-suppression end runs — gesture settles
+            /// (slide end, live-resize end) and the progressive tail's finish:
+            /// re-derive heading positions, spy, and map, and replay a heading
+            /// jump that was refused while measures were suppressed.
+            private func runSettleRefresh() {
+                invalidateHeadingPositionCache()
+                scheduleScrollSpyRefresh()
+                scheduleDocumentMapRebuild()
+                if let target = deferredHeadingTarget,
+                   let scrollView = textView?.enclosingScrollView
+                {
+                    deferredHeadingTarget = nil
+                    _ = scrollToHeading(blockIndex: target, in: scrollView)
                 }
             }
 
@@ -396,12 +410,15 @@
             private var progressiveTailTask: Task<Void, Never>?
             private var activeTailSession: ProgressiveTextStorageBuild?
             private var onProgressiveOpenFinished: ((TextStorageResult) -> Void)?
-            /// A heading jump requested mid-tail, run by the finish once the
-            /// target is materialized and the offsets are exact.
-            private var headingTargetDeferredByTail: Int?
-            /// Time each tail slice may spend appending before yielding the
-            /// main actor, so frames keep painting while the tail builds.
-            private static let tailSliceBudget: Duration = .milliseconds(10)
+            /// A heading jump refused while measures were suppressed (width
+            /// gesture or open tail), replayed by the next settle/finish once
+            /// the offsets are trustworthy again.
+            private var deferredHeadingTarget: Int?
+            /// Time each tail slice may spend building before yielding the
+            /// main actor. The per-slice fixed costs (storage edit processing,
+            /// sleep wake) are large enough that thinner slices mostly buy
+            /// overhead, not responsiveness.
+            private static let tailSliceBudget: Duration = .milliseconds(16)
 
             /// Drive the rest of a progressive open: append the session's
             /// remaining blocks to the live storage in time-budgeted main-actor
@@ -424,17 +441,12 @@
                 // state, which can trail what the session has built; append the
                 // missing slice so the storage and the session's cursor agree.
                 if storage.length < session.builtUTF16Length {
-                    let built = session.partialResult().attributedString
-                    storage.append(built.attributedSubstring(from: NSRange(
-                        location: storage.length, length: built.length - storage.length
-                    )))
+                    storage.append(session.builtSlice(from: storage.length))
                 }
                 progressiveTailTask = Task { @MainActor [weak self] in
-                    while !session.isComplete {
-                        guard !Task.isCancelled else { return }
-                        guard let fragment = session.buildNext(
-                            deadline: ContinuousClock.now + Self.tailSliceBudget
-                        ) else { break }
+                    while !Task.isCancelled, let fragment = session.buildNext(
+                        deadline: ContinuousClock.now + Self.tailSliceBudget
+                    ) {
                         storage.beginEditing()
                         storage.append(fragment)
                         storage.endEditing()
@@ -455,7 +467,7 @@
                 progressiveTailTask = nil
                 activeTailSession = nil
                 onProgressiveOpenFinished = nil
-                headingTargetDeferredByTail = nil
+                deferredHeadingTarget = nil
                 (textView as? CodeBlockBackgroundTextView)?.forceFinishProgressiveOpen = nil
             }
 
@@ -463,8 +475,6 @@
             /// document now (print).
             private func forceFinishProgressiveTail() {
                 guard let session = activeTailSession else { return }
-                progressiveTailTask?.cancel()
-                progressiveTailTask = nil
                 if let storage = textView?.textStorage,
                    let fragment = session.buildNext()
                 {
@@ -481,14 +491,15 @@
             /// pre-set to the full string so the publish doesn't read as new
             /// content and re-install the document.
             private func finishProgressiveOpen(session: ProgressiveTextStorageBuild) {
-                activeTailSession = nil
-                progressiveTailTask = nil
                 let finished = onProgressiveOpenFinished
-                onProgressiveOpenFinished = nil
+                let deferredTarget = deferredHeadingTarget
+                cancelProgressiveTail()
+                // Survive the teardown: the settle refresh below replays it now
+                // that the target is materialized and the offsets are exact.
+                deferredHeadingTarget = deferredTarget
                 guard let textView = textView as? CodeBlockBackgroundTextView else { return }
                 let full = session.result()
                 textView.isProgressiveOpenActive = false
-                textView.forceFinishProgressiveOpen = nil
                 textView.isSelectable = true
                 textView.documentHeightModel = full.documentHeightModel
                 documentHeightModel = full.documentHeightModel
@@ -496,7 +507,6 @@
                 textView.estimatedHeightFloor = nil
                 textView.blockOffsets = nil
                 textView.refreshEstimatedHeight()
-                invalidateHeadingPositionCache()
                 if let appSettings = overlayCoordinator.appSettings, let documentState {
                     overlayCoordinator.updateOverlays(
                         attachments: full.attachments,
@@ -519,16 +529,10 @@
                     )
                 }
                 lastAppliedText = full.attributedString
-                scheduleDocumentMapRebuild()
                 // The exact pass may land on the provisional floor's height to
-                // the point, posting no frame change — nudge the spy directly.
-                scheduleScrollSpyRefresh()
-                if let target = headingTargetDeferredByTail {
-                    headingTargetDeferredByTail = nil
-                    if let scrollView = textView.enclosingScrollView {
-                        _ = scrollToHeading(blockIndex: target, in: scrollView)
-                    }
-                }
+                // the point, posting no frame change — run the settle refresh
+                // directly rather than waiting on a frame-change observation.
+                runSettleRefresh()
                 OpenTimeline.shared.mark("tailComplete")
                 finished?(full)
             }
@@ -642,13 +646,10 @@
                 // Mid-gesture the width is still animating, so the offsets a lazy
                 // navigationY would compute and cache sit at a transient width — and a window
                 // drag that ends without viewDidEndLiveResize wouldn't refresh them. Mid-tail
-                // the target heading may not be materialized yet; remember it so the finish
-                // can run the jump (a gesture settle is sub-second and re-triggerable, but a
-                // tail can run for seconds — a silent drop reads as a dead click).
+                // the target heading may not even be materialized yet. Remember the target
+                // and let the settle/finish replay it — a silent drop reads as a dead click.
                 guard !isMetricsSuppressed else {
-                    if (textView as? CodeBlockBackgroundTextView)?.isProgressiveOpenActive == true {
-                        headingTargetDeferredByTail = blockIndex
-                    }
+                    deferredHeadingTarget = blockIndex
                     return false
                 }
                 guard let charOffset = headingOffsets[blockIndex],

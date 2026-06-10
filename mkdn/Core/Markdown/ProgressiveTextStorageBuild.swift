@@ -37,6 +37,15 @@ public final class ProgressiveTextStorageBuild {
     /// append the slice it's missing.
     public var builtUTF16Length: Int { accumulated.length }
 
+    /// The built content from `offset` to the current end — the catch-up
+    /// slice for a consumer behind the session, without copying the whole
+    /// accumulated document the way `partialResult()` does.
+    public func builtSlice(from offset: Int) -> NSAttributedString {
+        accumulated.attributedSubstring(from: NSRange(
+            location: offset, length: accumulated.length - offset
+        ))
+    }
+
     public init(
         blocks: [IndexedBlock],
         colors: ThemeColors,

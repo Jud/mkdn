@@ -369,7 +369,7 @@
         /// suppressed, selection gated until the tail lands); otherwise restore the
         /// ordinary whole-document state.
         private func configureProgressiveOpen(textView: CodeBlockBackgroundTextView) {
-            let isProgressive = progressiveSession.map { !$0.isComplete } ?? false
+            let isProgressive = progressiveSession?.isComplete == false
             textView.isProgressiveOpenActive = isProgressive
             textView.progressiveOpenScaleFactor = appSettings.scaleFactor
             textView.isSelectable = !isProgressive

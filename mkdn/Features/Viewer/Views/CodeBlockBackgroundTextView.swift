@@ -141,7 +141,8 @@
 
         // MARK: - Print Support
 
-        /// Current indexed blocks retained for print-time attributed string rebuild.
+        /// Current indexed blocks — the print-time attributed string rebuild and
+        /// the progressive open's provisional height floor both read them.
         var printBlocks: [IndexedBlock] = []
 
         // MARK: - Sidebar Resize
@@ -351,9 +352,13 @@
                     of: textStorage, model: nil,
                     textWidth: textWidth, verticalInset: textContainerInset.height)
             }
-            estimatedHeightFloor = estimate
-            if abs(frame.height - estimate) > 0.5 {
-                setFrameSize(NSSize(width: frame.width, height: estimate))
+            applyEstimatedHeightFloor(estimate)
+        }
+
+        private func applyEstimatedHeightFloor(_ floor: CGFloat) {
+            estimatedHeightFloor = floor
+            if abs(frame.height - floor) > 0.5 {
+                setFrameSize(NSSize(width: frame.width, height: floor))
             }
         }
 
@@ -371,18 +376,20 @@
 
         /// Size the frame from the parsed-blocks floor while the tail appends —
         /// the scroller then reflects roughly the whole document from first paint.
+        /// Memoized by width like the exact estimate: a settle posts its final
+        /// width through several layout events, and the estimate is an
+        /// O(document characters) scan.
         func seedProvisionalEstimatedHeightFloor() {
             guard isProgressiveOpenActive, textWidth > 0, !printBlocks.isEmpty else { return }
+            guard textWidth != lastEstimatedWidth || estimatedHeightFloor == nil else { return }
+            lastEstimatedWidth = textWidth
             let floor = ProvisionalHeightEstimator.provisionalHeight(
                 of: printBlocks, textWidth: textWidth,
                 scaleFactor: progressiveOpenScaleFactor,
                 verticalInset: textContainerInset.height
             )
             guard floor > 0 else { return }
-            estimatedHeightFloor = floor
-            if abs(frame.height - floor) > 0.5 {
-                setFrameSize(NSSize(width: frame.width, height: floor))
-            }
+            applyEstimatedHeightFloor(floor)
         }
 
         /// Per-block offsets at the current width — the cached pass if present, else computed
