@@ -93,6 +93,8 @@ def main():
             r = send(sock, {"jumpCommentAt": {"index": int(sys.argv[2])}})
         elif cmd_name == "diagnose-click":
             r = send(sock, {"diagnoseCommentClick": {"index": int(sys.argv[2])}})
+        elif cmd_name == "click":
+            r = send(sock, {"clickAt": {"x": float(sys.argv[2]), "y": float(sys.argv[3])}})
         elif cmd_name == "quit":
             r = send(sock, {"quit": {}})
         else:

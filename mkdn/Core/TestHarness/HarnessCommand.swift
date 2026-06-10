@@ -130,6 +130,11 @@
         /// rebuild path without simulating a text selection + menu).
         case addComment(substring: String, body: String)
 
+        /// Synthesize a left click at window-local coordinates (top-left origin,
+        /// in points) via `NSWindow.sendEvent` — exercises the real event path
+        /// (hit-testing, SwiftUI gestures) without moving the global pointer.
+        case clickAt(x: Double, y: Double)
+
         /// Read the phase timings recorded for the most recent document open.
         case getOpenTimings
 

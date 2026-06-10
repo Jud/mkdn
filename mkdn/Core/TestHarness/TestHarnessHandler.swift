@@ -55,6 +55,8 @@
                 processSidebar(command)
             case let .resizeWindow(width, height):
                 handleResizeWindow(width, height)
+            case let .clickAt(x, y):
+                await handleClickAt(x: x, y: y)
             case .ping:
                 .ok(data: .pong)
             case .quit:
@@ -357,6 +359,39 @@
             return .ok(
                 message: "Window resized to \(actual.width)x\(actual.height)"
             )
+        }
+
+        /// Synthesize a left click at window-local coordinates (top-left origin)
+        /// by sending mouseDown + mouseUp through the window's real event path.
+        private static func handleClickAt(x: Double, y: Double) async -> HarnessResponse {
+            guard let window = findMainWindow(), let content = window.contentView else {
+                return .error("No visible window found")
+            }
+            // sendEvent locations are window coords (bottom-left origin).
+            let location = NSPoint(x: x, y: window.frame.height - y)
+            func mouseEvent(_ type: NSEvent.EventType) -> NSEvent? {
+                NSEvent.mouseEvent(
+                    with: type,
+                    location: location,
+                    modifierFlags: [],
+                    timestamp: ProcessInfo.processInfo.systemUptime,
+                    windowNumber: window.windowNumber,
+                    context: nil,
+                    eventNumber: 0,
+                    clickCount: 1,
+                    pressure: type == .leftMouseDown ? 1 : 0
+                )
+            }
+            guard let down = mouseEvent(.leftMouseDown), let up = mouseEvent(.leftMouseUp) else {
+                return .error("Could not synthesize click events")
+            }
+            let hitName = content.superview.flatMap { superview in
+                content.hitTest(superview.convert(location, from: nil))
+            }.map { hit in String(describing: type(of: hit)) } ?? "none"
+            window.sendEvent(down)
+            try? await Task.sleep(for: .milliseconds(50))
+            window.sendEvent(up)
+            return .ok(message: "Clicked (\(x), \(y)) → hit: \(hitName)")
         }
 
         // MARK: - Sidebar Commands
