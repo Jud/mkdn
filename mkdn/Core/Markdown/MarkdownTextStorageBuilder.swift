@@ -299,11 +299,12 @@ public enum MarkdownTextStorageBuilder {
             }
 
             let text = String(content[run.range].characters)
+            // No .mkdnSourceSpan here: nothing reads it from the built string
+            // (AnchorTape anchors by content), and a per-run-unique value makes
+            // every attribute dictionary distinct — AppKit's global attribute-
+            // dictionary uniquing table then grows O(runs) and every
+            // addAttribute degrades to O(table) rehash probing.
             var attributes: [NSAttributedString.Key: Any] = [:]
-
-            if let sourceSpan = run.sourceSpan {
-                attributes[.mkdnSourceSpan] = sourceSpan.attributeArray
-            }
 
             let intent = run.inlinePresentationIntent ?? []
             var font = baseFont
