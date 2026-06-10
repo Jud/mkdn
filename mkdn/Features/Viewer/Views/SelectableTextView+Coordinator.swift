@@ -25,10 +25,6 @@
             private var cachedHeadingPositions: [(blockIndex: Int, y: CGFloat)] = []
             private var headingPositionsCacheValid = false
             var documentHeightModel: DocumentHeightModel?
-            /// Per-block offsets, computed lazily from the height model at the current
-            /// width and reused for heading navigation. Invalidated on content/width
-            /// change (same as the heading cache). O(blocks^2) but one-shot.
-            private var documentBlockOffsets: DocumentBlockOffsets?
             /// Published heading/comment/viewport positions for the scroll-marker track.
             weak var mapState: PreviewMapState?
             private var mapRebuildScheduled = false
@@ -245,7 +241,6 @@
             func invalidateHeadingPositionCache() {
                 headingPositionsCacheValid = false
                 cachedHeadingPositions = []
-                documentBlockOffsets = nil
             }
 
             func wireScrollSpy() {
@@ -258,20 +253,47 @@
                 overlayCoordinator.onFrameChange = { [weak self] in
                     guard let self else { return }
                     headingPositionsCacheValid = false
-                    documentBlockOffsets = nil
-                    // A width change rewraps text above the viewport, so the active
-                    // heading can move. Scroll-spy is skipped mid-resize; re-run it once
-                    // the resize settles (coalesced; it self-guards during the gesture).
+                    // Skip the per-frame heading + map rebuilds while a width gesture is in
+                    // flight (rail slide, window live-resize) or a progressive open's tail
+                    // is appending: each frame's whole-string measure would bog the gesture,
+                    // and mid-tail the measures would read prefix-only state. The heading
+                    // cache stays invalidated above, and onResizeSettled / the tail finish
+                    // run both once at the end. (publishMapViewport and the scroll-spy
+                    // self-guard the same way.)
+                    guard !isMetricsSuppressed else { return }
                     scheduleScrollSpyRefresh()
-                    // Same rewrap moves every mark: rebuild the map at the new width.
                     scheduleDocumentMapRebuild()
                 }
-                // A settle whose final layout posts no frame/scroll change would
-                // otherwise leave the spy unscheduled past the in-resize guard.
+                // A settle whose final layout posts no frame/scroll change would otherwise
+                // leave the spy/map unscheduled past the in-gesture guard. Re-invalidate
+                // first: a settle that posted no frame change never nilled the cache.
                 (textView as? CodeBlockBackgroundTextView)?.onResizeSettled = { [weak self] in
-                    self?.scheduleScrollSpyRefresh()
-                    self?.scheduleDocumentMapRebuild()
+                    self?.runSettleRefresh()
                 }
+            }
+
+            /// The refresh every measure-suppression end runs — gesture settles
+            /// (slide end, live-resize end) and the progressive tail's finish:
+            /// re-derive heading positions, spy, and map, and replay a heading
+            /// jump that was refused while measures were suppressed.
+            private func runSettleRefresh() {
+                invalidateHeadingPositionCache()
+                scheduleScrollSpyRefresh()
+                scheduleDocumentMapRebuild()
+                if let target = deferredHeadingTarget,
+                   let scrollView = textView?.enclosingScrollView
+                {
+                    deferredHeadingTarget = nil
+                    _ = scrollToHeading(blockIndex: target, in: scrollView)
+                }
+            }
+
+            /// Whole-string measures (heading positions, document map, height estimate)
+            /// must be skipped and run once at the end: a width gesture is in flight
+            /// (comment-rail slide, window live-resize), or a progressive open's tail
+            /// is still appending. One signal for every such guard.
+            private var isMetricsSuppressed: Bool {
+                (textView as? CodeBlockBackgroundTextView)?.isMetricsSuppressed ?? false
             }
 
             private var scrollSpyRefreshScheduled = false
@@ -299,13 +321,11 @@
 
                 // While the comment rail animates the width, or the window is being
                 // live-resized, the active heading can't change (the anchored line is
-                // held, or the gesture is in flight). Skip the per-frame work — each
-                // frame's bounds shift would otherwise rebuild the whole O(blocks^2)
-                // heading-position cache for no change in the breadcrumb; it settles on
-                // the next real scroll.
-                guard (textView as? CodeBlockBackgroundTextView)?.sidebarResizeAnchor == nil,
-                      !scrollView.inLiveResize
-                else { return }
+                // held, or the gesture is in flight); mid-tail the cache would cover
+                // only the prefix. Skip the per-frame work — each frame's bounds shift
+                // would otherwise rebuild the whole O(blocks^2) heading-position cache
+                // for no change in the breadcrumb; it settles on the next real scroll.
+                guard !isMetricsSuppressed else { return }
 
                 let viewportTop = scrollView.contentView.bounds.origin.y
 
@@ -379,21 +399,201 @@
                 return viewY - originY
             }
 
-            /// Per-block offsets at the current container width, computed once and cached.
-            /// A Core Text measure rather than TextKit fragment realization — accurate
-            /// even off-viewport, where `.ensuresLayout` returns estimated frames.
+            /// The text view's shared per-block offsets (see
+            /// `CodeBlockBackgroundTextView.blockOffsets`).
             private func blockOffsets() -> DocumentBlockOffsets? {
-                if let documentBlockOffsets { return documentBlockOffsets }
+                (textView as? CodeBlockBackgroundTextView)?.currentBlockOffsets()
+            }
+
+            // MARK: - Progressive Open Tail
+
+            private var progressiveTailTask: Task<Void, Never>?
+            private var activeTailSession: ProgressiveTextStorageBuild?
+            private var onProgressiveOpenFinished: (
+                (ProgressiveTextStorageBuild, TextStorageResult) -> Void
+            )?
+            /// A heading jump refused while measures were suppressed (width
+            /// gesture or open tail), replayed by the next settle/finish once
+            /// the offsets are trustworthy again.
+            private var deferredHeadingTarget: Int?
+            /// Time each tail slice may spend building before yielding the
+            /// main actor. The per-slice fixed costs (storage edit processing,
+            /// sleep wake) are large enough that thinner slices mostly buy
+            /// overhead, not responsiveness.
+            private static let tailSliceBudget: Duration = .milliseconds(16)
+
+            /// Drive the rest of a progressive open: append the session's
+            /// remaining blocks to the live storage in time-budgeted main-actor
+            /// slices, then finish (one exact pass, overlays, publish).
+            func beginProgressiveTail(
+                session: ProgressiveTextStorageBuild,
+                onFinished: ((ProgressiveTextStorageBuild, TextStorageResult) -> Void)?
+            ) {
+                guard activeTailSession !== session else { return }
+                cancelProgressiveTail()
                 guard let textView = textView as? CodeBlockBackgroundTextView,
-                      let model = documentHeightModel,
-                      let textStorage = textView.textStorage,
-                      textView.textWidth > 0
-                else { return nil }
-                let offsets = DocumentBlockOffsets.compute(
-                    of: textStorage, model: model,
-                    textWidth: textView.textWidth, verticalInset: textView.textContainerInset.height)
-                documentBlockOffsets = offsets
-                return offsets
+                      let storage = textView.textStorage
+                else { return }
+                activeTailSession = session
+                onProgressiveOpenFinished = onFinished
+                textView.forceFinishProgressiveOpen = { [weak self] in
+                    self?.forceFinishProgressiveTail()
+                }
+                // A recreated view installs the prefix snapshot from SwiftUI
+                // state, which can trail what the session has built; append the
+                // missing slice so the storage and the session's cursor agree.
+                if storage.length < session.builtUTF16Length {
+                    storage.append(session.builtSlice(from: storage.length))
+                }
+                // A cancel can land between the last append and the finish (a
+                // recreated view's dismantle during the inter-slice sleep);
+                // the session arrives complete but unpublished. Finish on the
+                // next runloop turn: this path runs from the representable's
+                // make/update pass, and finishing inline would publish @State
+                // mid-view-update.
+                guard !session.isComplete else {
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self, activeTailSession === session else { return }
+                        finishProgressiveOpen(session: session)
+                    }
+                    return
+                }
+                progressiveTailTask = Task { @MainActor [weak self] in
+                    while !Task.isCancelled, let fragment = session.buildNext(
+                        deadline: ContinuousClock.now + Self.tailSliceBudget
+                    ) {
+                        storage.beginEditing()
+                        storage.append(fragment)
+                        storage.endEditing()
+                        // Sleep (not yield) so the runloop turns and a frame
+                        // can paint between slices.
+                        try? await Task.sleep(for: .milliseconds(1))
+                    }
+                    guard !Task.isCancelled else { return }
+                    self?.finishProgressiveOpen(session: session)
+                }
+            }
+
+            /// Stop an in-flight tail without finishing — the storage is about
+            /// to be replaced (new content, theme rebuild) or the view is
+            /// being torn down.
+            func cancelProgressiveTail() {
+                progressiveTailTask?.cancel()
+                progressiveTailTask = nil
+                activeTailSession = nil
+                onProgressiveOpenFinished = nil
+                deferredHeadingTarget = nil
+                (textView as? CodeBlockBackgroundTextView)?.forceFinishProgressiveOpen = nil
+            }
+
+            /// Drain the tail synchronously — for actions that need the full
+            /// document now (print). The SwiftUI publish is deferred to the
+            /// default run-loop mode: the caller is about to spin a modal
+            /// loop (the print panel), and a publish landing inside it would
+            /// re-apply screen state to the print canvas.
+            private func forceFinishProgressiveTail() {
+                guard let session = activeTailSession else { return }
+                if let storage = textView?.textStorage,
+                   let fragment = session.buildNext()
+                {
+                    storage.beginEditing()
+                    storage.append(fragment)
+                    storage.endEditing()
+                }
+                finishProgressiveOpen(session: session, deferPublish: true)
+            }
+
+            /// The storage holds the whole document: clear the suppression,
+            /// run the one exact height pass, set up the tail's overlays, and
+            /// hand the full result back to SwiftUI. `lastAppliedText` is
+            /// pre-set to the full string so the publish doesn't read as new
+            /// content and re-install the document.
+            private func finishProgressiveOpen(
+                session: ProgressiveTextStorageBuild, deferPublish: Bool = false
+            ) {
+                let finished = onProgressiveOpenFinished
+                let deferredTarget = deferredHeadingTarget
+                cancelProgressiveTail()
+                // Survive the teardown: the settle refresh below replays it now
+                // that the target is materialized and the offsets are exact.
+                deferredHeadingTarget = deferredTarget
+                guard let textView = textView as? CodeBlockBackgroundTextView else { return }
+                let full = session.result()
+                textView.isProgressiveOpenActive = false
+                textView.isSelectable = true
+                textView.documentHeightModel = full.documentHeightModel
+                documentHeightModel = full.documentHeightModel
+                headingOffsets = full.headingOffsets
+                textView.estimatedHeightFloor = nil
+                textView.blockOffsets = nil
+                // Mid-gesture the width is transient and the gesture freed the
+                // floor on purpose; its settle runs the exact pass (via
+                // refreshSettledHeight, now that the flag is clear) at the
+                // final width instead.
+                if !textView.isResizeGestureActive {
+                    textView.refreshEstimatedHeight()
+                }
+                // updateOverlays starts a fresh readiness cycle, but the
+                // entrance gate may still be waiting on prefix overlays whose
+                // reports must survive (the same-instance carryover skip means
+                // they never re-report); restore them and re-check readiness.
+                let reportedBeforeFinish = overlayCoordinator.reportedOverlays
+                if let appSettings = overlayCoordinator.appSettings, let documentState {
+                    overlayCoordinator.updateOverlays(
+                        attachments: full.attachments,
+                        appSettings: appSettings,
+                        documentState: documentState,
+                        in: textView
+                    )
+                }
+                overlayCoordinator.reportedOverlays.formUnion(reportedBeforeFinish)
+                if gate.isGateActive, let scrollView = textView.enclosingScrollView,
+                   overlayCoordinator.viewportOverlaysReady(in: scrollView)
+                {
+                    gate.markReady()
+                }
+                // Find searched a partial document while the tail ran; re-run
+                // over the full storage. Calling the highlight pass directly
+                // (not handleFindUpdate with isNewContent) keeps the saved
+                // pre-highlight backgrounds intact: it restores them before
+                // re-saving, so dismissing find can't bake old tints in.
+                if let findState = textView.findState, findState.isVisible,
+                   let theme = textView.commentTheme
+                {
+                    // Don't scroll to the current match: the finish is a
+                    // background event, and yanking the viewport seconds after
+                    // the user opened Find reads as a spontaneous jump.
+                    applyFindHighlights(
+                        findState: findState, textView: textView,
+                        theme: theme, performSearch: true,
+                        scrollToCurrentMatch: false
+                    )
+                }
+                lastAppliedText = full.attributedString
+                let completePublish = { [weak self] in
+                    guard let self else { return }
+                    // The exact pass may land exactly on the provisional
+                    // floor's height, posting no frame change — run the settle
+                    // refresh directly rather than waiting on a frame-change
+                    // observation.
+                    runSettleRefresh()
+                    OpenTimeline.shared.mark("tailComplete")
+                    finished?(session, full)
+                }
+                if deferPublish {
+                    // Default mode only: skipped while a modal loop (print
+                    // panel) runs, delivered once it ends — the settle refresh
+                    // rides along so its scheduled spy/map rebuilds can't read
+                    // the print canvas mid-modal. The unsafe capture is
+                    // main-thread-confined: the block runs on the main run
+                    // loop, back on the main actor.
+                    nonisolated(unsafe) let publish = completePublish
+                    RunLoop.main.perform(inModes: [.default]) {
+                        MainActor.assumeIsolated(publish)
+                    }
+                } else {
+                    completePublish()
+                }
             }
 
             // MARK: - Document Map Publishing
@@ -407,7 +607,11 @@
                 DispatchQueue.main.async { [weak self] in
                     guard let self else { return }
                     mapRebuildScheduled = false
-                    guard let map = buildDocumentMap() else { return }
+                    // A rebuild scheduled just before a gesture began would otherwise fire
+                    // mid-slide (or mid-tail); the settle or tail finish reschedules it.
+                    guard !isMetricsSuppressed else { return }
+                    guard let map = OpenTimeline.shared.time("documentMap", { buildDocumentMap() })
+                    else { return }
                     mapState?.documentMap = map
                 }
             }
@@ -417,11 +621,10 @@
             /// Skipped mid-resize/slide (the viewport is held) — the same guard as the
             /// scroll-spy; the settle path triggers a full rebuild.
             func publishMapViewport() {
-                guard let mapState,
+                guard !isMetricsSuppressed,
+                      let mapState,
                       let textView = textView as? CodeBlockBackgroundTextView,
-                      let scrollView = textView.enclosingScrollView,
-                      textView.sidebarResizeAnchor == nil,
-                      !scrollView.inLiveResize
+                      let scrollView = textView.enclosingScrollView
                 else { return }
                 let bounds = scrollView.contentView.bounds
                 var map = mapState.documentMap
@@ -499,6 +702,15 @@
             /// the block offsets aren't ready yet (e.g. width not laid out), so the
             /// caller doesn't record a no-op as the last scrolled target.
             func scrollToHeading(blockIndex: Int, in scrollView: NSScrollView) -> Bool {
+                // Mid-gesture the width is still animating, so the offsets a lazy
+                // navigationY would compute and cache sit at a transient width — and a window
+                // drag that ends without viewDidEndLiveResize wouldn't refresh them. Mid-tail
+                // the target heading may not even be materialized yet. Remember the target
+                // and let the settle/finish replay it — a silent drop reads as a dead click.
+                guard !isMetricsSuppressed else {
+                    deferredHeadingTarget = blockIndex
+                    return false
+                }
                 guard let charOffset = headingOffsets[blockIndex],
                       let headingY = navigationY(forBlockIndex: blockIndex)
                 else { return false }
@@ -671,7 +883,8 @@
                 findState: FindState,
                 textView: NSTextView,
                 theme: AppTheme,
-                performSearch: Bool
+                performSearch: Bool,
+                scrollToCurrentMatch: Bool = true
             ) {
                 highlightFadeTask?.cancel()
                 highlightFadeTask = nil
@@ -737,8 +950,9 @@
                     overlayCoordinator.scheduleReposition()
                 }
 
-                if let currentRange =
-                    findState.matchRanges[safe: findState.currentMatchIndex]
+                if scrollToCurrentMatch,
+                   let currentRange =
+                   findState.matchRanges[safe: findState.currentMatchIndex]
                 {
                     textView.scrollRangeToVisible(currentRange)
                 }

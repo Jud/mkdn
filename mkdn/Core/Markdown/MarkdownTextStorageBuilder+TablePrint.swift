@@ -45,8 +45,8 @@ extension MarkdownTextStorageBuilder {
         )
         let columnWidths = sizer.columnWidths
 
-        let lineHeight = ceil(font.ascender - font.descender + font.leading)
-        let boldLineHeight = ceil(boldFont.ascender - boldFont.descender + boldFont.leading)
+        let lineHeight = PlatformTypeConverter.lineHeight(of: font)
+        let boldLineHeight = PlatformTypeConverter.lineHeight(of: boldFont)
 
         let tabStops = buildPrintTabStops(columns: columns, columnWidths: columnWidths)
 

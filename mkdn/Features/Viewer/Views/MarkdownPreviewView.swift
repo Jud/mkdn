@@ -66,6 +66,10 @@
         /// Positions the coordinator publishes for the scroll-marker track, and the
         /// track's scroll-to bridge back into it.
         @State private var mapState = PreviewMapState()
+        /// Non-nil while a progressive open's tail is appending: the published
+        /// `textStorageResult` is the installed prefix, and the text view's
+        /// coordinator drives this session to completion.
+        @State private var progressiveSession: ProgressiveTextStorageBuild?
 
         var body: some View {
             @Bindable var docState = documentState
@@ -94,6 +98,24 @@
                         anchorTape: anchorTape,
                         commentRevision: commentRevision,
                         mapState: mapState,
+                        progressiveSession: progressiveSession,
+                        onProgressiveOpenFinished: { session, full in
+                            // A rebuild that replaced or cleared the session
+                            // already published newer content; a stale finish
+                            // landing in that gap must not overwrite it.
+                            guard session === progressiveSession else { return }
+                            // Re-parse rather than cache the open-time entries:
+                            // a comment edit made mid-tail is in the source.
+                            publishFullResult(
+                                full,
+                                entries: CommentDocument.parse(documentState.markdownContent).entries
+                            )
+                            // This publish is identity-stable (no reinstall);
+                            // the revision bump drives the highlight repaint
+                            // for comments that went nil → resolved.
+                            commentRevision += 1
+                            progressiveSession = nil
+                        },
                         isLoadingGateActive: $docState.isLoadingGateActive
                     )
                     // Changing this identity tears down and recreates the text view's
@@ -163,9 +185,12 @@
                     guard !Task.isCancelled else { return }
                 }
 
+                OpenTimeline.shared.begin()
                 // Strip the sidecar + any stray markers before rendering so they
                 // never reach the screen.
-                let document = CommentDocument.parse(documentState.markdownContent)
+                let document = OpenTimeline.shared.time("parse") {
+                    CommentDocument.parse(documentState.markdownContent)
+                }
 
                 // A comment add/edit/delete changes the raw source but not the
                 // visible (body) text. Re-resolve + redraw the overlay instead of
@@ -173,7 +198,10 @@
                 // scroll jump. Fall back to a full rebuild while Find is open:
                 // find-match highlights live in the storage and carry save/restore
                 // bookkeeping the comment-only path doesn't run.
+                // Mid-tail (anchorTape nil) the edit needs no carrying either:
+                // the finish re-parses the source, which already holds it.
                 if document.body == lastRenderedBody, !findState.isVisible {
+                    OpenTimeline.shared.abandon()
                     if let tape = anchorTape {
                         resolvedComments = ResolvedComments.resolve(document.entries, in: tape)
                     }
@@ -182,17 +210,25 @@
                 }
 
                 lastRenderedBody = document.body
-                let newBlocks = MarkdownRenderer.render(
-                    text: document.body,
-                    theme: appSettings.theme,
-                    generation: documentState.loadGeneration
-                )
+                let newBlocks = OpenTimeline.shared.time("render") {
+                    MarkdownRenderer.render(
+                        text: document.body,
+                        theme: appSettings.theme,
+                        generation: documentState.loadGeneration
+                    )
+                }
                 cachedBlocks = newBlocks
 
                 let anyKnown = newBlocks.contains { knownBlockIDs.contains($0.id) }
                 let shouldAnimate = !anyKnown && !reduceMotion && !newBlocks.isEmpty
 
-                renderAndBuild(newBlocks, isFullReload: shouldAnimate, entries: document.entries)
+                if Self.shouldOpenProgressively(newBlocks, body: document.body) {
+                    openProgressively(
+                        newBlocks, isFullReload: shouldAnimate, entries: document.entries
+                    )
+                } else {
+                    renderAndBuild(newBlocks, isFullReload: shouldAnimate, entries: document.entries)
+                }
             }
             .onChange(of: appSettings.theme) {
                 renderAndBuild(cachedBlocks, isFullReload: false)
@@ -206,6 +242,12 @@
                 // pane by 300pt with nothing to show (the harness can flip this flag
                 // directly, bypassing the gated menu/toggle).
                 guard documentState.canShowCommentSidebar else { return }
+                // Skip a zero-delta toggle. Animating sidebarProgress to the value it
+                // already holds can drop the completion, so endSidebarResize never fires
+                // and the gesture flag latches — freezing the map/height for the session.
+                // It also resyncs after a mode-switch round-trip left isCommentSidebarVisible
+                // and sidebarProgress disagreeing.
+                guard sidebarProgress != (visible ? 1 : 0) else { return }
                 // Capture the viewport anchor while the layout still reflects the old
                 // width, animate the width, then settle the anchor once at the end.
                 // The per-frame re-pin runs from the text view's tile().
@@ -263,21 +305,125 @@
             _ newBlocks: [IndexedBlock], isFullReload animate: Bool,
             entries: [CommentSidecar.Entry]? = nil
         ) {
-            renderedBlocks = newBlocks
-            knownBlockIDs = Set(newBlocks.map(\.id))
-            isFullReload = animate
-            let result = MarkdownTextStorageBuilder.build(
+            beginRenderGeneration(newBlocks, isFullReload: animate)
+            let result = OpenTimeline.shared.time("build") {
+                MarkdownTextStorageBuilder.build(
+                    blocks: newBlocks,
+                    theme: appSettings.theme,
+                    scaleFactor: appSettings.scaleFactor,
+                    appSettings: appSettings
+                )
+            }
+            let resolved = entries ?? CommentDocument.parse(documentState.markdownContent).entries
+            publishFullResult(result, entries: resolved)
+            outlineState.updateHeadings(from: newBlocks)
+        }
+
+        // MARK: - Progressive Open
+
+        /// Documents below these sizes build fast enough to install whole; the
+        /// constants are calibrated against the perf fixtures (a 250-block /
+        /// 78KB document builds in roughly a third of a second).
+        private static let progressiveBlockThreshold = 200
+        private static let progressiveSourceThreshold = 200_000
+        /// First-paint prefix: enough blocks to cover a couple of viewports of
+        /// estimated height, capped so a pathological document still paints.
+        private static let prefixHeightTarget: CGFloat = 3000
+        private static let prefixDeadline: Duration = .milliseconds(250)
+        /// Width assumption for the prefix-height estimate (the real width is
+        /// unknown until AppKit lays out). Wider than any typical preview
+        /// column: over-guessing the width under-estimates each fragment's
+        /// height, so the loop builds more blocks — the error direction that
+        /// over-fills the prefix rather than leaving the first paint short.
+        private static let prefixMeasureWidth: CGFloat = 1200
+
+        private static func shouldOpenProgressively(
+            _ blocks: [IndexedBlock], body: String
+        ) -> Bool {
+            blocks.count >= progressiveBlockThreshold
+                || body.utf16.count >= progressiveSourceThreshold
+        }
+
+        /// Viewport-first open: build and publish only the first viewport's
+        /// blocks, then hand the session to the text view's coordinator, which
+        /// appends the tail in main-actor slices and calls back with the full
+        /// result (docs/features/height-estimation/viewport-first-perf-plan.md).
+        private func openProgressively(
+            _ newBlocks: [IndexedBlock], isFullReload animate: Bool,
+            entries: [CommentSidecar.Entry]
+        ) {
+            beginRenderGeneration(newBlocks, isFullReload: animate)
+            let session = ProgressiveTextStorageBuild(
                 blocks: newBlocks,
                 theme: appSettings.theme,
                 scaleFactor: appSettings.scaleFactor,
                 appSettings: appSettings
             )
-            textStorageResult = result
-            let tape = AnchorTape.build(from: result.attributedString)
-            anchorTape = tape
-            let resolved = entries ?? CommentDocument.parse(documentState.markdownContent).entries
-            resolvedComments = ResolvedComments.resolve(resolved, in: tape)
+            OpenTimeline.shared.time("buildPrefix") {
+                Self.buildPrefix(session)
+            }
+            if session.isComplete {
+                // The prefix loop swallowed the whole document (threshold-edge
+                // size); publish it like an ordinary open.
+                publishFullResult(session.result(), entries: entries)
+            } else {
+                progressiveSession = session
+                textStorageResult = session.partialResult()
+                // No tape or comments until the tail lands the full text, and
+                // no map: the previous document's marks would stay clickable
+                // for the whole tail (rebuilds are suppressed until the finish).
+                anchorTape = nil
+                resolvedComments = nil
+                mapState.documentMap = PreviewDocumentMap()
+            }
             outlineState.updateHeadings(from: newBlocks)
+        }
+
+        /// Shared per-render bookkeeping for both open paths. Clearing the
+        /// session matters on the synchronous path too: a theme/scale rebuild
+        /// replaces the storage whole, and a progressive session still in
+        /// flight must not hand its tail to the new content.
+        private func beginRenderGeneration(
+            _ newBlocks: [IndexedBlock], isFullReload animate: Bool
+        ) {
+            renderedBlocks = newBlocks
+            knownBlockIDs = Set(newBlocks.map(\.id))
+            isFullReload = animate
+            progressiveSession = nil
+        }
+
+        /// Build blocks until the estimated prefix height covers the target or
+        /// the deadline passes. The caller reads the result off the session
+        /// (`partialResult()` or `result()`), so the threshold-edge case that
+        /// completes the document doesn't pay for a discarded prefix snapshot.
+        private static func buildPrefix(_ session: ProgressiveTextStorageBuild) {
+            let deadline = ContinuousClock.now + prefixDeadline
+            var estimated: CGFloat = 0
+            while !session.isComplete, estimated < prefixHeightTarget,
+                  ContinuousClock.now < deadline
+            {
+                guard let fragment = session.buildNext(maxBlocks: 8, deadline: deadline)
+                else { break }
+                estimated += DocumentHeightEstimator.contentHeight(
+                    of: fragment, textWidth: prefixMeasureWidth
+                )
+            }
+        }
+
+        /// Publish a complete build: the storage result, the anchor tape built
+        /// from its text, and comments resolved against that tape. Shared by the
+        /// synchronous open and the progressive finish.
+        private func publishFullResult(
+            _ result: TextStorageResult, entries: [CommentSidecar.Entry]
+        ) {
+            textStorageResult = result
+            let tape = OpenTimeline.shared.time("anchorTape") {
+                AnchorTape.build(from: result.attributedString)
+            }
+            anchorTape = tape
+            resolvedComments = OpenTimeline.shared.time("resolveComments") {
+                ResolvedComments.resolve(entries, in: tape)
+            }
         }
     }
 #endif

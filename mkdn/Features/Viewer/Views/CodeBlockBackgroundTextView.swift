@@ -66,6 +66,9 @@
         var hoveredBlockID: String?
         var copyButtonOverlay: NSView?
         var cachedBlockRects: [CodeBlockGeometry] = []
+        /// Scroll origin the viewport-scoped rect cache was computed at; a
+        /// scroll invalidates it as surely as a content change.
+        var cachedBlockRectsOrigin: CGPoint?
         /// Count badges marking spans covered by 2+ overlapping comments, cached in
         /// `viewWillDraw` to avoid forcing layout during drawing. Carries the
         /// covering ids + range so clicking the badge opens those comments.
@@ -141,7 +144,8 @@
 
         // MARK: - Print Support
 
-        /// Current indexed blocks retained for print-time attributed string rebuild.
+        /// Current indexed blocks — the print-time attributed string rebuild and
+        /// the progressive open's provisional height floor both read them.
         var printBlocks: [IndexedBlock] = []
 
         // MARK: - Sidebar Resize
@@ -152,11 +156,68 @@
         /// the text the reader is looking at holds still while everything rewraps.
         var sidebarResizeAnchor: SidebarResizeAnchor?
 
+        /// True for the whole comment-rail slide (begin…end), not just the frames where
+        /// `sidebarResizeAnchor` happens to be set. The anchor can be briefly nil at the
+        /// slide's edges (it's captured/cleared a frame off the width animation), so it
+        /// alone leaks per-frame estimate/map work; this flag spans the gesture.
+        var isSidebarResizeInFlight = false
+
+        /// Any width gesture in flight — the rail slide or a window live-resize — during
+        /// which per-frame whole-string measures (height estimate, document map) must be
+        /// skipped and run once on settle. The shared signal for every such guard.
+        var isResizeGestureActive: Bool {
+            isSidebarResizeInFlight
+                || sidebarResizeAnchor != nil
+                || (enclosingScrollView?.inLiveResize ?? false)
+        }
+
+        // MARK: - Progressive Open
+
+        /// A progressive open's tail is still appending chunks: the storage holds a
+        /// prefix and `documentHeightModel` covers only that prefix, so whole-string
+        /// measures would read a fraction of the document as its full height. Cleared
+        /// by the coordinator's finish once the tail (and the one exact pass) lands.
+        var isProgressiveOpenActive = false
+
+        /// Scale factor for the provisional floor while the tail runs (the text view
+        /// has no other route to the app's zoom).
+        var progressiveOpenScaleFactor: CGFloat = 1
+
+        /// Set by the coordinator while a tail is active; actions that need the full
+        /// document now (print) call it to drain the tail synchronously.
+        var forceFinishProgressiveOpen: (() -> Void)?
+
+        /// Whole-string measures suppressed: any width gesture, or a progressive
+        /// open's tail. One signal for the spy/map/heading/code-block-rect guards.
+        var isMetricsSuppressed: Bool {
+            isResizeGestureActive || isProgressiveOpenActive
+        }
+
         /// Floor for the document-view height from the whole-string height estimate, so
         /// the scroller reflects the full height immediately instead of TextKit 2
         /// building it up lazily as the reader scrolls. Recomputed at each settled width
         /// (load, resize end); cleared during a slide/drag so the reflow is free.
         var estimatedHeightFloor: CGFloat?
+
+        /// Block spans for the current content, set alongside each storage swap. Lets
+        /// `refreshEstimatedHeight` size the scroller from the per-block sum (fast) rather
+        /// than a whole-document `boundingRect` (super-linear in length for some content).
+        var documentHeightModel: DocumentHeightModel?
+
+        /// Container width of the last height estimate, so a redundant re-measure at an
+        /// unchanged width is skipped (see `refreshEstimatedHeight`). Nilled when the
+        /// height changes at a fixed width (attachment resolution) to force a recompute.
+        private var lastEstimatedWidth: CGFloat?
+
+        /// Shared cache of the per-block Core Text pass at `lastEstimatedWidth`:
+        /// ``refreshEstimatedHeight`` recomputes and replaces it on every re-measure, and the
+        /// heading navigation and document map read it via ``currentBlockOffsets()`` — one
+        /// pass per content/width. Freed wherever block tops can shift before a synchronous
+        /// refresh reaches it: the resize-gesture starts (sidebar slide, window live-resize),
+        /// which suppress the per-frame refresh, and attachment resolution, whose height
+        /// re-estimate is debounced — so a reader in that window recomputes fresh instead of
+        /// reading stale tops.
+        var blockOffsets: DocumentBlockOffsets?
 
         private var refreshHeightWorkItem: DispatchWorkItem?
 
@@ -182,7 +243,7 @@
                 // or window drag (the whole-string measure would run every frame); those
                 // refresh once at their end.
                 if canRefreshEstimatedHeight {
-                    refreshEstimatedHeight()
+                    refreshSettledHeight()
                 }
             }
             invalidateCodeBlockCache()
@@ -203,6 +264,12 @@
                 || textContainer.size.height != desired.height
             else { return false }
             textContainer.size = desired
+            // The shared offsets were measured at the old width. The gesture
+            // paths nil them at their start, but a non-gesture width change
+            // (minimap toggle, window zoom, tiling) only passes through here —
+            // and readers reuse a live cache assuming it matches the current
+            // geometry.
+            blockOffsets = nil
             invalidateCodeBlockCache()
             needsDisplay = true
             return true
@@ -219,10 +286,12 @@
                   (textContainer?.size.width ?? 0) > 0,
                   bounds.width > 0
             else { return }
-            if hardInvalidate {
-                textLayoutManager.invalidateLayout(for: textLayoutManager.documentRange)
+            OpenTimeline.shared.time("viewportLayout") {
+                if hardInvalidate {
+                    textLayoutManager.invalidateLayout(for: textLayoutManager.documentRange)
+                }
+                textLayoutManager.textViewportLayoutController.layoutViewport()
             }
-            textLayoutManager.textViewportLayoutController.layoutViewport()
             setNeedsDisplay(enclosingScrollView?.documentVisibleRect ?? bounds)
         }
 
@@ -231,7 +300,7 @@
         /// slide/resize end-handlers re-estimate, so a skipped mid-gesture refresh loses
         /// nothing.
         private var canRefreshEstimatedHeight: Bool {
-            sidebarResizeAnchor == nil && !(enclosingScrollView?.inLiveResize ?? false)
+            !isResizeGestureActive
         }
 
         /// Width available to text: the container width (already minus the horizontal
@@ -251,18 +320,97 @@
         /// enough to size the frame in both directions, so an attachment that resolves
         /// below its placeholder shrinks the frame instead of leaving dead scroll extent.
         func refreshEstimatedHeight() {
+            // Mid-tail the model covers only the installed prefix, so the "exact"
+            // measure would shrink the scroller to a fraction of the document; every
+            // caller (settles included) must wait for the finish, which clears the
+            // flag and runs the one exact pass.
+            guard !isProgressiveOpenActive else { return }
             // Bail at a collapsed/degenerate width: a zero estimate must not shrink a
             // non-empty view to nothing now that sizing is bidirectional.
             guard let textStorage, textWidth > 0 else { return }
-            let estimate = DocumentHeightEstimator.estimatedHeight(
-                of: textStorage,
-                textWidth: textWidth,
+            // Skip a redundant re-measure at a width already estimated — a settle posts the
+            // final width through several layout events, each of which would otherwise redo
+            // the per-block pass. A freed floor (content swap, gesture start) or the attachment
+            // path (which nils `lastEstimatedWidth`) still forces a recompute, since those
+            // change the height at an unchanged width.
+            guard textWidth != lastEstimatedWidth || estimatedHeightFloor == nil else { return }
+            lastEstimatedWidth = textWidth
+            // Per-block sum when a model is present (dodges the super-linear whole-document
+            // measure — the open-time freeze on large, fallback-heavy docs), else whole-doc.
+            // The cached total equals the old height-only estimate — `buildOffsets` only adds
+            // the per-block array, never the total.
+            let estimate: CGFloat
+            if documentHeightModel != nil {
+                // Any non-nil model routes through the shared offsets: the builder emits one
+                // block span per rendered block, so empty blocks pair only with empty text —
+                // both measure to 0, matching the whole-document fallback this replaced.
+                // The cached pass is reusable when present — every height-changing event
+                // (width change, attachment resolution, content swap) nils it, so a live
+                // cache is already at the current geometry; recomputing would repeat the
+                // measure a map rebuild just ran.
+                guard let offsets = currentBlockOffsets() else { return }
+                estimate = offsets.totalHeight
+            } else {
+                estimate = DocumentHeightEstimator.estimatedHeight(
+                    of: textStorage, model: nil,
+                    textWidth: textWidth, verticalInset: textContainerInset.height)
+            }
+            applyEstimatedHeightFloor(estimate)
+        }
+
+        private func applyEstimatedHeightFloor(_ floor: CGFloat) {
+            estimatedHeightFloor = floor
+            if abs(frame.height - floor) > 0.5 {
+                setFrameSize(NSSize(width: frame.width, height: floor))
+            }
+        }
+
+        /// The settle-time height recompute: exact when the document is fully
+        /// materialized, the provisional floor while a progressive open's tail is
+        /// still appending. Width settles (load, resize end, slide end) call this
+        /// so a settle mid-tail can't collapse the scroller to the prefix height.
+        func refreshSettledHeight() {
+            if isProgressiveOpenActive {
+                seedProvisionalEstimatedHeightFloor()
+            } else {
+                refreshEstimatedHeight()
+            }
+        }
+
+        /// Size the frame from the parsed-blocks floor while the tail appends —
+        /// the scroller then reflects roughly the whole document from first paint.
+        /// Memoized by width like the exact estimate: a settle posts its final
+        /// width through several layout events, and the estimate is an
+        /// O(document characters) scan.
+        func seedProvisionalEstimatedHeightFloor() {
+            guard isProgressiveOpenActive, textWidth > 0, !printBlocks.isEmpty else { return }
+            guard textWidth != lastEstimatedWidth || estimatedHeightFloor == nil else { return }
+            lastEstimatedWidth = textWidth
+            let floor = ProvisionalHeightEstimator.provisionalHeight(
+                of: printBlocks, textWidth: textWidth,
+                scaleFactor: progressiveOpenScaleFactor,
                 verticalInset: textContainerInset.height
             )
-            estimatedHeightFloor = estimate
-            if abs(frame.height - estimate) > 0.5 {
-                setFrameSize(NSSize(width: frame.width, height: estimate))
-            }
+            guard floor > 0 else { return }
+            applyEstimatedHeightFloor(floor)
+        }
+
+        /// Per-block offsets at the current width — the cached pass if present, else computed
+        /// once and cached. A Core Text per-block measure, accurate off-viewport where TextKit
+        /// returns estimated frames; nil until a model and real width exist.
+        func currentBlockOffsets() -> DocumentBlockOffsets? {
+            blockOffsets ?? computeBlockOffsets()
+        }
+
+        /// Measure the per-block offsets at the current width and cache them, replacing any
+        /// prior generation — the sole compute site.
+        private func computeBlockOffsets() -> DocumentBlockOffsets? {
+            guard let textStorage, let documentHeightModel, textWidth > 0 else { return nil }
+            let offsets = DocumentBlockOffsets.compute(
+                of: textStorage, model: documentHeightModel,
+                textWidth: textWidth, verticalInset: textContainerInset.height)
+            blockOffsets = offsets
+            return offsets
         }
 
         /// Debounced ``refreshEstimatedHeight``. Attachment overlays (image, Mermaid,
@@ -273,6 +421,9 @@
             refreshHeightWorkItem?.cancel()
             let workItem = DispatchWorkItem { [weak self] in
                 guard let self, self.canRefreshEstimatedHeight else { return }
+                // Attachments resolved to new heights at an unchanged width; clear the
+                // width memo so the re-estimate isn't skipped as redundant.
+                self.lastEstimatedWidth = nil
                 self.refreshEstimatedHeight()
             }
             refreshHeightWorkItem = workItem
@@ -432,6 +583,12 @@
         // MARK: - Print
 
         override func printView(_ sender: Any?) {
+            // The print run swaps the storage and spins a modal runloop; an active
+            // tail would append into the print canvas. Drain it first so the
+            // restore below puts back the complete document.
+            if isProgressiveOpenActive {
+                forceFinishProgressiveOpen?()
+            }
             guard !printBlocks.isEmpty else {
                 super.printView(sender)
                 return
@@ -463,6 +620,9 @@
             if let saved = savedString {
                 textStorage?.setAttributedString(saved)
             }
+            // The print run lays out at page width; a rebuild during the modal could have
+            // cached page-width offsets. Drop them so the screen reads fresh tops.
+            blockOffsets = nil
             backgroundColor = savedBgColor
             resolvedComments = savedResolvedComments
         }

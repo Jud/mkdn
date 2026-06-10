@@ -61,13 +61,15 @@
             ) {
                 renderedImage = result.image
                 hasFailed = false
-                let totalHeight = result.image.size.height + 16
+                // Mirrors MathRenderer.displayBlockHeight, which sized the
+                // build-time placeholder — matching heights make this report
+                // a no-op instead of a layout shift.
+                let totalHeight = result.image.size.height + MathRenderer.displayBlockPadding
                 onSizeChange?(totalHeight)
             } else {
                 renderedImage = nil
                 hasFailed = true
-                let estimatedHeight: CGFloat = 40
-                onSizeChange?(estimatedHeight)
+                onSizeChange?(MathRenderer.failedBlockHeight)
             }
         }
     }

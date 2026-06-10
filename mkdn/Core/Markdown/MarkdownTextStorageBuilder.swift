@@ -79,6 +79,7 @@ public enum MarkdownTextStorageBuilder {
     // MARK: - Constants
 
     static let blockSpacing: CGFloat = 16
+    static let lineSpacing: CGFloat = 2
     static let paragraphBottomMargin: CGFloat = 10
     /// GitHub's CSS uses uniform 1.5rem (24px) top-margin for h1-h6;
     /// per-level prominence comes from font size alone.
@@ -127,63 +128,22 @@ public enum MarkdownTextStorageBuilder {
         isPrint: Bool = false,
         appSettings: AppSettings? = nil
     ) -> TextStorageResult {
-        let result = NSMutableAttributedString()
-        var attachments: [AttachmentInfo] = []
-        var headingOffsets: [Int: Int] = [:]
-        var blockSpans: [BlockSpan] = []
-
-        for (offset, indexedBlock) in blocks.enumerated() {
-            // Record character offset before appending heading blocks.
-            if case .heading = indexedBlock.block {
-                headingOffsets[indexedBlock.index] = result.length
-            }
-
-            let blockStart = result.length
-            appendBlock(
-                indexedBlock,
-                to: result,
-                colors: colors,
-                syntaxColors: syntaxColors,
-                scaleFactor: scaleFactor,
-                attachments: &attachments,
-                isPrint: isPrint,
-                appSettings: appSettings
-            )
-            blockSpans.append(BlockSpan(
-                index: indexedBlock.index,
-                range: NSRange(location: blockStart, length: result.length - blockStart),
-                kind: indexedBlock.block.blockKind
-            ))
-
-            // Collapse the first block's top spacing so textContainerInset
-            // alone controls the window-top-to-text distance.
-            if offset == 0, result.length > 0 {
-                let firstParaRange = (result.string as NSString) // swiftlint:disable:this legacy_objc_type
-                    .paragraphRange(for: NSRange(location: 0, length: 0))
-                if let style = result.attribute(
-                    .paragraphStyle, at: 0, effectiveRange: nil
-                ) as? NSParagraphStyle {
-                    // swiftlint:disable:next force_cast
-                    let mutable = style.mutableCopy() as! NSMutableParagraphStyle
-                    mutable.paragraphSpacingBefore = 0
-                    result.addAttribute(.paragraphStyle, value: mutable, range: firstParaRange)
-                }
-            }
-        }
-
-        return TextStorageResult(
-            attributedString: result,
-            attachments: attachments,
-            headingOffsets: headingOffsets,
-            documentHeightModel: DocumentHeightModel(blocks: blockSpans),
-            sourceMap: SourceMap(attributedString: result)
+        let session = ProgressiveTextStorageBuild(
+            blocks: blocks,
+            colors: colors,
+            syntaxColors: syntaxColors,
+            scaleFactor: scaleFactor,
+            isPrint: isPrint,
+            appSettings: appSettings
         )
+        session.buildRemaining()
+        return session.result()
     }
 
     // MARK: - Block Dispatch
 
     // swiftlint:disable:next function_parameter_count function_body_length
-    private static func appendBlock(
+    static func appendBlock(
         _ indexedBlock: IndexedBlock,
         to result: NSMutableAttributedString,
         colors: ThemeColors,
@@ -223,7 +183,21 @@ public enum MarkdownTextStorageBuilder {
                     to: result, code: code, colors: colors, scaleFactor: sf
                 )
             } else {
-                appendAttachmentPlaceholder(indexedBlock, to: result, attachments: &attachments)
+                // Size the placeholder by typesetting the equation now (math
+                // doesn't wrap, so its height is width-independent). The
+                // overlay's later height report then matches and no layout
+                // shifts under the reader after first paint.
+                appendAttachmentBlock(
+                    to: result,
+                    blockIndex: indexedBlock.index,
+                    block: block,
+                    height: MathRenderer.displayBlockHeight(
+                        latex: code,
+                        scaleFactor: sf,
+                        textColor: PlatformTypeConverter.color(from: colors.foreground)
+                    ),
+                    attachments: &attachments
+                )
             }
         case let .blockquote(blocks):
             appendBlockquote(
@@ -393,7 +367,7 @@ public enum MarkdownTextStorageBuilder {
     // MARK: - Paragraph Style Helpers
 
     static func makeParagraphStyle(
-        lineSpacing: CGFloat = 2,
+        lineSpacing: CGFloat = Self.lineSpacing,
         paragraphSpacing: CGFloat = 0,
         paragraphSpacingBefore: CGFloat = 0,
         headIndent: CGFloat = 0,

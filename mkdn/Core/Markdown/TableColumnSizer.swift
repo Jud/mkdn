@@ -131,8 +131,8 @@ enum TableColumnSizer {
         guard columnCount > 0 else { return 0 }
 
         let boldFont = PlatformTypeConverter.convertFont(font, toHaveTrait: .bold)
-        let lineHeight = ceil(font.ascender - font.descender + font.leading)
-        let boldLineHeight = ceil(boldFont.ascender - boldFont.descender + boldFont.leading)
+        let lineHeight = PlatformTypeConverter.lineHeight(of: font)
+        let boldLineHeight = PlatformTypeConverter.lineHeight(of: boldFont)
 
         let headerRowHeight = estimateRowHeight(
             cells: columns.map(\.header),

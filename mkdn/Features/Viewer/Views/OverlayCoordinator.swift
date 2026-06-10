@@ -373,8 +373,13 @@
                 // placeholder height; the SwiftUI view won't re-fire onSizeChange
                 // because the image is already loaded. Use invalidateAttachmentHeight
                 // so entrance animation cover layers get rebuilt for the new layout.
+                // Same instance means nothing to carry over: a progressive open's
+                // finish re-registers the prefix attachments it already installed,
+                // and re-invalidating each would discard the tail's layout and
+                // re-trigger the height/offsets passes per attachment.
                 let knownHeight = oldAttachment.bounds.height
-                if knownHeight > 1, let textStorage = textView.textStorage {
+                if oldAttachment !== info.attachment, knownHeight > 1,
+                   let textStorage = textView.textStorage {
                     invalidateAttachmentHeight(
                         info.attachment,
                         blockIndex: info.blockIndex,

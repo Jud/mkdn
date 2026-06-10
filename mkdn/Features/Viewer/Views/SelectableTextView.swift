@@ -40,6 +40,17 @@
         /// Shared with the scroll-marker track: the coordinator publishes positions
         /// here and reads back the track's scroll-to requests.
         let mapState: PreviewMapState
+        /// Non-nil while a progressive open is in flight: `attributedText` is the
+        /// installed prefix, and the coordinator drives this session's tail into
+        /// the live storage. Nil for the ordinary whole-document install.
+        let progressiveSession: ProgressiveTextStorageBuild?
+        /// Called once the tail completes, with the finished session and its
+        /// full result, so the preview can publish the final storage result,
+        /// anchor tape, and comments. The session is passed so the receiver
+        /// can drop a finish that's no longer the one it's waiting on.
+        let onProgressiveOpenFinished: (
+            (ProgressiveTextStorageBuild, TextStorageResult) -> Void
+        )?
         @Binding var isLoadingGateActive: Bool
 
         // MARK: - NSViewRepresentable
@@ -63,13 +74,16 @@
                 guard let coordinator else { return }
                 if let textView = coordinator.textView as? CodeBlockBackgroundTextView {
                     // Attachment height changes shift fragment y-positions below: cached
-                    // code-block geometry must be rebuilt, and the scroller re-estimated
-                    // now that an attachment resolved its real height.
+                    // code-block geometry must be rebuilt, the scroller re-estimated now
+                    // that an attachment resolved its real height, and the shared per-block
+                    // offsets dropped. The re-estimate is debounced, so without this the
+                    // immediate map/heading rebuilds below would read pre-resolution tops.
                     textView.invalidateCodeBlockCache()
                     textView.scheduleRefreshEstimatedHeight()
+                    textView.blockOffsets = nil
                 }
                 // Same shift moves every block below the attachment: drop the heading
-                // position / offset cache so navigation re-measures at resolved heights.
+                // position cache so navigation re-measures at resolved heights.
                 coordinator.invalidateHeadingPositionCache()
                 // Resolved heights move every mark below the attachment too.
                 coordinator.scheduleDocumentMapRebuild()
@@ -105,9 +119,13 @@
             textView.documentState = documentState
             textView.commentTheme = theme
 
-            textView.textStorage?.setAttributedString(attributedText)
+            textView.documentHeightModel = documentHeightModel
+            configureProgressiveOpen(textView: textView)
+            OpenTimeline.shared.time("install") {
+                textView.textStorage?.setAttributedString(attributedText)
+            }
             textView.realizeViewportAfterContainerResize(hardInvalidate: false)
-            textView.refreshEstimatedHeight()
+            textView.refreshSettledHeight()
             textView.window?.invalidateCursorRects(for: textView)
             applyEntranceOrGate(
                 coordinator: coordinator, textView: textView, scrollView: scrollView
@@ -116,9 +134,18 @@
             coordinator.lastCommentRevision = commentRevision
             coordinator.wireScrollSpy()
             coordinator.scheduleDocumentMapRebuild()
+            OpenTimeline.shared.mark("renderComplete")
             RenderCompletionSignal.shared.signalRenderComplete()
+            beginProgressiveTailIfNeeded(coordinator: coordinator)
 
             return scrollView
+        }
+
+        static func dismantleNSView(_ nsView: NSScrollView, coordinator: Coordinator) {
+            // A recreated view (or unmount) must not leave the tail task
+            // appending into the orphaned storage — and consuming session
+            // blocks the replacement view's driver will never see.
+            coordinator.cancelProgressiveTail()
         }
 
         func updateNSView(_ scrollView: NSScrollView, context: Context) {
@@ -137,7 +164,14 @@
             textView.documentState = documentState
             textView.commentTheme = theme
 
+            // A complete session whose publish is still pending (the print
+            // drain defers it past the modal) leaves the published prefix
+            // !== the pre-set full lastAppliedText; the storage already holds
+            // the whole document, so reinstalling the stale prefix here would
+            // truncate it mid-print.
+            let publishPending = progressiveSession?.isComplete == true
             let isNewContent = coordinator.lastAppliedText !== attributedText
+                && !publishPending
             if isNewContent {
                 // The height model is content-derived; refresh it (and drop the heading
                 // position cache it feeds) on any text change, not only when the heading
@@ -148,6 +182,7 @@
                     coordinator: coordinator, textView: textView, scrollView: scrollView
                 )
                 coordinator.scheduleDocumentMapRebuild()
+                beginProgressiveTailIfNeeded(coordinator: coordinator)
             } else if coordinator.lastCommentRevision != commentRevision {
                 coordinator.lastCommentRevision = commentRevision
                 repaintCommentHighlights(textView: textView)
@@ -271,6 +306,9 @@
         ) {
             let textChanged = textView.textStorage?.string != attributedText.string
 
+            // The storage is about to be replaced; a still-running tail would
+            // append the old document's blocks into it.
+            coordinator.cancelProgressiveTail()
             coordinator.gate.reset()
             coordinator.lastScrolledTarget = nil
             isLoadingGateActive = false
@@ -290,8 +328,15 @@
             // A content swap invalidates the captured anchor's text location; drop it
             // so an in-flight sidebar slide's tile() doesn't re-pin against the
             // replaced document (the stale NSTextLocation would enumerate out of range).
+            // Clear the gesture flag too — a reload mid-slide must not latch the per-frame
+            // map/height suppression on past the now-stale slide completion.
             textView.sidebarResizeAnchor = nil
+            textView.isSidebarResizeInFlight = false
             textView.estimatedHeightFloor = nil
+            // Drop the shared offsets too. The refreshEstimatedHeight below recomputes them,
+            // but it bails at zero width (narrow pane, hidden tab), which would otherwise
+            // leave the previous document's offsets live for the queued map rebuild.
+            textView.blockOffsets = nil
             // Dismiss an open comment overlay; its position points into the old
             // layout and its body may no longer match the new content. A body edit
             // from the popover only changed the sidecar (layout unchanged), so it
@@ -304,9 +349,13 @@
             } else {
                 textView.dismissCommentOverlay()
             }
-            textView.textStorage?.setAttributedString(attributedText)
+            textView.documentHeightModel = documentHeightModel
+            configureProgressiveOpen(textView: textView)
+            OpenTimeline.shared.time("install") {
+                textView.textStorage?.setAttributedString(attributedText)
+            }
             textView.realizeViewportAfterContainerResize(hardInvalidate: false)
-            textView.refreshEstimatedHeight()
+            textView.refreshSettledHeight()
             textView.window?.invalidateCursorRects(for: textView)
 
             if textChanged {
@@ -319,7 +368,28 @@
                 coordinator: coordinator, textView: textView, scrollView: scrollView
             )
             coordinator.lastAppliedText = attributedText
+            OpenTimeline.shared.mark("renderComplete")
             RenderCompletionSignal.shared.signalRenderComplete()
+        }
+
+        /// Mark the text view for the install that's about to run: during a
+        /// progressive open the storage holds only a prefix (whole-string measures
+        /// suppressed, selection gated until the tail lands); otherwise restore the
+        /// ordinary whole-document state.
+        private func configureProgressiveOpen(textView: CodeBlockBackgroundTextView) {
+            let isProgressive = progressiveSession?.isComplete == false
+            textView.isProgressiveOpenActive = isProgressive
+            textView.progressiveOpenScaleFactor = appSettings.scaleFactor
+            textView.isSelectable = !isProgressive
+        }
+
+        /// Hand the session to the coordinator's tail driver after the prefix is
+        /// installed and wired.
+        private func beginProgressiveTailIfNeeded(coordinator: Coordinator) {
+            guard let session = progressiveSession else { return }
+            coordinator.beginProgressiveTail(
+                session: session, onFinished: onProgressiveOpenFinished
+            )
         }
 
         /// Apply a comment-only change (visible text unchanged) by swapping the
@@ -467,8 +537,14 @@
         override func viewWillStartLiveResize() {
             super.viewWillStartLiveResize()
             overlayCoordinator?.enterLiveResize()
-            // The estimate is for the old width; free the height for the drag.
-            (documentView as? CodeBlockBackgroundTextView)?.estimatedHeightFloor = nil
+            // The estimate (and the per-block offsets it caches) is for the old width; free
+            // both for the drag. Mirrors beginSidebarResize: a drag that ends without
+            // viewDidEndLiveResize firing then leaves the cache nil — a reader recomputes at
+            // the new width — rather than stale at the old width.
+            if let textView = documentView as? CodeBlockBackgroundTextView {
+                textView.estimatedHeightFloor = nil
+                textView.blockOffsets = nil
+            }
         }
 
         override func tile() {
@@ -479,15 +555,20 @@
             if let textView = documentView as? CodeBlockBackgroundTextView,
                textView.sidebarResizeAnchor != nil
             {
-                textView.restoreSidebarResizeAnchor()
+                textView.restoreSidebarResizeAnchor(exact: false)
                 overlayCoordinator?.repositionOverlays()
                 return
             }
             // Backstop: viewDidEndLiveResize doesn't always fire (focus loss,
             // window close mid-drag). If the flag drifted out of sync, drain
-            // here so deferred heights don't pile up forever.
+            // here so deferred heights don't pile up forever — and re-derive
+            // the settled height, which also covers a progressive tail that
+            // finished mid-resize and skipped its exact pass waiting for a
+            // settle that never came. Memoized by width, so the steady-state
+            // call is a guard check.
             if !inLiveResize {
                 overlayCoordinator?.exitLiveResize()
+                (documentView as? CodeBlockBackgroundTextView)?.refreshSettledHeight()
             }
             guard inLiveResize,
                   let textView = documentView as? NSTextView
@@ -506,7 +587,7 @@
             // settled fragments before the scroll-origin restore below.
             overlayCoordinator?.exitLiveResize()
             // Re-estimate the height at the settled width so the scroller is right.
-            (documentView as? CodeBlockBackgroundTextView)?.refreshEstimatedHeight()
+            (documentView as? CodeBlockBackgroundTextView)?.refreshSettledHeight()
 
             if let savedOrigin = liveResizeBoundsOrigin {
                 contentView.setBoundsOrigin(savedOrigin)

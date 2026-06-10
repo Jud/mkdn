@@ -42,6 +42,7 @@
         case frameCapture(FrameCaptureResult)
         case windowInfo(WindowInfoResult)
         case themeColors(ThemeColorsResult)
+        case openTimings(OpenTimingsResult)
         case pong
     }
 

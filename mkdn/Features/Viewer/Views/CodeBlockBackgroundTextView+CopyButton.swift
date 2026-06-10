@@ -98,7 +98,10 @@
         // MARK: - Block Rect Cache
 
         func refreshCachedBlockRects() {
-            if areBlockRectsValid { return }
+            // The cache is viewport-scoped, so it's keyed by the scroll origin
+            // as well as content validity: a scroll brings new blocks into view.
+            let scrollOrigin = enclosingScrollView?.contentView.bounds.origin ?? .zero
+            if areBlockRectsValid, scrollOrigin == cachedBlockRectsOrigin { return }
             guard let textStorage,
                   let layoutManager = textLayoutManager,
                   let contentManager = layoutManager.textContentManager
@@ -123,24 +126,26 @@
             guard !blocks.isEmpty else {
                 cachedBlockRects = []
                 areBlockRectsValid = true
+                cachedBlockRectsOrigin = scrollOrigin
                 return
             }
 
-            // Enumerating fragments with `.ensuresLayout` only realizes the
-            // visible viewport; blocks outside it come back with TextKit 2's
-            // *estimated* (fractional, accumulating-error) frame positions, so a
-            // code block below the first viewport gets a wrong Y on first paint
-            // and stays mispositioned until a scroll forces real layout. Force
-            // real layout from the document start through the last code block —
-            // every block's Y depends on all preceding layout — so the frames
-            // below are final. (Trailing content can't affect a block rect, so
-            // there's no need to lay out past the last block.)
-            let lastBlockEnd = blocks.map(\.range.upperBound).max() ?? 0
-            if let layoutRange = textRange(
-                from: NSRange(location: 0, length: lastBlockEnd),
-                contentManager: contentManager
-            ) {
-                layoutManager.ensureLayout(for: layoutRange)
+            // Only blocks intersecting the viewport get rects. The contiguous
+            // container lays out everything from the document start through
+            // the viewport, so their fragment frames are already final — while
+            // a block past the viewport's end would force the document tail to
+            // lay out just to compute a rect that can't be drawn (outside every
+            // dirty rect) or hovered. Off-viewport blocks get their rects when
+            // a scroll brings them in (the origin key above).
+            var viewportCharRange = NSRange(location: 0, length: textStorage.length)
+            if let viewportRange = layoutManager.textViewportLayoutController.viewportRange {
+                let start = contentManager.offset(
+                    from: contentManager.documentRange.location, to: viewportRange.location
+                )
+                let end = contentManager.offset(
+                    from: contentManager.documentRange.location, to: viewportRange.endLocation
+                )
+                viewportCharRange = NSRange(location: start, length: max(end - start, 0))
             }
 
             let origin = textContainerOrigin
@@ -148,6 +153,9 @@
             let borderInset = Self.borderWidth / 2
 
             cachedBlockRects = blocks.compactMap { block in
+                guard NSIntersectionRange(block.range, viewportCharRange).length > 0
+                    || NSLocationInRange(viewportCharRange.location, block.range)
+                else { return nil }
                 let frames = fragmentFrames(
                     for: block.range,
                     layoutManager: layoutManager,
@@ -170,6 +178,7 @@
                 )
             }
             areBlockRectsValid = true
+            cachedBlockRectsOrigin = scrollOrigin
         }
     }
 #endif

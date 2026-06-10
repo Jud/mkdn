@@ -326,7 +326,7 @@ extension MarkdownTextStorageBuilder {
         )
     }
 
-    private static func setFirstParagraphSpacing(
+    static func setFirstParagraphSpacing(
         _ attrStr: NSMutableAttributedString,
         spacingBefore: CGFloat
     ) {

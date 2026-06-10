@@ -16,9 +16,10 @@ public struct BlockOffset {
 /// runs to `totalHeight`. Maps a document y to a block and back for
 /// scroll-to-anchor, the scrollbar, and a minimap.
 ///
-/// Each top is a cumulative-prefix measure corrected to the real block position
-/// (see `compute`), so offsets land on the real TextKit block tops. `O(blocks)`
-/// measures (`O(n^2)` in block count): computed once and cached, not per frame.
+/// Each top is the running height of the blocks above it, corrected to the real
+/// block position (see `compute`), so offsets land on the real TextKit block tops.
+/// Each block is measured once, so the pass is `O(total characters)`: computed once
+/// and cached, not per frame.
 public struct DocumentBlockOffsets {
     public let blocks: [BlockOffset]
     public let totalHeight: CGFloat
@@ -91,39 +92,101 @@ public struct DocumentBlockOffsets {
         textWidth: CGFloat,
         verticalInset: CGFloat
     ) -> DocumentBlockOffsets {
-        guard textWidth > 0, !model.blocks.isEmpty, attributedString.length > 0 else {
-            return DocumentBlockOffsets(blocks: [], totalHeight: 0)
+        let measured = OpenTimeline.shared.time("blockOffsets.compute") {
+            measure(
+                of: attributedString, model: model, textWidth: textWidth,
+                verticalInset: verticalInset, buildOffsets: true)
         }
-        let blocks = model.blocks.map { block -> BlockOffset in
+        return DocumentBlockOffsets(blocks: measured.blocks, totalHeight: measured.totalHeight)
+    }
+
+    /// The document's estimated height from the per-block sum, without building the
+    /// offsets array — the fast path for sizing the scroll view. A whole-document
+    /// `boundingRect` is super-linear in string length for some content (font fallback),
+    /// so the per-block sum is ~12x cheaper and lands on the same height (see `measure`).
+    @MainActor
+    public static func estimatedHeight(
+        of attributedString: NSAttributedString,
+        model: DocumentHeightModel,
+        textWidth: CGFloat,
+        verticalInset: CGFloat
+    ) -> CGFloat {
+        OpenTimeline.shared.time("blockOffsets.estimate") {
+            measure(
+                of: attributedString, model: model, textWidth: textWidth,
+                verticalInset: verticalInset, buildOffsets: false).totalHeight
+        }
+    }
+
+    /// The one per-block pass behind both the offsets and the height-only estimate, so the
+    /// seam math can't drift between them. Measures each block once and accumulates its
+    /// contiguous-layout contribution; records per-block tops only when `buildOffsets`.
+    @MainActor
+    private static func measure(
+        of attributedString: NSAttributedString,
+        model: DocumentHeightModel,
+        textWidth: CGFloat,
+        verticalInset: CGFloat,
+        buildOffsets: Bool
+    ) -> (totalHeight: CGFloat, blocks: [BlockOffset]) {
+        guard textWidth > 0, !model.blocks.isEmpty, attributedString.length > 0 else {
+            return (0, [])
+        }
+        OpenTimeline.shared.noteBlockOffsetsMeasure()
+        let string = attributedString.string as NSString
+        var blocks: [BlockOffset] = []
+        if buildOffsets { blocks.reserveCapacity(model.blocks.count) }
+        // Running height of every block above the current one. Each block is measured
+        // once and accumulated (not the whole prefix re-measured per block), so the pass
+        // is O(total characters), not O(blocks^2).
+        var cumulative: CGFloat = 0
+        // The phantom subtracted from the last block that ends in a newline. The whole-
+        // document height keeps that final trailing empty line (the loop strips it from
+        // every block), so it's added back to the total below.
+        var lastTrailingPhantom: CGFloat = 0
+        for block in model.blocks {
             let start = block.range.location
+            // Defensive: a stale model could describe blocks past the live string; stop
+            // before slicing out of bounds. Block ranges are monotonic, so once one
+            // overflows the rest do too. Not reachable in normal flow — the model and the
+            // text storage are swapped together — but the print path swaps storage alone.
+            guard NSMaxRange(block.range) <= attributedString.length else { break }
             // This block's own leading spacing (heading top-margin, code-block top
-            // padding) sits above its first glyph but is excluded from the prefix; add
-            // it back. Read it only when the block has a character — a zero-length
-            // trailing block has start == length. Applies to the first block too: a
-            // leading empty block can leave a later block's spacing-before uncollapsed.
+            // padding) sits above its first glyph. `boundingRect` suppresses it on the
+            // first paragraph of a measurement, so it's absent from both the running
+            // height and this block's isolated measure below — add it back in both places.
+            // Read it only when the block has a character — a zero-length trailing block
+            // has start == length.
             let spacingBefore = start < attributedString.length
                 ? ((attributedString.attribute(.paragraphStyle, at: start, effectiveRange: nil)
                         as? NSParagraphStyle)?.paragraphSpacingBefore ?? 0)
                 : 0
-            guard start > 0 else {
-                return BlockOffset(index: block.index, top: verticalInset + spacingBefore)
+            if buildOffsets {
+                blocks.append(
+                    BlockOffset(index: block.index, top: verticalInset + cumulative + spacingBefore))
             }
-            let prefixHeight = DocumentHeightEstimator.contentHeight(
-                of: attributedString.attributedSubstring(from: NSRange(location: 0, length: start)),
-                textWidth: textWidth
-            )
-            // The prefix ends in the previous block's terminating newline, which
-            // boundingRect renders as a phantom empty line the contiguous layout doesn't
-            // have at a boundary — subtract that line (the previous block's real trailing
-            // paragraphSpacing stays in prefixHeight).
-            let phantom = trailingNewlinePhantom(at: start - 1, in: attributedString)
-            return BlockOffset(
-                index: block.index, top: verticalInset + prefixHeight - phantom + spacingBefore)
+            guard block.range.length > 0 else { continue }
+            // Advance the running height by this block's contiguous-layout contribution.
+            // Two corrections to the isolated measure: subtract the phantom empty line a
+            // terminating newline grows in isolation (absent at the seam to the next block,
+            // the same seam the old prefix measure subtracted once), and add back the
+            // suppressed leading spacing — so per-block heights telescope to the
+            // whole-document height instead of drifting one empty line and one top-margin
+            // per block.
+            let blockHeight = DocumentHeightEstimator.contentHeight(
+                of: attributedString.attributedSubstring(from: block.range), textWidth: textWidth)
+            let end = NSMaxRange(block.range)
+            let phantom = end <= attributedString.length && string.character(at: end - 1) == 0x0A
+                ? trailingNewlinePhantom(at: end - 1, in: attributedString)
+                : 0
+            cumulative += blockHeight - phantom + spacingBefore
+            lastTrailingPhantom = phantom
         }
-        let total = DocumentHeightEstimator.estimatedHeight(
-            of: attributedString, textWidth: textWidth, verticalInset: verticalInset
-        )
-        return DocumentBlockOffsets(blocks: blocks, totalHeight: total)
+        // Total from the per-block sum, not a whole-document `boundingRect`. `cumulative`
+        // telescopes to the document content height minus its final trailing empty line;
+        // add that line back, then ceil + insets (the over-estimate bias).
+        let total = ceil(cumulative + lastTrailingPhantom) + verticalInset * 2
+        return (total, blocks)
     }
 
     /// Height of the lone empty line `boundingRect` adds for the newline at
@@ -138,11 +201,15 @@ public struct DocumentBlockOffsets {
         var attributes = attributedString.attributes(at: location, effectiveRange: nil)
         if let style = (attributes[.paragraphStyle] as? NSParagraphStyle)?
             .mutableCopy() as? NSMutableParagraphStyle {
-            // Zero only the trailing paragraphSpacing (the previous block's real spacing
-            // is already in prefixHeight). KEEP paragraphSpacingBefore: boundingRect
-            // applies it to the phantom empty line, so it is part of the seam — a heading
-            // terminator's 24pt top-margin would otherwise be under-subtracted.
+            // Isolate the phantom empty line itself. Zero trailing paragraphSpacing and
+            // lineSpacing: both belong to the real paragraph's separation from its
+            // neighbour (already in the block's own measure), not to the phantom line, so
+            // leaving them in over-subtracts the seam by `lineSpacing` per block. KEEP
+            // paragraphSpacingBefore: boundingRect applies it to the phantom line, so it is
+            // part of the seam — a heading terminator's 24pt top-margin would otherwise be
+            // under-subtracted.
             style.paragraphSpacing = 0
+            style.lineSpacing = 0
             attributes[.paragraphStyle] = style
         }
         let wide = CGFloat.greatestFiniteMagnitude

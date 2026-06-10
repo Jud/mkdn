@@ -41,6 +41,8 @@
                 await processCapture(command)
             case .getWindowInfo:
                 handleGetWindowInfo()
+            case .getOpenTimings:
+                .ok(data: .openTimings(OpenTimeline.shared.result()))
             case .getThemeColors:
                 handleGetThemeColors()
             case let .setReduceMotion(enabled):

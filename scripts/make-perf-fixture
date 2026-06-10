@@ -1,0 +1,125 @@
+#!/usr/bin/env python3
+"""Generate a large, deterministic Markdown fixture for open-time perf runs.
+
+The block mix (prose-heavy with regular code blocks, lists, tables, quotes,
+and math) approximates a long technical design doc — the document class the
+viewport-first perf plan targets. Images and Mermaid are excluded so timings
+aren't dominated by async overlay loads.
+"""
+import argparse
+import random
+
+WORDS = (
+    "viewport layout estimate anchor block offset render parse builder "
+    "fragment storage attachment overlay comment heading scroll measure "
+    "document height width container text glyph paragraph spacing margin "
+    "cache invalidate settle gesture frame paint chunk slice budget tail"
+).split()
+
+CODE_SAMPLES = {
+    "swift": (
+        "func measure(_ block: BlockSpan, width: CGFloat) -> CGFloat {\n"
+        "    let sub = storage.attributedSubstring(from: block.range)\n"
+        "    return DocumentHeightEstimator.contentHeight(of: sub, textWidth: width)\n"
+        "}\n"
+    ),
+    "python": (
+        "def measure(block, width):\n"
+        "    sub = storage[block.start:block.end]\n"
+        "    return estimator.content_height(sub, width)\n"
+    ),
+    "javascript": (
+        "function measure(block, width) {\n"
+        "  const sub = storage.slice(block.start, block.end);\n"
+        "  return estimator.contentHeight(sub, width);\n"
+        "}\n"
+    ),
+    "rust": (
+        "fn measure(block: &BlockSpan, width: f64) -> f64 {\n"
+        "    let sub = &storage[block.range.clone()];\n"
+        "    estimator::content_height(sub, width)\n"
+        "}\n"
+    ),
+    "bash": (
+        "for f in fixtures/*.md; do\n"
+        "  mkdn-ctl load \"$f\"\n"
+        "  mkdn-ctl open-timings\n"
+        "done\n"
+    ),
+}
+
+
+def sentence(rng, n):
+    words = [rng.choice(WORDS) for _ in range(n)]
+    return " ".join(words).capitalize() + "."
+
+
+def paragraph(rng):
+    parts = []
+    for _ in range(rng.randint(3, 7)):
+        parts.append(sentence(rng, rng.randint(8, 18)))
+    # Sprinkle inline styling so the builder exercises run conversion.
+    text = " ".join(parts)
+    return text.replace(" render ", " **render** ", 1).replace(
+        " layout ", " `layout` ", 1
+    )
+
+
+def emit_block(rng, index, out):
+    kind = rng.choices(
+        ("heading", "paragraph", "code", "ulist", "olist", "table", "quote", "math"),
+        weights=(12, 34, 15, 10, 8, 6, 10, 5),
+    )[0]
+    if kind == "heading":
+        level = rng.choice("## ### ###".split())
+        out.append(f"{level} {sentence(rng, rng.randint(3, 6))[:-1]} {index}")
+    elif kind == "paragraph":
+        out.append(paragraph(rng))
+    elif kind == "code":
+        lang = rng.choice(sorted(CODE_SAMPLES))
+        body = CODE_SAMPLES[lang] * rng.randint(1, 3)
+        out.append(f"```{lang}\n{body}```")
+    elif kind == "ulist":
+        items = [f"- {sentence(rng, rng.randint(6, 12))}" for _ in range(rng.randint(3, 6))]
+        out.append("\n".join(items))
+    elif kind == "olist":
+        items = [
+            f"{i + 1}. {sentence(rng, rng.randint(6, 12))}"
+            for i in range(rng.randint(3, 6))
+        ]
+        out.append("\n".join(items))
+    elif kind == "table":
+        rows = [
+            "| Phase | Budget | Notes |",
+            "| --- | --- | --- |",
+        ]
+        for _ in range(rng.randint(2, 5)):
+            rows.append(
+                f"| {rng.choice(WORDS)} | {rng.randint(1, 32)}ms | {sentence(rng, 5)} |"
+            )
+        out.append("\n".join(rows))
+    elif kind == "quote":
+        out.append(f"> {sentence(rng, rng.randint(10, 20))}")
+    elif kind == "math":
+        out.append("$$\nE_{open} = \\sum_i t_{block_i} + t_{install}\n$$")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--blocks", type=int, default=4000)
+    parser.add_argument("--seed", type=int, default=2026)
+    parser.add_argument("--out", default="/tmp/mkdn-perf-large.md")
+    args = parser.parse_args()
+
+    rng = random.Random(args.seed)
+    out = [f"# Perf fixture ({args.blocks} blocks, seed {args.seed})"]
+    for index in range(args.blocks - 1):
+        emit_block(rng, index, out)
+    text = "\n\n".join(out) + "\n"
+    with open(args.out, "w", encoding="utf-8") as fh:
+        fh.write(text)
+    print(f"{args.out}: {args.blocks} blocks, {len(text)} chars")
+
+
+if __name__ == "__main__":
+    main()
