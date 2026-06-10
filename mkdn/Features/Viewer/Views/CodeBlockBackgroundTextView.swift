@@ -140,6 +140,9 @@
             commentScrollTimer?.cancel()
             commentEmphasisTimer?.cancel()
             commentFlashTask?.cancel()
+            if let storageEditObserver {
+                NotificationCenter.default.removeObserver(storageEditObserver)
+            }
         }
 
         // MARK: - Print Support
@@ -263,7 +266,7 @@
                     refreshSettledHeight()
                 }
             }
-            invalidateCodeBlockCache()
+            invalidateCodeBlockRects()
             needsDisplay = true
         }
 
@@ -287,7 +290,7 @@
             // and readers reuse a live cache assuming it matches the current
             // geometry.
             blockOffsets = nil
-            invalidateCodeBlockCache()
+            invalidateCodeBlockRects()
             needsDisplay = true
             return true
         }
@@ -456,8 +459,42 @@
             invalidateCodeBlockCache()
         }
 
+        /// Programmatic storage mutations (content install, progressive tail appends)
+        /// never route through `didChangeText` — observe the storage directly.
+        /// Character edits are what change the block list; attribute-only edits
+        /// (attachment height resolution) leave ranges and colors intact and are
+        /// handled by ``invalidateCodeBlockRects()`` at their call sites.
+        nonisolated(unsafe) private var storageEditObserver: NSObjectProtocol?
+
+        func observeTextStorageEdits() {
+            guard storageEditObserver == nil, let textStorage else { return }
+            storageEditObserver = NotificationCenter.default.addObserver(
+                forName: NSTextStorage.didProcessEditingNotification,
+                object: textStorage,
+                queue: nil
+            ) { [weak self] note in
+                guard let storage = note.object as? NSTextStorage,
+                      storage.editedMask.contains(.editedCharacters)
+                else { return }
+                MainActor.assumeIsolated {
+                    self?.invalidateCodeBlockCache()
+                }
+            }
+        }
+
+        /// Full invalidation: the block list (ranges, colors) and the viewport rects.
+        /// Only content edits change the list — geometry changes use
+        /// ``invalidateCodeBlockRects()`` so they don't force the O(document)
+        /// attribute re-enumeration (which otherwise runs per frame during a width
+        /// gesture and per attachment-height report).
         func invalidateCodeBlockCache() {
             isCodeBlockCacheValid = false
+            areBlockRectsValid = false
+        }
+
+        /// Geometry-only invalidation: fragment frames moved (width change, attachment
+        /// height resolution), but the block ranges and colors are unchanged.
+        func invalidateCodeBlockRects() {
             areBlockRectsValid = false
         }
 

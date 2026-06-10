@@ -74,11 +74,13 @@
                 guard let coordinator else { return }
                 if let textView = coordinator.textView as? CodeBlockBackgroundTextView {
                     // Attachment height changes shift fragment y-positions below: cached
-                    // code-block geometry must be rebuilt, the scroller re-estimated now
-                    // that an attachment resolved its real height, and the shared per-block
-                    // offsets dropped. The re-estimate is debounced, so without this the
-                    // immediate map/heading rebuilds below would read pre-resolution tops.
-                    textView.invalidateCodeBlockCache()
+                    // code-block geometry must be rebuilt (rects only — the block ranges
+                    // are untouched by a height-only attribute edit), the scroller
+                    // re-estimated now that an attachment resolved its real height, and
+                    // the shared per-block offsets dropped. The re-estimate is debounced,
+                    // so without this the immediate map/heading rebuilds below would read
+                    // pre-resolution tops.
+                    textView.invalidateCodeBlockRects()
                     textView.scheduleRefreshEstimatedHeight()
                     textView.blockOffsets = nil
                 }
@@ -250,6 +252,7 @@
                 frame: .zero,
                 textContainer: textContainer
             )
+            textView.observeTextStorageEdits()
             textView.autoresizingMask = [.width]
             textView.minSize = NSSize(width: 0, height: 0)
             textView.maxSize = NSSize(
