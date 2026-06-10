@@ -119,10 +119,15 @@
             }
         }
 
-        /// `y` as a fraction in [0, 1] of the document height, for placing a mark on a track.
+        /// `y` as a fraction in [0, 1] of the document height, for placing a mark on a
+        /// track. The denominator is floored to the viewport height: a document shorter
+        /// than the viewport still renders on a full-height track, and dividing by the
+        /// small content height would stretch its marks down the whole track instead of
+        /// keeping them beside the content they point at.
         func normalized(_ y: CGFloat) -> CGFloat {
-            guard totalHeight > 0 else { return 0 }
-            return min(max(y / totalHeight, 0), 1)
+            let denominator = max(totalHeight, viewportHeight)
+            guard denominator > 0 else { return 0 }
+            return min(max(y / denominator, 0), 1)
         }
 
         /// The viewport as a normalized `(top, height)` fraction of the document, clamped
