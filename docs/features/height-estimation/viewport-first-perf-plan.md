@@ -1,8 +1,24 @@
 # Viewport-First Performance Plan
 
-**Status:** codex-GREEN (gpt-5.5, xhigh) — design validated, not yet implemented.
+**Status:** Targets A and B implemented (B1 folded into both); B2 is next.
 **Targets:** (A) 60fps on the comment-rail open/close slide; (B) sub-second first paint
 on document open (the `ve-access-control` doc is ~1.8s today).
+
+**Measured (release, 700-block/210KB fixture via `scripts/make-perf-fixture` +
+`mkdn-ctl open-timings`):** first paint 307ms (was 1702ms); exactly one
+block-offsets pass per content generation (was 3). A 4000-block/1.2MB fixture
+first-paints in ~1.1s where the baseline froze the app for 30+ seconds — the
+remaining pre-paint cost is the whole-document markdown parse/render (~440ms),
+kept synchronous by design (see below). The tail fully materializes in ~3.5s
+against the ~1.5s hope: a process sample shows AppKit's attribute-dictionary
+uniquing table dominating the chunked build (each appended run's dictionaries
+re-probe a global weak hash table that grows with every distinct
+`mkdnSourceSpan` run) — exactly B2's "cache attribute dicts" lever, plus a
+B2-adjacent option: drop the session's own accumulated copy and reconstruct
+the final string from the live storage, removing one of the three probe
+passes. Also deferred to B2-time: viewport-only overlay repositioning at the
+tail finish (the all-entry pass forces full-document layout once; inherited
+from the normal open path).
 
 ## Core principle
 
@@ -167,11 +183,16 @@ content/width generation.
 
 ## Sequencing (across both targets)
 
-1. **Instrument** open phases and slide frames with signposts (so we optimize from data).
-2. **B1**: defer + dedup `DocumentBlockOffsets` / map to one post-first-paint pass.
-3. **A**: viewport-bounded slide re-pin (+ kill the code-block-rect and overlay traps).
-4. **B (progressive)**: progressive build/install for the first viewport + cooperative tail.
-5. **B2**: builder micro-opts.
+1. ~~**Instrument** open phases and slide frames with signposts~~ — done
+   (`OpenTimeline` + `getOpenTimings` / `mkdn-ctl open-timings`).
+2. ~~**B1**: defer + dedup `DocumentBlockOffsets` / map to one post-first-paint pass.~~
+3. ~~**A**: viewport-bounded slide re-pin (+ kill the code-block-rect and overlay traps).~~
+4. ~~**B (progressive)**: progressive build/install for the first viewport + cooperative
+   tail~~ — `ProgressiveTextStorageBuild` + the coordinator tail driver; threshold and
+   prefix policy live in `MarkdownPreviewView`.
+5. **B2**: builder micro-opts — the measured lever is the attribute-dictionary
+   uniquing noted above; the whole-doc parse/render (~440ms on the 1.2MB fixture) is
+   the next pre-paint cost after it.
 6. *Later, only if needed:* true incremental/background Markdown parsing.
 
 Targets A and B are largely independent and can land in either order; B1 helps both. True
