@@ -280,6 +280,10 @@
                 invalidateHeadingPositionCache()
                 scheduleScrollSpyRefresh()
                 scheduleDocumentMapRebuild()
+                // The settle's exact re-pin moves the scroll origin with the
+                // gesture flags still set, so the scroll observer skipped it;
+                // refresh the viewport-scoped overlay frames at the final origin.
+                overlayCoordinator.scheduleReposition()
                 if let target = deferredHeadingTarget,
                    let scrollView = textView?.enclosingScrollView
                 {

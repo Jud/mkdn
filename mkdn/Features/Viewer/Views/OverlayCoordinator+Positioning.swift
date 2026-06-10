@@ -20,12 +20,28 @@
             )
         }
 
+        /// Character range of the laid-out viewport, or nil when no viewport
+        /// layout exists yet (callers then position every entry). Runs a
+        /// viewport layout first so the range reflects the current scroll
+        /// origin and container width, not the previous frame's.
+        func viewportCharacterRange(context: LayoutContext) -> NSRange? {
+            let controller = context.layoutManager.textViewportLayoutController
+            controller.layoutViewport()
+            guard let viewportRange = controller.viewportRange else { return nil }
+            let docStart = context.contentManager.documentRange.location
+            let start = context.contentManager.offset(from: docStart, to: viewportRange.location)
+            let end = context.contentManager.offset(from: docStart, to: viewportRange.endLocation)
+            guard end > start else { return nil }
+            return NSRange(location: start, length: end - start)
+        }
+
         func positionEntry(
             _ entry: OverlayEntry,
-            context: LayoutContext
+            context: LayoutContext,
+            viewportRange: NSRange?
         ) {
             if entry.attachment != nil {
-                positionAttachmentEntry(entry, context: context)
+                positionAttachmentEntry(entry, context: context, viewportRange: viewportRange)
             } else {
                 entry.view.isHidden = true
             }
@@ -33,11 +49,19 @@
 
         private func positionAttachmentEntry(
             _ entry: OverlayEntry,
-            context: LayoutContext
+            context: LayoutContext,
+            viewportRange: NSRange?
         ) {
             guard let attachment = entry.attachment,
                   let range = attachmentRange(for: attachment)
             else {
+                entry.view.isHidden = true
+                return
+            }
+
+            if let viewportRange,
+               NSIntersectionRange(range, viewportRange).length == 0
+            {
                 entry.view.isHidden = true
                 return
             }

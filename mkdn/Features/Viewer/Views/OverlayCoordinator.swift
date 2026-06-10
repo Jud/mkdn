@@ -110,7 +110,12 @@
             }
         }
 
-        /// Recalculates all overlay positions from the current layout geometry.
+        /// Recalculates overlay positions from the current layout geometry.
+        /// Scoped to the viewport: only entries whose attachment falls in the
+        /// laid-out viewport range get exact frames; the rest are hidden until
+        /// a scroll (or the settle reposition) brings them in. Positioning an
+        /// off-viewport entry would force layout of the document through that
+        /// entry — O(document) per call, per frame during a width gesture.
         func repositionOverlays() {
             guard let context = makeLayoutContext(),
                   context.containerWidth > 0
@@ -118,10 +123,11 @@
             if abs(containerState.containerWidth - context.containerWidth) > 1 {
                 containerState.containerWidth = context.containerWidth
             }
+            let viewportRange = viewportCharacterRange(context: context)
             CATransaction.begin()
             CATransaction.setDisableActions(true)
             for (_, entry) in entries {
-                positionEntry(entry, context: context)
+                positionEntry(entry, context: context, viewportRange: viewportRange)
             }
             CATransaction.commit()
         }
