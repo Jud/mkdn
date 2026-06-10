@@ -110,8 +110,20 @@ public enum ProvisionalHeightEstimator {
                 // One extra line covers the language label row.
                 return (lines + 1) * mono.lineHeight
                     + 2 * MarkdownTextStorageBuilder.codeBlockPadding + spacing
-            case .mermaidBlock, .image, .mathBlock:
+            case .mermaidBlock, .image:
                 return MarkdownTextStorageBuilder.attachmentPlaceholderHeight + spacing
+            case let .mathBlock(code):
+                // Math placeholders are typeset to their real height at build
+                // time, so the fixed placeholder no longer bounds them; a
+                // display-math line runs about double a body line (fractions,
+                // large operators), counted per source line.
+                let lines = max(
+                    1, code.split(separator: "\n", omittingEmptySubsequences: true).count
+                )
+                return max(
+                    MarkdownTextStorageBuilder.attachmentPlaceholderHeight,
+                    CGFloat(lines) * body.lineHeight * 2 + MathRenderer.displayBlockPadding
+                ) + spacing
             case .thematicBreak:
                 return MarkdownTextStorageBuilder.thematicBreakHeight + spacing
             case let .table(columns, rows):

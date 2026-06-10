@@ -52,4 +52,27 @@ public enum MathRenderer {
 
         return (image: image, baseline: layoutInfo.descent)
     }
+
+    /// Vertical padding a display equation gets around its rendered image.
+    public static let displayBlockPadding: CGFloat = 16
+    /// Height of the monospace fallback shown for unparseable input.
+    public static let failedBlockHeight: CGFloat = 40
+
+    /// The height a display math block settles at on screen — the same
+    /// render `MathBlockView` performs, measured up front so the builder can
+    /// size the attachment placeholder exactly and the overlay's later
+    /// height report is a no-op instead of a layout shift under the reader.
+    public static func displayBlockHeight(
+        latex: String,
+        scaleFactor: CGFloat,
+        textColor: PlatformTypeConverter.PlatformColor
+    ) -> CGFloat {
+        let fontSize = PlatformTypeConverter.bodyFont(scaleFactor: scaleFactor).pointSize * 1.2
+        guard let result = renderToImage(
+            latex: latex, fontSize: fontSize, textColor: textColor, displayMode: true
+        ) else {
+            return failedBlockHeight
+        }
+        return result.image.size.height + displayBlockPadding
+    }
 }

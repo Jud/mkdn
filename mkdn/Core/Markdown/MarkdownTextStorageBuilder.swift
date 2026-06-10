@@ -183,7 +183,21 @@ public enum MarkdownTextStorageBuilder {
                     to: result, code: code, colors: colors, scaleFactor: sf
                 )
             } else {
-                appendAttachmentPlaceholder(indexedBlock, to: result, attachments: &attachments)
+                // Size the placeholder by typesetting the equation now (math
+                // doesn't wrap, so its height is width-independent). The
+                // overlay's later height report then matches and no layout
+                // shifts under the reader after first paint.
+                appendAttachmentBlock(
+                    to: result,
+                    blockIndex: indexedBlock.index,
+                    block: block,
+                    height: MathRenderer.displayBlockHeight(
+                        latex: code,
+                        scaleFactor: sf,
+                        textColor: PlatformTypeConverter.color(from: colors.foreground)
+                    ),
+                    attachments: &attachments
+                )
             }
         case let .blockquote(blocks):
             appendBlockquote(

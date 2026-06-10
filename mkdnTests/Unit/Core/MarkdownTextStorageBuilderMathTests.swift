@@ -25,11 +25,27 @@ struct MarkdownTextStorageBuilderMathTests {
         #expect(result.attachments[0].blockIndex == 0)
     }
 
-    @Test("Math block attachment has placeholder height")
+    @Test("Math block attachment is typeset to its display height at build")
     @MainActor func mathBlockAttachmentHeight() {
         let result = buildSingle(.mathBlock(code: "x^2"))
         let attachment = result.attachments.first?.attachment
-        #expect(attachment?.bounds.height == MarkdownTextStorageBuilder.attachmentPlaceholderHeight)
+        // The build-time height must match what MathBlockView later reports,
+        // so the overlay's height callback is a no-op instead of a layout
+        // shift after first paint.
+        let expected = MathRenderer.displayBlockHeight(
+            latex: "x^2",
+            scaleFactor: 1.0,
+            textColor: PlatformTypeConverter.color(from: theme.colors.foreground)
+        )
+        #expect(attachment?.bounds.height == expected)
+        #expect(expected != MathRenderer.failedBlockHeight)
+    }
+
+    @Test("Unparseable math falls back to the failed-block height")
+    @MainActor func mathBlockFailureHeight() {
+        let result = buildSingle(.mathBlock(code: "\\begin{未completed"))
+        let attachment = result.attachments.first?.attachment
+        #expect(attachment?.bounds.height == MathRenderer.failedBlockHeight)
     }
 
     @Test("Math block attachment block is mathBlock")

@@ -74,6 +74,23 @@ struct ProvisionalHeightEstimatorTests {
             + "全角文字が続く段落では行数を過小評価しやすい。", count: 3)
     }.joined(separator: "\n\n")
 
+    /// Tall display math: build-time typesetting sizes these placeholders to
+    /// their real height, so the floor's per-line proxy must stay above a
+    /// multi-line aligned equation.
+    private let mathDocument = (0 ..< 6).map { index in
+        """
+        Paragraph before equation \(index).
+
+        $$
+        \\begin{aligned}
+        f(x) &= x^\(index + 2) + \\frac{1}{x} \\\\
+        g(x) &= \\int_0^x f(t)\\,dt \\\\
+        h(x) &= \\sum_{n=1}^{\\infty} \\frac{x^n}{n!}
+        \\end{aligned}
+        $$
+        """
+    }.joined(separator: "\n\n")
+
     /// Wide Latin glyphs and emoji: both run well past the lowercase sample
     /// average, the breach case the weighted counting covers beyond CJK.
     private let wideGlyphDocument = (0 ..< 10).map { index in
@@ -114,7 +131,7 @@ struct ProvisionalHeightEstimatorTests {
         let inset: CGFloat = 32
         for markdown in [
             mixedDocument, proseDocument, codeDocument, cjkDocument,
-            tableDocument, raggedDocument, wideGlyphDocument,
+            tableDocument, raggedDocument, wideGlyphDocument, mathDocument,
         ] {
             let blocks = MarkdownRenderer.render(text: markdown, theme: theme)
             for scale in [0.5, 1.0, 1.25] as [CGFloat] {
