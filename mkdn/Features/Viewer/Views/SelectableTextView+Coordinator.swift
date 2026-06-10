@@ -543,8 +543,8 @@
                     )
                 }
                 lastAppliedText = full.attributedString
-                // The exact pass may land on the provisional floor's height to
-                // the point, posting no frame change — run the settle refresh
+                // The exact pass may land exactly on the provisional floor's
+                // height, posting no frame change — run the settle refresh
                 // directly rather than waiting on a frame-change observation.
                 runSettleRefresh()
                 OpenTimeline.shared.mark("tailComplete")

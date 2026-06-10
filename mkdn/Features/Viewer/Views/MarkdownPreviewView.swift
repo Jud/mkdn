@@ -381,7 +381,7 @@
         }
 
         /// Build blocks until the estimated prefix height covers the target or
-        /// the deadline passes — "a viewport plus overdraw, time-capped".
+        /// the deadline passes.
         private static func buildPrefix(
             _ session: ProgressiveTextStorageBuild
         ) -> TextStorageResult {

@@ -46,8 +46,8 @@
         let progressiveSession: ProgressiveTextStorageBuild?
         /// Called once the tail completes, with the finished session and its
         /// full result, so the preview can publish the final storage result,
-        /// anchor tape, and comments — after checking the session is still
-        /// the one it's waiting on.
+        /// anchor tape, and comments. The session is passed so the receiver
+        /// can drop a finish that's no longer the one it's waiting on.
         let onProgressiveOpenFinished: (
             (ProgressiveTextStorageBuild, TextStorageResult) -> Void
         )?
@@ -380,10 +380,7 @@
         }
 
         /// Hand the session to the coordinator's tail driver after the prefix is
-        /// installed and wired. No-op when the content isn't progressive or this
-        /// session's tail is already running. A session can arrive already
-        /// complete but unpublished (a dismantle cancelled between the last
-        /// append and the finish) — the driver finishes it immediately.
+        /// installed and wired.
         private func beginProgressiveTailIfNeeded(coordinator: Coordinator) {
             guard let session = progressiveSession else { return }
             coordinator.beginProgressiveTail(
