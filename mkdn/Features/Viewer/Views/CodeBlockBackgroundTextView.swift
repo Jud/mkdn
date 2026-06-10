@@ -153,6 +153,11 @@
 
         // MARK: - Sidebar Resize
 
+        /// The overlay coordinator hosting this view's attachments, so the
+        /// sidebar-resize settle can drain heights queued after the slide's
+        /// final frame before its exact layout passes run.
+        weak var overlayCoordinator: OverlayCoordinator?
+
         /// Top-of-viewport anchor captured while the comment rail animates the
         /// preview width. Non-nil marks an in-flight sidebar resize: the scroll
         /// view re-pins this line to the same viewport y on every layout pass, so

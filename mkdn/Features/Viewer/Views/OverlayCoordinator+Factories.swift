@@ -5,8 +5,21 @@
     // MARK: - Attachment Overlay Factories
 
     extension OverlayCoordinator {
-        private func makeLayerBackedHost<V: View>(_ rootView: V) -> NSHostingView<V> {
-            let host = NSHostingView(rootView: rootView)
+        private func makeLayerBackedHost(
+            _ rootView: some View
+        ) -> NSHostingView<some View> {
+            // Pin content to the top of the host. During a width gesture the
+            // host frame tracks the eased placeholder height while the
+            // SwiftUI content has already rewrapped to its final height;
+            // NSHostingView centers a root that doesn't match its bounds,
+            // which makes the content bob vertically (a table's header and
+            // last row both slide out of the clip) as the placeholder
+            // catches up. GeometryReader is the one wrapper that always
+            // adopts the proposed size — a flexible frame never shrinks
+            // below its child, so the root would still mismatch and center —
+            // and it places its child top-leading, so the mismatch only
+            // ever shows at the bottom edge.
+            let host = NSHostingView(rootView: GeometryReader { _ in rootView })
             host.wantsLayer = true
             host.layerContentsRedrawPolicy = .onSetNeedsDisplay
             return host
@@ -105,10 +118,17 @@
             // Use NSHostingView (not PassthroughHostingView) so mouse events
             // reach the TableAttachmentView's gesture handlers for cell
             // selection and onCopyCommand.
-            if let findState {
-                return makeLayerBackedHost(rootView.environment(findState))
+            let host: NSView = if let findState {
+                makeLayerBackedHost(rootView.environment(findState))
+            } else {
+                makeLayerBackedHost(rootView)
             }
-            return makeLayerBackedHost(rootView)
+            // During a width gesture the rewrapped table renders a frame ahead
+            // of its placeholder height; clip so the overflow trims at the
+            // stale bound instead of painting over the text below. At rest the
+            // placeholder matches the content, so this is a no-op.
+            host.clipsToBounds = true
+            return host
         }
     }
 #endif

@@ -41,10 +41,23 @@ enum TableColumnSizer {
         containerWidth: CGFloat,
         font: PlatformTypeConverter.PlatformFont
     ) -> Result {
+        fit(
+            paddedWidths: measureIntrinsicPaddedWidths(columns: columns, rows: rows, font: font),
+            containerWidth: containerWidth
+        )
+    }
+
+    /// Step 1+2 of the algorithm: the per-cell Core Text measurement pass.
+    /// Independent of `containerWidth`, so callers re-fitting the same table
+    /// at many widths (a width animation frame) can cache this and pay only
+    /// the O(columns) `fit` per frame.
+    static func measureIntrinsicPaddedWidths(
+        columns: [TableColumn],
+        rows: [[AttributedString]],
+        font: PlatformTypeConverter.PlatformFont
+    ) -> [CGFloat] {
         let columnCount = columns.count
-        guard columnCount > 0 else {
-            return Result(columnWidths: [], totalWidth: 0)
-        }
+        guard columnCount > 0 else { return [] }
 
         let boldFont = PlatformTypeConverter.convertFont(font, toHaveTrait: .bold)
 
@@ -59,10 +72,16 @@ enum TableColumnSizer {
             }
         }
 
-        let paddedWidths = intrinsicWidths.map { width in
+        return intrinsicWidths.map { width in
             max(width + totalHorizontalPadding, totalHorizontalPadding)
         }
+    }
 
+    /// Steps 3+4: fit measured widths into `containerWidth`.
+    static func fit(paddedWidths: [CGFloat], containerWidth: CGFloat) -> Result {
+        guard !paddedWidths.isEmpty else {
+            return Result(columnWidths: [], totalWidth: 0)
+        }
         let totalPadded = paddedWidths.reduce(0, +)
         if totalPadded <= containerWidth {
             return Result(columnWidths: paddedWidths, totalWidth: totalPadded)

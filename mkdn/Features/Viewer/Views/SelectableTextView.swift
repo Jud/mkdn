@@ -99,6 +99,7 @@
             }
             (scrollView as? LiveResizeScrollView)?.overlayCoordinator =
                 coordinator.overlayCoordinator
+            textView.overlayCoordinator = coordinator.overlayCoordinator
 
             coordinator.outlineState = outlineState
             coordinator.headingOffsets = headingOffsets
@@ -111,6 +112,20 @@
                       let scrollView = coordinator.textView?.enclosingScrollView
                 else { return }
                 coordinator.scrollTo(scrollY: scrollY, in: scrollView)
+            }
+            // Thumb drags move the clip view directly — unanimated, clamped —
+            // like a native scroller knob; the scroll-spy runs as for any
+            // user-driven scroll.
+            mapState.scrubTo = { [weak coordinator] scrollY in
+                guard let coordinator,
+                      let scrollView = coordinator.textView?.enclosingScrollView
+                else { return }
+                let clipView = scrollView.contentView
+                let maxY = max(
+                    (scrollView.documentView?.frame.height ?? 0) - clipView.bounds.height, 0
+                )
+                clipView.setBoundsOrigin(NSPoint(x: 0, y: min(max(scrollY, 0), maxY)))
+                scrollView.reflectScrolledClipView(clipView)
             }
 
             applyTheme(to: textView, scrollView: scrollView)
@@ -290,9 +305,10 @@
         }
 
         private static func configureScrollView(_ scrollView: NSScrollView) {
-            scrollView.hasVerticalScroller = true
+            // No native scroller: the marker-track gutter (or minimap) draws the
+            // scroll thumb, and the system one would double it just left of the bar.
+            scrollView.hasVerticalScroller = false
             scrollView.hasHorizontalScroller = false
-            scrollView.autohidesScrollers = true
             scrollView.automaticallyAdjustsContentInsets = false
             scrollView.layerContentsRedrawPolicy = .duringViewResize
             scrollView.contentView.layerContentsRedrawPolicy = .duringViewResize
@@ -567,6 +583,11 @@
             if let textView = documentView as? CodeBlockBackgroundTextView,
                textView.sidebarResizeAnchor != nil
             {
+                // Apply heights queued since the last frame first, so the
+                // re-pin below absorbs attachments above the anchor that just
+                // rewrapped — one coordinated relayout per frame instead of
+                // each height update shifting the text mid-frame.
+                overlayCoordinator?.drainDeferredHeights()
                 textView.restoreSidebarResizeAnchor(exact: false)
                 overlayCoordinator?.repositionOverlays()
                 return
@@ -591,6 +612,9 @@
             guard inLiveResize,
                   let textView = documentView as? NSTextView
             else { return }
+            // Heights queued since the last frame apply now, batched, so
+            // attachments track the drag instead of snapping on mouse-up.
+            overlayCoordinator?.drainDeferredHeights()
             textView.textLayoutManager?.textViewportLayoutController.layoutViewport()
             // Reposition overlays in the same frame as the text repaints,
             // not on the next runloop turn via the frame-change observer.

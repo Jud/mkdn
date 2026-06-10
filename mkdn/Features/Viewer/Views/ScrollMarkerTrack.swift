@@ -16,6 +16,11 @@
 
         static let width: CGFloat = 12
         private static let minThumbHeight: CGFloat = 20
+        private static let thumbWidth: CGFloat = 7
+
+        /// Scroll position at drag start, nil when the drag began off the thumb
+        /// (those end as a tap-to-jump).
+        @State private var dragStartScrollY: CGFloat?
 
         private var colors: ThemeColors { appSettings.theme.colors }
 
@@ -25,31 +30,55 @@
                 let height = geo.size.height
                 ZStack(alignment: .topLeading) {
                     colors.background
-                    viewportThumb(map: map, height: height)
                     ForEach(map.comments) { comment in
                         commentTick(at: map.normalized(comment.y) * height)
                     }
                     ForEach(map.headings) { heading in
                         headingTick(heading, at: map.normalized(heading.y) * height)
                     }
+                    viewportThumb(map: map, height: height)
                 }
                 .contentShape(Rectangle())
-                .gesture(
-                    DragGesture(minimumDistance: 0).onEnded { value in
-                        jump(toTrackY: value.location.y, trackHeight: height, map: map)
-                    }
-                )
+                .gesture(trackGesture(map: map, height: height))
             }
             .frame(width: Self.width)
         }
 
+        /// Dragging the thumb scrubs the document like a scroller knob; a press
+        /// anywhere else jumps to the nearest mark on release.
+        private func trackGesture(map: PreviewDocumentMap, height: CGFloat) -> some Gesture {
+            DragGesture(minimumDistance: 0)
+                .onChanged { value in
+                    if dragStartScrollY == nil,
+                       let thumb = map.thumbMetrics(
+                           trackHeight: height, minHeight: Self.minThumbHeight
+                       ),
+                       (thumb.offset...(thumb.offset + thumb.height))
+                       .contains(value.startLocation.y)
+                    {
+                        dragStartScrollY = map.viewportTop
+                    }
+                    guard let startY = dragStartScrollY, height > 0 else { return }
+                    state.scrubTo?(startY + value.translation.height / height * map.totalHeight)
+                }
+                .onEnded { value in
+                    let wasThumbDrag = dragStartScrollY != nil
+                    dragStartScrollY = nil
+                    guard !wasThumbDrag else { return }
+                    jump(toTrackY: value.location.y, trackHeight: height, map: map)
+                }
+        }
+
         @ViewBuilder
         private func viewportThumb(map: PreviewDocumentMap, height: CGFloat) -> some View {
-            if let thumb = map.thumbMetrics(trackHeight: height, minHeight: Self.minThumbHeight) {
-                RoundedRectangle(cornerRadius: 3)
-                    .fill(colors.foreground.opacity(0.12))
-                    .frame(width: Self.width, height: thumb.height)
-                    .offset(y: thumb.offset)
+            // Hidden when the whole document fits the viewport, like a native scroller.
+            if map.viewportHeight < map.totalHeight,
+               let thumb = map.thumbMetrics(trackHeight: height, minHeight: Self.minThumbHeight)
+            {
+                Capsule()
+                    .fill(colors.foreground.opacity(0.3))
+                    .frame(width: Self.thumbWidth, height: thumb.height)
+                    .offset(x: (Self.width - Self.thumbWidth) / 2, y: thumb.offset)
             }
         }
 

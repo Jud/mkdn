@@ -48,12 +48,21 @@
             {
                 return cached
             }
-            let result = TableColumnSizer.computeWidths(
-                columns: columns,
-                rows: rows,
-                containerWidth: width,
-                font: PlatformTypeConverter.bodyFont(scaleFactor: scale)
-            )
+            // The per-cell Core Text measure is width-independent; cache it per
+            // scale so a width animation (comment-rail slide, window resize)
+            // pays only the O(columns) fit on each frame.
+            let paddedWidths: [CGFloat]
+            if let cached = sizingCache.paddedWidths, sizingCache.lastScaleFactor == scale {
+                paddedWidths = cached
+            } else {
+                paddedWidths = TableColumnSizer.measureIntrinsicPaddedWidths(
+                    columns: columns,
+                    rows: rows,
+                    font: PlatformTypeConverter.bodyFont(scaleFactor: scale)
+                )
+                sizingCache.paddedWidths = paddedWidths
+            }
+            let result = TableColumnSizer.fit(paddedWidths: paddedWidths, containerWidth: width)
             sizingCache.lastWidth = width
             sizingCache.lastScaleFactor = scale
             sizingCache.result = result
@@ -103,8 +112,12 @@
             .frame(width: totalWidth)
             .clipShape(RoundedRectangle(cornerRadius: 6))
             .overlay(
+                // strokeBorder (not stroke): a centered stroke straddles the
+                // shape edge by half a point, and when the table is
+                // compressed to the full container width the host view's
+                // clip shaves that outer half off the right edge.
                 RoundedRectangle(cornerRadius: 6)
-                    .stroke(colors.border.opacity(0.5), lineWidth: 1)
+                    .strokeBorder(colors.border.opacity(0.5), lineWidth: 1)
             )
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -230,6 +243,7 @@
     private class SizingCache {
         var lastWidth: CGFloat = -1
         var lastScaleFactor: CGFloat = -1
+        var paddedWidths: [CGFloat]?
         var result: TableColumnSizer.Result?
     }
 

@@ -11,5 +11,8 @@
         /// Set by the coordinator; called by the track with a scroll-space y. Not
         /// observed — the track invokes it on tap, it never drives a redraw.
         @ObservationIgnored var scrollTo: ((CGFloat) -> Void)?
+        /// Immediate (unanimated) variant for dragging the viewport thumb: the
+        /// animated `scrollTo` would lag and fight a live drag.
+        @ObservationIgnored var scrubTo: ((CGFloat) -> Void)?
     }
 #endif

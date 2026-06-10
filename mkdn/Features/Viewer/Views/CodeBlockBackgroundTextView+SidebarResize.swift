@@ -123,6 +123,10 @@
             // against real geometry and the at-rest guarantees (stable frame height,
             // no blank space past TextKit's estimate) hold again.
             prefersLazyGestureLayout = false
+            // Heights still queued (an ease mid-convergence, or a report that
+            // landed after the last frame) apply exactly now, so the passes
+            // below settle against real attachment geometry.
+            overlayCoordinator?.exitLiveResize()
             // Re-estimate the height at the new width first so the document-view frame is tall
             // enough, then re-pin exactly: the pin can't clamp against a still-short frame, and
             // the prefix layout runs once instead of being thrown away by the resize. The whole-

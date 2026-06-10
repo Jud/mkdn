@@ -120,7 +120,11 @@
             guard let context = makeLayoutContext(),
                   context.containerWidth > 0
             else { return }
-            if abs(containerState.containerWidth - context.containerWidth) > 1 {
+            // Exact comparison, not a dead band: a settled width that's even
+            // half a point stale leaves a compressed table's right border
+            // outside the host clip (the table sizes to this published
+            // width, the host frame to the real one).
+            if containerState.containerWidth != context.containerWidth {
                 containerState.containerWidth = context.containerWidth
             }
             let viewportRange = viewportCharacterRange(context: context)
@@ -205,12 +209,20 @@
         /// Schedules overlay repositioning for the next run-loop iteration so TextKit 2
         /// has time to process layout invalidation before we read fragment frames.
         /// Multiple calls within the same run-loop cycle are coalesced into a single pass.
+        ///
+        /// Skipped while a width gesture is in flight: `tile()` repositions on
+        /// every gesture frame in the same pass as the scroll re-pin, and an
+        /// async reposition landing between frames reads fragment positions
+        /// the pin hasn't compensated for yet — visibly knocking overlays out
+        /// of step with the text for a frame.
         func scheduleReposition() {
             guard !isRepositionScheduled else { return }
             isRepositionScheduled = true
             DispatchQueue.main.async { [weak self] in
-                self?.isRepositionScheduled = false
-                self?.repositionOverlays()
+                guard let self else { return }
+                isRepositionScheduled = false
+                guard !isWidthGestureActive else { return }
+                repositionOverlays()
             }
         }
 
@@ -237,11 +249,54 @@
 
         /// Idempotent counterpart to `enterLiveResize`. Always paired with a
         /// drain so callers can't forget — the queue and the flag move
-        /// together.
+        /// together. Drains even when the flag was never set: the comment-rail
+        /// slide queues heights without it (see `isWidthGestureActive`), and a
+        /// slide whose last frame queued after the final tile would otherwise
+        /// strand them.
         func exitLiveResize() {
-            guard isInLiveResize else { return }
             isInLiveResize = false
             applyDeferredAttachmentHeights()
+        }
+
+        /// Applies the heights queued since the last frame in one batched
+        /// relayout. Called once per frame from the scroll view's `tile()`
+        /// while a width gesture is in flight, so attachments and the text
+        /// below them move together — instead of each height update running
+        /// its own mid-frame tail relayout (jitter), or all of them snapping
+        /// at once on settle.
+        ///
+        /// Eased: a cell crossing a wrap threshold steps the reported height
+        /// by a whole line in one frame, and applying that step directly
+        /// jumps everything below the attachment by ~a line height — visible
+        /// jitter. Each frame moves part of the remaining delta instead, so
+        /// the step becomes a short ramp; the overlay host clips the
+        /// transient content/placeholder mismatch. The settle (exact drain)
+        /// lands the final height.
+        ///
+        /// Gated to once per display frame: `tile()` can run several times
+        /// per frame during a slide (width change, anchor re-pin, viewport
+        /// layout), and stacking an eased step per call defeats the rate
+        /// cap. The cap itself is sized by wall-clock time since the last
+        /// drain so the on-screen velocity is the same at 60Hz and 120Hz.
+        func drainDeferredHeights() {
+            let now = CACurrentMediaTime()
+            let elapsed = now - lastEasedDrainTime
+            guard elapsed > 0.008 else { return }
+            lastEasedDrainTime = now
+            let step = Self.heightEasingRate * min(elapsed, 0.017)
+            applyDeferredAttachmentHeights(easing: true, maxStep: step)
+        }
+
+        private var lastEasedDrainTime: CFTimeInterval = 0
+
+        /// True while any width gesture is changing the container width
+        /// frame-by-frame: window live-resize (tracked by `isInLiveResize`)
+        /// or the comment-rail slide (tracked by the text view's anchor
+        /// state). Height updates queue while this holds and drain once per
+        /// frame from `tile()`.
+        private var isWidthGestureActive: Bool {
+            if isInLiveResize { return true }
+            return (textView as? CodeBlockBackgroundTextView)?.isResizeGestureActive == true
         }
 
         /// Returns the height that callers should compare against when
@@ -255,26 +310,60 @@
             deferredAttachmentHeights[blockIndex] ?? attachment.bounds.height
         }
 
+        /// Fraction of the remaining height delta applied per eased frame.
+        /// Converges a one-line wrap step (~19pt) to under a point in ~6
+        /// frames (~100ms at 60Hz).
+        private static let heightEasingFactor: CGFloat = 0.35
+
+        /// Velocity cap on the eased step, in points per second. A burst of
+        /// several rows wrapping at once can queue a 40pt+ delta, and 35% of
+        /// that is still a visible single-frame jump below the attachment;
+        /// the cap bounds the content below to a smooth constant-rate ramp
+        /// regardless of how big the burst was.
+        private static let heightEasingRate: CGFloat = 300
+
         /// Drains heights queued during live resize. All bounds updates and
         /// edited() calls happen inside a single beginEditing/endEditing
         /// block, with one invalidateLayout pass over the union range so a
         /// document with many overlays doesn't trigger N layout passes on
-        /// mouse-up.
-        private func applyDeferredAttachmentHeights() {
+        /// mouse-up. With `easing`, each entry moves a fraction of the way
+        /// toward its target (at most `maxStep`) and stays queued until it
+        /// converges; without, targets apply exactly and the queue clears.
+        private func applyDeferredAttachmentHeights(
+            easing: Bool = false,
+            maxStep: CGFloat = .greatestFiniteMagnitude
+        ) {
             guard let textView, let textStorage = textView.textStorage else {
                 deferredAttachmentHeights.removeAll()
                 return
             }
             guard !deferredAttachmentHeights.isEmpty else { return }
             let pending = deferredAttachmentHeights
-            deferredAttachmentHeights.removeAll()
+            if !easing { deferredAttachmentHeights.removeAll() }
 
             let containerWidth = textContainerWidth(in: textView)
             var earliestLocation = Int.max
 
             textStorage.beginEditing()
-            for (blockIndex, height) in pending {
-                guard let attachment = entries[blockIndex]?.attachment else { continue }
+            for (blockIndex, target) in pending {
+                guard let attachment = entries[blockIndex]?.attachment else {
+                    deferredAttachmentHeights.removeValue(forKey: blockIndex)
+                    continue
+                }
+                var height = target
+                if easing {
+                    let remaining = target - attachment.bounds.height
+                    if abs(remaining) <= 1 {
+                        deferredAttachmentHeights.removeValue(forKey: blockIndex)
+                    } else {
+                        let step = min(
+                            abs(remaining) * Self.heightEasingFactor,
+                            maxStep
+                        )
+                        height = attachment.bounds.height
+                            + step * (remaining < 0 ? -1 : 1)
+                    }
+                }
                 attachment.bounds = CGRect(
                     x: 0, y: 0, width: containerWidth, height: height
                 )
@@ -317,7 +406,7 @@
             textView: NSTextView,
             textStorage: NSTextStorage
         ) {
-            if isInLiveResize {
+            if isWidthGestureActive {
                 deferredAttachmentHeights[blockIndex] = newHeight
                 return
             }
