@@ -10,13 +10,14 @@ block-offsets pass per content generation (was 3). A 4000-block/1.2MB fixture
 first-paints in ~1.1s where the baseline froze the app for 30+ seconds — the
 remaining pre-paint cost is the whole-document markdown parse/render (~440ms),
 kept synchronous by design (see below). The tail fully materializes in ~3.5s
-against the ~1.5s hope: a process sample shows AppKit's attribute-dictionary
+against the ~1.5s validation target: a process sample shows AppKit's attribute-dictionary
 uniquing table dominating the chunked build (each appended run's dictionaries
 re-probe a global weak hash table that grows with every distinct
 `mkdnSourceSpan` run) — exactly B2's "cache attribute dicts" lever, plus a
 B2-adjacent option: drop the session's own accumulated copy and reconstruct
-the final string from the live storage, removing one of the three probe
-passes. Also deferred to B2-time: viewport-only overlay repositioning at the
+the final string from the live storage — every run's dictionaries currently
+probe the table three times (the chunk build, the session's accumulated
+append, the live-storage append), and that removes one. Also deferred to B2-time: viewport-only overlay repositioning at the
 tail finish (the all-entry pass forces full-document layout once; inherited
 from the normal open path).
 
@@ -183,7 +184,7 @@ content/width generation.
 
 ## Sequencing (across both targets)
 
-1. ~~**Instrument** open phases and slide frames with signposts~~ — done
+1. ~~**Instrument** open phases and slide frames with signposts~~
    (`OpenTimeline` + `getOpenTimings` / `mkdn-ctl open-timings`).
 2. ~~**B1**: defer + dedup `DocumentBlockOffsets` / map to one post-first-paint pass.~~
 3. ~~**A**: viewport-bounded slide re-pin (+ kill the code-block-rect and overlay traps).~~
