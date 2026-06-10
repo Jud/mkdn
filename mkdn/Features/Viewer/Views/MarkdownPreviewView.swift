@@ -99,7 +99,11 @@
                         commentRevision: commentRevision,
                         mapState: mapState,
                         progressiveSession: progressiveSession,
-                        onProgressiveOpenFinished: { full in
+                        onProgressiveOpenFinished: { session, full in
+                            // A rebuild that replaced or cleared the session
+                            // already published newer content; a stale finish
+                            // landing in that gap must not overwrite it.
+                            guard session === progressiveSession else { return }
                             // Re-parse rather than cache the open-time entries:
                             // a comment edit made mid-tail is in the source.
                             publishFullResult(

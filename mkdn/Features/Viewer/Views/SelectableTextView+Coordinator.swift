@@ -409,7 +409,9 @@
 
             private var progressiveTailTask: Task<Void, Never>?
             private var activeTailSession: ProgressiveTextStorageBuild?
-            private var onProgressiveOpenFinished: ((TextStorageResult) -> Void)?
+            private var onProgressiveOpenFinished: (
+                (ProgressiveTextStorageBuild, TextStorageResult) -> Void
+            )?
             /// A heading jump refused while measures were suppressed (width
             /// gesture or open tail), replayed by the next settle/finish once
             /// the offsets are trustworthy again.
@@ -425,7 +427,7 @@
             /// slices, then finish (one exact pass, overlays, publish).
             func beginProgressiveTail(
                 session: ProgressiveTextStorageBuild,
-                onFinished: ((TextStorageResult) -> Void)?
+                onFinished: ((ProgressiveTextStorageBuild, TextStorageResult) -> Void)?
             ) {
                 guard activeTailSession !== session else { return }
                 cancelProgressiveTail()
@@ -442,6 +444,13 @@
                 // missing slice so the storage and the session's cursor agree.
                 if storage.length < session.builtUTF16Length {
                     storage.append(session.builtSlice(from: storage.length))
+                }
+                // A cancel can land between the last append and the finish (a
+                // recreated view's dismantle during the inter-slice sleep);
+                // the session arrives complete but unpublished — finish now.
+                guard !session.isComplete else {
+                    finishProgressiveOpen(session: session)
+                    return
                 }
                 progressiveTailTask = Task { @MainActor [weak self] in
                     while !Task.isCancelled, let fragment = session.buildNext(
@@ -472,7 +481,10 @@
             }
 
             /// Drain the tail synchronously — for actions that need the full
-            /// document now (print).
+            /// document now (print). The SwiftUI publish is deferred to the
+            /// default run-loop mode: the caller is about to spin a modal
+            /// loop (the print panel), and a publish landing inside it would
+            /// re-apply screen state to the print canvas.
             private func forceFinishProgressiveTail() {
                 guard let session = activeTailSession else { return }
                 if let storage = textView?.textStorage,
@@ -482,7 +494,7 @@
                     storage.append(fragment)
                     storage.endEditing()
                 }
-                finishProgressiveOpen(session: session)
+                finishProgressiveOpen(session: session, deferPublish: true)
             }
 
             /// The storage holds the whole document: clear the suppression,
@@ -490,7 +502,9 @@
             /// hand the full result back to SwiftUI. `lastAppliedText` is
             /// pre-set to the full string so the publish doesn't read as new
             /// content and re-install the document.
-            private func finishProgressiveOpen(session: ProgressiveTextStorageBuild) {
+            private func finishProgressiveOpen(
+                session: ProgressiveTextStorageBuild, deferPublish: Bool = false
+            ) {
                 let finished = onProgressiveOpenFinished
                 let deferredTarget = deferredHeadingTarget
                 cancelProgressiveTail()
@@ -534,7 +548,18 @@
                 // directly rather than waiting on a frame-change observation.
                 runSettleRefresh()
                 OpenTimeline.shared.mark("tailComplete")
-                finished?(full)
+                if deferPublish {
+                    // Default mode only: skipped while a modal loop (print
+                    // panel) runs, delivered once it ends. The unsafe capture
+                    // is main-thread-confined — the block runs on the main
+                    // run loop, back on the main actor.
+                    nonisolated(unsafe) let publish = { finished?(session, full) }
+                    RunLoop.main.perform(inModes: [.default]) {
+                        MainActor.assumeIsolated(publish)
+                    }
+                } else {
+                    finished?(session, full)
+                }
             }
 
             // MARK: - Document Map Publishing

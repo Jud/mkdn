@@ -44,9 +44,13 @@
         /// installed prefix, and the coordinator drives this session's tail into
         /// the live storage. Nil for the ordinary whole-document install.
         let progressiveSession: ProgressiveTextStorageBuild?
-        /// Called once the tail completes, with the full build result, so the
-        /// preview can publish the final storage result, anchor tape, and comments.
-        let onProgressiveOpenFinished: ((TextStorageResult) -> Void)?
+        /// Called once the tail completes, with the finished session and its
+        /// full result, so the preview can publish the final storage result,
+        /// anchor tape, and comments — after checking the session is still
+        /// the one it's waiting on.
+        let onProgressiveOpenFinished: (
+            (ProgressiveTextStorageBuild, TextStorageResult) -> Void
+        )?
         @Binding var isLoadingGateActive: Bool
 
         // MARK: - NSViewRepresentable
@@ -377,9 +381,11 @@
 
         /// Hand the session to the coordinator's tail driver after the prefix is
         /// installed and wired. No-op when the content isn't progressive or this
-        /// session's tail is already running.
+        /// session's tail is already running. A session can arrive already
+        /// complete but unpublished (a dismantle cancelled between the last
+        /// append and the finish) — the driver finishes it immediately.
         private func beginProgressiveTailIfNeeded(coordinator: Coordinator) {
-            guard let session = progressiveSession, !session.isComplete else { return }
+            guard let session = progressiveSession else { return }
             coordinator.beginProgressiveTail(
                 session: session, onFinished: onProgressiveOpenFinished
             )
