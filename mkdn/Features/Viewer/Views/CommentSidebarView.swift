@@ -27,7 +27,6 @@
         let mapState: PreviewMapState
         let onJump: (String) -> Void
         let onDelete: (String) -> Void
-        let onClose: () -> Void
         /// Emphasize (id) / un-emphasize (nil) a comment's span in the document
         /// while its card is hovered.
         let onHover: (String?) -> Void
@@ -95,20 +94,14 @@
             }
         }
 
+        /// No close affordance here: the floating toggle stays pinned over the
+        /// header's right edge and closes the rail from the same spot it opened.
         private var header: some View {
             HStack {
                 Text("Comments")
                     .font(.headline)
                     .foregroundStyle(theme.colors.headingColor)
                 Spacer()
-                Button(action: onClose) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(theme.colors.foregroundSecondary)
-                }
-                .buttonStyle(.borderless)
-                .pointingHandCursor()
-                .accessibilityLabel("Close comments")
             }
         }
 

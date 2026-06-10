@@ -145,7 +145,6 @@
                             mapState: mapState,
                             onJump: { jumpToComment($0) },
                             onDelete: { documentState.deleteComment(id: $0) },
-                            onClose: { documentState.toggleCommentSidebar() },
                             onHover: { MkdnCommands.findTextView()?.setHoveredComment($0) }
                         )
                         .frame(width: CommentSidebarView.width)
@@ -164,16 +163,19 @@
                 .overlay(alignment: .topTrailing) {
                     // canShowCommentSidebar gates to preview-only: in split mode this
                     // view is the half-width right pane, so a right-docked rail would
-                    // sit inside the preview. The toggle fades out as the rail opens.
+                    // sit inside the preview. The toggle stays put in both states —
+                    // the rail slides in underneath it — so the same click point
+                    // opens and closes the drawer.
                     if documentState.canShowCommentSidebar {
-                        CommentSidebarToggle(count: commentCount, theme: appSettings.theme) {
+                        CommentSidebarToggle(
+                            count: commentCount,
+                            isOpen: documentState.isCommentSidebarVisible,
+                            theme: appSettings.theme
+                        ) {
                             documentState.toggleCommentSidebar()
                         }
                         .padding(.top, 12)
                         .padding(.trailing, 16)
-                        .opacity(1 - sidebarProgress)
-                        .allowsHitTesting(sidebarProgress == 0)
-                        .accessibilityHidden(sidebarProgress > 0)
                     }
                 }
             }
