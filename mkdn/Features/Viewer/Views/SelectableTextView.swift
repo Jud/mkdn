@@ -561,9 +561,14 @@
             }
             // Backstop: viewDidEndLiveResize doesn't always fire (focus loss,
             // window close mid-drag). If the flag drifted out of sync, drain
-            // here so deferred heights don't pile up forever.
+            // here so deferred heights don't pile up forever — and re-derive
+            // the settled height, which also covers a progressive tail that
+            // finished mid-resize and skipped its exact pass waiting for a
+            // settle that never came. Memoized by width, so the steady-state
+            // call is a guard check.
             if !inLiveResize {
                 overlayCoordinator?.exitLiveResize()
+                (documentView as? CodeBlockBackgroundTextView)?.refreshSettledHeight()
             }
             guard inLiveResize,
                   let textView = documentView as? NSTextView
