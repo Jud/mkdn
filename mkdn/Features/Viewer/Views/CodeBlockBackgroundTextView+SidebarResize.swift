@@ -57,6 +57,9 @@
             sidebarResizeAnchor = SidebarResizeAnchor(
                 location: anchorLocation, delta: visibleTop - anchorTop
             )
+            // Viewport-bounded layout for the slide, now that the anchor was captured
+            // from the real (contiguous) geometry; the settle restores exact geometry.
+            prefersLazyGestureLayout = true
             // The popover anchors to the old layout; drop it rather than chase a
             // moving target every frame.
             dismissCommentOverlay()
@@ -116,6 +119,10 @@
         /// *extent* and TextKit 2's *logical viewport*.
         func endSidebarResize() {
             guard isSidebarResizeInFlight || sidebarResizeAnchor != nil else { return }
+            // Back to contiguous layout before the exact pass, so the settle re-pins
+            // against real geometry and the at-rest guarantees (stable frame height,
+            // no blank space past TextKit's estimate) hold again.
+            prefersLazyGestureLayout = false
             // Re-estimate the height at the new width first so the document-view frame is tall
             // enough, then re-pin exactly: the pin can't clamp against a still-short frame, and
             // the prefix layout runs once instead of being thrown away by the resize. The whole-

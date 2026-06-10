@@ -130,13 +130,11 @@
                 return
             }
 
-            // Only blocks intersecting the viewport get rects. The contiguous
-            // container lays out everything from the document start through
-            // the viewport, so their fragment frames are already final — while
-            // a block past the viewport's end would force the document tail to
-            // lay out just to compute a rect that can't be drawn (outside every
-            // dirty rect) or hovered. Off-viewport blocks get their rects when
-            // a scroll brings them in (the origin key above).
+            // Only blocks intersecting the viewport get rects: an off-viewport
+            // block would force layout of everything up to it just to compute a
+            // rect that can't be drawn (outside every dirty rect) or hovered.
+            // Off-viewport blocks get their rects when a scroll brings them in
+            // (the origin key above).
             var viewportCharRange = NSRange(location: 0, length: textStorage.length)
             if let viewportRange = layoutManager.textViewportLayoutController.viewportRange {
                 let start = contentManager.offset(

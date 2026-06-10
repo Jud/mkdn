@@ -232,13 +232,9 @@
         private static func makeScrollableCodeBlockTextView() -> (
             NSScrollView, CodeBlockBackgroundTextView
         ) {
-            // A non-simple container makes NSTextLayoutManager lay out contiguously
-            // from the top rather than lazily with estimated off-viewport heights —
-            // the lazy path leaves the document-view frame height unstable (TextKit
-            // keeps re-asserting a smaller estimate), which makes a scroll after a
-            // width reflow snap. widthTracksTextView is unreliable for a non-simple
-            // container, so the width is set explicitly via `syncTextContainerSize`.
-            let textContainer = ContiguousTextContainer(
+            // widthTracksTextView is unreliable for a non-simple container, so the
+            // width is set explicitly via `syncTextContainerSize`.
+            let textContainer = GestureLazyTextContainer(
                 size: NSSize(width: 0, height: CGFloat.greatestFiniteMagnitude)
             )
             textContainer.widthTracksTextView = false
@@ -281,7 +277,7 @@
             textView.isRichText = true
             textView.isHorizontallyResizable = false
             textView.isVerticallyResizable = true
-            // The non-simple container doesn't track the view width; size it now that
+            // The container doesn't track the view width; size it now that
             // the inset is set, then keep it in sync from setFrameSize.
             (textView as? CodeBlockBackgroundTextView)?.syncTextContainerSize()
             textView.isAutomaticSpellingCorrectionEnabled = false
@@ -509,17 +505,28 @@
         }
     }
 
-    // MARK: - Contiguous Text Container
+    // MARK: - Gesture-Lazy Text Container
 
-    /// Reports `isSimpleRectangularTextContainer == false` so `NSTextLayoutManager`
-    /// lays out contiguously from the top instead of the default lazy, non-contiguous
-    /// viewport layout with estimated off-viewport heights. The estimated path leaves
-    /// the document-view frame height unstable (TextKit re-asserts a smaller estimate
-    /// after a reflow), which makes a post-reflow scroll snap. The trade is synchronous
-    /// full-document layout; the container width must be set explicitly (see
-    /// ``CodeBlockBackgroundTextView/syncTextContainerSize(forViewWidth:)``).
-    private final class ContiguousTextContainer: NSTextContainer {
-        override var isSimpleRectangularTextContainer: Bool { false }
+    /// Reports `isSimpleRectangularTextContainer == false` at rest, so
+    /// `NSTextLayoutManager` lays out contiguously from the top instead of lazily with
+    /// estimated off-viewport heights — the estimated path leaves the document-view
+    /// frame height unstable (TextKit re-asserts a smaller estimate after a reflow),
+    /// which makes a post-reflow scroll snap, and a scroll past TextKit's internal
+    /// estimate (which the `estimatedHeightFloor`-sized frame allows) shows blank
+    /// space where no fragments exist.
+    ///
+    /// During a width gesture (comment-rail slide, window live-resize) that trade
+    /// inverts: contiguous layout makes every per-frame position↔location mapping
+    /// O(prefix above the viewport) — seconds per frame on megabyte documents — while
+    /// the gesture's anchor pin is built for estimate-backed positions and the settle
+    /// restores exact geometry once. So the container reports simple (lazy) while
+    /// ``prefersLazyLayout`` is set, bounding each gesture frame to the viewport.
+    final class GestureLazyTextContainer: NSTextContainer {
+        var prefersLazyLayout = false
+
+        override var isSimpleRectangularTextContainer: Bool {
+            prefersLazyLayout ? super.isSimpleRectangularTextContainer : false
+        }
     }
 
     // MARK: - Live Resize Scroll View
@@ -544,6 +551,8 @@
             if let textView = documentView as? CodeBlockBackgroundTextView {
                 textView.estimatedHeightFloor = nil
                 textView.blockOffsets = nil
+                // Viewport-bounded layout for the drag; the settle restores exact geometry.
+                textView.prefersLazyGestureLayout = true
             }
         }
 
@@ -565,9 +574,15 @@
             // the settled height, which also covers a progressive tail that
             // finished mid-resize and skipped its exact pass waiting for a
             // settle that never came. Memoized by width, so the steady-state
-            // call is a guard check.
-            if !inLiveResize {
+            // call is a guard check. Skipped while the comment-rail slide is
+            // in flight (its anchor can be transiently nil at the gesture's
+            // edges): a settle here would re-arm the height floor and drop
+            // lazy layout mid-slide; endSidebarResize owns that settle.
+            if !inLiveResize,
+               (documentView as? CodeBlockBackgroundTextView)?.isResizeGestureActive != true
+            {
                 overlayCoordinator?.exitLiveResize()
+                (documentView as? CodeBlockBackgroundTextView)?.prefersLazyGestureLayout = false
                 (documentView as? CodeBlockBackgroundTextView)?.refreshSettledHeight()
             }
             guard inLiveResize,
@@ -582,6 +597,8 @@
 
         override func viewDidEndLiveResize() {
             super.viewDidEndLiveResize()
+            // Back to contiguous layout before the settle's exact passes.
+            (documentView as? CodeBlockBackgroundTextView)?.prefersLazyGestureLayout = false
             // exitLiveResize drains any queued heights and runs a final
             // layoutViewport + repositionOverlays so overlays sit on the
             // settled fragments before the scroll-origin restore below.

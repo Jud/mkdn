@@ -227,6 +227,23 @@
 
         // MARK: - Live Resize
 
+        /// While set, the container reports itself simple-rectangular so TextKit lays
+        /// out lazily — each width-gesture frame then costs O(viewport), not O(prefix).
+        /// Gesture begin/end handlers own the flag; see ``GestureLazyTextContainer``.
+        var prefersLazyGestureLayout: Bool {
+            get { (textContainer as? GestureLazyTextContainer)?.prefersLazyLayout ?? false }
+            set { (textContainer as? GestureLazyTextContainer)?.prefersLazyLayout = newValue }
+        }
+
+        /// AppKit's implementation derives the origin from the layout manager's usage
+        /// bounds, which can force layout well beyond the viewport right after an
+        /// invalidation (each frame of a width gesture re-sizes the container) — all
+        /// to learn an origin that, for this top-aligned document view, is always the
+        /// container inset. Return the inset directly.
+        override var textContainerOrigin: NSPoint {
+            NSPoint(x: textContainerInset.width, y: textContainerInset.height)
+        }
+
         override func setFrameSize(_ newSize: NSSize) {
             var size = newSize
             if let floor = estimatedHeightFloor {
@@ -250,7 +267,7 @@
             needsDisplay = true
         }
 
-        /// Size the non-simple text container to the view's current width (minus the
+        /// Size the text container to the view's current width (minus the
         /// horizontal inset; TextKit subtracts `lineFragmentPadding` internally). The
         /// container can't track the view width on its own, and `setFrameSize` is the
         /// width hook for every sidebar and window resize since the scroll view
