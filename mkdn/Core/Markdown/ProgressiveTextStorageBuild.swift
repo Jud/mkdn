@@ -154,6 +154,10 @@ public final class ProgressiveTextStorageBuild {
     }
 
     /// The full result, identical to a one-shot build of the same blocks.
+    /// The returned string aliases the session's accumulated document (no
+    /// copy): safe because a complete session never builds again, and the
+    /// `lastAppliedText` identity contract depends on consumers receiving
+    /// this same instance.
     public func result() -> TextStorageResult {
         precondition(isComplete, "result() before the last chunk; use partialResult()")
         return makeResult(with: accumulated)
@@ -169,12 +173,14 @@ public final class ProgressiveTextStorageBuild {
             },
             uniquingKeysWith: { _, last in last }
         )
+        // The default (empty) source map: nothing reads TextStorageResult's
+        // sourceMap — AnchorTape superseded it for comment anchoring — and
+        // building it walks every mkdnSourceSpan run in the document.
         return TextStorageResult(
             attributedString: string,
             attachments: attachments,
             headingOffsets: headingOffsets,
-            documentHeightModel: DocumentHeightModel(blocks: blockSpans),
-            sourceMap: SourceMap(attributedString: string)
+            documentHeightModel: DocumentHeightModel(blocks: blockSpans)
         )
     }
 }

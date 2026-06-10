@@ -164,7 +164,14 @@
             textView.documentState = documentState
             textView.commentTheme = theme
 
+            // A complete session whose publish is still pending (the print
+            // drain defers it past the modal) leaves the published prefix
+            // !== the pre-set full lastAppliedText; the storage already holds
+            // the whole document, so reinstalling the stale prefix here would
+            // truncate it mid-print.
+            let publishPending = progressiveSession?.isComplete == true
             let isNewContent = coordinator.lastAppliedText !== attributedText
+                && !publishPending
             if isNewContent {
                 // The height model is content-derived; refresh it (and drop the heading
                 // position cache it feeds) on any text change, not only when the heading
@@ -361,9 +368,6 @@
                 coordinator: coordinator, textView: textView, scrollView: scrollView
             )
             coordinator.lastAppliedText = attributedText
-            // Full rebuilds bump the revision (publishFullResult); sync it so
-            // the next unrelated update doesn't take the comment-repaint path.
-            coordinator.lastCommentRevision = commentRevision
             OpenTimeline.shared.mark("renderComplete")
             RenderCompletionSignal.shared.signalRenderComplete()
         }

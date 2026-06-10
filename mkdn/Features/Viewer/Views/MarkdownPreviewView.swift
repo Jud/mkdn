@@ -110,6 +110,10 @@
                                 full,
                                 entries: CommentDocument.parse(documentState.markdownContent).entries
                             )
+                            // This publish is identity-stable (no reinstall);
+                            // the revision bump drives the highlight repaint
+                            // for comments that went nil → resolved.
+                            commentRevision += 1
                             progressiveSession = nil
                         },
                         isLoadingGateActive: $docState.isLoadingGateActive
@@ -301,12 +305,7 @@
             _ newBlocks: [IndexedBlock], isFullReload animate: Bool,
             entries: [CommentSidecar.Entry]? = nil
         ) {
-            renderedBlocks = newBlocks
-            knownBlockIDs = Set(newBlocks.map(\.id))
-            isFullReload = animate
-            // A theme/scale rebuild replaces the storage whole; a progressive
-            // session still in flight must not hand its tail to the new content.
-            progressiveSession = nil
+            beginRenderGeneration(newBlocks, isFullReload: animate)
             let result = OpenTimeline.shared.time("build") {
                 MarkdownTextStorageBuilder.build(
                     blocks: newBlocks,
@@ -353,38 +352,51 @@
             _ newBlocks: [IndexedBlock], isFullReload animate: Bool,
             entries: [CommentSidecar.Entry]
         ) {
-            renderedBlocks = newBlocks
-            knownBlockIDs = Set(newBlocks.map(\.id))
-            isFullReload = animate
+            beginRenderGeneration(newBlocks, isFullReload: animate)
             let session = ProgressiveTextStorageBuild(
                 blocks: newBlocks,
                 theme: appSettings.theme,
                 scaleFactor: appSettings.scaleFactor,
                 appSettings: appSettings
             )
-            let prefix = OpenTimeline.shared.time("buildPrefix") {
+            OpenTimeline.shared.time("buildPrefix") {
                 Self.buildPrefix(session)
             }
             if session.isComplete {
                 // The prefix loop swallowed the whole document (threshold-edge
                 // size); publish it like an ordinary open.
-                progressiveSession = nil
                 publishFullResult(session.result(), entries: entries)
             } else {
                 progressiveSession = session
-                textStorageResult = prefix
-                // No tape or comments until the tail lands the full text.
+                textStorageResult = session.partialResult()
+                // No tape or comments until the tail lands the full text, and
+                // no map: the previous document's marks would stay clickable
+                // for the whole tail (rebuilds are suppressed until the finish).
                 anchorTape = nil
                 resolvedComments = nil
+                mapState.documentMap = PreviewDocumentMap()
             }
             outlineState.updateHeadings(from: newBlocks)
         }
 
+        /// Shared per-render bookkeeping for both open paths. Clearing the
+        /// session matters on the synchronous path too: a theme/scale rebuild
+        /// replaces the storage whole, and a progressive session still in
+        /// flight must not hand its tail to the new content.
+        private func beginRenderGeneration(
+            _ newBlocks: [IndexedBlock], isFullReload animate: Bool
+        ) {
+            renderedBlocks = newBlocks
+            knownBlockIDs = Set(newBlocks.map(\.id))
+            isFullReload = animate
+            progressiveSession = nil
+        }
+
         /// Build blocks until the estimated prefix height covers the target or
-        /// the deadline passes.
-        private static func buildPrefix(
-            _ session: ProgressiveTextStorageBuild
-        ) -> TextStorageResult {
+        /// the deadline passes. The caller reads the result off the session
+        /// (`partialResult()` or `result()`), so the threshold-edge case that
+        /// completes the document doesn't pay for a discarded prefix snapshot.
+        private static func buildPrefix(_ session: ProgressiveTextStorageBuild) {
             let deadline = ContinuousClock.now + prefixDeadline
             var estimated: CGFloat = 0
             while !session.isComplete, estimated < prefixHeightTarget,
@@ -396,7 +408,6 @@
                     of: fragment, textWidth: prefixMeasureWidth
                 )
             }
-            return session.partialResult()
         }
 
         /// Publish a complete build: the storage result, the anchor tape built
@@ -413,9 +424,6 @@
             resolvedComments = OpenTimeline.shared.time("resolveComments") {
                 ResolvedComments.resolve(entries, in: tape)
             }
-            // Bump so the comment-revision path repaints highlights that went
-            // from nil to resolved without a storage reinstall.
-            commentRevision += 1
         }
     }
 #endif

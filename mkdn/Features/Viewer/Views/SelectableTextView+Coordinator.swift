@@ -447,9 +447,15 @@
                 }
                 // A cancel can land between the last append and the finish (a
                 // recreated view's dismantle during the inter-slice sleep);
-                // the session arrives complete but unpublished — finish now.
+                // the session arrives complete but unpublished. Finish on the
+                // next runloop turn: this path runs from the representable's
+                // make/update pass, and finishing inline would publish @State
+                // mid-view-update.
                 guard !session.isComplete else {
-                    finishProgressiveOpen(session: session)
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self, activeTailSession === session else { return }
+                        finishProgressiveOpen(session: session)
+                    }
                     return
                 }
                 progressiveTailTask = Task { @MainActor [weak self] in
@@ -520,7 +526,18 @@
                 headingOffsets = full.headingOffsets
                 textView.estimatedHeightFloor = nil
                 textView.blockOffsets = nil
-                textView.refreshEstimatedHeight()
+                // Mid-gesture the width is transient and the gesture freed the
+                // floor on purpose; its settle runs the exact pass (via
+                // refreshSettledHeight, now that the flag is clear) at the
+                // final width instead.
+                if !textView.isResizeGestureActive {
+                    textView.refreshEstimatedHeight()
+                }
+                // updateOverlays starts a fresh readiness cycle, but the
+                // entrance gate may still be waiting on prefix overlays whose
+                // reports must survive (the same-instance carryover skip means
+                // they never re-report); restore them and re-check readiness.
+                let reportedBeforeFinish = overlayCoordinator.reportedOverlays
                 if let appSettings = overlayCoordinator.appSettings, let documentState {
                     overlayCoordinator.updateOverlays(
                         attachments: full.attachments,
@@ -528,6 +545,12 @@
                         documentState: documentState,
                         in: textView
                     )
+                }
+                overlayCoordinator.reportedOverlays.formUnion(reportedBeforeFinish)
+                if gate.isGateActive, let scrollView = textView.enclosingScrollView,
+                   overlayCoordinator.viewportOverlaysReady(in: scrollView)
+                {
+                    gate.markReady()
                 }
                 // Find searched a partial document while the tail ran; re-run
                 // over the full storage. Calling the highlight pass directly
@@ -537,28 +560,39 @@
                 if let findState = textView.findState, findState.isVisible,
                    let theme = textView.commentTheme
                 {
+                    // Don't scroll to the current match: the finish is a
+                    // background event, and yanking the viewport seconds after
+                    // the user opened Find reads as a spontaneous jump.
                     applyFindHighlights(
                         findState: findState, textView: textView,
-                        theme: theme, performSearch: true
+                        theme: theme, performSearch: true,
+                        scrollToCurrentMatch: false
                     )
                 }
                 lastAppliedText = full.attributedString
-                // The exact pass may land exactly on the provisional floor's
-                // height, posting no frame change — run the settle refresh
-                // directly rather than waiting on a frame-change observation.
-                runSettleRefresh()
-                OpenTimeline.shared.mark("tailComplete")
+                let completePublish = { [weak self] in
+                    guard let self else { return }
+                    // The exact pass may land exactly on the provisional
+                    // floor's height, posting no frame change — run the settle
+                    // refresh directly rather than waiting on a frame-change
+                    // observation.
+                    runSettleRefresh()
+                    OpenTimeline.shared.mark("tailComplete")
+                    finished?(session, full)
+                }
                 if deferPublish {
                     // Default mode only: skipped while a modal loop (print
-                    // panel) runs, delivered once it ends. The unsafe capture
-                    // is main-thread-confined — the block runs on the main
-                    // run loop, back on the main actor.
-                    nonisolated(unsafe) let publish = { finished?(session, full) }
+                    // panel) runs, delivered once it ends — the settle refresh
+                    // rides along so its scheduled spy/map rebuilds can't read
+                    // the print canvas mid-modal. The unsafe capture is
+                    // main-thread-confined: the block runs on the main run
+                    // loop, back on the main actor.
+                    nonisolated(unsafe) let publish = completePublish
                     RunLoop.main.perform(inModes: [.default]) {
                         MainActor.assumeIsolated(publish)
                     }
                 } else {
-                    finished?(session, full)
+                    completePublish()
                 }
             }
 
@@ -849,7 +883,8 @@
                 findState: FindState,
                 textView: NSTextView,
                 theme: AppTheme,
-                performSearch: Bool
+                performSearch: Bool,
+                scrollToCurrentMatch: Bool = true
             ) {
                 highlightFadeTask?.cancel()
                 highlightFadeTask = nil
@@ -915,8 +950,9 @@
                     overlayCoordinator.scheduleReposition()
                 }
 
-                if let currentRange =
-                    findState.matchRanges[safe: findState.currentMatchIndex]
+                if scrollToCurrentMatch,
+                   let currentRange =
+                   findState.matchRanges[safe: findState.currentMatchIndex]
                 {
                     textView.scrollRangeToVisible(currentRange)
                 }
