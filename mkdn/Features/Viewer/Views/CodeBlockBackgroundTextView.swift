@@ -66,6 +66,9 @@
         var hoveredBlockID: String?
         var copyButtonOverlay: NSView?
         var cachedBlockRects: [CodeBlockGeometry] = []
+        /// Scroll origin the viewport-scoped rect cache was computed at; a
+        /// scroll invalidates it as surely as a content change.
+        var cachedBlockRectsOrigin: CGPoint?
         /// Count badges marking spans covered by 2+ overlapping comments, cached in
         /// `viewWillDraw` to avoid forcing layout during drawing. Carries the
         /// covering ids + range so clicking the badge opens those comments.
