@@ -82,11 +82,11 @@
         func buildComments() {
             // y is the coordinator's intra-block measure (tested in DocumentBlockOffsets);
             // build pairs each comment with its block and passes the y straight through.
-            let comments: [(id: String, range: NSRange, y: CGFloat)] = [
-                (id: "a", range: NSRange(location: 5, length: 3), y: 12),   // block 0
-                (id: "b", range: NSRange(location: 10, length: 1), y: 108), // boundary -> block 1
-                (id: "c", range: NSRange(location: 35, length: 2), y: 305), // block 2
-                (id: "d", range: NSRange(location: 45, length: 0), y: 410), // end -> block 2
+            let comments: [(id: String, range: NSRange, y: CGFloat, lineHeight: CGFloat)] = [
+                (id: "a", range: NSRange(location: 5, length: 3), y: 12, lineHeight: 17), // block 0
+                (id: "b", range: NSRange(location: 10, length: 1), y: 108, lineHeight: 17), // boundary -> block 1
+                (id: "c", range: NSRange(location: 35, length: 2), y: 305, lineHeight: 17), // block 2
+                (id: "d", range: NSRange(location: 45, length: 0), y: 410, lineHeight: 17), // end -> block 2
             ]
             let map = PreviewDocumentMap.build(
                 headings: [], comments: comments, offsets: offsets, blockModel: model,

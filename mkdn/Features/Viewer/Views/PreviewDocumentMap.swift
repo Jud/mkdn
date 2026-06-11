@@ -11,13 +11,20 @@
     }
 
     /// A comment's position on the preview's vertical extent, in scroll coordinates.
-    /// `y` is the top of the comment's containing block (block granularity — exact
-    /// off-viewport, unlike `boundingRect`, which returns estimated frames there).
+    /// `y` is the top of the comment's line (the coordinator's intra-block measure —
+    /// exact off-viewport, unlike `boundingRect`, which returns estimated frames there).
     struct CommentMark: Identifiable, Equatable {
         let id: String
         let range: NSRange
         let blockIndex: Int
         let y: CGFloat
+        /// Height of the comment's line, so a tick can center on it. Cards keep
+        /// anchoring to `y` (the top).
+        let lineHeight: CGFloat
+
+        /// The vertical center of the comment's line — where a track tick sits so
+        /// it reads as marking the line, not hovering at its top edge.
+        var lineCenterY: CGFloat { y + lineHeight / 2 }
     }
 
     /// A block's vertical extent on the preview, in scroll coordinates, for the
@@ -59,7 +66,7 @@
         /// characterY(at:in:model:textWidth:)``); here it's only paired with its block.
         static func build(
             headings: [HeadingNode],
-            comments: [(id: String, range: NSRange, y: CGFloat)],
+            comments: [(id: String, range: NSRange, y: CGFloat, lineHeight: CGFloat)],
             offsets: DocumentBlockOffsets,
             blockModel: DocumentHeightModel,
             textContainerOriginY: CGFloat,
@@ -84,7 +91,8 @@
                     id: comment.id,
                     range: comment.range,
                     blockIndex: blockIndex,
-                    y: comment.y
+                    y: comment.y,
+                    lineHeight: comment.lineHeight
                 )
             }
             let blocks = blockBands(

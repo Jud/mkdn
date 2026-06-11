@@ -31,7 +31,7 @@
                 ZStack(alignment: .topLeading) {
                     colors.background
                     ForEach(map.comments) { comment in
-                        commentTick(at: map.normalized(comment.y) * height)
+                        commentTick(at: map.normalized(comment.lineCenterY) * height)
                     }
                     ForEach(map.headings) { heading in
                         headingTick(heading, at: map.normalized(heading.y) * height)

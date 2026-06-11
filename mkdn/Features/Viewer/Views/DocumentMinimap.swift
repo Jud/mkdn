@@ -33,7 +33,7 @@
                         )
                     }
                     ForEach(map.comments) { comment in
-                        commentMark(top: map.normalized(comment.y) * height)
+                        commentMark(top: map.normalized(comment.lineCenterY) * height)
                     }
                     viewportThumb(map: map, height: height)
                 }
