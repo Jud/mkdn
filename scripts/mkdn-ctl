@@ -98,7 +98,14 @@ def main():
         elif cmd_name == "diagnose-click":
             r = send(sock, {"diagnoseCommentClick": {"index": int(sys.argv[2])}})
         elif cmd_name == "click":
-            r = send(sock, {"clickAt": {"x": float(sys.argv[2]), "y": float(sys.argv[3])}})
+            cmd = {"clickAt": {"x": float(sys.argv[2]), "y": float(sys.argv[3])}}
+            if len(sys.argv) > 4:
+                cmd["clickAt"]["clickCount"] = int(sys.argv[4])
+            r = send(sock, cmd)
+        elif cmd_name == "drag":
+            r = send(sock, {"dragAt": {
+                "fromX": float(sys.argv[2]), "fromY": float(sys.argv[3]),
+                "toX": float(sys.argv[4]), "toY": float(sys.argv[5])}})
         elif cmd_name == "press-button":
             index = int(sys.argv[3]) if len(sys.argv) > 3 else 0
             r = send(sock, {"pressButton": {"title": sys.argv[2], "index": index}})

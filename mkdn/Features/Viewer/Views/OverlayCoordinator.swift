@@ -79,6 +79,7 @@
             self.textView = textView
             self.appSettings = appSettings
             reportedOverlays.removeAll()
+            wireTableSelectionBridge(into: textView)
 
             if let textStorage = textView.textStorage {
                 buildPositionIndex(from: textStorage)
@@ -100,6 +101,51 @@
             observeLayoutChanges(on: textView)
             observeScrollChanges(on: textView)
             scheduleReposition()
+        }
+
+        /// Single-selection arbitration (Chrome semantics): a table starting a
+        /// selection collapses the text view's, any document click drops the
+        /// tables', Cmd+C on the text view (the usual first responder) copies
+        /// the owning table's selection, and the test harness routes drags to
+        /// the table's imperative driver.
+        private func wireTableSelectionBridge(into textView: NSTextView) {
+            containerState.clearDocumentSelection = { [weak textView] in
+                guard let textView else { return }
+                let length = textView.textStorage?.length ?? 0
+                let caret = min(textView.selectedRange().location, length)
+                textView.setSelectedRange(NSRange(location: caret, length: 0))
+            }
+            guard let codeView = textView as? CodeBlockBackgroundTextView else { return }
+            codeView.tableSelectionText = { [containerState] in
+                containerState.tableSelectionPlainText?()
+            }
+            codeView.clearTableSelections = { [containerState] in
+                guard containerState.tableSelectionOwner != nil else { return }
+                containerState.tableSelectionOwner = nil
+                containerState.tableSelectionPlainText = nil
+            }
+            codeView.harnessTableDrag =
+                { [weak self, containerState] fromWindow, toWindow, clickCount in
+                    guard let self else { return false }
+                    for (blockIndex, entry) in entries {
+                        guard let driver = containerState.tableSelectionDrivers[blockIndex]
+                        else { continue }
+                        let view = entry.view
+                        let fromLocal = view.convert(fromWindow, from: nil)
+                        guard view.bounds.contains(fromLocal) else { continue }
+                        let toLocal = view.convert(toWindow, from: nil)
+                        // SwiftUI wants top-left-origin coords; NSHostingView
+                        // is flipped already, flip manually if not.
+                        let height = view.bounds.height
+                        let flip = !view.isFlipped
+                        let from = flip
+                            ? CGPoint(x: fromLocal.x, y: height - fromLocal.y) : fromLocal
+                        let to = flip
+                            ? CGPoint(x: toLocal.x, y: height - toLocal.y) : toLocal
+                        return driver(from, to, clickCount)
+                    }
+                    return false
+                }
         }
 
         // MARK: - Common API
@@ -507,6 +553,14 @@
             for (index, entry) in entries where !validIndices.contains(index) {
                 entry.view.removeFromSuperview()
                 entries.removeValue(forKey: index)
+                // A torn-down table can't keep the document selection (or
+                // serve Cmd+C through a dead closure); SwiftUI teardown also
+                // releases these, but not synchronously with the removal.
+                containerState.tableSelectionDrivers[index] = nil
+                if containerState.tableSelectionOwner == index {
+                    containerState.tableSelectionOwner = nil
+                    containerState.tableSelectionPlainText = nil
+                }
             }
         }
 

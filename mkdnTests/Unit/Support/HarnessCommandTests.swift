@@ -207,6 +207,43 @@ struct HarnessCommandTests {
         }
     }
 
+    @Test("clickAt command round-trips, clickCount omitted decodes as nil")
+    func clickAtRoundTrip() throws {
+        let command = HarnessCommand.clickAt(x: 120.5, y: 300, clickCount: 2)
+        let data = try encoder.encode(command)
+        let decoded = try decoder.decode(HarnessCommand.self, from: data)
+        guard case let .clickAt(x, y, clickCount) = decoded else {
+            Issue.record("Expected .clickAt, got \(decoded)")
+            return
+        }
+        #expect(x == 120.5)
+        #expect(y == 300)
+        #expect(clickCount == 2)
+
+        let legacy = Data(#"{"clickAt":{"x":10,"y":20}}"#.utf8)
+        let legacyDecoded = try decoder.decode(HarnessCommand.self, from: legacy)
+        guard case let .clickAt(_, _, legacyCount) = legacyDecoded else {
+            Issue.record("Expected .clickAt, got \(legacyDecoded)")
+            return
+        }
+        #expect(legacyCount == nil)
+    }
+
+    @Test("dragAt command round-trips through JSON")
+    func dragAtRoundTrip() throws {
+        let command = HarnessCommand.dragAt(fromX: 10, fromY: 20, toX: 300, toY: 400.5)
+        let data = try encoder.encode(command)
+        let decoded = try decoder.decode(HarnessCommand.self, from: data)
+        guard case let .dragAt(fromX, fromY, toX, toY) = decoded else {
+            Issue.record("Expected .dragAt, got \(decoded)")
+            return
+        }
+        #expect(fromX == 10)
+        #expect(fromY == 20)
+        #expect(toX == 300)
+        #expect(toY == 400.5)
+    }
+
     @Test("Command encodes to single-line JSON suitable for line-delimited protocol")
     func commandSingleLineJSON() throws {
         let command = HarnessCommand.loadFile(path: "/tmp/test.md")

@@ -6,9 +6,11 @@
     /// Renders a Markdown table inside an NSTextAttachment as a native SwiftUI grid.
     ///
     /// Visually identical to ``TableBlockView`` — same column sizing, header styling,
-    /// zebra striping, and rounded border. Supports cell selection (click, Cmd+click,
-    /// Shift+click), find highlighting, and copy-to-clipboard via
-    /// ``TableClipboardSerializer``.
+    /// zebra striping, and rounded border. Text selection works exactly like Chrome's:
+    /// drag selects characters, crossing a cell boundary extends the selection in
+    /// document order (partial endpoint cells, full cells between), double-click
+    /// selects a word, triple-click a cell, Shift+click extends. Copy produces
+    /// Chrome's clipboard format via ``TableClipboardSerializer``.
     struct TableAttachmentView: View {
         let columns: [TableColumn]
         let rows: [[AttributedString]]
@@ -17,9 +19,18 @@
 
         @Environment(AppSettings.self) private var appSettings
         @Environment(FindState.self) private var findState: FindState?
-        @Environment(OverlayContainerState.self) private var containerState
+        @Environment(OverlayContainerState.self) var containerState
         @State private var sizingCache = SizingCache()
-        @State private var selectionState = TableSelectionState()
+        // Shared with TableAttachmentView+Selection.swift (the selection
+        // machinery is split out for file length); state can't be private
+        // across the extension boundary.
+        // swiftlint:disable private_swiftui_state
+        @State var selectionState = TableSelectionState()
+        @State var layoutStore = TableTextLayoutStore()
+        @State var isDragInFlight = false
+        @State var isShiftDrag = false
+        // swiftlint:enable private_swiftui_state
+        @State private var isCursorPushed = false
 
         /// Live container width so the table re-sizes on window/sidebar width
         /// changes (mirrors image/Mermaid); the captured width is the fallback.
@@ -27,11 +38,11 @@
             containerState.containerWidth > 0 ? containerState.containerWidth : containerWidth
         }
 
-        private var colors: ThemeColors {
+        var colors: ThemeColors {
             appSettings.theme.colors
         }
 
-        private var scaleFactor: CGFloat {
+        var scaleFactor: CGFloat {
             appSettings.scaleFactor
         }
 
@@ -39,7 +50,11 @@
             .system(size: PlatformTypeConverter.bodyFont(scaleFactor: scaleFactor).pointSize)
         }
 
-        private func cachedSizingResult() -> TableColumnSizer.Result {
+        var tableSpaceName: String {
+            "mkdn-table-\(blockIndex)"
+        }
+
+        func cachedSizingResult() -> TableColumnSizer.Result {
             let width = effectiveWidth
             let scale = scaleFactor
             if let cached = sizingCache.result,
@@ -51,18 +66,18 @@
             // The per-cell Core Text measure is width-independent; cache it per
             // scale so a width animation (comment-rail slide, window resize)
             // pays only the O(columns) fit on each frame.
-            let paddedWidths: [CGFloat]
-            if let cached = sizingCache.paddedWidths, sizingCache.lastScaleFactor == scale {
-                paddedWidths = cached
+            let constraints: TableColumnSizer.ColumnConstraints
+            if let cached = sizingCache.constraints, sizingCache.lastScaleFactor == scale {
+                constraints = cached
             } else {
-                paddedWidths = TableColumnSizer.measureIntrinsicPaddedWidths(
+                constraints = TableColumnSizer.measureConstraints(
                     columns: columns,
                     rows: rows,
                     font: PlatformTypeConverter.bodyFont(scaleFactor: scale)
                 )
-                sizingCache.paddedWidths = paddedWidths
+                sizingCache.constraints = constraints
             }
-            let result = TableColumnSizer.fit(paddedWidths: paddedWidths, containerWidth: width)
+            let result = TableColumnSizer.fit(constraints: constraints, containerWidth: width)
             sizingCache.lastWidth = width
             sizingCache.lastScaleFactor = scale
             sizingCache.result = result
@@ -87,9 +102,31 @@
                         selectionState.currentFindMatch = nil
                     }
                 }
+                .onChange(of: containerState.tableSelectionOwner) { _, owner in
+                    // One selection in the whole document, like a browser:
+                    // when another table or the text view takes it, drop ours.
+                    if owner != blockIndex {
+                        selectionState.clearSelection()
+                    }
+                }
+                .onAppear {
+                    containerState.tableSelectionDrivers[blockIndex] = { from, to, clicks in
+                        performHarnessSelection(from: from, to: to, clickCount: clicks)
+                    }
+                }
+                .onDisappear {
+                    containerState.tableSelectionDrivers[blockIndex] = nil
+                    // A disappearing table releases the document selection —
+                    // Cmd+C must never serialize through a dead table.
+                    if containerState.tableSelectionOwner == blockIndex {
+                        containerState.tableSelectionOwner = nil
+                        containerState.tableSelectionPlainText = nil
+                    }
+                }
                 .onCopyCommand {
-                    let text = TableClipboardSerializer.tabDelimitedText(
-                        selection: selectionState.selection,
+                    guard let range = selectionState.range else { return [] }
+                    let text = TableClipboardSerializer.plainText(
+                        range: range,
                         columns: columns,
                         rows: rows
                     )
@@ -103,7 +140,7 @@
         }
 
         private func tableBody(columnWidths: [CGFloat], totalWidth: CGFloat) -> some View {
-            VStack(alignment: .leading, spacing: 0) {
+            let grid = VStack(alignment: .leading, spacing: 0) {
                 headerRow(columnWidths: columnWidths)
                 Divider()
                     .background(colors.border.opacity(DesignTokens.Stroke.resting))
@@ -122,6 +159,35 @@
                         lineWidth: DesignTokens.Stroke.width
                     )
             )
+            .coordinateSpace(name: tableSpaceName)
+            .contentShape(Rectangle())
+            // High priority so the horizontal overflow ScrollView can't
+            // steal the drag: in Chrome, click-dragging in a scrollable
+            // table selects text (panning is the scroll wheel's job).
+            .highPriorityGesture(selectionGesture)
+            .onHover { hovering in
+                if hovering, !isCursorPushed {
+                    isCursorPushed = true
+                    NSCursor.iBeam.push()
+                } else if !hovering, isCursorPushed {
+                    isCursorPushed = false
+                    NSCursor.pop()
+                }
+            }
+
+            return Group {
+                if totalWidth > effectiveWidth {
+                    // Min-content widths overflow the container: columns never
+                    // shrink below their longest word, the table pans instead
+                    // (Chrome's overflow behavior for markdown tables).
+                    ScrollView(.horizontal, showsIndicators: true) {
+                        grid
+                    }
+                    .frame(width: effectiveWidth, alignment: .leading)
+                } else {
+                    grid
+                }
+            }
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("markdown-table")
@@ -188,7 +254,7 @@
             return header.isEmpty ? text : "\(header): \(text)"
         }
 
-        // MARK: - Cell Content with Selection/Find
+        // MARK: - Cell Content
 
         private func cellContent(
             text: some View,
@@ -198,6 +264,7 @@
             alignment: Alignment
         ) -> some View {
             let position = CellPosition(row: row, column: column)
+            let spaceName = tableSpaceName
 
             return text
                 .tint(colors.linkColor)
@@ -207,28 +274,11 @@
                 .padding(.vertical, TableColumnSizer.verticalCellPadding)
                 .frame(width: width, alignment: alignment)
                 .background(cellHighlight(row: row, column: column))
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    let flags = NSApp.currentEvent?.modifierFlags ?? []
-                    if flags.contains(.command) {
-                        selectionState.toggleCell(position)
-                    } else if flags.contains(.shift) {
-                        selectionState.extendSelection(to: position)
-                    } else {
-                        selectionState.selectCell(position)
-                    }
+                .onGeometryChange(for: CGRect.self) { proxy in
+                    proxy.frame(in: .named(spaceName))
+                } action: { frame in
+                    layoutStore.cellFrames[position] = frame
                 }
-        }
-
-        @ViewBuilder
-        private func cellHighlight(row: Int, column: Int) -> some View {
-            if selectionState.isCurrentFindMatch(row: row, column: column) {
-                colors.findHighlight.opacity(DesignTokens.Tint.active)
-            } else if selectionState.isFindMatch(row: row, column: column) {
-                colors.findHighlight.opacity(DesignTokens.Tint.subtle)
-            } else if selectionState.isSelected(row: row, column: column) {
-                colors.accent.opacity(DesignTokens.Tint.resting)
-            }
         }
 
         // MARK: - Find Integration
@@ -264,7 +314,7 @@
     private class SizingCache {
         var lastWidth: CGFloat = -1
         var lastScaleFactor: CGFloat = -1
-        var paddedWidths: [CGFloat]? // swiftlint:disable:this discouraged_optional_collection
+        var constraints: TableColumnSizer.ColumnConstraints?
         var result: TableColumnSizer.Result?
     }
 

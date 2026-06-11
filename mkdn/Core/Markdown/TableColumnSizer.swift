@@ -6,8 +6,22 @@
 
 /// Pure-computation engine that measures column widths from table cell content.
 ///
-/// Uses `NSAttributedString.size()` for deterministic width measurement with the same
-/// Core Text font metrics that SwiftUI `Text` ultimately resolves through.
+/// Implements the CSS automatic table layout algorithm (the one Chrome/Blink
+/// uses for `table { width: max-content; max-width: 100% }`):
+///
+/// 1. Per column, measure the **min-content** width (widest unbreakable word)
+///    and **max-content** width (widest single-line cell).
+/// 2. If the max-content widths fit the container, use them — the table hugs
+///    its content.
+/// 3. If even the min-content widths overflow the container, use them anyway —
+///    the table overflows (callers scroll horizontally); a column is never
+///    squeezed below its longest word, so text never wraps mid-word.
+/// 4. Otherwise distribute the width between the two bounds: each column gets
+///    its min-content width plus a share of the surplus proportional to
+///    `max − min`, exactly filling the container.
+///
+/// Uses `NSAttributedString` Core Text measurement for deterministic widths
+/// with the same font metrics that SwiftUI `Text` ultimately resolves through.
 enum TableColumnSizer {
     // MARK: - Constants
 
@@ -21,20 +35,27 @@ enum TableColumnSizer {
 
     struct Result {
         let columnWidths: [CGFloat]
+        /// Sum of the column widths. Greater than the container width when
+        /// even min-content widths overflow; callers scroll horizontally.
         let totalWidth: CGFloat
+    }
+
+    /// Width-independent measurement of a table's columns: per column, the
+    /// padded min-content (widest unbreakable word) and max-content (widest
+    /// single-line cell) widths. Cacheable per font scale, so callers
+    /// re-fitting at many widths (a width animation) pay only the O(columns)
+    /// `fit` per frame.
+    struct ColumnConstraints: Equatable {
+        let minWidths: [CGFloat]
+        let maxWidths: [CGFloat]
     }
 
     // MARK: - Column Width Computation
 
-    /// Computes content-aware column widths for a Markdown table, always fitting
-    /// within `containerWidth`.
-    ///
-    /// Algorithm:
-    /// 1. Measure intrinsic single-line width of every cell (header + data rows).
-    /// 2. Take the maximum intrinsic width per column, add horizontal cell padding.
-    /// 3. If total fits within `containerWidth`, use intrinsic widths as-is.
-    /// 4. Otherwise, lock columns at or below their fair share and distribute
-    ///    remaining space proportionally among wider columns.
+    /// Computes content-aware column widths for a Markdown table within
+    /// `containerWidth`, per the CSS automatic table layout algorithm.
+    /// The result overflows `containerWidth` only when the min-content
+    /// widths cannot fit.
     static func computeWidths(
         columns: [TableColumn],
         rows: [[AttributedString]],
@@ -42,104 +63,85 @@ enum TableColumnSizer {
         font: PlatformTypeConverter.PlatformFont
     ) -> Result {
         fit(
-            paddedWidths: measureIntrinsicPaddedWidths(columns: columns, rows: rows, font: font),
+            constraints: measureConstraints(columns: columns, rows: rows, font: font),
             containerWidth: containerWidth
         )
     }
 
-    /// Step 1+2 of the algorithm: the per-cell Core Text measurement pass.
-    /// Independent of `containerWidth`, so callers re-fitting the same table
-    /// at many widths (a width animation frame) can cache this and pay only
-    /// the O(columns) `fit` per frame.
-    static func measureIntrinsicPaddedWidths(
+    /// The per-cell Core Text measurement pass: min-content and max-content
+    /// widths per column, padded.
+    static func measureConstraints(
         columns: [TableColumn],
         rows: [[AttributedString]],
         font: PlatformTypeConverter.PlatformFont
-    ) -> [CGFloat] {
+    ) -> ColumnConstraints {
         let columnCount = columns.count
-        guard columnCount > 0 else { return [] }
+        guard columnCount > 0 else {
+            return ColumnConstraints(minWidths: [], maxWidths: [])
+        }
 
         let boldFont = PlatformTypeConverter.convertFont(font, toHaveTrait: .bold)
 
-        var intrinsicWidths = [CGFloat](repeating: 0, count: columnCount)
+        var minWidths = [CGFloat](repeating: 0, count: columnCount)
+        var maxWidths = [CGFloat](repeating: 0, count: columnCount)
+
+        func accumulate(_ cell: AttributedString, column: Int, font: PlatformTypeConverter.PlatformFont) {
+            let cellMax = measureCellWidth(cell, font: font)
+            maxWidths[column] = max(maxWidths[column], cellMax)
+            // The widest word can't be wider than the whole cell, so skip the
+            // word measure when it can't raise the column's min.
+            if cellMax > minWidths[column] {
+                minWidths[column] = max(minWidths[column], measureCellMinWidth(cell, font: font))
+            }
+        }
+
         for (colIndex, column) in columns.enumerated() {
-            intrinsicWidths[colIndex] = measureCellWidth(column.header, font: boldFont)
+            accumulate(column.header, column: colIndex, font: boldFont)
         }
         for row in rows {
             for colIndex in 0 ..< min(row.count, columnCount) {
-                let cellWidth = measureCellWidth(row[colIndex], font: font)
-                intrinsicWidths[colIndex] = max(intrinsicWidths[colIndex], cellWidth)
+                accumulate(row[colIndex], column: colIndex, font: font)
             }
         }
 
-        return intrinsicWidths.map { width in
-            max(width + totalHorizontalPadding, totalHorizontalPadding)
-        }
+        return ColumnConstraints(
+            minWidths: minWidths.map { max($0 + totalHorizontalPadding, totalHorizontalPadding) },
+            maxWidths: maxWidths.map { max($0 + totalHorizontalPadding, totalHorizontalPadding) }
+        )
     }
 
-    /// Steps 3+4: fit measured widths into `containerWidth`.
-    static func fit(paddedWidths: [CGFloat], containerWidth: CGFloat) -> Result {
-        guard !paddedWidths.isEmpty else {
+    /// Distributes `containerWidth` across the columns per CSS automatic
+    /// table layout (see type docs for the three cases).
+    static func fit(constraints: ColumnConstraints, containerWidth: CGFloat) -> Result {
+        let minWidths = constraints.minWidths
+        let maxWidths = constraints.maxWidths
+        guard !maxWidths.isEmpty else {
             return Result(columnWidths: [], totalWidth: 0)
         }
-        let totalPadded = paddedWidths.reduce(0, +)
-        if totalPadded <= containerWidth {
-            return Result(columnWidths: paddedWidths, totalWidth: totalPadded)
+
+        let totalMax = maxWidths.reduce(0, +)
+        if totalMax <= containerWidth {
+            return Result(columnWidths: maxWidths, totalWidth: totalMax)
         }
 
-        let compressed = compressColumns(paddedWidths, toFit: containerWidth)
-        let totalWidth = min(compressed.reduce(0, +), containerWidth)
-        return Result(columnWidths: compressed, totalWidth: totalWidth)
-    }
-
-    /// Proportionally compresses columns to fit within `targetWidth`.
-    ///
-    /// Columns at or below their fair share keep their intrinsic width.
-    /// Remaining space is distributed proportionally among wider columns.
-    private static func compressColumns(
-        _ paddedWidths: [CGFloat],
-        toFit targetWidth: CGFloat
-    ) -> [CGFloat] {
-        let count = paddedWidths.count
-        var widths = paddedWidths
-        var locked = [Bool](repeating: false, count: count)
-        var lockedWidth: CGFloat = 0
-        var remaining = count
-
-        var changed = true
-        while changed {
-            changed = false
-            guard remaining > 0 else { break }
-            let fairShare = (targetWidth - lockedWidth) / CGFloat(remaining)
-            for idx in 0 ..< count where !locked[idx] {
-                if paddedWidths[idx] <= fairShare {
-                    locked[idx] = true
-                    lockedWidth += paddedWidths[idx]
-                    remaining -= 1
-                    widths[idx] = paddedWidths[idx]
-                    changed = true
-                }
-            }
+        let totalMin = minWidths.reduce(0, +)
+        if totalMin >= containerWidth {
+            return Result(columnWidths: minWidths, totalWidth: totalMin)
         }
 
-        let available = targetWidth - lockedWidth
-        let unlockedTotal = (0 ..< count).filter { !locked[$0] }.map { paddedWidths[$0] }.reduce(0, +)
-        if unlockedTotal > 0 {
-            for idx in 0 ..< count where !locked[idx] {
-                let proportion = paddedWidths[idx] / unlockedTotal
-                widths[idx] = max(floor(proportion * available), totalHorizontalPadding)
-            }
+        let surplus = containerWidth - totalMin
+        let range = totalMax - totalMin
+        let widths = zip(minWidths, maxWidths).map { minWidth, maxWidth in
+            minWidth + (maxWidth - minWidth) * surplus / range
         }
-        return widths
+        return Result(columnWidths: widths, totalWidth: containerWidth)
     }
 
     // MARK: - Height Estimation
 
-    /// Estimates the total table height accounting for text wrapping.
-    ///
-    /// For each row, checks whether any cell's content width exceeds its column width.
-    /// When wrapping is expected, estimates the number of wrapped lines and scales
-    /// the row height accordingly.
+    /// Measures the total table height by wrapping each cell's text at its
+    /// column width with Core Text, mirroring how the rendered SwiftUI grid
+    /// wraps. Each row is as tall as its tallest cell.
     static func estimateTableHeight(
         columns: [TableColumn],
         rows: [[AttributedString]],
@@ -153,7 +155,7 @@ enum TableColumnSizer {
         let lineHeight = PlatformTypeConverter.lineHeight(of: font)
         let boldLineHeight = PlatformTypeConverter.lineHeight(of: boldFont)
 
-        let headerRowHeight = estimateRowHeight(
+        let headerRowHeight = measureRowHeight(
             cells: columns.map(\.header),
             columnWidths: columnWidths,
             font: boldFont,
@@ -163,7 +165,7 @@ enum TableColumnSizer {
         var totalHeight = headerRowHeight + headerDividerHeight
 
         for row in rows {
-            let rowHeight = estimateRowHeight(
+            let rowHeight = measureRowHeight(
                 cells: row,
                 columnWidths: columnWidths,
                 font: font,
@@ -177,54 +179,103 @@ enum TableColumnSizer {
         return ceil(totalHeight)
     }
 
+    // MARK: - Styled Measurement Text
+
+    /// The cell text with bold/italic/code presentation intents applied per
+    /// run — the same styles the rendered SwiftUI `Text` resolves — so
+    /// column sizing, selection hit-testing, and highlight painting all wrap
+    /// identically (`TableCellTextLayout` builds its mirror from this too).
+    static func styledText(
+        _ content: AttributedString,
+        baseFont: PlatformTypeConverter.PlatformFont
+    ) -> NSAttributedString {
+        let result = NSMutableAttributedString()
+        for run in content.runs {
+            let runText = String(content.characters[run.range])
+            var font = baseFont
+            let intents = run.inlinePresentationIntent ?? []
+            if intents.contains(.code) {
+                font = .monospacedSystemFont(ofSize: font.pointSize, weight: .regular)
+            }
+            var traits: PlatformTypeConverter.FontTrait = []
+            if intents.contains(.stronglyEmphasized) { traits.insert(.bold) }
+            if intents.contains(.emphasized) { traits.insert(.italic) }
+            if !traits.isEmpty {
+                font = PlatformTypeConverter.convertFont(font, toHaveTrait: traits)
+            }
+            result.append(NSAttributedString(string: runText, attributes: [.font: font]))
+        }
+        return result
+    }
+
     // MARK: - Private Helpers
 
     private static func measureCellWidth(
         _ content: AttributedString,
         font: PlatformTypeConverter.PlatformFont
     ) -> CGFloat {
-        let plainText = String(content.characters)
-        guard !plainText.isEmpty else { return 0 }
-        // Bold glyphs have wider per-glyph metrics; measuring a bold cell
-        // with the regular font undersizes the column and forces wrapping.
-        let hasBold = content.runs.contains { run in
-            run.inlinePresentationIntent?.contains(.stronglyEmphasized) == true
-        }
-        let measurementFont = hasBold
-            ? PlatformTypeConverter.convertFont(font, toHaveTrait: .bold)
-            : font
-        let nsAttrString = NSAttributedString(
-            string: plainText,
-            attributes: [.font: measurementFont]
-        )
-        return ceil(nsAttrString.size().width)
+        guard !content.characters.isEmpty else { return 0 }
+        return ceil(styledText(content, baseFont: font).size().width)
     }
 
-    /// Word wrapping overhead factor applied when columns are compressed.
-    /// Accounts for word-boundary breaks producing lines shorter than the
-    /// available width, which makes the simple `contentWidth / availableWidth`
-    /// estimate too optimistic.
+    /// Min-content width of a cell: the widest unbreakable word. Measured in
+    /// one Core Text pass by breaking at whitespace in place — attributes
+    /// survive, so each word measures in its real font — and taking the
+    /// bounding width of the multi-line layout.
+    private static func measureCellMinWidth(
+        _ content: AttributedString,
+        font: PlatformTypeConverter.PlatformFont
+    ) -> CGFloat {
+        let styled = NSMutableAttributedString(
+            attributedString: styledText(content, baseFont: font)
+        )
+        let plainText = styled.string as NSString // swiftlint:disable:this legacy_objc_type
+        guard plainText.length > 0 else { return 0 }
+        // Same-length replacements, so indices captured up front stay valid.
+        for index in 0 ..< plainText.length {
+            guard let scalar = Unicode.Scalar(plainText.character(at: index)),
+                  CharacterSet.whitespacesAndNewlines.contains(scalar)
+            else { continue }
+            styled.replaceCharacters(in: NSRange(location: index, length: 1), with: "\n")
+        }
+        let bounds = styled.boundingRect(
+            with: CGSize(
+                width: CGFloat.greatestFiniteMagnitude,
+                height: CGFloat.greatestFiniteMagnitude
+            ),
+            options: [.usesLineFragmentOrigin, .usesFontLeading]
+        )
+        return ceil(bounds.width)
+    }
+
+    /// Overshoot factor for the cheap provisional-height heuristic
+    /// (`ProvisionalHeightEstimator`), which estimates wrapped lines from
+    /// character counts rather than measuring; word-boundary breaks produce
+    /// lines shorter than the available width, so the simple estimate runs
+    /// too optimistic without it.
     static let wrappingOverhead: CGFloat = 1.2
 
-    private static func estimateRowHeight(
+    private static func measureRowHeight(
         cells: [AttributedString],
         columnWidths: [CGFloat],
         font: PlatformTypeConverter.PlatformFont,
         lineHeight: CGFloat
     ) -> CGFloat {
         let columnCount = columnWidths.count
-        var maxLines = 1
+        var maxTextHeight = lineHeight
 
         for colIndex in 0 ..< min(cells.count, columnCount) {
-            let contentWidth = measureCellWidth(cells[colIndex], font: font)
             let availableWidth = columnWidths[colIndex] - totalHorizontalPadding
-            if availableWidth > 0, contentWidth > availableWidth {
-                let rawLines = contentWidth / availableWidth
-                let adjustedLines = rawLines * wrappingOverhead
-                maxLines = max(maxLines, Int(ceil(adjustedLines)))
-            }
+            guard availableWidth > 0 else { continue }
+            guard !cells[colIndex].characters.isEmpty else { continue }
+            let nsAttrString = styledText(cells[colIndex], baseFont: font)
+            let bounds = nsAttrString.boundingRect(
+                with: CGSize(width: availableWidth, height: .greatestFiniteMagnitude),
+                options: [.usesLineFragmentOrigin, .usesFontLeading]
+            )
+            maxTextHeight = max(maxTextHeight, ceil(bounds.height))
         }
 
-        return CGFloat(maxLines) * lineHeight + verticalCellPadding * 2
+        return maxTextHeight + verticalCellPadding * 2
     }
 }

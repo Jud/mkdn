@@ -43,7 +43,15 @@ extension MarkdownTextStorageBuilder {
             containerWidth: defaultEstimationContainerWidth,
             font: font
         )
-        let columnWidths = sizer.columnWidths
+        // Paper can't scroll: when even min-content widths overflow the page,
+        // scale every column down proportionally to fit.
+        let columnWidths: [CGFloat]
+        if sizer.totalWidth > defaultEstimationContainerWidth {
+            let scale = defaultEstimationContainerWidth / sizer.totalWidth
+            columnWidths = sizer.columnWidths.map { $0 * scale }
+        } else {
+            columnWidths = sizer.columnWidths
+        }
 
         let lineHeight = PlatformTypeConverter.lineHeight(of: font)
         let boldLineHeight = PlatformTypeConverter.lineHeight(of: boldFont)

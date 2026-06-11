@@ -20,52 +20,38 @@ public struct CellPosition: Hashable, Comparable, Sendable {
     }
 }
 
-/// Describes the shape of a table selection for clipboard and highlight operations.
-public enum SelectionShape: Sendable {
-    case empty
-    case cells(Set<CellPosition>)
-    case rows(IndexSet)
-    case columns(IndexSet)
-    case rectangular(rows: Range<Int>, columns: Range<Int>)
-    case all
-}
-
 /// Stateless serialization of table cell content for clipboard operations.
 ///
-/// Produces tab-delimited plain text or Markdown table syntax from a selection
-/// shape applied to table data.
+/// Produces the plain text Chrome puts on the clipboard for a selection that
+/// spans table cells: cells joined with tabs, rows with newlines, and the
+/// endpoint cells contributing only the selected substring.
 public enum TableClipboardSerializer {
-    // MARK: - Tab-Delimited Text
-
-    /// Extracts plain text from selected cells, joining columns with tabs
-    /// and rows with newlines.
+    /// Extracts the selected text for a Chrome-style document-order range.
     ///
-    /// For `.empty` returns empty string. For `.all` returns all cells.
-    /// For `.cells` returns only those cells. For `.rectangular` returns the sub-grid.
-    /// For `.rows` / `.columns` returns those slices.
-    /// Header row uses `row == -1` convention.
-    public static func tabDelimitedText(
-        selection: SelectionShape,
+    /// Every row from `start` to `end` contributes one line: the first row
+    /// from the start cell rightward, the last row up to the end cell, rows
+    /// between in full. Returns "" for a collapsed range.
+    public static func plainText(
+        range: TableTextRange,
         columns: [TableColumn],
         rows: [[AttributedString]]
     ) -> String {
-        let columnCount = columns.count
-        guard columnCount > 0 else { return "" }
+        guard !range.isCollapsed, !columns.isEmpty else { return "" }
+        let start = range.start
+        let end = range.end
 
-        let selectedCells = expandSelection(
-            selection, columnCount: columnCount, rowCount: rows.count
-        )
-        guard !selectedCells.isEmpty else { return "" }
-
-        let sortedRows = Set(selectedCells.map(\.row)).sorted()
         var lines: [String] = []
-
-        for row in sortedRows {
+        for row in start.cell.row ... end.cell.row {
+            let firstColumn = row == start.cell.row ? start.cell.column : 0
+            let lastColumn = row == end.cell.row ? end.cell.column : columns.count - 1
+            guard firstColumn <= lastColumn else { continue }
             var values: [String] = []
-            for col in 0 ..< columnCount {
-                let pos = CellPosition(row: row, column: col)
-                if selectedCells.contains(pos) {
-                    values.append(cellText(row: row, column: col, columns: columns, rows: rows))
+            for column in firstColumn ... lastColumn {
+                // swiftlint:disable:next legacy_objc_type
+                let text = cellText(row: row, column: column, columns: columns, rows: rows) as NSString
+                let position = CellPosition(row: row, column: column)
+                if let selected = range.selectedRange(in: position, textLength: text.length) {
+                    values.append(text.substring(with: selected))
                 } else {
                     values.append("")
                 }
@@ -74,117 +60,6 @@ public enum TableClipboardSerializer {
         }
 
         return lines.joined(separator: "\n")
-    }
-
-    // MARK: - Markdown Text
-
-    /// Produces valid Markdown table syntax for the selected region.
-    public static func markdownText(
-        selection: SelectionShape,
-        columns: [TableColumn],
-        rows: [[AttributedString]]
-    ) -> String {
-        let columnCount = columns.count
-        guard columnCount > 0 else { return "" }
-
-        let selectedCells = expandSelection(
-            selection, columnCount: columnCount, rowCount: rows.count
-        )
-        guard !selectedCells.isEmpty else { return "" }
-
-        let selectedColumns = Set(selectedCells.map(\.column)).sorted()
-        let selectedRows = Set(selectedCells.map(\.row)).sorted()
-
-        let hasHeader = selectedRows.contains(-1)
-        let dataRows = selectedRows.filter { $0 >= 0 }
-
-        var lines: [String] = []
-
-        // Header row
-        if hasHeader {
-            let headerCells = selectedColumns.map { col in
-                cellText(row: -1, column: col, columns: columns, rows: rows)
-            }
-            lines.append("| " + headerCells.joined(separator: " | ") + " |")
-        } else {
-            // Generate placeholder header if data rows are selected without header
-            let placeholderCells = selectedColumns.map { _ in "" }
-            lines.append("| " + placeholderCells.joined(separator: " | ") + " |")
-        }
-
-        // Alignment row
-        let alignmentCells = selectedColumns.map { col -> String in
-            guard col < columns.count else { return "---" }
-            switch columns[col].alignment {
-            case .left: return ":---"
-            case .center: return ":---:"
-            case .right: return "---:"
-            }
-        }
-        lines.append("| " + alignmentCells.joined(separator: " | ") + " |")
-
-        // Data rows
-        for row in dataRows {
-            let rowCells = selectedColumns.map { col in
-                cellText(row: row, column: col, columns: columns, rows: rows)
-            }
-            lines.append("| " + rowCells.joined(separator: " | ") + " |")
-        }
-
-        return lines.joined(separator: "\n")
-    }
-
-    // MARK: - Private Helpers
-
-    /// Expands a `SelectionShape` into a concrete set of cell positions.
-    private static func expandSelection(
-        _ selection: SelectionShape,
-        columnCount: Int,
-        rowCount: Int
-    ) -> Set<CellPosition> {
-        switch selection {
-        case .empty:
-            return []
-        case let .cells(positions):
-            return positions
-        case let .rows(indexSet):
-            var result = Set<CellPosition>()
-            for row in indexSet {
-                for col in 0 ..< columnCount {
-                    result.insert(CellPosition(row: row, column: col))
-                }
-            }
-            return result
-        case let .columns(indexSet):
-            var result = Set<CellPosition>()
-            for col in indexSet {
-                // Include header
-                result.insert(CellPosition(row: -1, column: col))
-                for row in 0 ..< rowCount {
-                    result.insert(CellPosition(row: row, column: col))
-                }
-            }
-            return result
-        case let .rectangular(rowRange, colRange):
-            var result = Set<CellPosition>()
-            for row in rowRange {
-                for col in colRange {
-                    result.insert(CellPosition(row: row, column: col))
-                }
-            }
-            return result
-        case .all:
-            var result = Set<CellPosition>()
-            for col in 0 ..< columnCount {
-                result.insert(CellPosition(row: -1, column: col))
-            }
-            for row in 0 ..< rowCount {
-                for col in 0 ..< columnCount {
-                    result.insert(CellPosition(row: row, column: col))
-                }
-            }
-            return result
-        }
     }
 
     /// Extracts plain text from a cell at the given row and column.

@@ -60,8 +60,10 @@
                 processSidebar(command)
             case let .resizeWindow(width, height):
                 handleResizeWindow(width, height)
-            case let .clickAt(x, y):
-                await handleClickAt(x: x, y: y)
+            case let .clickAt(x, y, clickCount):
+                await handleClickAt(x: x, y: y, clickCount: clickCount ?? 1)
+            case let .dragAt(fromX, fromY, toX, toY):
+                await handleDragAt(fromX: fromX, fromY: fromY, toX: toX, toY: toY)
             case let .pressButton(title, index):
                 handlePressButton(title: title, index: index ?? 0)
             case let .axTree(maxDepth):
@@ -408,29 +410,125 @@
             )
         }
 
-        /// Synthesize a left click at content-local coordinates (top-left origin)
-        /// by sending mouseDown + mouseUp through AppKit's real event path.
-        private static func handleClickAt(x: Double, y: Double) async -> HarnessResponse {
+        /// Synthesize a left click at content-local coordinates (top-left
+        /// origin). Table overlays are driven through their imperative
+        /// selection driver (SwiftUI gestures never recognize synthetic
+        /// NSEvents); everything else gets mouseDown + mouseUp through
+        /// AppKit's real event path. `clickCount > 1` reaches the table
+        /// driver as a double/triple click (word/cell selection).
+        private static func handleClickAt(
+            x: Double, y: Double, clickCount: Int
+        ) async -> HarnessResponse {
             guard let window = findMainWindow(), let content = window.contentView else {
                 return .error("No visible window found")
             }
 
-            NSApp.activate()
-            window.makeKeyAndOrderFront(nil)
-            window.orderFrontRegardless()
-            for _ in 0 ..< 5 where !NSApp.isActive || !window.isKeyWindow {
-                try? await Task.sleep(for: .milliseconds(20))
-                NSApp.activate()
-                window.makeKeyAndOrderFront(nil)
+            await activateForSyntheticMouse(window)
+
+            // Flip top-left content coords to bottom-left, then to window coords.
+            let contentPoint = NSPoint(x: x, y: content.bounds.height - y)
+            let windowPoint = content.convert(contentPoint, to: nil)
+            let clicks = max(clickCount, 1)
+            let tableWindowPoint = trueWindowPoint(x: x, y: y, in: content)
+            if let textView = MkdnCommands.findTextView(in: content),
+               textView.harnessTableDrag?(tableWindowPoint, tableWindowPoint, clicks) == true
+            {
+                return .ok(message: "Clicked table (\(x), \(y)) ×\(clicks)")
             }
 
-            // NSEvent locations are window coords (bottom-left origin).
-            let contentPoint = NSPoint(x: x, y: content.bounds.height - y)
-            let location = content.convert(contentPoint, to: nil)
+            let hitName = content.hitTest(contentPoint)
+                .map { hit in String(describing: type(of: hit)) } ?? "none"
+            let sent = await sendSyntheticClicks(
+                count: clicks, at: windowPoint, in: window
+            )
+            guard sent else { return .error("Could not synthesize click events") }
+            return .ok(message: "Clicked (\(x), \(y)) ×\(clicks) → hit: \(hitName)")
+        }
+
+        /// Send `count` mouseDown/mouseUp pairs with escalating click counts —
+        /// the stream a real multi-click produces.
+        private static func sendSyntheticClicks(
+            count: Int, at windowPoint: NSPoint, in window: NSWindow
+        ) async -> Bool {
             let eventNumber = nextSyntheticMouseEventNumber
             nextSyntheticMouseEventNumber += 1
 
-            func mouseEvent(_ type: NSEvent.EventType) -> NSEvent? {
+            func mouseEvent(_ type: NSEvent.EventType, click: Int) -> NSEvent? {
+                NSEvent.mouseEvent(
+                    with: type,
+                    location: windowPoint,
+                    modifierFlags: [],
+                    timestamp: ProcessInfo.processInfo.systemUptime,
+                    windowNumber: window.windowNumber,
+                    context: nil,
+                    eventNumber: eventNumber,
+                    clickCount: click,
+                    pressure: type == .leftMouseDown ? 1 : 0
+                )
+            }
+            for click in 1 ... count {
+                guard let down = mouseEvent(.leftMouseDown, click: click),
+                      let up = mouseEvent(.leftMouseUp, click: click)
+                else { return false }
+                NSApp.sendEvent(down)
+                try? await Task.sleep(for: .milliseconds(50))
+                NSApp.sendEvent(up)
+                if click < count {
+                    try? await Task.sleep(for: .milliseconds(50))
+                }
+            }
+            return true
+        }
+
+        /// Synthesize a left mouse drag at content-local coordinates. Table
+        /// overlays are driven through their imperative selection driver (the
+        /// same code path the SwiftUI drag gesture runs — synthetic NSEvents
+        /// never reach SwiftUI gesture recognition); other targets get a
+        /// mouseDown / mouseDragged / mouseUp stream through AppKit.
+        private static func handleDragAt(
+            fromX: Double, fromY: Double, toX: Double, toY: Double
+        ) async -> HarnessResponse {
+            guard let window = findMainWindow(), let content = window.contentView else {
+                return .error("No visible window found")
+            }
+
+            await activateForSyntheticMouse(window)
+
+            func windowPoint(_ x: Double, _ y: Double) -> NSPoint {
+                // Flip top-left content coords to bottom-left, then to window coords.
+                content.convert(NSPoint(x: x, y: content.bounds.height - y), to: nil)
+            }
+            if let textView = MkdnCommands.findTextView(in: content),
+               textView.harnessTableDrag?(
+                   trueWindowPoint(x: fromX, y: fromY, in: content),
+                   trueWindowPoint(x: toX, y: toY, in: content),
+                   1
+               ) == true
+            {
+                return .ok(message: "Dragged table (\(fromX), \(fromY)) → (\(toX), \(toY))")
+            }
+            let sent = await sendSyntheticDrag(
+                from: (x: fromX, y: fromY),
+                to: (x: toX, y: toY),
+                windowPoint: windowPoint,
+                in: window
+            )
+            guard sent else { return .error("Could not synthesize drag events") }
+            return .ok(message: "Dragged (\(fromX), \(fromY)) → (\(toX), \(toY))")
+        }
+
+        /// Send a mouseDown / interpolated mouseDragged / mouseUp stream
+        /// through AppKit's event path.
+        private static func sendSyntheticDrag(
+            from: (x: Double, y: Double),
+            to: (x: Double, y: Double),
+            windowPoint: (Double, Double) -> NSPoint,
+            in window: NSWindow
+        ) async -> Bool {
+            let eventNumber = nextSyntheticMouseEventNumber
+            nextSyntheticMouseEventNumber += 1
+
+            func mouseEvent(_ type: NSEvent.EventType, at location: NSPoint) -> NSEvent? {
                 NSEvent.mouseEvent(
                     with: type,
                     location: location,
@@ -440,18 +538,51 @@
                     context: nil,
                     eventNumber: eventNumber,
                     clickCount: 1,
-                    pressure: type == .leftMouseDown ? 1 : 0
+                    pressure: type == .leftMouseUp ? 0 : 1
                 )
             }
-            guard let down = mouseEvent(.leftMouseDown), let up = mouseEvent(.leftMouseUp) else {
-                return .error("Could not synthesize click events")
-            }
-            let hitName = content.hitTest(content.convert(location, from: nil))
-                .map { hit in String(describing: type(of: hit)) } ?? "none"
+            guard let down = mouseEvent(.leftMouseDown, at: windowPoint(from.x, from.y)),
+                  let up = mouseEvent(.leftMouseUp, at: windowPoint(to.x, to.y))
+            else { return false }
             NSApp.sendEvent(down)
-            try? await Task.sleep(for: .milliseconds(50))
+            let steps = 12
+            for step in 1 ... steps {
+                let progress = Double(step) / Double(steps)
+                let x = from.x + (to.x - from.x) * progress
+                let y = from.y + (to.y - from.y) * progress
+                try? await Task.sleep(for: .milliseconds(8))
+                if let dragged = mouseEvent(.leftMouseDragged, at: windowPoint(x, y)) {
+                    NSApp.sendEvent(dragged)
+                }
+            }
             NSApp.sendEvent(up)
-            return .ok(message: "Clicked (\(x), \(y)) → hit: \(hitName)")
+            return true
+        }
+
+        /// Geometrically correct window coordinates for top-left content
+        /// coords. (The legacy NSEvent paths flip unconditionally, which
+        /// double-flips on the flipped contentView — harmless there because
+        /// their consumers convert back through the same view, but conversions
+        /// into overlay views need the true point.)
+        private static func trueWindowPoint(
+            x: Double, y: Double, in content: NSView
+        ) -> NSPoint {
+            let local = content.isFlipped
+                ? NSPoint(x: x, y: y)
+                : NSPoint(x: x, y: content.bounds.height - y)
+            return content.convert(local, to: nil)
+        }
+
+        /// Bring the app and window frontmost so synthetic mouse events land.
+        private static func activateForSyntheticMouse(_ window: NSWindow) async {
+            NSApp.activate()
+            window.makeKeyAndOrderFront(nil)
+            window.orderFrontRegardless()
+            for _ in 0 ..< 5 where !NSApp.isActive || !window.isKeyWindow {
+                try? await Task.sleep(for: .milliseconds(20))
+                NSApp.activate()
+                window.makeKeyAndOrderFront(nil)
+            }
         }
 
         // MARK: - Accessibility Commands

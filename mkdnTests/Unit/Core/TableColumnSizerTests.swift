@@ -91,8 +91,11 @@ struct TableColumnSizerTests {
         #expect(maxWidth - minWidth <= 2)
     }
 
-    @Test("Wide table with 12 columns compresses to fit container")
-    func wideTableCompressesToFitContainer() {
+    @Test("Wide table of unbreakable cells overflows at min-content widths")
+    func wideTableOverflowsAtMinContent() {
+        // Single-word cells: min-content == max-content per column, and the
+        // sum exceeds the container, so the table overflows (callers scroll)
+        // rather than wrapping any word mid-glyph.
         let columns = (0 ..< 12).map { idx in
             TableColumn(
                 header: AttributedString("Column\(idx)"),
@@ -110,15 +113,19 @@ struct TableColumnSizerTests {
             font: font
         )
 
-        #expect(result.totalWidth <= containerWidth)
         #expect(result.columnWidths.count == 12)
-        for width in result.columnWidths {
-            #expect(width >= TableColumnSizer.totalHorizontalPadding)
-        }
+        #expect(result.totalWidth > containerWidth)
+        let constraints = TableColumnSizer.measureConstraints(
+            columns: columns,
+            rows: rows,
+            font: font
+        )
+        #expect(result.columnWidths == constraints.minWidths)
+        #expect(constraints.minWidths == constraints.maxWidths)
     }
 
-    @Test("Single wide column capped at containerWidth")
-    func singleWideColumnCappedAtContainer() {
+    @Test("Single unbreakable wide column overflows the container")
+    func singleWideColumnOverflowsContainer() {
         let longString = String(repeating: "W", count: 500)
         let columns = [
             TableColumn(header: AttributedString("H"), alignment: .left),
@@ -134,8 +141,80 @@ struct TableColumnSizerTests {
             font: font
         )
 
+        // An unbreakable run is the column's min-content width; Chrome never
+        // shrinks a column below it, the table overflows instead.
         #expect(result.columnWidths.count == 1)
-        #expect(result.totalWidth <= containerWidth)
+        #expect(result.totalWidth > containerWidth)
+        let expectedWidth = ceil(
+            NSAttributedString(string: longString, attributes: [.font: font]).size().width
+        ) + TableColumnSizer.totalHorizontalPadding
+        #expect(result.columnWidths[0] == expectedWidth)
+    }
+
+    @Test("Column never compressed below its longest word")
+    func minContentFloorHolds() {
+        let longToken = "supercalifragilisticexpialidocious-identifier"
+        let columns = [
+            TableColumn(header: AttributedString("Token"), alignment: .left),
+            TableColumn(header: AttributedString("Description"), alignment: .left),
+        ]
+        let rows: [[AttributedString]] = [
+            [
+                AttributedString(longToken),
+                AttributedString(
+                    String(repeating: "some wrapping descriptive text ", count: 10)
+                ),
+            ],
+        ]
+
+        let narrowContainer: CGFloat = 360
+        let result = TableColumnSizer.computeWidths(
+            columns: columns,
+            rows: rows,
+            containerWidth: narrowContainer,
+            font: font
+        )
+
+        let tokenWidth = ceil(
+            NSAttributedString(string: longToken, attributes: [.font: font]).size().width
+        ) + TableColumnSizer.totalHorizontalPadding
+        #expect(result.columnWidths[0] >= tokenWidth)
+    }
+
+    @Test("Constrained table distributes surplus proportional to max minus min")
+    func cssDistributionFormula() {
+        let columns = [
+            TableColumn(header: AttributedString("A"), alignment: .left),
+            TableColumn(header: AttributedString("B"), alignment: .left),
+        ]
+        let rows: [[AttributedString]] = [
+            [
+                AttributedString(String(repeating: "alpha beta ", count: 20)),
+                AttributedString(String(repeating: "gamma delta epsilon ", count: 20)),
+            ],
+        ]
+
+        let constraints = TableColumnSizer.measureConstraints(
+            columns: columns,
+            rows: rows,
+            font: font
+        )
+        let totalMin = constraints.minWidths.reduce(0, +)
+        let totalMax = constraints.maxWidths.reduce(0, +)
+        // Pick a container strictly between the two bounds so the
+        // distribution case is exercised.
+        let container = (totalMin + totalMax) / 2
+        let result = TableColumnSizer.fit(constraints: constraints, containerWidth: container)
+
+        #expect(abs(result.totalWidth - container) < 0.5)
+        #expect(abs(result.columnWidths.reduce(0, +) - container) < 0.5)
+        let surplus = container - totalMin
+        let range = totalMax - totalMin
+        for idx in 0 ..< 2 {
+            let expected = constraints.minWidths[idx]
+                + (constraints.maxWidths[idx] - constraints.minWidths[idx]) * surplus / range
+            #expect(abs(result.columnWidths[idx] - expected) < 0.5)
+        }
     }
 
     @Test("Padding included in every column width (>= 26pt)")

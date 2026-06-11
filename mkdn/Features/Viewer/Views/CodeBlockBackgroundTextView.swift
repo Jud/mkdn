@@ -567,6 +567,10 @@
         }
 
         override func mouseDown(with event: NSEvent) {
+            // Any click in the document clears a table overlay's selection,
+            // like a browser — even a bare caret move (which the
+            // selection-change delegate ignores because it's zero-length).
+            clearTableSelections?()
             let point = convert(event.locationInWindow, from: nil)
             if isOverEmptyTextArea(point) {
                 dismissCommentOverlay() // click-away in the empty/drag area closes a comment
@@ -627,11 +631,45 @@
             pendingRevealCommentID = documentState.addComment(selector, body: body)
         }
 
+        /// Plain text of a table overlay's selection, when a table owns the
+        /// document's single selection (see `OverlayContainerState`). The text
+        /// view stays first responder while the user drags in a table, so
+        /// Cmd+C lands here and must copy the table's selection.
+        var tableSelectionText: (() -> String?)?
+
+        /// Test-harness bridge: performs a table selection drag for
+        /// window-space points when a table overlay contains them — synthetic
+        /// events can't drive the SwiftUI drag gesture, so the harness routes
+        /// through the table's imperative driver (wired by `OverlayCoordinator`).
+        var harnessTableDrag: ((NSPoint, NSPoint, Int) -> Bool)?
+
+        /// Drops any table overlay's selection (see `OverlayContainerState`);
+        /// called on every document click so there's never more than one
+        /// selection in the window.
+        var clearTableSelections: (() -> Void)?
+
+        override func copy(_ sender: Any?) {
+            if let text = tableSelectionText?(), !text.isEmpty {
+                let pasteboard = NSPasteboard.general
+                pasteboard.clearContents()
+                pasteboard.setString(text, forType: .string)
+                return
+            }
+            super.copy(sender)
+        }
+
         /// Enable Edit > Paste (Cmd+V) when a paste would author a comment — the
         /// read-only view otherwise reports paste invalid and the key does nothing.
+        /// Enable Edit > Copy when a table owns the selection (the text view's
+        /// own selection is empty then, which would otherwise disable it).
         override func validateUserInterfaceItem(_ item: any NSValidatedUserInterfaceItem) -> Bool {
             if item.action == #selector(paste(_:)) {
                 return commentableSelection() != nil && pasteboardCommentBody() != nil
+            }
+            if item.action == #selector(copy(_:)),
+               let text = tableSelectionText?(), !text.isEmpty
+            {
+                return true
             }
             return super.validateUserInterfaceItem(item)
         }

@@ -138,7 +138,14 @@
         /// Synthesize a left click at content-local coordinates (top-left origin,
         /// in points) via `NSApplication.sendEvent` — exercises the real event path
         /// (hit-testing, SwiftUI gestures) without moving the global pointer.
-        case clickAt(x: Double, y: Double)
+        /// `clickCount` (default 1) sends a double/triple click as a real mouse
+        /// would: repeated down/up pairs with an escalating click count.
+        case clickAt(x: Double, y: Double, clickCount: Int?)
+
+        /// Synthesize a left mouse drag from one content-local point to another:
+        /// mouseDown, interpolated mouseDragged events, mouseUp — exercises drag
+        /// gestures (e.g. table text selection) through the real event path.
+        case dragAt(fromX: Double, fromY: Double, toX: Double, toY: Double)
 
         /// Press the `index`-th accessibility button whose title, label, or
         /// identifier exactly matches `title`. If omitted on the wire, `index`

@@ -3,19 +3,42 @@
 
     /// Per-table selection and find state for attachment-based table rendering.
     ///
-    /// Tracks the current cell selection shape, find match positions, and focus
-    /// state. Written by gesture handlers in `TableAttachmentView` and read by
-    /// cell views for highlight rendering.
+    /// Holds the Chrome-style text selection range plus the in-flight drag
+    /// session (the segment grabbed at mouse-down and its granularity).
+    /// Written by the drag gesture in `TableAttachmentView` and read by cell
+    /// views for highlight rendering.
     @MainActor
     @Observable
     public final class TableSelectionState {
+        /// A contiguous span of table text: collapsed for a single-click
+        /// anchor, the clicked word or cell for double/triple clicks.
+        public struct Segment: Equatable, Sendable {
+            public var start: TableTextPoint
+            public var end: TableTextPoint
+
+            public init(start: TableTextPoint, end: TableTextPoint) {
+                self.start = start
+                self.end = end
+            }
+
+            public init(point: TableTextPoint) {
+                start = point
+                end = point
+            }
+        }
+
         // MARK: - Selection State
 
-        /// The current selection shape applied to the table.
-        public var selection: SelectionShape = .empty
+        /// The current text selection, or `nil` when nothing is selected.
+        public var range: TableTextRange?
 
-        /// Whether this table currently has keyboard/interaction focus.
-        public var isFocused = false
+        /// The segment selected at mouse-down. Chrome extends a double-click
+        /// drag by whole words *from the anchor word*, so the drag keeps the
+        /// original segment and unions it with the segment under the pointer.
+        public private(set) var dragSegment: Segment?
+
+        /// Granularity of the in-flight drag, from the mouse-down click count.
+        public private(set) var dragGranularity: TableSelectionGranularity = .character
 
         // MARK: - Find State
 
@@ -29,27 +52,51 @@
 
         public init() {}
 
-        // MARK: - Query
+        // MARK: - Selection Mutations
 
-        /// Returns whether the cell at the given row and column is within
-        /// the current selection.
-        public func isSelected(row: Int, column: Int) -> Bool {
-            let position = CellPosition(row: row, column: column)
-            switch selection {
-            case .empty:
-                return false
-            case let .cells(positions):
-                return positions.contains(position)
-            case let .rows(indexSet):
-                return indexSet.contains(row)
-            case let .columns(indexSet):
-                return indexSet.contains(column)
-            case let .rectangular(rowRange, colRange):
-                return rowRange.contains(row) && colRange.contains(column)
-            case .all:
-                return true
+        /// Mouse-down: select the grabbed segment and remember it as the
+        /// anchor for the drag.
+        public func beginDrag(segment: Segment, granularity: TableSelectionGranularity) {
+            dragSegment = segment
+            dragGranularity = granularity
+            range = TableTextRange(anchor: segment.start, focus: segment.end)
+        }
+
+        /// Mouse-dragged: the selection is the union of the anchor segment
+        /// and the segment under the pointer, anchored on the far side —
+        /// Chrome's behavior for character, word, and cell granularity alike.
+        public func continueDrag(to segment: Segment) {
+            guard let anchorSegment = dragSegment else { return }
+            if segment.end >= anchorSegment.end {
+                range = TableTextRange(anchor: anchorSegment.start, focus: segment.end)
+            } else {
+                range = TableTextRange(anchor: anchorSegment.end, focus: segment.start)
             }
         }
+
+        /// Mouse-up: a click that never extended (collapsed range) clears the
+        /// selection, exactly like clicking in Chrome.
+        public func endDrag() {
+            dragSegment = nil
+            if range?.isCollapsed == true { range = nil }
+        }
+
+        /// Shift+click: keep the existing anchor, move the focus.
+        public func extendSelection(to point: TableTextPoint) {
+            if let existing = range {
+                range = TableTextRange(anchor: existing.anchor, focus: point)
+            } else {
+                range = TableTextRange(anchor: point, focus: point)
+            }
+        }
+
+        /// Clear the selection and any drag session.
+        public func clearSelection() {
+            range = nil
+            dragSegment = nil
+        }
+
+        // MARK: - Query
 
         /// Returns whether the cell at the given row and column matches
         /// the current find query.
@@ -61,114 +108,6 @@
         /// current (active) find match.
         public func isCurrentFindMatch(row: Int, column: Int) -> Bool {
             currentFindMatch == CellPosition(row: row, column: column)
-        }
-
-        // MARK: - Selection Mutations
-
-        /// Select a single cell, replacing any existing selection.
-        public func selectCell(_ position: CellPosition) {
-            selection = .cells([position])
-            isFocused = true
-        }
-
-        /// Extend the current selection to a rectangular bounding box
-        /// that includes the new position.
-        ///
-        /// If the current selection is empty or `.all`, falls back to
-        /// selecting just the new position.
-        public func extendSelection(to position: CellPosition) {
-            guard let bounds = selectionBounds(including: position) else {
-                selectCell(position)
-                return
-            }
-            selection = .rectangular(rows: bounds.rows, columns: bounds.columns)
-        }
-
-        /// Computes the rectangular bounding box that encompasses both the
-        /// current selection and the given position. Returns `nil` when the
-        /// selection shape cannot be extended (`.empty`, `.all`, or degenerate cases).
-        private func selectionBounds(
-            including position: CellPosition
-        ) -> (rows: Range<Int>, columns: Range<Int>)? {
-            switch selection {
-            case let .cells(existing) where !existing.isEmpty:
-                let allPositions = existing.union([position])
-                let rows = allPositions.map(\.row)
-                let cols = allPositions.map(\.column)
-                guard let minRow = rows.min(), let maxRow = rows.max(),
-                      let minCol = cols.min(), let maxCol = cols.max()
-                else { return nil }
-                return (minRow ..< (maxRow + 1), minCol ..< (maxCol + 1))
-            case let .rectangular(rowRange, colRange):
-                let minRow = min(rowRange.lowerBound, position.row)
-                let maxRow = max(rowRange.upperBound - 1, position.row)
-                let minCol = min(colRange.lowerBound, position.column)
-                let maxCol = max(colRange.upperBound - 1, position.column)
-                return (minRow ..< (maxRow + 1), minCol ..< (maxCol + 1))
-            case let .rows(indexSet):
-                guard let existingMin = indexSet.min(),
-                      let existingMax = indexSet.max()
-                else { return nil }
-                let minRow = min(existingMin, position.row)
-                let maxRow = max(existingMax, position.row)
-                return (minRow ..< (maxRow + 1), position.column ..< (position.column + 1))
-            case let .columns(indexSet):
-                guard let existingMin = indexSet.min(),
-                      let existingMax = indexSet.max()
-                else { return nil }
-                let minCol = min(existingMin, position.column)
-                let maxCol = max(existingMax, position.column)
-                return (position.row ..< (position.row + 1), minCol ..< (maxCol + 1))
-            default:
-                return nil
-            }
-        }
-
-        /// Toggle a cell in the selection (Cmd+click behavior).
-        ///
-        /// If the cell is currently selected, removes it. Otherwise adds it.
-        /// Always uses `.cells(...)` shape.
-        public func toggleCell(_ position: CellPosition) {
-            switch selection {
-            case let .cells(existing):
-                var updated = existing
-                if updated.contains(position) {
-                    updated.remove(position)
-                } else {
-                    updated.insert(position)
-                }
-                selection = updated.isEmpty ? .empty : .cells(updated)
-            case .empty:
-                selection = .cells([position])
-            default:
-                // For non-cells shapes, start fresh with just this cell
-                selection = .cells([position])
-            }
-            isFocused = true
-        }
-
-        /// Select an entire row.
-        public func selectRow(_ row: Int, columnCount _: Int) {
-            selection = .rows(IndexSet([row]))
-            isFocused = true
-        }
-
-        /// Select an entire column.
-        public func selectColumn(_ column: Int) {
-            selection = .columns(IndexSet([column]))
-            isFocused = true
-        }
-
-        /// Select all cells in the table.
-        public func selectAll() {
-            selection = .all
-            isFocused = true
-        }
-
-        /// Clear the selection and unfocus the table.
-        public func clearSelection() {
-            selection = .empty
-            isFocused = false
         }
     }
 #endif

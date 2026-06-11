@@ -89,6 +89,21 @@
                 return true
             }
 
+            // MARK: - Selection Arbitration
+
+            /// One selection in the whole document, like a browser: the user
+            /// starting a text selection takes it back from whichever table
+            /// overlay held it.
+            func textViewDidChangeSelection(_ notification: Notification) {
+                guard let textView = notification.object as? NSTextView,
+                      textView.selectedRange().length > 0
+                else { return }
+                let containerState = overlayCoordinator.containerState
+                guard containerState.tableSelectionOwner != nil else { return }
+                containerState.tableSelectionOwner = nil
+                containerState.tableSelectionPlainText = nil
+            }
+
             // MARK: - Footnote Navigation
 
             private func handleFootnoteLink(_ url: URL) {
