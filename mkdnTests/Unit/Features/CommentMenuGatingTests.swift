@@ -9,6 +9,7 @@
     @Suite("CommentMenuGating")
     @MainActor
     struct CommentMenuGatingTests {
+        // swiftlint:disable:next legacy_objc_type
         private func makeTextView(_ markdown: String) -> (CodeBlockBackgroundTextView, NSString) {
             let blocks = MarkdownRenderer.render(text: markdown, theme: .solarizedDark)
             let result = MarkdownTextStorageBuilder.build(blocks: blocks, theme: .solarizedDark)
@@ -25,7 +26,7 @@
             )
             textView.textStorage?.setAttributedString(result.attributedString)
             textView.anchorTape = AnchorTape.build(from: result.attributedString)
-            return (textView, textView.string as NSString)
+            return (textView, textView.string as NSString) // swiftlint:disable:this legacy_objc_type
         }
 
         @Test("Selecting a phrase enables commenting (the menu gate)")

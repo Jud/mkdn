@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 #if os(macOS)
     import AppKit
     import SwiftUI
@@ -186,7 +187,7 @@
             }
 
             /// Briefly highlight the text at a footnote target using a background attribute.
-            private func pulseHighlight(atCharacterOffset offset: Int, linkRange: NSRange) {
+            private func pulseHighlight(atCharacterOffset _: Int, linkRange: NSRange) {
                 guard let textView,
                       let storage = textView.textStorage,
                       linkRange.location + linkRange.length <= storage.length
@@ -198,11 +199,11 @@
                     clearFootnotePulse(storage, range: prev)
                 }
 
-                let paraRange = (storage.string as NSString)
+                let paraRange = (storage.string as NSString) // swiftlint:disable:this legacy_objc_type
                     .paragraphRange(for: linkRange)
 
                 // Skip past the list marker prefix (e.g. "\t1.\t")
-                let nsString = storage.string as NSString
+                let nsString = storage.string as NSString // swiftlint:disable:this legacy_objc_type
                 var contentStart = paraRange.location
                 let paraEnd = paraRange.location + paraRange.length
                 while contentStart < paraEnd {
@@ -523,7 +524,7 @@
             /// hand the full result back to SwiftUI. `lastAppliedText` is
             /// pre-set to the full string so the publish doesn't read as new
             /// content and re-install the document.
-            private func finishProgressiveOpen(
+            private func finishProgressiveOpen( // swiftlint:disable:this function_body_length
                 session: ProgressiveTextStorageBuild, deferPublish: Bool = false
             ) {
                 let finished = onProgressiveOpenFinished
@@ -579,8 +580,10 @@
                     // background event, and yanking the viewport seconds after
                     // the user opened Find reads as a spontaneous jump.
                     applyFindHighlights(
-                        findState: findState, textView: textView,
-                        theme: theme, performSearch: true,
+                        findState: findState,
+                        textView: textView,
+                        theme: theme,
+                        performSearch: true,
                         scrollToCurrentMatch: false
                     )
                 }
@@ -657,23 +660,41 @@
                       let offsets = blockOffsets(),
                       let textStorage = textView.textStorage
                 else { return nil }
+                // Refresh the heading rotor entries here: this runs on every
+                // content/width change, when both the outline and the heading
+                // offsets are coherent with the rendered text.
+                textView.rotorHeadings = outlineState.flatHeadings.compactMap { node in
+                    guard let offset = headingOffsets[node.blockIndex],
+                          offset < textStorage.length
+                    else { return nil }
+                    // swiftlint:disable:next legacy_objc_type
+                    let paragraph = (textStorage.string as NSString)
+                        .paragraphRange(for: NSRange(location: offset, length: 0))
+                    return RotorHeading(title: node.title, level: node.level, range: paragraph)
+                }
                 let originY = textView.textContainerOrigin.y
                 // Measure each comment's y at intra-block precision (the line it sits on,
                 // not just its block top), then to scroll space — so a card anchors beside
                 // its own line and two comments in one paragraph don't stack on the top.
+                // swiftlint:disable:next large_tuple
                 let comments: [(id: String, range: NSRange, y: CGFloat, lineHeight: CGFloat)] =
                     (textView.resolvedComments?.active ?? []).compactMap { comment in
                         guard let y = offsets.characterY(
-                            at: comment.range.location, in: textStorage,
-                            model: model, textWidth: textView.textWidth)
+                            at: comment.range.location,
+                            in: textStorage,
+                            model: model,
+                            textWidth: textView.textWidth
+                        )
                         else { return nil }
                         // One character measures as a single line of its own style —
                         // the line height a track tick centers on.
                         let lineHeight = comment.range.location < textStorage.length
                             ? DocumentHeightEstimator.contentHeight(
                                 of: textStorage.attributedSubstring(
-                                    from: NSRange(location: comment.range.location, length: 1)),
-                                textWidth: textView.textWidth)
+                                    from: NSRange(location: comment.range.location, length: 1)
+                                ),
+                                textWidth: textView.textWidth
+                            )
                             : 0
                         return (
                             id: comment.id, range: comment.range,
@@ -768,8 +789,8 @@
                 }
             }
 
+            // swiftlint:disable function_body_length
             /// Show a temporary accent dot in the left margin at the navigated heading.
-            // swiftlint:disable:next function_body_length
             private func showHeadingDot(forCharacterOffset offset: Int) {
                 guard let textView,
                       let textContentStorage = textView.textContentStorage,
@@ -836,6 +857,8 @@
                     }
                 }
             }
+
+            // swiftlint:enable function_body_length
 
             // MARK: - Find State Tracking
 
@@ -905,6 +928,7 @@
             // don't trigger re-rendering of cached TextKit 2 layout fragments,
             // but text storage edits do.
 
+            // swiftlint:disable:next function_body_length
             private func applyFindHighlights(
                 findState: FindState,
                 textView: NSTextView,

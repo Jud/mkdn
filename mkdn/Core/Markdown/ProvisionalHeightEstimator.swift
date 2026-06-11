@@ -82,6 +82,7 @@ public enum ProvisionalHeightEstimator {
         // Spacing constants (blockSpacing, margins, padding, indents) are
         // used unscaled, matching the builder's paragraph styles — only
         // fonts zoom.
+        // swiftlint:disable:next function_body_length
         mutating func estimate(_ block: MarkdownBlock, textWidth: CGFloat) -> CGFloat {
             let spacing = MarkdownTextStorageBuilder.blockSpacing
             switch block {

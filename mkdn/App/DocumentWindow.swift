@@ -117,6 +117,7 @@
                 if TestHarnessMode.isEnabled {
                     TestHarnessHandler.appSettings = appSettings
                     TestHarnessHandler.documentState = documentState
+                    TestHarnessHandler.activateAccessibility()
                     TestHarnessServer.shared.start()
                 }
                 FileOpenService.shared.openFileWindow = { [openWindow] url in

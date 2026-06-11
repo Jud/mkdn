@@ -90,8 +90,10 @@ public final class ProgressiveTextStorageBuild {
         guard cursor < blocks.count else { return nil }
         let fragment = NSMutableAttributedString()
         appendBlocks(
-            into: fragment, baseOffset: accumulated.length,
-            maxBlocks: maxBlocks, deadline: deadline
+            into: fragment,
+            baseOffset: accumulated.length,
+            maxBlocks: maxBlocks,
+            deadline: deadline
         )
         accumulated.append(fragment)
         return fragment
@@ -170,9 +172,8 @@ public final class ProgressiveTextStorageBuild {
             blockSpans.compactMap { span -> (Int, Int)? in
                 guard case .heading = span.kind else { return nil }
                 return (span.index, span.range.location)
-            },
-            uniquingKeysWith: { _, last in last }
-        )
+            }
+        ) { _, last in last }
         // The default (empty) source map: nothing reads TextStorageResult's
         // sourceMap — AnchorTape superseded it for comment anchoring — and
         // building it walks every mkdnSourceSpan run in the document.

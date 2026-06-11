@@ -97,6 +97,7 @@
 
         // MARK: - Block Rect Cache
 
+        // swiftlint:disable:next function_body_length
         func refreshCachedBlockRects() {
             // The cache is viewport-scoped, so it's keyed by the scroll origin
             // as well as content validity: a scroll brings new blocks into view.

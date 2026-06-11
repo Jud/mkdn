@@ -26,7 +26,9 @@ struct AdversarialSidecarTests {
         let encoded = CommentSidecar.encode([entry])
 
         // The encoded block's interior must never contain a premature `-->`.
-        let interior = String(encoded.dropFirst(CommentSidecar.blockOpen.count).dropLast(CommentSidecar.blockClose.count))
+        let interior = String(
+            encoded.dropFirst(CommentSidecar.blockOpen.count).dropLast(CommentSidecar.blockClose.count)
+        )
         #expect(!interior.contains("-->"), "premature terminator for payload")
 
         let decoded = CommentSidecar.decode(from: "body text\n\n" + encoded)

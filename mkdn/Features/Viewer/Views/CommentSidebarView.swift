@@ -7,6 +7,10 @@
     struct CommentSidebarItem: Identifiable, Equatable {
         let id: String
         let body: String
+        /// Who wrote the comment; nil is the document owner, shown unlabeled.
+        let author: String?
+        /// The comment's thread, in conversation order.
+        let replies: [CommentSidecar.Reply]
         let quote: String
         let prefix: String
         let suffix: String
@@ -27,6 +31,8 @@
         let mapState: PreviewMapState
         let onJump: (String) -> Void
         let onDelete: (String) -> Void
+        /// Append a reply (id, body) to a comment's thread.
+        let onReply: (String, String) -> Void
         /// Emphasize (id) / un-emphasize (nil) a comment's span in the document
         /// while its card is hovered.
         let onHover: (String?) -> Void
@@ -39,9 +45,8 @@
         var body: some View {
             let map = mapState.documentMap
             let cardTops = Dictionary(
-                map.comments.map { ($0.id, $0.y - map.viewportTop + Self.previewTopInset) },
-                uniquingKeysWith: { first, _ in first }
-            )
+                map.comments.map { ($0.id, $0.y - map.viewportTop + Self.previewTopInset) }
+            ) { first, _ in first }
             // At the scroll end a card tail can't be pulled up by scrolling; let the
             // layout fit the overflow then. A short/unscrollable document reads as "end".
             let atDocumentEnd = map.totalHeight > 0
@@ -65,6 +70,9 @@
             .frame(maxHeight: .infinity, alignment: .top)
             .background(theme.colors.backgroundSecondary)
             .environment(\.colorScheme, theme.colorScheme)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("comment-sidebar")
+            .accessibilityLabel("Comments")
         }
 
         /// Active cards anchored beside their text, clipped to the panel. No implicit
@@ -73,8 +81,14 @@
         private func anchoredActiveCards(tops: [String: CGFloat], atDocumentEnd: Bool) -> some View {
             AnchoredCommentsLayout(gap: 8, atDocumentEnd: atDocumentEnd) {
                 ForEach(active) { item in
-                    ActiveCommentCard(item: item, theme: theme, onJump: onJump, onHover: onHover)
-                        .commentCardAnchor(tops[item.id] ?? 0)
+                    ActiveCommentCard(
+                        item: item,
+                        theme: theme,
+                        onJump: onJump,
+                        onReply: onReply,
+                        onHover: onHover
+                    )
+                    .commentCardAnchor(tops[item.id] ?? 0)
                 }
             }
             .padding(.horizontal, 12)
@@ -151,17 +165,57 @@
         }
     }
 
-    /// A resolved comment: quote chip (in `commentHighlight`) + body. The whole
-    /// card is a button (pointer cursor + accent lift on hover) that scrolls to
-    /// the comment.
+    /// A small author line over a comment or reply body. Only named (agent)
+    /// authors are labeled on top-level comments; replies always show one so a
+    /// thread's turns stay attributable ("You" when the author field is absent).
+    private struct CommentAuthorLabel: View {
+        let name: String
+        let theme: AppTheme
+
+        var body: some View {
+            Text(name)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(theme.colors.foregroundSecondary)
+        }
+    }
+
+    /// One reply in a card's thread: author line + body behind a thin thread rail.
+    private struct CommentReplyRow: View {
+        let reply: CommentSidecar.Reply
+        let theme: AppTheme
+
+        var body: some View {
+            VStack(alignment: .leading, spacing: 2) {
+                CommentAuthorLabel(name: reply.author ?? "You", theme: theme)
+                Text(reply.body)
+                    .font(.body)
+                    .foregroundStyle(theme.colors.foreground)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.leading, 8)
+            .overlay(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(theme.colors.border.opacity(DesignTokens.Stroke.engaged))
+                    .frame(width: 2)
+            }
+        }
+    }
+
+    /// A resolved comment: quote chip (in `commentHighlight`) + body, then its
+    /// reply thread and a Reply affordance. The whole card is a button (pointer
+    /// cursor + accent lift on hover) that scrolls to the comment.
     private struct ActiveCommentCard: View {
         let item: CommentSidebarItem
         let theme: AppTheme
         let onJump: (String) -> Void
+        /// Append a reply (id, body) to the comment's thread.
+        let onReply: (String, String) -> Void
         /// Emphasize (id) / un-emphasize (nil) the comment's span in the document.
         let onHover: (String?) -> Void
 
         @State private var hovering = false
+        @State private var isReplying = false
+        @State private var draft = ""
 
         var body: some View {
             VStack(alignment: .leading, spacing: 6) {
@@ -175,10 +229,39 @@
                         .background(theme.colors.commentHighlight)
                         .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radius.inline))
                 }
+                if let author = item.author {
+                    CommentAuthorLabel(name: author, theme: theme)
+                }
                 Text(item.body)
                     .font(.body)
                     .foregroundStyle(theme.colors.foreground)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                ForEach(item.replies) { reply in
+                    CommentReplyRow(reply: reply, theme: theme)
+                }
+                if isReplying {
+                    CommentEditor(
+                        draft: $draft,
+                        theme: theme,
+                        confirmTitle: "Reply",
+                        onCancel: { withAnimation(AnimationConstants.outlinePop) { isReplying = false } },
+                        onConfirm: { body in
+                            onReply(item.id, body)
+                            withAnimation(AnimationConstants.outlinePop) {
+                                isReplying = false
+                                draft = ""
+                            }
+                        }
+                    )
+                } else {
+                    Button("Reply") {
+                        withAnimation(AnimationConstants.outlinePop) { isReplying = true }
+                    }
+                    .font(.caption.weight(.medium))
+                    .buttonStyle(.borderless)
+                    .accessibilityIdentifier("comment-reply-button")
+                    .pointingHandCursor()
+                }
             }
             .commentCardSurface(theme: theme)
             .overlay {
@@ -196,7 +279,10 @@
                     )
             )
             .contentShape(Rectangle())
-            .onTapGesture { onJump(item.id) }
+            // While the reply editor is open, clicks belong to it (focusing,
+            // selecting text) — jumping the document out from under a draft
+            // would read as the card discarding the reply.
+            .onTapGesture { if !isReplying { onJump(item.id) } }
             .onHover { inside in
                 hovering = inside
                 onHover(inside ? item.id : nil)
@@ -207,6 +293,11 @@
             .onDisappear { if hovering { onHover(nil) } }
             .pointingHandCursor()
             .animation(.easeInOut(duration: 0.15), value: hovering)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("comment-card")
+            .accessibilityLabel(item.quote.isEmpty ? "Comment" : "Comment on \(item.quote)")
+            .accessibilityValue(item.body)
+            .accessibilityAction(named: "Jump to Comment") { onJump(item.id) }
         }
     }
 
@@ -229,10 +320,16 @@
                             .strokeBorder(theme.colors.warning.opacity(DesignTokens.Stroke.engaged))
                     )
                 context
+                if let author = item.author {
+                    CommentAuthorLabel(name: author, theme: theme)
+                }
                 Text(item.body)
                     .font(.body)
                     .foregroundStyle(theme.colors.foreground)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                ForEach(item.replies) { reply in
+                    CommentReplyRow(reply: reply, theme: theme)
+                }
                 actions
             }
             .commentCardSurface(theme: theme)
@@ -243,18 +340,17 @@
                         style: StrokeStyle(lineWidth: DesignTokens.Stroke.width, dash: [4, 3])
                     )
             )
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("detached-comment-card")
+            .accessibilityLabel("Detached comment, was on \(item.quote)")
+            .accessibilityValue(item.body)
         }
 
         private var context: some View {
-            var text = Text("was on ")
-            if !item.prefix.isEmpty {
-                text = text + Text("…\(item.prefix)")
-            }
-            text = text + Text(item.quote).strikethrough()
-            if !item.suffix.isEmpty {
-                text = text + Text("\(item.suffix)…")
-            }
-            return text
+            let prefix = item.prefix.isEmpty ? Text("") : Text("…\(item.prefix)")
+            let suffix = item.suffix.isEmpty ? Text("") : Text("\(item.suffix)…")
+
+            return (Text("was on ") + prefix + Text(item.quote).strikethrough() + suffix)
                 .font(.caption)
                 .foregroundColor(theme.colors.foregroundSecondary)
                 .lineLimit(2)
@@ -265,6 +361,7 @@
                 Spacer()
                 Button("Delete", role: .destructive) { onDelete(item.id) }
                     .foregroundStyle(theme.colors.danger)
+                    .accessibilityIdentifier("comment-delete-button")
                     .pointingHandCursor()
             }
             .font(.caption.weight(.medium))

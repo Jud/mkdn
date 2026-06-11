@@ -22,6 +22,8 @@
             .buttonStyle(.plain)
             .background(.ultraThinMaterial)
             .clipShape(RoundedRectangle(cornerRadius: 4))
+            .accessibilityIdentifier("copy-code-button")
+            .accessibilityLabel(isCopied ? "Copied" : "Copy code")
         }
 
         private func performCopy() {

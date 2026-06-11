@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 #if os(macOS)
     import AppKit
     import SwiftUI
@@ -6,7 +7,7 @@
     /// positioned within an `NSTextView`. All overlays use attachment-based
     /// positioning via their `NSTextAttachment` placeholder in the text storage.
     @MainActor
-    final class OverlayCoordinator {
+    final class OverlayCoordinator { // swiftlint:disable:this type_body_length
         // MARK: - Types
 
         struct OverlayEntry {
@@ -329,7 +330,7 @@
         /// mouse-up. With `easing`, each entry moves a fraction of the way
         /// toward its target (at most `maxStep`) and stays queued until it
         /// converges; without, targets apply exactly and the queue clears.
-        private func applyDeferredAttachmentHeights(
+        private func applyDeferredAttachmentHeights( // swiftlint:disable:this function_body_length
             easing: Bool = false,
             maxStep: CGFloat = .greatestFiniteMagnitude
         ) {

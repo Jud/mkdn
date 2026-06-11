@@ -2,7 +2,7 @@ import Markdown
 import SwiftUI
 
 /// Walks a swift-markdown `Document` and produces `MarkdownBlock` elements.
-struct MarkdownVisitor {
+struct MarkdownVisitor { // swiftlint:disable:this type_body_length
     let theme: AppTheme
     private var footnoteIndices: [String: Int] = [:]
     private var footnoteDefinitions: [(label: String, blocks: [MarkdownBlock])] = []
@@ -183,7 +183,10 @@ struct MarkdownVisitor {
     /// - Parameter protected: true when inside a shielded node (a link/image), so
     ///   descendant text must not be tagged with a `SourceSpanAttribute` — the
     ///   source map must not map a selection into the node's interior.
-    private func convertInline(_ markup: any Markup, protected: Bool = false) -> AttributedString {
+    private func convertInline( // swiftlint:disable:this cyclomatic_complexity function_body_length
+        _ markup: any Markup,
+        protected: Bool = false
+    ) -> AttributedString {
         switch markup {
         case let text as Markdown.Text:
             var result = AttributedString(text.string)

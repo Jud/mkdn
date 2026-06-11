@@ -39,8 +39,11 @@ public enum DocumentHeightEstimator {
     ) -> CGFloat {
         if let model, !model.blocks.isEmpty {
             return DocumentBlockOffsets.estimatedHeight(
-                of: attributedString, model: model,
-                textWidth: textWidth, verticalInset: verticalInset)
+                of: attributedString,
+                model: model,
+                textWidth: textWidth,
+                verticalInset: verticalInset
+            )
         }
         return estimatedHeight(of: attributedString, textWidth: textWidth, verticalInset: verticalInset)
     }

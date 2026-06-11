@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 #if os(macOS)
     import AppKit
     import SwiftUI
@@ -20,7 +21,7 @@
     /// On mouse hover, a copy button overlay appears at the top-right corner of
     /// the hovered code block. Clicking the button copies the raw code content
     /// (without language label) to the system clipboard.
-    final class CodeBlockBackgroundTextView: NSTextView {
+    final class CodeBlockBackgroundTextView: NSTextView { // swiftlint:disable:this type_body_length
         // MARK: - Constants
 
         static let cornerRadius: CGFloat = DesignTokens.Radius.block
@@ -81,6 +82,41 @@
         /// A transparent subview that paints the overlap badges; a subview renders
         /// above the text (unlike `draw(_:)`, which the highlight covers).
         var commentBadgeOverlay: CommentBadgeOverlayView?
+
+        // MARK: - Accessibility
+
+        /// Headings in document order, populated by the coordinator alongside
+        /// the document map; backs the VoiceOver headings rotor.
+        var rotorHeadings: [RotorHeading] = []
+        /// Search delegate for the custom rotors, retained here because the
+        /// rotor API holds it weakly.
+        let rotorSearchDelegate = MarkdownRotorSearchDelegate() // swiftlint:disable:this weak_delegate
+
+        /// NSTextView's accessibility exposes only text content (links, the
+        /// string itself) and drops view subviews — which is where the block
+        /// overlays (tables, mermaid, images, math, comment popovers) live.
+        /// Graft them back in so VoiceOver and the harness can reach them.
+        override func accessibilityChildren() -> [Any]? { // swiftlint:disable:this discouraged_optional_collection
+            var children = super.accessibilityChildren() ?? []
+            children.append(contentsOf: subviews)
+            return children
+        }
+
+        /// VoiceOver custom rotors (VO+U): navigate the rendered markdown by
+        /// heading, link, or comment without leaving the text.
+        override func accessibilityCustomRotors() -> [NSAccessibilityCustomRotor] {
+            rotorSearchDelegate.textView = self
+            let headings = NSAccessibilityCustomRotor(
+                rotorType: .heading, itemSearchDelegate: rotorSearchDelegate
+            )
+            let links = NSAccessibilityCustomRotor(
+                rotorType: .link, itemSearchDelegate: rotorSearchDelegate
+            )
+            let comments = NSAccessibilityCustomRotor(
+                label: "Comments", itemSearchDelegate: rotorSearchDelegate
+            )
+            return [headings, links, comments]
+        }
 
         // MARK: - Find State
 
@@ -380,8 +416,11 @@
                 estimate = offsets.totalHeight
             } else {
                 estimate = DocumentHeightEstimator.estimatedHeight(
-                    of: textStorage, model: nil,
-                    textWidth: textWidth, verticalInset: textContainerInset.height)
+                    of: textStorage,
+                    model: nil,
+                    textWidth: textWidth,
+                    verticalInset: textContainerInset.height
+                )
             }
             applyEstimatedHeightFloor(estimate)
         }
@@ -415,7 +454,8 @@
             guard textWidth != lastEstimatedWidth || estimatedHeightFloor == nil else { return }
             lastEstimatedWidth = textWidth
             let floor = ProvisionalHeightEstimator.provisionalHeight(
-                of: printBlocks, textWidth: textWidth,
+                of: printBlocks,
+                textWidth: textWidth,
                 scaleFactor: progressiveOpenScaleFactor,
                 verticalInset: textContainerInset.height
             )
@@ -435,8 +475,11 @@
         private func computeBlockOffsets() -> DocumentBlockOffsets? {
             guard let textStorage, let documentHeightModel, textWidth > 0 else { return nil }
             let offsets = DocumentBlockOffsets.compute(
-                of: textStorage, model: documentHeightModel,
-                textWidth: textWidth, verticalInset: textContainerInset.height)
+                of: textStorage,
+                model: documentHeightModel,
+                textWidth: textWidth,
+                verticalInset: textContainerInset.height
+            )
             blockOffsets = offsets
             return offsets
         }
@@ -448,11 +491,11 @@
         func scheduleRefreshEstimatedHeight() {
             refreshHeightWorkItem?.cancel()
             let workItem = DispatchWorkItem { [weak self] in
-                guard let self, self.canRefreshEstimatedHeight else { return }
+                guard let self, canRefreshEstimatedHeight else { return }
                 // Attachments resolved to new heights at an unchanged width; clear the
                 // width memo so the re-estimate isn't skipped as redundant.
-                self.lastEstimatedWidth = nil
-                self.refreshEstimatedHeight()
+                lastEstimatedWidth = nil
+                refreshEstimatedHeight()
             }
             refreshHeightWorkItem = workItem
             DispatchQueue.main.asyncAfter(
@@ -553,7 +596,7 @@
         /// follows normally because `commentHits` is empty there.
         private func openCommentPopoverIfNeeded(for event: NSEvent, at point: CGPoint) {
             guard event.clickCount == 1,
-                  event.modifierFlags.intersection([.shift, .command, .option, .control]).isEmpty,
+                  event.modifierFlags.isDisjoint(with: [.shift, .command, .option, .control]),
                   selectedRange().length == 0
             else {
                 return

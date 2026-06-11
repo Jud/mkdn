@@ -12,7 +12,7 @@
         /// random, so this is what orders comments that share an anchor.
         private let creationOrder: [String: Int]
 
-        static func resolve(_ entries: [CommentSidecar.Entry], in tape: AnchorTape) -> ResolvedComments {
+        static func resolve(_ entries: [CommentSidecar.Entry], in tape: AnchorTape) -> Self {
             // The sidecar is user-editable, so guard against duplicate ids: keep the
             // first per id and resolve that set, so an id lands in exactly one of
             // resolved/orphaned and its entry matches its resolution.
@@ -21,7 +21,7 @@
             let index = CommentAnchorResolver.resolveAll(unique, in: tape)
             let byID = Dictionary(uniqueKeysWithValues: unique.map { ($0.id, $0) })
             let order = Dictionary(uniqueKeysWithValues: unique.enumerated().map { ($0.element.id, $0.offset) })
-            return ResolvedComments(index: index, entriesByID: byID, creationOrder: order)
+            return Self(index: index, entriesByID: byID, creationOrder: order)
         }
 
         /// Resolved highlight ranges keyed by comment id, for the overlay draw.
@@ -53,9 +53,9 @@
             index.ranges.compactMap { id, range in
                 entriesByID[id].map { (id: id, entry: $0, range: range) }
             }
-            .sorted {
-                ($0.range.location, creationOrder[$0.id] ?? .max)
-                    < ($1.range.location, creationOrder[$1.id] ?? .max)
+            .sorted { lhs, rhs in
+                (lhs.range.location, creationOrder[lhs.id] ?? .max)
+                    < (rhs.range.location, creationOrder[rhs.id] ?? .max)
             }
         }
 

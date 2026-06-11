@@ -135,10 +135,31 @@
         /// action — exercises the paste-creates-comment path end to end.
         case pasteComment(substring: String, text: String)
 
-        /// Synthesize a left click at window-local coordinates (top-left origin,
-        /// in points) via `NSWindow.sendEvent` — exercises the real event path
+        /// Synthesize a left click at content-local coordinates (top-left origin,
+        /// in points) via `NSApplication.sendEvent` — exercises the real event path
         /// (hit-testing, SwiftUI gestures) without moving the global pointer.
         case clickAt(x: Double, y: Double)
+
+        /// Press the `index`-th accessibility button whose title, label, or
+        /// identifier exactly matches `title`. If omitted on the wire, `index`
+        /// defaults to 0 in the handler.
+        case pressButton(title: String, index: Int?)
+
+        /// Dump the accessibility tree of every visible window (role, label,
+        /// identifier, value, frame) so the runner can discover elements to
+        /// drive — the same tree VoiceOver navigates. `maxDepth` defaults to
+        /// 25 in the handler.
+        case axTree(maxDepth: Int?)
+
+        /// Trigger an accessibility action on the `index`-th element (any
+        /// role, not just buttons) whose title, label, or identifier exactly
+        /// matches `query`. With `action` nil, performs the default press;
+        /// otherwise the named custom action (e.g. "Jump to Comment").
+        case axPress(query: String, action: String?, index: Int?)
+
+        /// List the text view's VoiceOver custom rotors and each rotor's
+        /// items, by walking the same search delegate VoiceOver uses (VO+U).
+        case axRotors
 
         /// Read the phase timings recorded for the most recent document open.
         case getOpenTimings

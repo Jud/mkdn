@@ -13,14 +13,16 @@
                 .heading(level: 1, text: AttributedString("Document Title")),
                 .paragraph(text: AttributedString(
                     "A first paragraph long enough to wrap to a couple of lines at the "
-                        + "narrow widths used in these tests.")),
+                        + "narrow widths used in these tests."
+                )),
                 // A heading at index >= 1 exercises a boundary with a real
                 // paragraphSpacingBefore (the heading top-margin), the seam case a
                 // first-block-only heading collapses away.
                 .heading(level: 2, text: AttributedString("A Later Section")),
                 .codeBlock(language: "swift", code: "let a = 1\nlet b = 2\nlet c = a + b"),
                 .paragraph(text: AttributedString(
-                    "A second paragraph, also wrapping, to push the later blocks down.")),
+                    "A second paragraph, also wrapping, to push the later blocks down."
+                )),
                 .thematicBreak,
                 .image(source: "x.png", alt: "alt"),
                 .paragraph(text: AttributedString("Closing line.")),
@@ -35,8 +37,11 @@
                 LayoutMeasurementHarness.layOut(result.attributedString, viewWidth: viewWidth)
             _ = window
             let offsets = DocumentBlockOffsets.compute(
-                of: result.attributedString, model: result.documentHeightModel,
-                textWidth: textWidth, verticalInset: 32)
+                of: result.attributedString,
+                model: result.documentHeightModel,
+                textWidth: textWidth,
+                verticalInset: 32
+            )
 
             let modelBlocks = result.documentHeightModel.blocks
             let realTops = try modelBlocks.map { block in
@@ -60,19 +65,30 @@
                 LayoutMeasurementHarness.layOut(result.attributedString, viewWidth: viewWidth)
             _ = window
             let offsets = DocumentBlockOffsets.compute(
-                of: result.attributedString, model: result.documentHeightModel,
-                textWidth: textWidth, verticalInset: 32)
+                of: result.attributedString,
+                model: result.documentHeightModel,
+                textWidth: textWidth,
+                verticalInset: 32
+            )
 
             // A phrase well into the wrapping first paragraph, so its line sits below
             // the block top — the intra-block refinement has to find it.
-            let text = result.attributedString.string as NSString
+            let text = result.attributedString.string as NSString // swiftlint:disable:this legacy_objc_type
             let location = text.range(of: "these tests").location
             try #require(location != NSNotFound)
-            let estimated = try #require(offsets.characterY(
-                at: location, in: result.attributedString,
-                model: result.documentHeightModel, textWidth: textWidth))
-            let real = try #require(textView.boundingRect(
-                forCharacterRange: NSRange(location: location, length: 1))?.minY)
+            let estimated = try #require(
+                offsets.characterY(
+                    at: location,
+                    in: result.attributedString,
+                    model: result.documentHeightModel,
+                    textWidth: textWidth
+                )
+            )
+            let real = try #require(
+                textView.boundingRect(
+                    forCharacterRange: NSRange(location: location, length: 1)
+                )?.minY
+            )
             // Lands on the real line top: the wrap-boundary probe resolves whether
             // the prefix measure counted the location's own line, so a mid-line
             // location no longer sits a line low.
@@ -86,11 +102,19 @@
             // code-padding spacing-before — both must not throw the measure off.
             let codeLoc = text.range(of: "let b").location
             try #require(codeLoc != NSNotFound)
-            let codeEstimated = try #require(offsets.characterY(
-                at: codeLoc, in: result.attributedString,
-                model: result.documentHeightModel, textWidth: textWidth))
-            let codeReal = try #require(textView.boundingRect(
-                forCharacterRange: NSRange(location: codeLoc, length: 1))?.minY)
+            let codeEstimated = try #require(
+                offsets.characterY(
+                    at: codeLoc,
+                    in: result.attributedString,
+                    model: result.documentHeightModel,
+                    textWidth: textWidth
+                )
+            )
+            let codeReal = try #require(
+                textView.boundingRect(
+                    forCharacterRange: NSRange(location: codeLoc, length: 1)
+                )?.minY
+            )
             #expect(abs(codeEstimated - codeReal) < 6)
         }
 
@@ -98,8 +122,11 @@
         @MainActor func yMapsToBlock() {
             let result = MarkdownTextStorageBuilder.build(blocks: mixedBlocks(), theme: .solarizedDark)
             let offsets = DocumentBlockOffsets.compute(
-                of: result.attributedString, model: result.documentHeightModel,
-                textWidth: 600, verticalInset: 32)
+                of: result.attributedString,
+                model: result.documentHeightModel,
+                textWidth: 600,
+                verticalInset: 32
+            )
             // A y inside each block's span resolves to that block.
             let count = offsets.blocks.count
             for position in offsets.blocks.indices {
@@ -109,7 +136,7 @@
             }
             // Clamp: a y above the first block resolves to the first; past the end, the last.
             #expect(offsets.blockIndex(atY: -100) == offsets.blocks.first?.index)
-            #expect(offsets.blockIndex(atY: offsets.totalHeight + 1000) == offsets.blocks.last?.index)
+            #expect(offsets.blockIndex(atY: offsets.totalHeight + 1_000) == offsets.blocks.last?.index)
         }
 
         @Test("Block tops never sit above the real TextKit tops (over-estimate bias)",
@@ -120,8 +147,11 @@
                 LayoutMeasurementHarness.layOut(result.attributedString, viewWidth: viewWidth)
             _ = window
             let offsets = DocumentBlockOffsets.compute(
-                of: result.attributedString, model: result.documentHeightModel,
-                textWidth: textWidth, verticalInset: 32)
+                of: result.attributedString,
+                model: result.documentHeightModel,
+                textWidth: textWidth,
+                verticalInset: 32
+            )
             for (position, block) in result.documentHeightModel.blocks.enumerated() {
                 let real = try #require(textView.boundingRect(forCharacterRange: block.range)?.minY)
                 // The one-directional safety constraint the symmetric oracle test doesn't
@@ -137,12 +167,18 @@
         @MainActor func totalHeightMatchesWholeDocumentMeasure(viewWidth: CGFloat) {
             let result = MarkdownTextStorageBuilder.build(blocks: mixedBlocks(), theme: .solarizedDark)
             let offsets = DocumentBlockOffsets.compute(
-                of: result.attributedString, model: result.documentHeightModel,
-                textWidth: viewWidth, verticalInset: 32)
+                of: result.attributedString,
+                model: result.documentHeightModel,
+                textWidth: viewWidth,
+                verticalInset: 32
+            )
             // The per-block sum (fast path) must land on the whole-document `boundingRect`
             // (slow path) it replaces — within a pixel of rounding, never below it.
             let wholeDoc = DocumentHeightEstimator.estimatedHeight(
-                of: result.attributedString, textWidth: viewWidth, verticalInset: 32)
+                of: result.attributedString,
+                textWidth: viewWidth,
+                verticalInset: 32
+            )
             #expect(abs(offsets.totalHeight - wholeDoc) <= 2)
             #expect(offsets.totalHeight >= wholeDoc - 1)
         }
@@ -157,8 +193,11 @@
                 BlockSpan(index: 1, range: NSRange(location: 4, length: 99)),
             ])
             let offsets = DocumentBlockOffsets.compute(
-                of: NSAttributedString(string: "abc\nxyz"), model: model,
-                textWidth: 200, verticalInset: 32)
+                of: NSAttributedString(string: "abc\nxyz"),
+                model: model,
+                textWidth: 200,
+                verticalInset: 32
+            )
             #expect(offsets.totalHeight > 0)
             #expect(offsets.blocks.map(\.index) == [0]) // the overflowing block is dropped
         }
@@ -166,9 +205,14 @@
         @Test("An empty document yields no offsets")
         @MainActor func emptyDocumentYieldsNoOffsets() {
             let model = DocumentHeightModel(
-                blocks: [BlockSpan(index: 0, range: NSRange(location: 0, length: 0))])
+                blocks: [BlockSpan(index: 0, range: NSRange(location: 0, length: 0))]
+            )
             let offsets = DocumentBlockOffsets.compute(
-                of: NSAttributedString(string: ""), model: model, textWidth: 600, verticalInset: 32)
+                of: NSAttributedString(string: ""),
+                model: model,
+                textWidth: 600,
+                verticalInset: 32
+            )
             #expect(offsets.blocks.isEmpty)
             #expect(offsets.totalHeight == 0)
             #expect(offsets.blockIndex(atY: 10) == nil)

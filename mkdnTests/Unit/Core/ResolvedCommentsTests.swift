@@ -27,8 +27,10 @@
         @Test("comments(containing:) joins entries innermost-first")
         func hitTestWithBodies() {
             let resolved = ResolvedComments.resolve(
-                [entry("outer", quote: "quick brown", body: "outer body"),
-                 entry("inner", quote: "quick", body: "inner body")],
+                [
+                    entry("outer", quote: "quick brown", body: "outer body"),
+                    entry("inner", quote: "quick", body: "inner body"),
+                ],
                 in: tape("the quick brown fox")
             )
             let hits = resolved.comments(containing: 5) // inside both spans
@@ -45,9 +47,11 @@
         @Test("active lists resolved comments in document order with entries and ranges")
         func activeInDocumentOrder() {
             let resolved = ResolvedComments.resolve(
-                [entry("b", quote: "fox", body: "second"),
-                 entry("a", quote: "quick", body: "first"),
-                 entry("c", quote: "missing")],
+                [
+                    entry("b", quote: "fox", body: "second"),
+                    entry("a", quote: "quick", body: "first"),
+                    entry("c", quote: "missing"),
+                ],
                 in: tape("the quick brown fox")
             )
             let active = resolved.active
@@ -72,8 +76,10 @@
         func duplicateIDs() {
             // Both entries share id "dup": first resolves, second would orphan.
             let resolved = ResolvedComments.resolve(
-                [entry("dup", quote: "quick", body: "first"),
-                 entry("dup", quote: "missing", body: "second")],
+                [
+                    entry("dup", quote: "quick", body: "first"),
+                    entry("dup", quote: "missing", body: "second"),
+                ],
                 in: tape("the quick brown fox")
             )
             #expect(resolved.ranges == ["dup": NSRange(location: 4, length: 5)])

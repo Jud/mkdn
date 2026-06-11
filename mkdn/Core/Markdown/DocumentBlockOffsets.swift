@@ -54,11 +54,14 @@ public struct DocumentBlockOffsets {
         // re-wraps as a line of its own) but not when it starts one.
         var intra = DocumentHeightEstimator.contentHeight(
             of: attributedString.attributedSubstring(
-                from: NSRange(location: block.range.location, length: prefixLength)),
-            textWidth: textWidth)
+                from: NSRange(location: block.range.location, length: prefixLength)
+            ),
+            textWidth: textWidth
+        )
         // A prefix ending at an internal newline (e.g. line 2+ of a code block) carries
         // the same phantom empty line `compute` subtracts at block boundaries — drop it.
         // A newline boundary starts a line, so the corrected measure is the line top.
+        // swiftlint:disable:next legacy_objc_type
         if (attributedString.string as NSString).character(at: location - 1) == 0x0A {
             intra -= Self.trailingNewlinePhantom(at: location - 1, in: attributedString)
             return blockTop + intra
@@ -71,7 +74,7 @@ public struct DocumentBlockOffsets {
         // mid-line (the measure included its line — subtract that line to land on
         // its top, beside the text the mark points at). The probe must cover the
         // full word: a single character can still fit where the word could not.
-        let text = attributedString.string as NSString
+        let text = attributedString.string as NSString // swiftlint:disable:this legacy_objc_type
         let limit = min(block.range.location + block.range.length, attributedString.length)
         var probeEnd = location
         while probeEnd < limit, !Self.isWhitespace(text.character(at: probeEnd)) {
@@ -83,13 +86,17 @@ public struct DocumentBlockOffsets {
                     from: NSRange(
                         location: block.range.location,
                         length: probeEnd - block.range.location
-                    )),
-                textWidth: textWidth)
+                    )
+                ),
+                textWidth: textWidth
+            )
             if probe <= intra + 0.5 {
                 let line = DocumentHeightEstimator.contentHeight(
                     of: attributedString.attributedSubstring(
-                        from: NSRange(location: location, length: probeEnd - location)),
-                    textWidth: textWidth)
+                        from: NSRange(location: location, length: probeEnd - location)
+                    ),
+                    textWidth: textWidth
+                )
                 intra = max(intra - line, 0)
             }
         }
@@ -121,13 +128,17 @@ public struct DocumentBlockOffsets {
         model: DocumentHeightModel,
         textWidth: CGFloat,
         verticalInset: CGFloat
-    ) -> DocumentBlockOffsets {
+    ) -> Self {
         let measured = OpenTimeline.shared.time("blockOffsets.compute") {
             measure(
-                of: attributedString, model: model, textWidth: textWidth,
-                verticalInset: verticalInset, buildOffsets: true)
+                of: attributedString,
+                model: model,
+                textWidth: textWidth,
+                verticalInset: verticalInset,
+                buildOffsets: true
+            )
         }
-        return DocumentBlockOffsets(blocks: measured.blocks, totalHeight: measured.totalHeight)
+        return Self(blocks: measured.blocks, totalHeight: measured.totalHeight)
     }
 
     /// The document's estimated height from the per-block sum, without building the
@@ -143,8 +154,12 @@ public struct DocumentBlockOffsets {
     ) -> CGFloat {
         OpenTimeline.shared.time("blockOffsets.estimate") {
             measure(
-                of: attributedString, model: model, textWidth: textWidth,
-                verticalInset: verticalInset, buildOffsets: false).totalHeight
+                of: attributedString,
+                model: model,
+                textWidth: textWidth,
+                verticalInset: verticalInset,
+                buildOffsets: false
+            ).totalHeight
         }
     }
 
@@ -163,7 +178,7 @@ public struct DocumentBlockOffsets {
             return (0, [])
         }
         OpenTimeline.shared.noteBlockOffsetsMeasure()
-        let string = attributedString.string as NSString
+        let string = attributedString.string as NSString // swiftlint:disable:this legacy_objc_type
         var blocks: [BlockOffset] = []
         if buildOffsets { blocks.reserveCapacity(model.blocks.count) }
         // Running height of every block above the current one. Each block is measured
@@ -193,7 +208,8 @@ public struct DocumentBlockOffsets {
                 : 0
             if buildOffsets {
                 blocks.append(
-                    BlockOffset(index: block.index, top: verticalInset + cumulative + spacingBefore))
+                    BlockOffset(index: block.index, top: verticalInset + cumulative + spacingBefore)
+                )
             }
             guard block.range.length > 0 else { continue }
             // Advance the running height by this block's contiguous-layout contribution.
@@ -204,7 +220,9 @@ public struct DocumentBlockOffsets {
             // whole-document height instead of drifting one empty line and one top-margin
             // per block.
             let blockHeight = DocumentHeightEstimator.contentHeight(
-                of: attributedString.attributedSubstring(from: block.range), textWidth: textWidth)
+                of: attributedString.attributedSubstring(from: block.range),
+                textWidth: textWidth
+            )
             let end = NSMaxRange(block.range)
             let phantom = end <= attributedString.length && string.character(at: end - 1) == 0x0A
                 ? trailingNewlinePhantom(at: end - 1, in: attributedString)
@@ -251,9 +269,13 @@ public struct DocumentBlockOffsets {
         }
         let wide = CGFloat.greatestFiniteMagnitude
         let withNewline = DocumentHeightEstimator.contentHeight(
-            of: NSAttributedString(string: "x\n", attributes: attributes), textWidth: wide)
+            of: NSAttributedString(string: "x\n", attributes: attributes),
+            textWidth: wide
+        )
         let withoutNewline = DocumentHeightEstimator.contentHeight(
-            of: NSAttributedString(string: "x", attributes: attributes), textWidth: wide)
+            of: NSAttributedString(string: "x", attributes: attributes),
+            textWidth: wide
+        )
         return withNewline - withoutNewline
     }
 }

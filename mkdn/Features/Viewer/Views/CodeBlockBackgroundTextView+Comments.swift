@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 #if os(macOS)
     import AppKit
     import SwiftUI
@@ -34,7 +35,10 @@
             // so a badge whose smallest comment is offscreen doesn't force layout
             // there and mis-place the box.
             let visible = visibleCharacterRange()
-            let anchor = hits.first { visible == nil || NSIntersectionRange($0.range, visible!).length > 0 }?.range
+            let anchor = hits.first { hit in
+                guard let visible else { return true }
+                return NSIntersectionRange(hit.range, visible).length > 0
+            }?.range
             guard window != nil,
                   let theme = commentTheme,
                   let anchor,
@@ -134,7 +138,7 @@
                 fill.setFill()
                 NSBezierPath(ovalIn: badge.rect).fill()
 
-                let label = "\(badge.count)" as NSString
+                let label = "\(badge.count)" as NSString // swiftlint:disable:this legacy_objc_type
                 let attributes: [NSAttributedString.Key: Any] = [
                     .font: NSFont.systemFont(ofSize: badge.rect.height * 0.6, weight: .bold),
                     .foregroundColor: NSColor.white,
@@ -239,7 +243,10 @@
         // MARK: - Overlay presentation
 
         private func presentCommentOverlay(
-            near rect: CGRect, model: CommentOverlayModel, focusesEditor: Bool = false, content: some View
+            near rect: CGRect,
+            model: CommentOverlayModel,
+            focusesEditor: Bool = false, // swiftlint:disable:this function_default_parameter_at_end
+            content: some View
         ) {
             dismissCommentOverlay()
             let host = CommentOverlayHostingView(rootView: content)
@@ -310,14 +317,14 @@
                 easing: { $0 * $0 * (3 - 2 * $0) }, // smoothstep
                 onFrame: { [weak self] progress in
                     guard let self else { return }
-                    self.emphasisProgress = start + (target - start) * progress
-                    self.setNeedsDisplay(self.enclosingScrollView?.documentVisibleRect ?? self.bounds)
+                    emphasisProgress = start + (target - start) * progress
+                    setNeedsDisplay(enclosingScrollView?.documentVisibleRect ?? bounds)
                 },
                 onComplete: { [weak self] in
                     guard let self else { return }
-                    self.emphasisProgress = target
-                    if target == 0 { self.emphasisDrawID = nil }
-                    self.commentEmphasisTimer = nil
+                    emphasisProgress = target
+                    if target == 0 { emphasisDrawID = nil }
+                    commentEmphasisTimer = nil
                 }
             )
         }
@@ -392,7 +399,7 @@
                 duration: AnimationConstants.scrollToHeadingDuration,
                 easing: { $0 < 0.5 ? 2 * $0 * $0 : 1 - pow(-2 * $0 + 2, 2) / 2 },
                 onFrame: { [weak self] eased in
-                    guard let self, self.window != nil, let scrollView = self.enclosingScrollView
+                    guard let self, window != nil, let scrollView = enclosingScrollView
                     else { return }
                     let clipView = scrollView.contentView
                     clipView.scroll(to: NSPoint(
@@ -400,7 +407,7 @@
                         y: start.y + (destination.y - start.y) * eased
                     ))
                     scrollView.reflectScrolledClipView(clipView)
-                    self.textLayoutManager?.textViewportLayoutController.layoutViewport()
+                    textLayoutManager?.textViewportLayoutController.layoutViewport()
                 },
                 onComplete: { [weak self] in self?.commentScrollTimer = nil }
             )
@@ -431,7 +438,7 @@
             timer.schedule(deadline: .now(), repeating: .milliseconds(16), leeway: .milliseconds(1))
             timer.setEventHandler {
                 step += 1
-                let t = min(CGFloat(step) / CGFloat(steps), 1)
+                let t = min(CGFloat(step) / CGFloat(steps), 1) // swiftlint:disable:this identifier_name
                 onFrame(easing(t))
                 if t >= 1 {
                     onComplete()
@@ -525,9 +532,9 @@
             commentDismissMonitor = NSEvent.addLocalMonitorForEvents(
                 matching: [.leftMouseDown, .rightMouseDown, .scrollWheel, .keyDown]
             ) { [weak self] event in
-                guard let self, let overlay = self.commentOverlay else { return event }
+                guard let self, let overlay = commentOverlay else { return event }
                 if event.type == .keyDown {
-                    if event.keyCode == 53 { self.dismissCommentOverlay() } // Escape
+                    if event.keyCode == 53 { dismissCommentOverlay() } // Escape
                     return event
                 }
                 // Inside the visible box (not the transparent shadow padding):
@@ -537,13 +544,13 @@
                 )
                 if box.contains(overlay.convert(event.locationInWindow, from: nil)) { return event }
                 if event.type == .scrollWheel {
-                    self.dismissCommentOverlay()
+                    dismissCommentOverlay()
                     return event
                 }
                 // A click inside the text view is handled by mouseDown (toggle/
                 // switch/close); only a click elsewhere dismisses here.
-                if !self.bounds.contains(self.convert(event.locationInWindow, from: nil)) {
-                    self.dismissCommentOverlay()
+                if !bounds.contains(convert(event.locationInWindow, from: nil)) {
+                    dismissCommentOverlay()
                 }
                 return event
             }
@@ -600,7 +607,7 @@
         override var isOpaque: Bool { false }
 
         @available(*, unavailable)
-        @MainActor @objc dynamic required init?(coder: NSCoder) { fatalError("init(coder:) unavailable") }
+        @MainActor @objc dynamic required init?(coder _: NSCoder) { fatalError("init(coder:) unavailable") }
 
         override func hitTest(_ point: NSPoint) -> NSView? {
             let box = bounds.insetBy(

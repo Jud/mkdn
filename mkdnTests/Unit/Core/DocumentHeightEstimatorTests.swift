@@ -17,14 +17,17 @@
                 .paragraph(text: AttributedString(
                     "This is a reasonably long paragraph of prose that should wrap to "
                         + "several lines at narrow container widths and fewer lines as the "
-                        + "container grows wider, exercising the wrapping estimate.")),
+                        + "container grows wider, exercising the wrapping estimate."
+                )),
                 .paragraph(text: AttributedString(
                     "A second paragraph, also long enough to wrap, so that inter-block "
-                        + "paragraph spacing is exercised between two flowed blocks here.")),
+                        + "paragraph spacing is exercised between two flowed blocks here."
+                )),
                 .thematicBreak,
                 .codeBlock(
                     language: "swift",
-                    code: "let answer = 42\nprint(answer)\nlet doubled = answer * 2\nreturn doubled"),
+                    code: "let answer = 42\nprint(answer)\nlet doubled = answer * 2\nreturn doubled"
+                ),
                 .image(source: "diagram.png", alt: "A diagram"),
                 .mathBlock(code: "E = mc^2"),
                 .paragraph(text: AttributedString("A short closing line.")),
@@ -71,7 +74,8 @@
             let result = MarkdownTextStorageBuilder.build(blocks: indexed, theme: .solarizedDark)
             let (real, textWidth) = realLayout(result.attributedString, viewWidth: viewWidth)
             let estimate = DocumentHeightEstimator.estimatedHeight(
-                of: result.attributedString, textWidth: textWidth, verticalInset: 32)
+                of: result.attributedString, textWidth: textWidth, verticalInset: 32
+            )
             #expect(estimate >= real - 1)
             #expect(estimate <= real + 1)
         }
@@ -88,7 +92,8 @@
             let result = MarkdownTextStorageBuilder.build(blocks: indexed, theme: .solarizedDark)
             let (real, textWidth) = realLayout(result.attributedString, viewWidth: viewWidth)
             let estimate = DocumentHeightEstimator.estimatedHeight(
-                of: result.attributedString, textWidth: textWidth, verticalInset: 32)
+                of: result.attributedString, textWidth: textWidth, verticalInset: 32
+            )
             // A long unbroken token (URL, minified code) is the one case where Core
             // Text's char-wrap diverges from TextKit 2: boundingRect rounds up by about
             // one extra mono line. That's the safe direction — the scroller is a hair
@@ -110,21 +115,25 @@
             let attachment = try #require(result.attachments.first { $0.blockIndex == 1 }?.attachment)
             let placeholder = attachment.bounds.height
             let before = DocumentHeightEstimator.estimatedHeight(
-                of: result.attributedString, textWidth: textWidth, verticalInset: 32)
+                of: result.attributedString, textWidth: textWidth, verticalInset: 32
+            )
             // Simulate the image overlay resolving to a real height above the placeholder;
             // re-measuring must grow the estimate by that delta (what the debounced
             // refresh relies on).
             attachment.bounds = CGRect(
-                x: 0, y: 0, width: attachment.bounds.width, height: placeholder + 200)
+                x: 0, y: 0, width: attachment.bounds.width, height: placeholder + 200
+            )
             let after = DocumentHeightEstimator.estimatedHeight(
-                of: result.attributedString, textWidth: textWidth, verticalInset: 32)
+                of: result.attributedString, textWidth: textWidth, verticalInset: 32
+            )
             #expect(after > before)
             #expect(abs((after - before) - 200) < 2)
             // And below the placeholder: resolving smaller shrinks the estimate, which is
             // what lets refreshEstimatedHeight size the frame back down.
             attachment.bounds = CGRect(x: 0, y: 0, width: attachment.bounds.width, height: 40)
             let shrunk = DocumentHeightEstimator.estimatedHeight(
-                of: result.attributedString, textWidth: textWidth, verticalInset: 32)
+                of: result.attributedString, textWidth: textWidth, verticalInset: 32
+            )
             #expect(shrunk < before)
         }
 
@@ -132,11 +141,14 @@
         @MainActor func nonPositiveWidthIsZero() {
             let result = MarkdownTextStorageBuilder.build(
                 blocks: [IndexedBlock(index: 0, block: .paragraph(text: AttributedString("Content.")))],
-                theme: .solarizedDark)
+                theme: .solarizedDark
+            )
             #expect(DocumentHeightEstimator.estimatedHeight(
-                of: result.attributedString, textWidth: 0, verticalInset: 32) == 0)
+                of: result.attributedString, textWidth: 0, verticalInset: 32
+            ) == 0)
             #expect(DocumentHeightEstimator.estimatedHeight(
-                of: result.attributedString, textWidth: -5, verticalInset: 32) == 0)
+                of: result.attributedString, textWidth: -5, verticalInset: 32
+            ) == 0)
         }
     }
 #endif

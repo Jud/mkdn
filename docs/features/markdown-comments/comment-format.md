@@ -37,6 +37,20 @@ JSON escapes `>` and `-`, so it can never contain `-->` or `--`:
 -->
 ```
 
+Each entry may also carry an **author** and a **reply thread**:
+
+```json
+{"id":"k7","body":"needs a citation","author":"jud","quote":"quick brown fox",
+ "replies":[{"id":"x2c9q","author":"claude","body":"added one in 4f2a1"}]}
+```
+
+- `author` — who wrote the comment or reply. Absent means the document owner
+  (the app renders it as "You"); agents writing through the CLI must supply a
+  name. Absent fields are never emitted, so authorless, threadless entries
+  encode byte-identically to the original format.
+- `replies` — the thread in conversation order. Reply ids draw from the same
+  uniqueness pool as comment ids.
+
 A well-formed `<mkdn-comment …/>` token is reserved metadata and is stripped
 wherever it appears (prose or code); don't type one literally as content.
 
@@ -115,6 +129,24 @@ dollar-sign prose alike), list markers, or images — aren't commentable. Degene
 Comment bodies and quotes can contain anything — `-->`, `--`, the marker text,
 newlines, quotes, backslashes, emoji — and round-trip intact. A malformed sidecar
 is left untouched rather than guessed at.
+
+## Agent access — `mkdn comments`
+
+The format is plain text, so any tool can read it, but the CLI is the canonical
+reader/writer — it runs headless (no window) and prints JSON:
+
+```
+mkdn comments list <file>                 # comments + threads as JSON
+mkdn comments reply <file> <id> <body> --author <name>
+mkdn comments wait <file> [--timeout <s>] # block until new activity, print it
+```
+
+`reply` requires `--author`, which is how agent replies stay attributable.
+`wait` exits 0 printing `{newComments, newReplies}` as soon as something the
+process hasn't seen lands in the file (exit 1 on timeout), which closes the
+human→agent loop without any push infrastructure: an agent replies, then waits;
+the human comments in mkdn (saving writes the file); the agent wakes. The app
+live-reloads the file, so CLI-written replies appear in the open sidebar.
 
 ## Limitations
 

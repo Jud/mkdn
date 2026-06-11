@@ -49,6 +49,15 @@ struct MkdnApp: App {
 /// The flag activates the in-process test harness server for automated UI testing.
 let rawArguments = CommandLine.arguments
 
+// `mkdn comments …` is headless (read/write the comment sidecar, print JSON,
+// exit — no window). It must dispatch before root parsing: the root command's
+// repeated <files> positional claims "comments" as a path before ArgumentParser
+// considers subcommands.
+if rawArguments.count > 1, rawArguments[1] == "comments" {
+    CommentsCommand.main(Array(rawArguments.dropFirst(2)))
+    Foundation.exit(0)
+}
+
 if rawArguments.contains("--test-harness") {
     TestHarnessMode.isEnabled = true
     if let socketIdx = rawArguments.firstIndex(of: "--socket-path"),
@@ -135,7 +144,16 @@ if rawArguments.contains("--test-harness") {
     MkdnApp.main()
 } else {
     do {
-        let cli = try MkdnCLI.parse()
+        // parseAsRoot so subcommands resolve: `mkdn comments …` runs headless
+        // (read/write the sidecar, print JSON) and exits before NSApplication —
+        // no window. Bare `mkdn [files…]` parses as the root command and falls
+        // through to the GUI launch below.
+        let parsed = try MkdnCLI.parseAsRoot()
+        guard let cli = parsed as? MkdnCLI else {
+            var command = parsed
+            try command.run()
+            Foundation.exit(0)
+        }
 
         if !cli.files.isEmpty {
             var validFileURLs: [URL] = []

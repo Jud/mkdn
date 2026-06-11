@@ -26,19 +26,23 @@
         var gap: CGFloat = 8
         var atDocumentEnd: Bool = false
 
-        func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        func sizeThatFits(proposal: ProposedViewSize, subviews _: Subviews, cache _: inout ()) -> CGSize {
             proposal.replacingUnspecifiedDimensions()
         }
 
         func placeSubviews(
-            in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()
+            in bounds: CGRect, proposal _: ProposedViewSize, subviews: Subviews, cache _: inout ()
         ) {
             let cardProposal = ProposedViewSize(width: bounds.width, height: nil)
             let anchors = subviews.map { $0[CommentCardAnchor.self] }
             let heights = subviews.map { $0.sizeThatFits(cardProposal).height }
             let tops = AnchoredCommentPlacement.tops(
-                anchors: anchors, heights: heights, gap: gap,
-                visibleBottom: bounds.height, fitBottomOverflow: atDocumentEnd)
+                anchors: anchors,
+                heights: heights,
+                gap: gap,
+                visibleBottom: bounds.height,
+                fitBottomOverflow: atDocumentEnd
+            )
             for (index, subview) in subviews.enumerated() {
                 subview.place(
                     at: CGPoint(x: bounds.minX, y: bounds.minY + tops[index]),

@@ -30,7 +30,9 @@
             VStack(alignment: .leading, spacing: 8) {
                 CommentBoxHeader(
                     title: created == nil ? "Add comment" : "Comment",
-                    theme: theme, onDragChanged: onDragChanged, onDragEnded: onDragEnded
+                    theme: theme,
+                    onDragChanged: onDragChanged,
+                    onDragEnded: onDragEnded
                 )
                 if let created {
                     CommentRowView(
@@ -43,8 +45,11 @@
                     )
                 } else {
                     CommentEditor(
-                        draft: $draft, theme: theme, confirmTitle: "Comment",
-                        onCancel: onClose, onConfirm: submit
+                        draft: $draft,
+                        theme: theme,
+                        confirmTitle: "Comment",
+                        onCancel: onClose,
+                        onConfirm: submit
                     )
                 }
             }

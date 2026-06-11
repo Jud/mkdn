@@ -54,7 +54,8 @@ extension AttributeScopes {
 
 extension AttributeDynamicLookup {
     subscript<T>(
-        dynamicMember keyPath: KeyPath<AttributeScopes.MkdnSourceAttributes, T> // swiftlint:disable:this unused_parameter
+        // swiftlint:disable:next unused_parameter
+        dynamicMember keyPath: KeyPath<AttributeScopes.MkdnSourceAttributes, T>
     ) -> T where T: AttributedStringKey {
         self[T.self]
     }

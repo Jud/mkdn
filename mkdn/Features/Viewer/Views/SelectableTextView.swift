@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 #if os(macOS)
     import AppKit
     import SwiftUI
@@ -59,6 +60,7 @@
             Coordinator()
         }
 
+        // swiftlint:disable:next function_body_length
         func makeNSView(context: Context) -> NSScrollView {
             let (scrollView, textView) = Self.makeScrollableCodeBlockTextView()
 
@@ -158,13 +160,14 @@
             return scrollView
         }
 
-        static func dismantleNSView(_ nsView: NSScrollView, coordinator: Coordinator) {
+        static func dismantleNSView(_: NSScrollView, coordinator: Coordinator) {
             // A recreated view (or unmount) must not leave the tail task
             // appending into the orphaned storage — and consuming session
             // blocks the replacement view's driver will never see.
             coordinator.cancelProgressiveTail()
         }
 
+        // swiftlint:disable:next function_body_length
         func updateNSView(_ scrollView: NSScrollView, context: Context) {
             guard let textView = scrollView.documentView as? CodeBlockBackgroundTextView else {
                 return

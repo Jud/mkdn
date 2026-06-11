@@ -7,7 +7,11 @@ import Testing
 struct DocumentStateCommentTests {
     private func selector(quote: String) -> CommentSelector {
         CommentSelector(
-            quote: quote, prefix: "", suffix: "", start: 0, end: quote.utf16.count,
+            quote: quote,
+            prefix: "",
+            suffix: "",
+            start: 0,
+            end: quote.utf16.count,
             norm: AnchorTape.normalizationVersion
         )
     }
@@ -46,6 +50,18 @@ struct DocumentStateCommentTests {
         #expect(state.deleteComment(id: id))
         #expect(CommentSidecar.decode(from: state.markdownContent) == nil) // last entry → block removed
         #expect(!state.deleteComment(id: id)) // already gone → no-op
+    }
+
+    @Test("addReply appends an authorless (You) reply; unknown id is a no-op")
+    func addReply() {
+        let state = DocumentState()
+        state.markdownContent = "a b c"
+        let id = state.addComment(selector(quote: "b"), body: "note")
+        #expect(state.addReply(toCommentID: id, body: "follow-up"))
+        let entry = CommentSidecar.decode(from: state.markdownContent)?.entries.first { $0.id == id }
+        #expect(entry?.replies?.map(\.body) == ["follow-up"])
+        #expect(entry?.replies?.first?.author == nil)
+        #expect(!state.addReply(toCommentID: "missing", body: "x"))
     }
 
     @Test("deleteComment removes an orphaned entry whose quote no longer resolves")

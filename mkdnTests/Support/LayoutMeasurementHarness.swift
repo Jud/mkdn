@@ -19,13 +19,19 @@
             let contentStorage = NSTextContentStorage()
             contentStorage.addTextLayoutManager(layoutManager)
             let textView = CodeBlockBackgroundTextView(
-                frame: NSRect(x: 0, y: 0, width: viewWidth, height: 400), textContainer: textContainer)
+                frame: NSRect(x: 0, y: 0, width: viewWidth, height: 400),
+                textContainer: textContainer
+            )
             textView.isVerticallyResizable = true
             textView.textContainerInset = NSSize(width: 32, height: 32)
             let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: viewWidth, height: 400))
             scrollView.documentView = textView
             let window = NSWindow(
-                contentRect: scrollView.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+                contentRect: scrollView.frame,
+                styleMask: [.borderless],
+                backing: .buffered,
+                defer: false
+            )
             window.contentView = scrollView
             textView.textStorage?.setAttributedString(attributed)
             window.layoutIfNeeded()

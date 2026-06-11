@@ -59,8 +59,8 @@ struct SourceMap {
     /// atomic segment snaps any sub-range to the whole token.
     func sourceUTF16Range(forBuilder range: Range<Int>) -> Range<Int>? {
         guard range.lowerBound < range.upperBound else { return nil }
-        guard let segment = segments.first(where: {
-            $0.builderStart <= range.lowerBound && range.upperBound <= $0.builderEnd
+        guard let segment = segments.first(where: { segment in
+            segment.builderStart <= range.lowerBound && range.upperBound <= segment.builderEnd
         }) else {
             return nil
         }

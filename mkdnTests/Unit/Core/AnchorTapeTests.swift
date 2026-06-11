@@ -8,10 +8,10 @@
     struct AnchorTapeTests {
     /// Builder NSRange for a normalized substring, via UTF-16 offsets.
     private func builderRange(of normalizedSubstring: String, in tape: AnchorTape) -> NSRange? {
-        let ns = tape.text as NSString
-        let r = ns.range(of: normalizedSubstring)
-        guard r.location != NSNotFound else { return nil }
-        return tape.builderRange(forNormalized: r.location ..< NSMaxRange(r))
+        let ns = tape.text as NSString // swiftlint:disable:this legacy_objc_type
+        let found = ns.range(of: normalizedSubstring)
+        guard found.location != NSNotFound else { return nil }
+        return tape.builderRange(forNormalized: found.location ..< NSMaxRange(found))
     }
 
     // MARK: - Prose normalization
@@ -27,7 +27,7 @@
         let source = "Hello   World"
         let tape = AnchorTape.build(from: NSAttributedString(string: source))
         let nsr = try #require(builderRange(of: "world", in: tape))
-        #expect((source as NSString).substring(with: nsr) == "World")
+        #expect((source as NSString).substring(with: nsr) == "World") // swiftlint:disable:this legacy_objc_type
     }
 
     @Test("A span covering a collapsed whitespace run includes the whole run")
@@ -35,6 +35,7 @@
         let source = "Hello   World"
         let tape = AnchorTape.build(from: NSAttributedString(string: source))
         let nsr = try #require(builderRange(of: "hello world", in: tape))
+        // swiftlint:disable:next legacy_objc_type
         #expect((source as NSString).substring(with: nsr) == source) // all 3 spaces included
     }
 
@@ -62,10 +63,10 @@
 
     @Test("Attachment runs are excluded from the tape")
     func attachmentsExcluded() {
-        let s = NSMutableAttributedString(string: "before ")
-        s.append(NSAttributedString(attachment: NSTextAttachment()))
-        s.append(NSAttributedString(string: " after"))
-        let tape = AnchorTape.build(from: s)
+        let text = NSMutableAttributedString(string: "before ")
+        text.append(NSAttributedString(attachment: NSTextAttachment()))
+        text.append(NSAttributedString(string: " after"))
+        let tape = AnchorTape.build(from: text)
         #expect(!tape.text.contains("\u{FFFC}"))
         #expect(tape.text == "before after") // whitespace around the attachment collapses
     }

@@ -6,37 +6,37 @@ import Testing
 @Suite("SourceLocationConverter")
 struct SourceLocationConverterTests {
     @Test("Maps line/column on a plain ASCII document")
-    func asciiLineColumn() {
+    func asciiLineColumn() throws {
         let source = "hello\nworld"
         let converter = SourceLocationConverter(source: source)
 
         let start = converter.index(line: 1, column: 1)
         #expect(start == source.startIndex)
 
-        let secondLine = try! #require(converter.index(line: 2, column: 1))
+        let secondLine = try #require(converter.index(line: 2, column: 1))
         #expect(source[secondLine...] == "world")
 
-        let midSecond = try! #require(converter.index(line: 2, column: 3))
+        let midSecond = try #require(converter.index(line: 2, column: 3))
         #expect(source[midSecond...] == "rld")
     }
 
     @Test("Column counts UTF-8 bytes, not characters")
-    func multiByteColumn() {
+    func multiByteColumn() throws {
         // "é" is 2 UTF-8 bytes, so the "l" after "hé" sits at byte column 4.
         let source = "héllo"
         let converter = SourceLocationConverter(source: source)
 
-        let afterAccent = try! #require(converter.index(line: 1, column: 4))
+        let afterAccent = try #require(converter.index(line: 1, column: 4))
         #expect(source[afterAccent...] == "llo")
     }
 
     @Test("Handles emoji (4-byte scalar)")
-    func emojiColumn() {
+    func emojiColumn() throws {
         // "😀" is 4 UTF-8 bytes; "b" follows at byte column 6 (a=1 byte, 😀=4 bytes).
         let source = "a😀b"
         let converter = SourceLocationConverter(source: source)
 
-        let afterEmoji = try! #require(converter.index(line: 1, column: 6))
+        let afterEmoji = try #require(converter.index(line: 1, column: 6))
         #expect(source[afterEmoji...] == "b")
     }
 
@@ -61,11 +61,11 @@ struct SourceLocationConverterTests {
     }
 
     @Test("CRLF line endings start the next line after the newline")
-    func crlfLineStarts() {
+    func crlfLineStarts() throws {
         let source = "a\r\nb"
         let converter = SourceLocationConverter(source: source)
 
-        let secondLine = try! #require(converter.index(line: 2, column: 1))
+        let secondLine = try #require(converter.index(line: 2, column: 1))
         #expect(source[secondLine...] == "b")
     }
 
@@ -80,10 +80,10 @@ struct SourceLocationConverterTests {
     }
 
     @Test("A lone CR starts a new line (classic Mac endings)")
-    func loneCarriageReturn() {
+    func loneCarriageReturn() throws {
         let source = "a\rb"
         let converter = SourceLocationConverter(source: source)
-        let secondLine = try! #require(converter.index(line: 2, column: 1))
+        let secondLine = try #require(converter.index(line: 2, column: 1))
         #expect(source[secondLine...] == "b")
     }
 
@@ -99,7 +99,7 @@ struct SourceLocationConverterTests {
     }
 
     @Test("Resolves a real swift-markdown InlineCode SourceRange")
-    func resolvesAstSourceRange() {
+    func resolvesAstSourceRange() throws {
         let source = "before `code` after"
         let document = Document(parsing: source, options: [])
         let converter = SourceLocationConverter(source: source)
@@ -110,7 +110,7 @@ struct SourceLocationConverterTests {
                 found = converter.range(for: sourceRange)
             }
         }
-        let range = try! #require(found)
+        let range = try #require(found)
         #expect(source[range] == "`code`")
     }
 }

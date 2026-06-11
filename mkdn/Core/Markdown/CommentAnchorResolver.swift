@@ -41,9 +41,9 @@
             func comments(containing offset: Int) -> [(id: String, range: NSRange)] {
                 ranges
                     .filter { NSLocationInRange(offset, $0.value) }
-                    .sorted {
-                        ($0.value.length, $0.value.location, $0.key)
-                            < ($1.value.length, $1.value.location, $1.key)
+                    .sorted { lhs, rhs in
+                        (lhs.value.length, lhs.value.location, lhs.key)
+                            < (rhs.value.length, rhs.value.location, rhs.key)
                     }
                     .map { (id: $0.key, range: $0.value) }
             }
@@ -99,7 +99,8 @@
                 let after = commonPrefixLength(text[match.upperBound...], suffix)
                 return (match, before + after)
             }
-            let best = scored.map(\.score).max()!
+            // `scored` is non-empty (matches is non-empty above), so `max()` exists.
+            let best = scored.map(\.score).max()! // swiftlint:disable:this force_unwrapping
             let winners = scored.filter { $0.score == best }.map(\.range)
             if winners.count == 1 { return winners[0] }
 
@@ -110,7 +111,8 @@
             // untrusted input): ignore it rather than let it pick an edge candidate,
             // and avoid overflow in the distance math below.
             guard let hint = entry.start, hint >= 0, hint <= text.count else { return nil }
-            let nearest = winners.map { abs($0.lowerBound - hint) }.min()!
+            // `winners` is non-empty (it holds every best-scored match), so `min()` exists.
+            let nearest = winners.map { abs($0.lowerBound - hint) }.min()! // swiftlint:disable:this force_unwrapping
             let tied = winners.filter { abs($0.lowerBound - hint) == nearest }
             return tied.count == 1 ? tied[0] : nil
         }
@@ -122,20 +124,20 @@
             let lastStart = text.count - pattern.count
             var i = 0
             while i <= lastStart {
-                var k = 0
-                while k < pattern.count, text[i + k] == pattern[k] { k += 1 }
-                if k == pattern.count { result.append(i ..< (i + pattern.count)) }
+                var matched = 0
+                while matched < pattern.count, text[i + matched] == pattern[matched] { matched += 1 }
+                if matched == pattern.count { result.append(i ..< (i + pattern.count)) }
                 i += 1
             }
             return result
         }
 
-        private static func commonPrefixLength(_ a: ArraySlice<unichar>, _ b: [unichar]) -> Int {
-            zip(a, b).prefix { $0.0 == $0.1 }.count
+        private static func commonPrefixLength(_ lhs: ArraySlice<unichar>, _ rhs: [unichar]) -> Int {
+            zip(lhs, rhs).prefix { $0.0 == $0.1 }.count
         }
 
-        private static func commonSuffixLength(_ a: ArraySlice<unichar>, _ b: [unichar]) -> Int {
-            zip(a.reversed(), b.reversed()).prefix { $0.0 == $0.1 }.count
+        private static func commonSuffixLength(_ lhs: ArraySlice<unichar>, _ rhs: [unichar]) -> Int {
+            zip(lhs.reversed(), rhs.reversed()).prefix { $0.0 == $0.1 }.count
         }
     }
 #endif

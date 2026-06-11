@@ -208,7 +208,7 @@
             // otherwise). Fall back to the main / first visible window so the live text
             // view is still found — without this the comment-rail resize anchor silently
             // never engages off the key window.
-            let windows = [NSApp.keyWindow, NSApp.mainWindow].compactMap { $0 }
+            let windows = [NSApp.keyWindow, NSApp.mainWindow].compactMap(\.self)
                 + NSApp.windows.filter(\.isVisible)
             for window in windows {
                 if let content = window.contentView,

@@ -31,7 +31,7 @@
                 ZStack(alignment: .topLeading) {
                     colors.background
                     ForEach(map.comments) { comment in
-                        commentTick(at: map.normalized(comment.lineCenterY) * height)
+                        commentTick(comment, at: map.normalized(comment.lineCenterY) * height)
                     }
                     ForEach(map.headings) { heading in
                         headingTick(heading, at: map.normalized(heading.y) * height)
@@ -42,6 +42,9 @@
                 .gesture(trackGesture(map: map, height: height))
             }
             .frame(width: Self.width)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("scroll-marker-track")
+            .accessibilityLabel("Document map")
         }
 
         /// Dragging the thumb scrubs the document like a scroller knob; a press
@@ -79,6 +82,7 @@
                     .fill(colors.foreground.opacity(0.3))
                     .frame(width: Self.thumbWidth, height: thumb.height)
                     .offset(x: (Self.width - Self.thumbWidth) / 2, y: thumb.offset)
+                    .accessibilityLabel("Viewport")
             }
         }
 
@@ -89,13 +93,19 @@
                 .frame(width: length, height: 1.5)
                 .offset(x: Self.width - length, y: y - 0.75)
                 .help(heading.title)
+                .accessibilityLabel("Heading: \(heading.title)")
+                .accessibilityAddTraits(.isButton)
+                .accessibilityAction { state.scrollTo?(heading.y) }
         }
 
-        private func commentTick(at y: CGFloat) -> some View {
+        private func commentTick(_ comment: CommentMark, at y: CGFloat) -> some View {
             Rectangle()
                 .fill(colors.accent)
                 .frame(width: 4, height: 1.5)
                 .offset(x: 0, y: y - 0.75)
+                .accessibilityLabel("Comment")
+                .accessibilityAddTraits(.isButton)
+                .accessibilityAction { state.scrollTo?(comment.y) }
         }
 
         /// Jump to the mark nearest the tapped y; with no marks, scrub proportionally.
@@ -103,8 +113,8 @@
             guard trackHeight > 0, map.totalHeight > 0 else { return }
             let tapFraction = tapY / trackHeight
             let markYs = map.headings.map(\.y) + map.comments.map(\.y)
-            let nearest = markYs.min {
-                abs(map.normalized($0) - tapFraction) < abs(map.normalized($1) - tapFraction)
+            let nearest = markYs.min { lhs, rhs in
+                abs(map.normalized(lhs) - tapFraction) < abs(map.normalized(rhs) - tapFraction)
             }
             state.scrollTo?(nearest ?? tapFraction * map.totalHeight)
         }

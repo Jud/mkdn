@@ -32,6 +32,36 @@ scripts/mkdn-ctl quit                          # close the app
 
 You can also set `MKDN_SOCK=/tmp/mkdn-test-harness-{pid}.sock` to target a specific instance.
 
+## Driving the UI via Accessibility
+
+In harness mode the app marks itself as hosting an assistive client
+(`AXEnhancedUserInterface`), so the full accessibility tree — including
+SwiftUI controls — is populated and drivable without mouse coordinates:
+
+```bash
+scripts/mkdn-ctl ax-tree [depth]               # dump roles/labels/identifiers/frames
+scripts/mkdn-ctl press-button <title> [index]  # press by label, title, or identifier
+scripts/mkdn-ctl ax-press <query> [action]     # press any element / run a named action
+scripts/mkdn-ctl ax-rotors                     # list VoiceOver rotor items (headings/links/comments)
+```
+
+`ax-press` works on any element, not just buttons, and can trigger named
+custom actions — e.g. `ax-press comment-card "Jump to Comment"`. `ax-rotors`
+walks the same `NSAccessibilityCustomRotor` delegate VoiceOver's VO+U rotor
+uses, so it verifies rotor navigation without running VoiceOver. Tables
+render as labeled AX groups (`markdown-table` → "Header row"/"Row n" →
+"Header: cell" texts).
+
+`ax-tree` frames are window content coordinates (top-left origin), directly
+usable with `click X Y`. Discover what's pressable with `ax-tree`, then press
+it by its `identifier` (stable, preferred) or `label` (user-facing, can
+change). Known identifiers: `comment-sidebar-toggle`, `comment-reply-button`,
+`comment-card`, `comment-editor`, `comment-confirm-button`,
+`comment-cancel-button`, `comment-edit-button`, `comment-delete-button`,
+`copy-code-button`, `scroll-marker-track` (heading ticks are buttons labeled
+`Heading: <title>` — pressing one scrolls to it), `outline-breadcrumb`,
+`outline-heading-row`.
+
 ## Agent Workflow
 
 When verifying visual changes during development:

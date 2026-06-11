@@ -32,11 +32,6 @@
         /// the builder length so an (end-exclusive) end position maps.
         private let builderOffsets: [Int]
 
-        private init(text: String, builderOffsets: [Int]) {
-            self.text = text
-            self.builderOffsets = builderOffsets
-        }
-
         /// The builder `NSRange` spanning a normalized UTF-16 range (end-exclusive),
         /// or nil for an empty/out-of-bounds range. The range is contiguous in the
         /// builder, so it covers any source characters that don't appear in the
@@ -72,7 +67,7 @@
             // would never match the resolver's intact-surrogate search). TextKit
             // selections are grapheme-aligned, but this is a pure function over an
             // arbitrary NSRange.
-            let units = text as NSString
+            let units = text as NSString // swiftlint:disable:this legacy_objc_type
             if lo > 0, UTF16.isTrailSurrogate(units.character(at: lo)) { lo -= 1 }
             if hi < units.length, UTF16.isLeadSurrogate(units.character(at: hi - 1)) { hi += 1 }
             return lo ..< hi
@@ -91,8 +86,8 @@
             return low
         }
 
-        static func build(from attributed: NSAttributedString) -> AnchorTape {
-            let ns = attributed.string as NSString
+        static func build(from attributed: NSAttributedString) -> Self {
+            let ns = attributed.string as NSString // swiftlint:disable:this legacy_objc_type
             let length = ns.length
             var units: [unichar] = []
             var offsets: [Int] = []
@@ -112,8 +107,8 @@
                 if attrs[.attachment] != nil { return }
                 let isCode = attrs[CodeBlockAttributes.range] != nil
                     || attrs[CodeBlockAttributes.inlineCode] != nil
-                for k in 0 ..< runRange.length {
-                    let builderOffset = runRange.location + k
+                for unitIndex in 0 ..< runRange.length {
+                    let builderOffset = runRange.location + unitIndex
                     let unit = chars[builderOffset]
                     if isCode {
                         units.append(unit)
@@ -138,7 +133,7 @@
                 guard let base = buffer.baseAddress else { return "" }
                 return String(utf16CodeUnits: base, count: buffer.count)
             }
-            return AnchorTape(text: text, builderOffsets: offsets)
+            return Self(text: text, builderOffsets: offsets)
         }
 
         private static func isWhitespace(_ unit: unichar) -> Bool {

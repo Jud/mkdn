@@ -17,10 +17,37 @@ import Foundation
 /// comment content; the cost is nil and the portability is worth it. Agents
 /// read comments by grepping `mkdn-comments`.
 enum CommentSidecar {
+    /// One message in a comment's thread. A nil `author` is the document owner
+    /// (rendered as "You"); agents replying through `mkdn comments reply` must
+    /// supply a name.
+    struct Reply: Equatable, Codable, Identifiable {
+        var id: String
+        var author: String?
+        var body: String
+
+        init(id: String, body: String, author: String? = nil) {
+            self.id = id
+            self.author = author
+            self.body = body
+        }
+
+        init(from decoder: any Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            id = try container.decode(String.self, forKey: .id)
+            author = try container.decodeIfPresent(String.self, forKey: .author)
+            body = try container.decodeIfPresent(String.self, forKey: .body) ?? ""
+        }
+    }
+
     /// One comment's durable data, keyed to its anchor pair by `id`.
     struct Entry: Equatable, Codable {
         var id: String
         var body: String
+        /// Who wrote the comment; nil is the document owner (rendered as "You").
+        var author: String?
+        /// The comment's thread, in conversation order. nil (never emitted as
+        /// `[]`) when there is no thread, so threadless entries encode as before.
+        var replies: [Reply]? // swiftlint:disable:this discouraged_optional_collection
         /// The exact commented text (TextQuote), refreshed from intact anchors
         /// on save and used to re-anchor after an external edit breaks them.
         var quote: String
@@ -40,11 +67,21 @@ enum CommentSidecar {
         var norm: Int?
 
         init(
-            id: String, body: String, quote: String = "", prefix: String = "", suffix: String = "",
-            start: Int? = nil, end: Int? = nil, norm: Int? = nil
+            id: String,
+            body: String,
+            author: String? = nil,
+            replies: [Reply]? = nil, // swiftlint:disable:this discouraged_optional_collection
+            quote: String = "",
+            prefix: String = "",
+            suffix: String = "",
+            start: Int? = nil,
+            end: Int? = nil,
+            norm: Int? = nil
         ) {
             self.id = id
             self.body = body
+            self.author = author
+            self.replies = replies
             self.quote = quote
             self.prefix = prefix
             self.suffix = suffix
@@ -57,6 +94,8 @@ enum CommentSidecar {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             id = try container.decode(String.self, forKey: .id)
             body = try container.decodeIfPresent(String.self, forKey: .body) ?? ""
+            author = try container.decodeIfPresent(String.self, forKey: .author)
+            replies = try container.decodeIfPresent([Reply].self, forKey: .replies)
             quote = try container.decodeIfPresent(String.self, forKey: .quote) ?? ""
             prefix = try container.decodeIfPresent(String.self, forKey: .prefix) ?? ""
             suffix = try container.decodeIfPresent(String.self, forKey: .suffix) ?? ""
@@ -88,7 +127,7 @@ enum CommentSidecar {
     static let blockClose = "-->"
 
     private struct Wrapper: Codable {
-        let v: Int
+        let v: Int // swiftlint:disable:this identifier_name
         let comments: [Entry]
     }
 
@@ -130,7 +169,7 @@ enum CommentSidecar {
             }
             // The sidecar is appended metadata: accept it only when nothing but
             // trailing metadata (whitespace and the user's own HTML comments, e.g.
-            // a license or TODO note) follows its close. A `<!--mkdn-comments…-->`
+            // a license or to-do note) follows its close. A `<!--mkdn-comments…-->`
             // embedded in prose or a code fence is left as ordinary content.
             guard isTrailingMetadata(raw[closeRange.upperBound...]) else { continue }
             // The extracted text still holds the `>`/`-` escapes; JSONDecoder
@@ -166,12 +205,14 @@ enum CommentSidecar {
     /// A short random base-36 id (anchor-attribute safe: no quotes/`<>`/spaces).
     static func randomID() -> String {
         let alphabet = Array("abcdefghijklmnopqrstuvwxyz0123456789")
-        return String((0 ..< 5).map { _ in alphabet.randomElement()! })
+        // `alphabet` is a non-empty literal, so `randomElement()` always succeeds.
+        return String((0 ..< 5).map { _ in alphabet.randomElement()! }) // swiftlint:disable:this force_unwrapping
     }
 
-    /// An id not already used by an entry in `raw`.
+    /// An id not already used by an entry (or any of its replies) in `raw`.
     static func uniqueID(in raw: String) -> String {
-        let used = Set(decode(from: raw)?.entries.map(\.id) ?? [])
+        let entries = decode(from: raw)?.entries ?? []
+        let used = Set(entries.map(\.id) + entries.flatMap { ($0.replies ?? []).map(\.id) })
         for _ in 0 ..< 100 {
             let id = randomID()
             if !used.contains(id) { return id }
@@ -200,6 +241,26 @@ enum CommentSidecar {
         var result = raw
         result.replaceSubrange(decoded.blockRange, with: encode(entries))
         return result
+    }
+
+    /// Append a reply to the thread of the entry with `commentID`, returning the
+    /// updated document text and the new reply's id. nil when no entry has that
+    /// id (the document is untouched).
+    static func addReply(
+        to commentID: String, body: String, author: String?, in raw: String
+    ) -> (raw: String, replyID: String)? {
+        guard let decoded = decode(from: raw),
+              let index = decoded.entries.firstIndex(where: { $0.id == commentID })
+        else {
+            return nil
+        }
+        var entries = decoded.entries
+        let replyID = uniqueID(in: raw)
+        entries[index].replies = (entries[index].replies ?? [])
+            + [Reply(id: replyID, body: body, author: author)]
+        var result = raw
+        result.replaceSubrange(decoded.blockRange, with: encode(entries))
+        return (result, replyID)
     }
 
     /// Remove the entry with `id` (no-op if absent), removing the block and its

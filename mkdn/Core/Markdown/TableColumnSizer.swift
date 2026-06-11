@@ -187,8 +187,8 @@ enum TableColumnSizer {
         guard !plainText.isEmpty else { return 0 }
         // Bold glyphs have wider per-glyph metrics; measuring a bold cell
         // with the regular font undersizes the column and forces wrapping.
-        let hasBold = content.runs.contains {
-            $0.inlinePresentationIntent?.contains(.stronglyEmphasized) == true
+        let hasBold = content.runs.contains { run in
+            run.inlinePresentationIntent?.contains(.stronglyEmphasized) == true
         }
         let measurementFont = hasBold
             ? PlatformTypeConverter.convertFont(font, toHaveTrait: .bold)

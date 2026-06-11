@@ -11,10 +11,11 @@
         /// capture→resolve chain the live authoring path uses.
         private func resolvedComments(
             for attributed: NSAttributedString, comment quote: String
-        ) -> ResolvedComments {
+        ) throws -> ResolvedComments {
             let tape = AnchorTape.build(from: attributed)
+            // swiftlint:disable:next legacy_objc_type
             let builderRange = (attributed.string as NSString).range(of: quote)
-            let selector = CommentSelectorCapture.capture(builderRange: builderRange, in: tape)!
+            let selector = try #require(CommentSelectorCapture.capture(builderRange: builderRange, in: tape))
             var entry = CommentSidecar.Entry(id: "c1", body: "note")
             entry.setAnchor(selector)
             return ResolvedComments.resolve([entry], in: tape)
@@ -23,62 +24,63 @@
         /// A laid-out text view rendering `markdown`, with `quote` captured as a
         /// comment and resolved into the view's index. Touching `layoutManager`
         /// forces the TextKit 1 stack so geometry and `characterIndex` agree.
-        private func textView(_ markdown: String, comment quote: String) -> CodeBlockBackgroundTextView {
+        private func textView(_ markdown: String, comment quote: String) throws -> CodeBlockBackgroundTextView {
             let blocks = MarkdownRenderer.render(text: markdown, theme: .solarizedDark)
             let result = MarkdownTextStorageBuilder.build(blocks: blocks, theme: .solarizedDark)
 
             let view = CodeBlockBackgroundTextView(frame: NSRect(x: 0, y: 0, width: 600, height: 400))
             view.textContainerInset = NSSize(width: 16, height: 16)
             view.textStorage?.setAttributedString(result.attributedString)
-            view.resolvedComments = resolvedComments(for: result.attributedString, comment: quote)
-            view.layoutManager?.ensureLayout(for: view.textContainer!)
+            view.resolvedComments = try resolvedComments(for: result.attributedString, comment: quote)
+            view.layoutManager?.ensureLayout(for: try #require(view.textContainer))
             return view
         }
 
-        private func centerPoint(of substring: String, in view: NSTextView) -> CGPoint {
-            let nsRange = (view.string as NSString).range(of: substring)
-            let rect = view.boundingRect(forCharacterRange: nsRange)!
+        private func centerPoint(of substring: String, in view: NSTextView) throws -> CGPoint {
+            let nsRange = (view.string as NSString).range(of: substring) // swiftlint:disable:this legacy_objc_type
+            let rect = try #require(view.boundingRect(forCharacterRange: nsRange))
             return CGPoint(x: rect.midX, y: rect.midY)
         }
 
         @Test("A point over a commented span resolves to the comment and its range")
-        func hitOnComment() {
-            let view = textView("foo bar baz", comment: "bar")
-            let hits = view.commentHits(at: centerPoint(of: "bar", in: view))
+        func hitOnComment() throws {
+            let view = try textView("foo bar baz", comment: "bar")
+            let hits = view.commentHits(at: try centerPoint(of: "bar", in: view))
             #expect(hits.map(\.entry.id) == ["c1"])
+            // swiftlint:disable:next legacy_objc_type
             #expect((view.string as NSString).substring(with: hits[0].range) == "bar")
         }
 
         @Test("Finds the comment over a commented link label")
-        func hitOnCommentedLink() {
-            let view = textView("see [docs](https://x.com) now", comment: "docs")
-            #expect(view.commentHits(at: centerPoint(of: "docs", in: view)).map(\.entry.id) == ["c1"])
+        func hitOnCommentedLink() throws {
+            let view = try textView("see [docs](https://x.com) now", comment: "docs")
+            #expect(view.commentHits(at: try centerPoint(of: "docs", in: view)).map(\.entry.id) == ["c1"])
         }
 
         @Test("isOverLink is true on a link label and false off it")
-        func isOverLinkDetection() {
-            let view = textView("see [docs](https://x.com) now", comment: "see")
-            #expect(view.isOverLink(at: centerPoint(of: "docs", in: view)))
-            #expect(!view.isOverLink(at: centerPoint(of: "now", in: view)))
+        func isOverLinkDetection() throws {
+            let view = try textView("see [docs](https://x.com) now", comment: "see")
+            #expect(view.isOverLink(at: try centerPoint(of: "docs", in: view)))
+            #expect(!view.isOverLink(at: try centerPoint(of: "now", in: view)))
         }
 
         @Test("Returns no hits over text that is not commented")
-        func missOnPlainText() {
-            let view = textView("foo bar baz", comment: "bar")
-            #expect(view.commentHits(at: centerPoint(of: "foo", in: view)).isEmpty)
-            #expect(view.commentHits(at: centerPoint(of: "baz", in: view)).isEmpty)
+        func missOnPlainText() throws {
+            let view = try textView("foo bar baz", comment: "bar")
+            #expect(view.commentHits(at: try centerPoint(of: "foo", in: view)).isEmpty)
+            #expect(view.commentHits(at: try centerPoint(of: "baz", in: view)).isEmpty)
         }
 
         @Test("Returns no hits for a point in the empty margin past the text")
-        func missInMargin() {
-            let view = textView("short here", comment: "short")
+        func missInMargin() throws {
+            let view = try textView("short here", comment: "short")
             #expect(view.commentHits(at: CGPoint(x: 590, y: 380)).isEmpty)
         }
 
         @Test("boundingRect of a comment range round-trips back to the comment")
         func boundingRectRoundTrip() throws {
-            let view = textView("foo bar baz", comment: "bar")
-            let range = (view.string as NSString).range(of: "bar")
+            let view = try textView("foo bar baz", comment: "bar")
+            let range = (view.string as NSString).range(of: "bar") // swiftlint:disable:this legacy_objc_type
             let rect = try #require(view.boundingRect(forCharacterRange: range))
             #expect(rect.width > 0 && rect.height > 0)
             #expect(view.commentHits(at: CGPoint(x: rect.midX, y: rect.midY)).map(\.entry.id) == ["c1"])
@@ -90,10 +92,10 @@
         private func tk2TextView(
             _ attributed: NSAttributedString, comment quote: String, width: CGFloat
         ) throws -> CodeBlockBackgroundTextView {
-            let view = CodeBlockBackgroundTextView(frame: NSRect(x: 0, y: 0, width: width, height: 2000))
+            let view = CodeBlockBackgroundTextView(frame: NSRect(x: 0, y: 0, width: width, height: 2_000))
             view.textContainerInset = NSSize(width: 16, height: 16)
             view.textStorage?.setAttributedString(attributed)
-            view.resolvedComments = resolvedComments(for: attributed, comment: quote)
+            view.resolvedComments = try resolvedComments(for: attributed, comment: quote)
             // The whole document gets real (not estimated) geometry.
             let tlm = try #require(view.textLayoutManager)
             tlm.ensureLayout(for: tlm.documentRange)
@@ -112,7 +114,7 @@
             let attributed = NSAttributedString(string: prose)
             let view = try tk2TextView(attributed, comment: "WRAPPEDPHRASE", width: 280)
 
-            let string = view.string as NSString
+            let string = view.string as NSString // swiftlint:disable:this legacy_objc_type
             let quoteRect = try #require(view.boundingRect(forCharacterRange: string.range(of: "WRAPPEDPHRASE")))
             let firstWordRect = try #require(view.boundingRect(forCharacterRange: string.range(of: "quick")))
             // The phrase must be on a visual line below the first word.

@@ -9,10 +9,10 @@ enum MermaidTemplateLoader {
     /// Safe accessor for the mkdnLib resource bundle.
     ///
     /// SPM's generated `Bundle.module` calls `fatalError` when the bundle
-    /// isn't found.  This happens when the binary is launched via a symlink
+    /// isn't found. This happens when the binary is launched via a symlink
     /// (e.g. Homebrew's `/opt/homebrew/bin/mkdn` → `.app/Contents/MacOS/mkdn`)
     /// because `Bundle.main` doesn't detect the `.app` structure from the
-    /// symlink path.  This accessor follows symlinks and returns `nil`
+    /// symlink path. This accessor follows symlinks and returns `nil`
     /// instead of crashing.
     private static let resourceBundle: Bundle? = {
         let bundleName = "mkdn_mkdnLib.bundle"

@@ -21,19 +21,25 @@
             MotionPreference(reduceMotion: reduceMotion)
         }
 
+        /// Whether the badge carries a count (`count` is an Int property, not a
+        /// collection — kept out of line to avoid empty_count false positives).
+        private var hasComments: Bool {
+            count > 0 // swiftlint:disable:this empty_count
+        }
+
         var body: some View {
             Button(action: action) {
                 HStack(spacing: 5) {
                     Image(systemName: "bubble.left")
                         .font(.system(size: 13, weight: .medium))
-                    if count > 0 {
+                    if hasComments {
                         Text("\(count)")
                             .font(.caption.weight(.semibold))
                             .transition(.opacity.combined(with: .scale))
                     }
                 }
                 .foregroundStyle(isOpen ? theme.colors.accent : theme.colors.foregroundSecondary)
-                .padding(.horizontal, count > 0 ? 11 : 0)
+                .padding(.horizontal, hasComments ? 11 : 0)
                 // A minWidth floor (vs a fixed width) keeps both states
                 // intrinsic-driven, so the circle↔pill morph animates smoothly
                 // instead of snapping between a fixed and a hugging width.
@@ -46,12 +52,13 @@
                 .animation(motion.resolved(.gentleSpring), value: isOpen)
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("comment-sidebar-toggle")
             // A real AppKit cursor rect, not `pointingHandCursor()`: the toggle
             // floats over the text view, where AppKit's cursorUpdate pass resets
             // the SwiftUI-hover-set cursor to the arrow on every mouse move.
             .background(HandCursorRect())
             .accessibilityLabel(
-                isOpen ? "Hide comments" : (count > 0 ? "Comments (\(count))" : "Comments")
+                isOpen ? "Hide comments" : (hasComments ? "Comments (\(count))" : "Comments")
             )
         }
     }

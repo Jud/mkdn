@@ -53,8 +53,8 @@
             // runs on every viewport draw, including each scroll frame).
             let ordered = emphasisDrawID == nil
                 ? Array(resolved.ranges)
-                : resolved.ranges.sorted {
-                    ($0.key == emphasisDrawID ? 1 : 0) < ($1.key == emphasisDrawID ? 1 : 0)
+                : resolved.ranges.sorted { lhs, rhs in
+                    (lhs.key == emphasisDrawID ? 1 : 0) < (rhs.key == emphasisDrawID ? 1 : 0)
                 }
             for (id, range) in ordered {
                 let clipped = NSIntersectionRange(range, visibleRange)

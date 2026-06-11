@@ -169,6 +169,20 @@
             return true
         }
 
+        /// Append a reply to a comment's thread. In-app replies carry no author
+        /// (rendered as "You"); agent replies arrive through `mkdn comments reply`
+        /// with a name. False if no entry has that id.
+        @discardableResult
+        public func addReply(toCommentID id: String, body: String) -> Bool {
+            guard let updated = CommentSidecar.addReply(
+                to: id, body: body, author: nil, in: markdownContent
+            ) else {
+                return false
+            }
+            markdownContent = updated.raw
+            return true
+        }
+
         /// Delete a comment's sidecar entry by id (works even when the comment is
         /// orphaned). False if no entry has that id.
         @discardableResult

@@ -46,9 +46,7 @@
             streamContinuation = continuation
 
             var context = FSEventStreamContext()
-            let ptr = Unmanaged.passRetained(
-                ContinuationBox(continuation)
-            ).toOpaque()
+            let ptr = Unmanaged.passRetained(ContinuationBox(continuation)).toOpaque()
             continuationBoxPtr = ptr
             context.info = ptr
 
@@ -123,6 +121,7 @@
         /// Box to bridge the `AsyncStream.Continuation` into the C callback context.
         private final class ContinuationBox: @unchecked Sendable {
             let continuation: AsyncStream<Void>.Continuation
+
             init(_ continuation: AsyncStream<Void>.Continuation) {
                 self.continuation = continuation
             }

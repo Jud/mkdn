@@ -59,13 +59,17 @@
                     )
                     .focused($focused)
                     .onAppear { focused = true }
+                    .accessibilityIdentifier("comment-editor")
+                    .accessibilityLabel("Comment text")
                 HStack {
                     Button("Cancel", action: onCancel)
+                        .accessibilityIdentifier("comment-cancel-button")
                         .pointingHandCursor()
                     Spacer()
                     Button(confirmTitle) { onConfirm(trimmed) }
                         .keyboardShortcut(.return, modifiers: [.command])
                         .disabled(trimmed.isEmpty)
+                        .accessibilityIdentifier("comment-confirm-button")
                         .pointingHandCursor()
                 }
                 .buttonStyle(.borderless)
@@ -96,7 +100,9 @@
             VStack(alignment: .leading, spacing: 8) {
                 CommentBoxHeader(
                     title: comments.count > 1 ? "Comments" : "Comment",
-                    theme: theme, onDragChanged: onDragChanged, onDragEnded: onDragEnded
+                    theme: theme,
+                    onDragChanged: onDragChanged,
+                    onDragEnded: onDragEnded
                 )
 
                 ForEach(comments) { comment in
@@ -142,7 +148,9 @@
             VStack(alignment: .leading, spacing: 8) {
                 if isEditing {
                     CommentEditor(
-                        draft: $draft, theme: theme, confirmTitle: "Save",
+                        draft: $draft,
+                        theme: theme,
+                        confirmTitle: "Save",
                         onCancel: { withAnimation(AnimationConstants.outlinePop) { isEditing = false } },
                         onConfirm: save
                     )
@@ -183,6 +191,7 @@
                     draft = body0
                     withAnimation(AnimationConstants.outlinePop) { isEditing = true }
                 }
+                .accessibilityIdentifier("comment-edit-button")
                 .pointingHandCursor()
                 Spacer()
                 Button("Delete", role: .destructive) {
@@ -190,6 +199,7 @@
                         onClose()
                     }
                 }
+                .accessibilityIdentifier("comment-delete-button")
                 .pointingHandCursor()
             }
             .buttonStyle(.borderless)

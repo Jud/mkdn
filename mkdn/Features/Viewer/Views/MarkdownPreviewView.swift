@@ -4,8 +4,13 @@
     private extension CommentSidebarItem {
         init(_ entry: CommentSidecar.Entry) {
             self.init(
-                id: entry.id, body: entry.body, quote: entry.quote,
-                prefix: entry.prefix, suffix: entry.suffix
+                id: entry.id,
+                body: entry.body,
+                author: entry.author,
+                replies: entry.replies ?? [],
+                quote: entry.quote,
+                prefix: entry.prefix,
+                suffix: entry.suffix
             )
         }
     }
@@ -73,11 +78,11 @@
 
         var body: some View {
             @Bindable var docState = documentState
-            GeometryReader { proxy in
+            GeometryReader { proxy in // swiftlint:disable:this closure_body_length
                 let railWidth = CommentSidebarView.width * sidebarProgress
                 let gutterWidth = documentState.isMinimapVisible
                     ? DocumentMinimap.width : ScrollMarkerTrack.width
-                HStack(spacing: 0) {
+                HStack(spacing: 0) { // swiftlint:disable:this closure_body_length
                     SelectableTextView(
                         attributedText: textStorageResult.attributedString,
                         attachments: textStorageResult.attachments,
@@ -145,6 +150,7 @@
                             mapState: mapState,
                             onJump: { jumpToComment($0) },
                             onDelete: { documentState.deleteComment(id: $0) },
+                            onReply: { documentState.addReply(toCommentID: $0, body: $1) },
                             onHover: { MkdnCommands.findTextView()?.setHoveredComment($0) }
                         )
                         .frame(width: CommentSidebarView.width)
@@ -304,8 +310,9 @@
         /// `entries` is the already-parsed sidecar for the content-change path; the
         /// theme/scale re-render paths pass nil and re-parse (content unchanged).
         private func renderAndBuild(
-            _ newBlocks: [IndexedBlock], isFullReload animate: Bool,
-            entries: [CommentSidecar.Entry]? = nil
+            _ newBlocks: [IndexedBlock],
+            isFullReload animate: Bool,
+            entries: [CommentSidecar.Entry]? = nil // swiftlint:disable:this discouraged_optional_collection
         ) {
             beginRenderGeneration(newBlocks, isFullReload: animate)
             let result = OpenTimeline.shared.time("build") {
@@ -330,14 +337,14 @@
         private static let progressiveSourceThreshold = 200_000
         /// First-paint prefix: enough blocks to cover a couple of viewports of
         /// estimated height, capped so a pathological document still paints.
-        private static let prefixHeightTarget: CGFloat = 3000
+        private static let prefixHeightTarget: CGFloat = 3_000
         private static let prefixDeadline: Duration = .milliseconds(250)
         /// Width assumption for the prefix-height estimate (the real width is
         /// unknown until AppKit lays out). Wider than any typical preview
         /// column: over-guessing the width under-estimates each fragment's
         /// height, so the loop builds more blocks — the error direction that
         /// over-fills the prefix rather than leaving the first paint short.
-        private static let prefixMeasureWidth: CGFloat = 1200
+        private static let prefixMeasureWidth: CGFloat = 1_200
 
         private static func shouldOpenProgressively(
             _ blocks: [IndexedBlock], body: String
@@ -351,7 +358,8 @@
         /// appends the tail in main-actor slices and calls back with the full
         /// result (docs/features/height-estimation/viewport-first-perf-plan.md).
         private func openProgressively(
-            _ newBlocks: [IndexedBlock], isFullReload animate: Bool,
+            _ newBlocks: [IndexedBlock],
+            isFullReload animate: Bool,
             entries: [CommentSidecar.Entry]
         ) {
             beginRenderGeneration(newBlocks, isFullReload: animate)

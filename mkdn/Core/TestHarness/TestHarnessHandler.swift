@@ -1,14 +1,17 @@
+// swiftlint:disable file_length
 #if os(macOS)
     import AppKit
     import SwiftUI
 
     @MainActor
-    enum TestHarnessHandler {
+    enum TestHarnessHandler { // swiftlint:disable:this type_body_length
         weak static var appSettings: AppSettings?
         weak static var documentState: DocumentState?
+        private static var nextSyntheticMouseEventNumber = 1
 
         // MARK: - Command Dispatch
 
+        // swiftlint:disable:next cyclomatic_complexity function_body_length
         static func process(_ command: HarnessCommand) async -> HarnessResponse {
             switch command {
             case let .loadFile(path):
@@ -28,13 +31,13 @@
             case let .pasteComment(substring, text):
                 await handlePasteComment(substring: substring, text: text)
             case .toggleCommentSidebar:
-                await handleToggleCommentSidebar()
+                handleToggleCommentSidebar()
             case .toggleMinimap:
-                await handleToggleMinimap()
+                handleToggleMinimap()
             case .jumpFirstComment:
-                await handleJumpComment(index: 0)
+                handleJumpComment(index: 0)
             case let .jumpCommentAt(index):
-                await handleJumpComment(index: index)
+                handleJumpComment(index: index)
             case let .diagnoseCommentClick(index):
                 await handleDiagnoseCommentClick(index: index)
             case .captureWindow, .captureRegion,
@@ -59,6 +62,14 @@
                 handleResizeWindow(width, height)
             case let .clickAt(x, y):
                 await handleClickAt(x: x, y: y)
+            case let .pressButton(title, index):
+                handlePressButton(title: title, index: index ?? 0)
+            case let .axTree(maxDepth):
+                handleAXTree(maxDepth: maxDepth ?? 25)
+            case let .axPress(query, action, index):
+                handleAXPress(query: query, action: action, index: index ?? 0)
+            case .axRotors:
+                handleAXRotors()
             case .ping:
                 .ok(data: .pong)
             case .quit:
@@ -136,7 +147,7 @@
             return .ok(message: "No markdown preview to recreate")
         }
 
-        private static func handleToggleCommentSidebar() async -> HarnessResponse {
+        private static func handleToggleCommentSidebar() -> HarnessResponse {
             guard let docState = documentState else {
                 return .error("No document state available")
             }
@@ -144,7 +155,7 @@
             return .ok(message: "Comment sidebar: \(docState.isCommentSidebarVisible ? "open" : "closed")")
         }
 
-        private static func handleToggleMinimap() async -> HarnessResponse {
+        private static func handleToggleMinimap() -> HarnessResponse {
             guard let docState = documentState else {
                 return .error("No document state available")
             }
@@ -168,7 +179,7 @@
             return (textView, active[index])
         }
 
-        private static func handleJumpComment(index: Int) async -> HarnessResponse {
+        private static func handleJumpComment(index: Int) -> HarnessResponse {
             guard let (textView, target) = resolvedComment(at: index) else {
                 return .error("No resolved comment at index \(index)")
             }
@@ -212,7 +223,7 @@
             let body0 = CommentDocument.parse(docState.markdownContent).body
             let blocks = MarkdownRenderer.render(text: body0, theme: theme)
             let result = MarkdownTextStorageBuilder.build(blocks: blocks, theme: theme)
-            let rendered = result.attributedString.string as NSString
+            let rendered = result.attributedString.string as NSString // swiftlint:disable:this legacy_objc_type
             let builderRange = rendered.range(of: substring)
             guard builderRange.location != NSNotFound else {
                 return .error("Substring not found in rendered text: \(substring)")
@@ -397,14 +408,28 @@
             )
         }
 
-        /// Synthesize a left click at window-local coordinates (top-left origin)
-        /// by sending mouseDown + mouseUp through the window's real event path.
+        /// Synthesize a left click at content-local coordinates (top-left origin)
+        /// by sending mouseDown + mouseUp through AppKit's real event path.
         private static func handleClickAt(x: Double, y: Double) async -> HarnessResponse {
             guard let window = findMainWindow(), let content = window.contentView else {
                 return .error("No visible window found")
             }
-            // sendEvent locations are window coords (bottom-left origin).
-            let location = NSPoint(x: x, y: window.frame.height - y)
+
+            NSApp.activate()
+            window.makeKeyAndOrderFront(nil)
+            window.orderFrontRegardless()
+            for _ in 0 ..< 5 where !NSApp.isActive || !window.isKeyWindow {
+                try? await Task.sleep(for: .milliseconds(20))
+                NSApp.activate()
+                window.makeKeyAndOrderFront(nil)
+            }
+
+            // NSEvent locations are window coords (bottom-left origin).
+            let contentPoint = NSPoint(x: x, y: content.bounds.height - y)
+            let location = content.convert(contentPoint, to: nil)
+            let eventNumber = nextSyntheticMouseEventNumber
+            nextSyntheticMouseEventNumber += 1
+
             func mouseEvent(_ type: NSEvent.EventType) -> NSEvent? {
                 NSEvent.mouseEvent(
                     with: type,
@@ -413,7 +438,7 @@
                     timestamp: ProcessInfo.processInfo.systemUptime,
                     windowNumber: window.windowNumber,
                     context: nil,
-                    eventNumber: 0,
+                    eventNumber: eventNumber,
                     clickCount: 1,
                     pressure: type == .leftMouseDown ? 1 : 0
                 )
@@ -421,13 +446,419 @@
             guard let down = mouseEvent(.leftMouseDown), let up = mouseEvent(.leftMouseUp) else {
                 return .error("Could not synthesize click events")
             }
-            let hitName = content.superview.flatMap { superview in
-                content.hitTest(superview.convert(location, from: nil))
-            }.map { hit in String(describing: type(of: hit)) } ?? "none"
-            window.sendEvent(down)
+            let hitName = content.hitTest(content.convert(location, from: nil))
+                .map { hit in String(describing: type(of: hit)) } ?? "none"
+            NSApp.sendEvent(down)
             try? await Task.sleep(for: .milliseconds(50))
-            window.sendEvent(up)
+            NSApp.sendEvent(up)
             return .ok(message: "Clicked (\(x), \(y)) → hit: \(hitName)")
+        }
+
+        // MARK: - Accessibility Commands
+
+        /// Mark this process as hosting an assistive client. SwiftUI builds
+        /// its accessibility bridge lazily, only after an assistive technology
+        /// (VoiceOver) sets AXEnhancedUserInterface on the app; without it,
+        /// NSHostingView reports no accessibility children and pressButton /
+        /// axTree see an empty tree.
+        static func activateAccessibility() {
+            let selector = NSSelectorFromString("accessibilitySetValue:forAttribute:")
+            guard NSApp.responds(to: selector),
+                  let implementation = NSApp.method(for: selector)
+            else { return }
+            // The ObjC calling convention requires reference types here.
+            // swiftlint:disable legacy_objc_type
+            typealias SetAttribute = @convention(c) (AnyObject, Selector, AnyObject, NSString) -> Void
+            let setAttribute = unsafeBitCast(implementation, to: SetAttribute.self)
+            setAttribute(NSApp, selector, NSNumber(value: true), "AXEnhancedUserInterface" as NSString)
+            // swiftlint:enable legacy_objc_type
+        }
+
+        private static func handleAXPress(
+            query: String,
+            action: String?,
+            index: Int
+        ) -> HarnessResponse {
+            guard index >= 0 else {
+                return .error("Element index must be non-negative")
+            }
+            var visited = Set<ObjectIdentifier>()
+            var matches: [AnyObject] = []
+            for window in NSApp.windows where window.isVisible {
+                guard let content = window.contentView else { continue }
+                collectAccessibilityElements(
+                    named: query, from: content, visited: &visited, into: &matches
+                )
+            }
+            guard matches.indices.contains(index) else {
+                return .error(
+                    "No accessibility element matched \"\(query)\" at index \(index); "
+                        + "\(matches.count) matched"
+                )
+            }
+            let element = matches[index]
+            if let action {
+                return performCustomAction(named: action, on: element, query: query)
+            }
+            if performAccessibilityPress(on: element) {
+                return .ok(message: "Pressed \"\(query)\" index \(index) (\(matches.count) matched)")
+            }
+            return .error(
+                "Element \"\(query)\" does not support press. "
+                    + "Custom actions: \(customActionNames(of: element))"
+            )
+        }
+
+        private static func performCustomAction(
+            named action: String,
+            on element: AnyObject,
+            query: String
+        ) -> HarnessResponse {
+            guard let custom = accessibilityCustomActions(of: element)
+                .first(where: { $0.name == action })
+            else {
+                return .error(
+                    "Element \"\(query)\" has no action \"\(action)\". "
+                        + "Available: \(customActionNames(of: element))"
+                )
+            }
+            if let handler = custom.handler {
+                _ = handler()
+            } else if let target = custom.target, let selector = custom.selector {
+                _ = target.perform(selector)
+            } else {
+                return .error("Custom action \"\(action)\" has no handler")
+            }
+            return .ok(message: "Performed \"\(action)\" on \"\(query)\"")
+        }
+
+        private static func collectAccessibilityElements(
+            named name: String,
+            from element: AnyObject,
+            visited: inout Set<ObjectIdentifier>,
+            into matches: inout [AnyObject]
+        ) {
+            guard visited.insert(ObjectIdentifier(element)).inserted else { return }
+            if accessibilityNames(of: element).contains(name) {
+                matches.append(element)
+            }
+            for child in accessibilityChildren(of: element) {
+                collectAccessibilityElements(
+                    named: name, from: child, visited: &visited, into: &matches
+                )
+            }
+        }
+
+        private static func accessibilityCustomActions(
+            of element: AnyObject
+        ) -> [NSAccessibilityCustomAction] {
+            guard let value = performObjectSelector("accessibilityCustomActions", on: element)
+            else { return [] }
+            return value as? [NSAccessibilityCustomAction] ?? []
+        }
+
+        private static func customActionNames(of element: AnyObject) -> String {
+            let names = accessibilityCustomActions(of: element).map(\.name)
+            return names.isEmpty ? "<none>" : names.joined(separator: ", ")
+        }
+
+        private static func handleAXRotors() -> HarnessResponse {
+            guard let window = findMainWindow(),
+                  let content = window.contentView,
+                  let textView = MkdnCommands.findTextView(in: content)
+            else { return .error("No markdown text view found") }
+            let results = textView.accessibilityCustomRotors().map { rotor in
+                AXRotorResult(name: rotorName(rotor), items: rotorItems(rotor))
+            }
+            return .ok(data: .axRotors(results))
+        }
+
+        private static func rotorName(_ rotor: NSAccessibilityCustomRotor) -> String {
+            switch rotor.type {
+            case .heading: "Headings"
+            case .link: "Links"
+            default: rotor.label
+            }
+        }
+
+        /// Walk a rotor's items the way VoiceOver does: repeated `.next`
+        /// searches from the previous result. Capped defensively — a delegate
+        /// bug that fails to advance would otherwise loop forever.
+        private static func rotorItems(_ rotor: NSAccessibilityCustomRotor) -> [String] {
+            guard let delegate = rotor.itemSearchDelegate else { return [] }
+            var items: [String] = []
+            var current: NSAccessibilityCustomRotor.ItemResult?
+            while items.count < 500 {
+                let parameters = NSAccessibilityCustomRotor.SearchParameters()
+                parameters.currentItem = current
+                parameters.searchDirection = .next
+                guard let result = delegate.rotor(rotor, resultFor: parameters) else { break }
+                items.append(result.customLabel ?? "<unlabeled>")
+                current = result
+            }
+            return items
+        }
+
+        private static func handleAXTree(maxDepth: Int) -> HarnessResponse {
+            var windows: [AXNodeResult] = []
+            for window in NSApp.windows where window.isVisible {
+                guard let content = window.contentView else { continue }
+                var visited = Set<ObjectIdentifier>()
+                windows.append(
+                    axNode(for: content, in: window, depth: maxDepth, visited: &visited)
+                )
+            }
+            guard !windows.isEmpty else {
+                return .error("No visible window found")
+            }
+            return .ok(data: .axTree(AXTreeResult(windows: windows)))
+        }
+
+        private static func axNode(
+            for element: AnyObject,
+            in window: NSWindow,
+            depth: Int,
+            visited: inout Set<ObjectIdentifier>
+        ) -> AXNodeResult {
+            let children: [AXNodeResult]
+            if depth > 0 {
+                children = accessibilityChildren(of: element).compactMap { child in
+                    guard visited.insert(ObjectIdentifier(child)).inserted else { return nil }
+                    return axNode(for: child, in: window, depth: depth - 1, visited: &visited)
+                }
+            } else {
+                children = []
+            }
+            return AXNodeResult(
+                role: accessibilityRole(of: element)?.rawValue,
+                title: accessibilityString("accessibilityTitle", of: element),
+                label: accessibilityString("accessibilityLabel", of: element),
+                identifier: accessibilityString("accessibilityIdentifier", of: element),
+                value: accessibilityString("accessibilityValue", of: element, maxLength: 200),
+                frame: accessibilityContentFrame(of: element, in: window),
+                children: children
+            )
+        }
+
+        private static func accessibilityString(
+            _ selectorName: String,
+            of element: AnyObject,
+            maxLength: Int? = nil
+        ) -> String? {
+            guard let value = performObjectSelector(selectorName, on: element) else { return nil }
+            let string: String
+            if let text = value as? String {
+                string = text
+                // AX values arrive as AnyObject; NSNumber is the bridged form
+                // of every numeric value.
+            } else if let number = value as? NSNumber { // swiftlint:disable:this legacy_objc_type
+                string = number.stringValue
+            } else {
+                return nil
+            }
+            let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return nil }
+            if let maxLength, trimmed.count > maxLength {
+                return String(trimmed.prefix(maxLength)) + "…"
+            }
+            return trimmed
+        }
+
+        /// The element's accessibility frame converted from screen coordinates
+        /// to window content coordinates (top-left origin), matching `clickAt`.
+        /// Called via method IMP because SwiftUI's bridged AX elements do not
+        /// conform to NSAccessibilityProtocol (and perform() can't return a
+        /// struct).
+        private static func accessibilityContentFrame(
+            of element: AnyObject,
+            in window: NSWindow
+        ) -> CaptureRegion? {
+            let selector = NSSelectorFromString("accessibilityFrame")
+            guard element.responds(to: selector),
+                  let implementation = element.method(for: selector),
+                  let content = window.contentView
+            else { return nil }
+            typealias FrameFunction = @convention(c) (AnyObject, Selector) -> NSRect
+            let frame = unsafeBitCast(implementation, to: FrameFunction.self)
+            let screenRect = frame(element, selector)
+            guard screenRect != .zero else { return nil }
+            let windowRect = window.convertFromScreen(screenRect)
+            let local = content.convert(windowRect, from: nil)
+            return CaptureRegion(
+                x: local.origin.x,
+                y: content.isFlipped ? local.origin.y : content.bounds.height - local.maxY,
+                width: local.width,
+                height: local.height
+            )
+        }
+
+        private struct AccessibilityButton {
+            let element: AnyObject
+            let names: [String]
+
+            var displayName: String {
+                names.first ?? "<untitled>"
+            }
+        }
+
+        private static func handlePressButton(title: String, index: Int) -> HarnessResponse {
+            guard index >= 0 else {
+                return .error("Button index must be non-negative")
+            }
+
+            var visited = Set<ObjectIdentifier>()
+            var buttons: [AccessibilityButton] = []
+            for window in NSApp.windows where window.isVisible {
+                guard let content = window.contentView else { continue }
+                collectAccessibilityButtons(
+                    from: content,
+                    visited: &visited,
+                    buttons: &buttons
+                )
+            }
+
+            let matches = buttons.filter { button in
+                button.names.contains(title)
+            }
+            guard matches.indices.contains(index) else {
+                let available = availableButtonTitles(from: buttons)
+                if matches.isEmpty {
+                    return .error(
+                        "No accessibility button matched \"\(title)\". "
+                            + "Available buttons: \(available)"
+                    )
+                }
+                return .error(
+                    "Button \"\(title)\" index \(index) is out of range; "
+                        + "\(matches.count) matched. Available buttons: \(available)"
+                )
+            }
+
+            let button = matches[index]
+            guard performAccessibilityPress(on: button.element) else {
+                return .error(
+                    "Matched button \"\(button.displayName)\" but accessibilityPerformPress() failed"
+                )
+            }
+            return .ok(
+                message: "Pressed button \"\(button.displayName)\" index \(index) "
+                    + "(\(matches.count) matched)"
+            )
+        }
+
+        private static func collectAccessibilityButtons(
+            from element: AnyObject,
+            visited: inout Set<ObjectIdentifier>,
+            buttons: inout [AccessibilityButton]
+        ) {
+            let identifier = ObjectIdentifier(element)
+            guard visited.insert(identifier).inserted else { return }
+
+            if accessibilityRole(of: element) == .button {
+                buttons.append(
+                    AccessibilityButton(
+                        element: element,
+                        names: accessibilityNames(of: element)
+                    )
+                )
+            }
+
+            for child in accessibilityChildren(of: element) {
+                collectAccessibilityButtons(
+                    from: child,
+                    visited: &visited,
+                    buttons: &buttons
+                )
+            }
+        }
+
+        private static func accessibilityRole(of element: AnyObject) -> NSAccessibility.Role? {
+            guard let value = performObjectSelector(
+                "accessibilityRole",
+                on: element
+            ) else { return nil }
+            if let role = value as? NSAccessibility.Role {
+                return role
+            }
+            if let rawValue = value as? String {
+                return NSAccessibility.Role(rawValue: rawValue)
+            }
+            return nil
+        }
+
+        private static func accessibilityNames(of element: AnyObject) -> [String] {
+            [
+                "accessibilityTitle",
+                "accessibilityLabel",
+                "accessibilityIdentifier",
+                "accessibilityValue",
+                "accessibilityHelp",
+            ].compactMap { selectorName -> String? in
+                guard let value = performObjectSelector(selectorName, on: element) else {
+                    return nil
+                }
+                if let string = value as? String {
+                    let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+                    return trimmed.isEmpty ? nil : trimmed
+                }
+                return nil
+            }
+        }
+
+        /// First non-empty children list among the three child selectors.
+        /// Concatenating them would duplicate children: NSTextView vends fresh
+        /// proxy objects on every call, defeating identity-based dedup.
+        private static func accessibilityChildren(of element: AnyObject) -> [AnyObject] {
+            for selectorName in [
+                "accessibilityChildren",
+                "accessibilityVisibleChildren",
+                "accessibilityChildrenInNavigationOrder",
+            ] {
+                guard let value = performObjectSelector(selectorName, on: element) else {
+                    continue
+                }
+                let children: [AnyObject]
+                if let typed = value as? [AnyObject] {
+                    children = typed
+                } else if let untyped = value as? [Any] {
+                    children = untyped.compactMap { $0 as AnyObject }
+                } else {
+                    continue
+                }
+                if !children.isEmpty { return children }
+            }
+            return []
+        }
+
+        private static func performObjectSelector(
+            _ selectorName: String,
+            on element: AnyObject
+        ) -> AnyObject? {
+            let selector = NSSelectorFromString(selectorName)
+            guard element.responds(to: selector) else { return nil }
+            return element.perform(selector)?.takeUnretainedValue()
+        }
+
+        private static func performAccessibilityPress(on element: AnyObject) -> Bool {
+            let selector = NSSelectorFromString("accessibilityPerformPress")
+            guard element.responds(to: selector),
+                  let implementation = element.method(for: selector)
+            else { return false }
+            typealias PressFunction = @convention(c) (AnyObject, Selector) -> Bool
+            let press = unsafeBitCast(implementation, to: PressFunction.self)
+            return press(element, selector)
+        }
+
+        private static func availableButtonTitles(
+            from buttons: [AccessibilityButton]
+        ) -> String {
+            var seen = Set<String>()
+            let titles = buttons.compactMap { button -> String? in
+                let title = button.displayName
+                guard seen.insert(title).inserted else { return nil }
+                return title
+            }
+            return titles.isEmpty ? "<none>" : titles.joined(separator: ", ")
         }
 
         // MARK: - Sidebar Commands

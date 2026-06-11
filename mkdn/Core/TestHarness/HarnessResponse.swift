@@ -43,7 +43,68 @@
         case windowInfo(WindowInfoResult)
         case themeColors(ThemeColorsResult)
         case openTimings(OpenTimingsResult)
+        case axTree(AXTreeResult)
+        case axRotors([AXRotorResult])
         case pong
+    }
+
+    /// One VoiceOver custom rotor and its items, in document order.
+    public struct AXRotorResult: Codable, Sendable {
+        public let name: String
+        public let items: [String]
+
+        public init(name: String, items: [String]) {
+            self.name = name
+            self.items = items
+        }
+    }
+
+    // MARK: - Accessibility Tree
+
+    /// Accessibility trees for all visible windows.
+    public struct AXTreeResult: Codable, Sendable {
+        public let windows: [AXNodeResult]
+
+        public init(windows: [AXNodeResult]) {
+            self.windows = windows
+        }
+    }
+
+    /// One element in an accessibility tree dump.
+    public struct AXNodeResult: Codable, Sendable {
+        /// Accessibility role (e.g. "AXButton"), if the element reports one.
+        public let role: String?
+
+        public let title: String?
+        public let label: String?
+        public let identifier: String?
+
+        /// String form of the element's value, truncated to 200 characters.
+        public let value: String?
+
+        /// Element frame in window content coordinates (top-left origin),
+        /// directly usable with the `clickAt` command.
+        public let frame: CaptureRegion?
+
+        public let children: [Self]
+
+        public init(
+            role: String?,
+            title: String?,
+            label: String?,
+            identifier: String?,
+            value: String?,
+            frame: CaptureRegion?,
+            children: [Self]
+        ) {
+            self.role = role
+            self.title = title
+            self.label = label
+            self.identifier = identifier
+            self.value = value
+            self.frame = frame
+            self.children = children
+        }
     }
 
     // MARK: - Result Types

@@ -65,8 +65,8 @@
             textView.textStorage?.setAttributedString(attributed)
             // Production sizes the frame from the height floor so the document
             // is scrollable before the tail of it has laid out; mirror that.
-            textView.estimatedHeightFloor = 4000
-            textView.setFrameSize(NSSize(width: 600, height: 4000))
+            textView.estimatedHeightFloor = 4_000
+            textView.setFrameSize(NSSize(width: 600, height: 4_000))
             window.layoutIfNeeded()
             return (textView, scrollView, window)
         }

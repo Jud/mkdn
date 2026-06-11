@@ -45,7 +45,7 @@ extension CommentSidecar.Entry {
         /// (e.g. it lands entirely in excluded/collapsed source).
         static func capture(builderRange: NSRange, in tape: AnchorTape) -> CommentSelector? {
             guard let range = tape.normalizedRange(forBuilder: builderRange) else { return nil }
-            let ns = tape.text as NSString
+            let ns = tape.text as NSString // swiftlint:disable:this legacy_objc_type
             let context = CommentSidecar.contextLength
             var prefixStart = max(0, range.lowerBound - context)
             var suffixEnd = min(ns.length, range.upperBound + context)

@@ -49,6 +49,8 @@
                 .onTapGesture {
                     isFocused = true
                 }
+                .accessibilityIdentifier("mermaid-diagram")
+                .accessibilityLabel("Mermaid diagram")
                 .onChange(of: isFocused) { _, focused in
                     if focused, isCursorPushed {
                         NSCursor.pop()

@@ -123,6 +123,9 @@
                     )
             )
             .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("markdown-table")
+            .accessibilityLabel("Table, \(columns.count) columns, \(rows.count) rows")
         }
 
         private func headerRow(columnWidths: [CGFloat]) -> some View {
@@ -137,10 +140,13 @@
                         width: colIndex < columnWidths.count ? columnWidths[colIndex] : nil,
                         alignment: column.alignment.swiftUIAlignment
                     )
+                    .accessibilityLabel("\(String(column.header.characters)), header")
                 }
             }
             .background(colors.backgroundSecondary)
             .background(colors.foregroundSecondary.opacity(0.06))
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Header row")
         }
 
         private func dataRows(columnWidths: [CGFloat]) -> some View {
@@ -160,6 +166,7 @@
                                 ? columnWidths[colIndex] : nil,
                             alignment: alignment
                         )
+                        .accessibilityLabel(cellAccessibilityLabel(colIndex: colIndex, cell: cell))
                     }
                 }
                 .background(
@@ -167,7 +174,18 @@
                         ? colors.background
                         : colors.backgroundSecondary.opacity(0.7)
                 )
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel("Row \(rowIndex + 1)")
             }
+        }
+
+        /// "Header: cell text", so VoiceOver reads each cell with its column
+        /// context; headerless columns fall back to the bare text.
+        private func cellAccessibilityLabel(colIndex: Int, cell: AttributedString) -> String {
+            let text = String(cell.characters)
+            guard colIndex < columns.count else { return text }
+            let header = String(columns[colIndex].header.characters)
+            return header.isEmpty ? text : "\(header): \(text)"
         }
 
         // MARK: - Cell Content with Selection/Find
@@ -246,7 +264,7 @@
     private class SizingCache {
         var lastWidth: CGFloat = -1
         var lastScaleFactor: CGFloat = -1
-        var paddedWidths: [CGFloat]?
+        var paddedWidths: [CGFloat]? // swiftlint:disable:this discouraged_optional_collection
         var result: TableColumnSizer.Result?
     }
 

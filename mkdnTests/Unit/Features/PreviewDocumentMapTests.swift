@@ -59,8 +59,14 @@
                 HeadingNode(id: 2, title: "Details", level: 2, blockIndex: 2),
             ]
             let map = PreviewDocumentMap.build(
-                headings: headings, comments: [], offsets: offsets, blockModel: model,
-                textContainerOriginY: originY, totalHeight: 480, viewportTop: 0, viewportHeight: 100
+                headings: headings,
+                comments: [],
+                offsets: offsets,
+                blockModel: model,
+                textContainerOriginY: originY,
+                totalHeight: 480,
+                viewportTop: 0,
+                viewportHeight: 100
             )
             #expect(map.headings.map(\.y) == [0, 300]) // 32-32, 332-32
             #expect(map.headings.map(\.level) == [1, 2])
@@ -72,8 +78,14 @@
         func buildHeadingMissingOffset() {
             let headings = [HeadingNode(id: 9, title: "Ghost", level: 1, blockIndex: 9)]
             let map = PreviewDocumentMap.build(
-                headings: headings, comments: [], offsets: offsets, blockModel: model,
-                textContainerOriginY: originY, totalHeight: 480, viewportTop: 0, viewportHeight: 100
+                headings: headings,
+                comments: [],
+                offsets: offsets,
+                blockModel: model,
+                textContainerOriginY: originY,
+                totalHeight: 480,
+                viewportTop: 0,
+                viewportHeight: 100
             )
             #expect(map.headings.isEmpty)
         }
@@ -82,6 +94,7 @@
         func buildComments() {
             // y is the coordinator's intra-block measure (tested in DocumentBlockOffsets);
             // build pairs each comment with its block and passes the y straight through.
+            // swiftlint:disable:next large_tuple
             let comments: [(id: String, range: NSRange, y: CGFloat, lineHeight: CGFloat)] = [
                 (id: "a", range: NSRange(location: 5, length: 3), y: 12, lineHeight: 17), // block 0
                 (id: "b", range: NSRange(location: 10, length: 1), y: 108, lineHeight: 17), // boundary -> block 1
@@ -89,8 +102,14 @@
                 (id: "d", range: NSRange(location: 45, length: 0), y: 410, lineHeight: 17), // end -> block 2
             ]
             let map = PreviewDocumentMap.build(
-                headings: [], comments: comments, offsets: offsets, blockModel: model,
-                textContainerOriginY: originY, totalHeight: 480, viewportTop: 0, viewportHeight: 100
+                headings: [],
+                comments: comments,
+                offsets: offsets,
+                blockModel: model,
+                textContainerOriginY: originY,
+                totalHeight: 480,
+                viewportTop: 0,
+                viewportHeight: 100
             )
             #expect(map.comments.map(\.id) == ["a", "b", "c", "d"])
             #expect(map.comments.map(\.blockIndex) == [0, 1, 2, 2])
@@ -107,8 +126,14 @@
                 BlockSpan(index: 2, range: NSRange(location: 30, length: 15), kind: .table),
             ])
             let map = PreviewDocumentMap.build(
-                headings: [], comments: [], offsets: offsets, blockModel: kinded,
-                textContainerOriginY: originY, totalHeight: 480, viewportTop: 0, viewportHeight: 100
+                headings: [],
+                comments: [],
+                offsets: offsets,
+                blockModel: kinded,
+                textContainerOriginY: originY,
+                totalHeight: 480,
+                viewportTop: 0,
+                viewportHeight: 100
             )
             #expect(map.blocks.map(\.id) == [0, 1, 2])
             #expect(map.blocks.map(\.kind) == [.heading(level: 1), .code, .table])
@@ -156,9 +181,9 @@
         @Test("normalized includes the top inset for scrolling documents")
         func normalizedTallDocumentInset() {
             let map = PreviewDocumentMap(
-                totalHeight: 4000, viewportTop: 0, viewportHeight: 900, textInsetTop: 32
+                totalHeight: 4_000, viewportTop: 0, viewportHeight: 900, textInsetTop: 32
             )
-            #expect(abs(map.normalized(1000) - (1000 + 32) / 4000) < 1e-9)
+            #expect(abs(map.normalized(1_000) - (1_000 + 32) / 4_000) < 1e-9)
         }
 
         @Test("normalizedViewport is a clamped (top, height) fraction")
@@ -184,7 +209,7 @@
 
             // A tiny viewport floors to minHeight; the offset clamps so the thumb's
             // bottom stays at the track end (90 would overhang past 100-20).
-            let tiny = PreviewDocumentMap(totalHeight: 1000, viewportTop: 900, viewportHeight: 10)
+            let tiny = PreviewDocumentMap(totalHeight: 1_000, viewportTop: 900, viewportHeight: 10)
             let clamped = tiny.thumbMetrics(trackHeight: 100, minHeight: 20)
             #expect(clamped?.height == 20)
             #expect(clamped?.offset == 80)

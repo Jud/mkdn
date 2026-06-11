@@ -171,6 +171,11 @@
                     breadcrumbRow
                         .frame(maxWidth: maxBreadcrumbWidth)
                         .onTapGesture { toggle() }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityIdentifier("outline-breadcrumb")
+                        .accessibilityLabel("Document outline")
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityAction { toggle() }
                 }
 
                 if isExpanded {
@@ -359,6 +364,10 @@
 
         private func headingRow(node: HeadingNode, index: Int, isSelected: Bool) -> some View {
             let isCurrentHeading = node.blockIndex == outlineState.currentHeadingIndex
+            let navigate = {
+                outlineState.selectedIndex = index
+                _ = outlineState.selectAndNavigate()
+            }
 
             return HStack(spacing: 6) {
                 if isCurrentHeading {
@@ -386,10 +395,12 @@
                     : Color.clear
             )
             .contentShape(Rectangle())
-            .onTapGesture {
-                outlineState.selectedIndex = index
-                _ = outlineState.selectAndNavigate()
-            }
+            .onTapGesture(perform: navigate)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("outline-heading-row")
+            .accessibilityLabel("Heading level \(node.level): \(node.title)")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction(.default, navigate)
         }
 
         // MARK: - Breadcrumb Collapsing

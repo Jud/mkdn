@@ -64,8 +64,9 @@
         /// `textContainerOriginY`. Comment `y` arrives already in scroll space (the
         /// coordinator measured it at intra-block precision via ``DocumentBlockOffsets/
         /// characterY(at:in:model:textWidth:)``); here it's only paired with its block.
-        static func build(
+        static func build( // swiftlint:disable:this function_parameter_count
             headings: [HeadingNode],
+            // swiftlint:disable:next large_tuple
             comments: [(id: String, range: NSRange, y: CGFloat, lineHeight: CGFloat)],
             offsets: DocumentBlockOffsets,
             blockModel: DocumentHeightModel,
@@ -96,8 +97,10 @@
                 )
             }
             let blocks = blockBands(
-                blockModel: blockModel, offsets: offsets,
-                textContainerOriginY: textContainerOriginY, totalHeight: totalHeight
+                blockModel: blockModel,
+                offsets: offsets,
+                textContainerOriginY: textContainerOriginY,
+                totalHeight: totalHeight
             )
             return PreviewDocumentMap(
                 totalHeight: totalHeight,

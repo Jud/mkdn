@@ -280,6 +280,7 @@ public enum MarkdownTextStorageBuilder {
 
     // MARK: - Inline Content Conversion
 
+    // swiftlint:disable:next function_body_length
     static func convertInlineContent(
         _ content: AttributedString,
         baseFont: PlatformTypeConverter.PlatformFont,

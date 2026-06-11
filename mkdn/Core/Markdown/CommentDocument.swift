@@ -10,7 +10,7 @@ struct CommentDocument: Equatable {
     let body: String
     let entries: [CommentSidecar.Entry]
 
-    static func parse(_ raw: String) -> CommentDocument {
+    static func parse(_ raw: String) -> Self {
         var entries: [CommentSidecar.Entry] = []
         var text = raw
         if let decoded = CommentSidecar.decode(from: raw) {
@@ -23,7 +23,7 @@ struct CommentDocument: Equatable {
         // across the no-sidecar↔sidecar transition — the comment-only-change
         // detector stays exact and adding the first comment doesn't force a rebuild.
         while body.last?.isNewline == true { body.removeLast() }
-        return CommentDocument(body: body, entries: entries)
+        return Self(body: body, entries: entries)
     }
 
     private static let markerOpen = "<mkdn-comment "

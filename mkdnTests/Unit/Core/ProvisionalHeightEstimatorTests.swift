@@ -52,7 +52,8 @@ struct ProvisionalHeightEstimatorTests {
         "Paragraph \(index) carries a moderately long sentence that wraps a "
             + "few times at typical preview widths, with some **emphasis** and "
             + "`inline code` mixed in so the run conversion stays realistic."
-    }.joined(separator: "\n\n")
+    }
+    .joined(separator: "\n\n")
 
     private let codeDocument = (0 ..< 12).map { index in
         """
@@ -65,14 +66,16 @@ struct ProvisionalHeightEstimatorTests {
         }
         ```
         """
-    }.joined(separator: "\n\n")
+    }
+    .joined(separator: "\n\n")
 
     /// Wide-glyph prose: each ideograph runs ~2x the ASCII sample average,
     /// the breach case for a character-count wrap estimate.
     private let cjkDocument = (0 ..< 10).map { _ in
         String(repeating: "視覚的な高さの見積もりは文字幅の平均に依存しているため、"
             + "全角文字が続く段落では行数を過小評価しやすい。", count: 3)
-    }.joined(separator: "\n\n")
+    }
+    .joined(separator: "\n\n")
 
     /// Tall display math: build-time typesetting sizes these placeholders to
     /// their real height, so the floor's per-line proxy must stay above a
@@ -89,7 +92,8 @@ struct ProvisionalHeightEstimatorTests {
         \\end{aligned}
         $$
         """
-    }.joined(separator: "\n\n")
+    }
+    .joined(separator: "\n\n")
 
     /// Wide Latin glyphs and emoji: both run well past the lowercase sample
     /// average, the breach case the weighted counting covers beyond CJK.
@@ -97,7 +101,8 @@ struct ProvisionalHeightEstimatorTests {
         "SECTION \(index): THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG WHILE "
             + "WAVING 🎉🚀🔥📦🧭 AND MORE CAPITALIZED WIDE TEXT WRAPS AGAIN "
             + "WITH 😀😀😀 EMOJI MIXED THROUGH EVERY SINGLE LINE OF IT."
-    }.joined(separator: "\n\n")
+    }
+    .joined(separator: "\n\n")
 
     /// Maximally ragged word wrap: long unbreakable tokens force mid-word
     /// breaks and short words leave lines ragged — the documented failure
@@ -106,7 +111,8 @@ struct ProvisionalHeightEstimatorTests {
         "See https://example.com/very/long/unbreakable/path/segment-\(index)/"
             + "abcdefghijklmnopqrstuvwxyz0123456789 or a b c d e f g h i j k l "
             + "supercalifragilisticexpialidocious m n o p q r s t u v w x y z."
-    }.joined(separator: "\n\n")
+    }
+    .joined(separator: "\n\n")
 
     /// Sentence-length cells wrap to several lines per row — the case a
     /// flat per-row height misses.
@@ -119,7 +125,8 @@ struct ProvisionalHeightEstimatorTests {
         "| step \(index) | a sentence-length cell describing the phase in enough "
             + "words to wrap | another long explanation that wraps across "
             + "several lines at the estimation width |"
-    }.joined(separator: "\n"))
+    }
+    .joined(separator: "\n"))
     """
 
     /// The floor must sit at or above the exact placeholder-based measure
@@ -146,7 +153,9 @@ struct ProvisionalHeightEstimatorTests {
                         verticalInset: inset
                     )
                     let floor = ProvisionalHeightEstimator.provisionalHeight(
-                        of: blocks, textWidth: width, scaleFactor: scale,
+                        of: blocks,
+                        textWidth: width,
+                        scaleFactor: scale,
                         verticalInset: inset
                     )
                     let label: Comment =
