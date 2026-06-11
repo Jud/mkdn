@@ -142,6 +142,25 @@
             #expect(PreviewDocumentMap(totalHeight: 0).normalized(100) == 0)
         }
 
+        @Test("normalized plots a short document's marks at their on-screen position")
+        func normalizedShortDocument() {
+            // Content (190) fits the viewport (900): the track is 1:1 with the
+            // screen, so a mark must land at its rendered line — text y plus the
+            // top inset — not stretched by the small content height.
+            let map = PreviewDocumentMap(
+                totalHeight: 190, viewportTop: 0, viewportHeight: 900, textInsetTop: 32
+            )
+            #expect(abs(map.normalized(60) - (60 + 32) / 900) < 1e-9)
+        }
+
+        @Test("normalized includes the top inset for scrolling documents")
+        func normalizedTallDocumentInset() {
+            let map = PreviewDocumentMap(
+                totalHeight: 4000, viewportTop: 0, viewportHeight: 900, textInsetTop: 32
+            )
+            #expect(abs(map.normalized(1000) - (1000 + 32) / 4000) < 1e-9)
+        }
+
         @Test("normalizedViewport is a clamped (top, height) fraction")
         func normalizedViewport() {
             let inside = PreviewDocumentMap(totalHeight: 400, viewportTop: 100, viewportHeight: 200)

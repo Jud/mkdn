@@ -73,9 +73,11 @@
         }
 
         /// A document length scaled onto the track (no clamp — heights, not positions).
+        /// Shares `trackExtent` with `normalized` so band heights tile against the
+        /// same denominator as their tops.
         private func scaled(_ length: CGFloat, map: PreviewDocumentMap, trackHeight: CGFloat) -> CGFloat {
-            guard map.totalHeight > 0 else { return 0 }
-            return (length / map.totalHeight) * trackHeight
+            guard map.trackExtent > 0 else { return 0 }
+            return (length / map.trackExtent) * trackHeight
         }
 
         private func bandView(_ band: BlockBand, top: CGFloat, length: CGFloat) -> some View {

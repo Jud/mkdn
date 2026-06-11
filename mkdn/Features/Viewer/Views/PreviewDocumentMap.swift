@@ -41,6 +41,11 @@
         var totalHeight: CGFloat = 0
         var viewportTop: CGFloat = 0
         var viewportHeight: CGFloat = 0
+        /// The text container's top origin (the preview's top inset). Mark `y`s are
+        /// measured from the top of the text, but lines render this much lower in
+        /// the document frame; `normalized` adds it back so a mark plots beside its
+        /// rendered line.
+        var textInsetTop: CGFloat = 0
         var headings: [HeadingMark] = []
         var comments: [CommentMark] = []
         var blocks: [BlockBand] = []
@@ -90,6 +95,7 @@
                 totalHeight: totalHeight,
                 viewportTop: viewportTop,
                 viewportHeight: viewportHeight,
+                textInsetTop: textContainerOriginY,
                 headings: headingMarks,
                 comments: commentMarks,
                 blocks: blocks
@@ -119,15 +125,21 @@
             }
         }
 
-        /// `y` as a fraction in [0, 1] of the document height, for placing a mark on a
-        /// track. The denominator is floored to the viewport height: a document shorter
-        /// than the viewport still renders on a full-height track, and dividing by the
-        /// small content height would stretch its marks down the whole track instead of
-        /// keeping them beside the content they point at.
+        /// The denominator for mapping a document `y` onto a track: the document frame
+        /// height, floored to the viewport height. A document shorter than the viewport
+        /// still renders on a full-height track, and dividing by its small content
+        /// height would stretch the marks down the whole window instead of keeping
+        /// them beside the lines they point at.
+        var trackExtent: CGFloat { max(totalHeight, viewportHeight) }
+
+        /// `y` as a fraction in [0, 1] of the track extent, for placing a mark on a
+        /// track. Adding `textInsetTop` plots the mark at the line's real frame
+        /// position — exactly beside it when the document fits the viewport (the
+        /// track is then 1:1 with the screen), and within the inset's sliver of
+        /// error when it scrolls.
         func normalized(_ y: CGFloat) -> CGFloat {
-            let denominator = max(totalHeight, viewportHeight)
-            guard denominator > 0 else { return 0 }
-            return min(max(y / denominator, 0), 1)
+            guard trackExtent > 0 else { return 0 }
+            return min(max((y + textInsetTop) / trackExtent, 0), 1)
         }
 
         /// The viewport as a normalized `(top, height)` fraction of the document, clamped
