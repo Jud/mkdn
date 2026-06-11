@@ -49,19 +49,49 @@ public struct DocumentBlockOffsets {
         else { return nil }
         let prefixLength = location - block.range.location
         guard prefixLength > 0, location <= attributedString.length else { return blockTop }
-        // Height of the block's text above `location`. Whether `location`'s own line is
-        // counted depends on it falling at a wrap boundary — which needs real layout to
-        // know — so this lands within one line: exact when `location` starts a line,
-        // up to a line low otherwise. Biased low on purpose: a card never floats above
-        // the comment it points at.
+        // Height of the block's text above `location`: the prefix measure counts
+        // `location`'s own line when `location` sits mid-line (the partial line
+        // re-wraps as a line of its own) but not when it starts one.
         var intra = DocumentHeightEstimator.contentHeight(
             of: attributedString.attributedSubstring(
                 from: NSRange(location: block.range.location, length: prefixLength)),
             textWidth: textWidth)
         // A prefix ending at an internal newline (e.g. line 2+ of a code block) carries
         // the same phantom empty line `compute` subtracts at block boundaries — drop it.
+        // A newline boundary starts a line, so the corrected measure is the line top.
         if (attributedString.string as NSString).character(at: location - 1) == 0x0A {
             intra -= Self.trailingNewlinePhantom(at: location - 1, in: attributedString)
+            return blockTop + intra
+        }
+        // Wrap-boundary probe. Greedy wrapping breaks a prefix's complete lines
+        // exactly as the full layout does, so extending the measure through the
+        // whole word at `location` discriminates the two cases: the height grows
+        // by a line when the word starts a line (it's the word that didn't fit the
+        // line above — the measure was already its top), and holds when it sits
+        // mid-line (the measure included its line — subtract that line to land on
+        // its top, beside the text the mark points at). The probe must cover the
+        // full word: a single character can still fit where the word could not.
+        let text = attributedString.string as NSString
+        let limit = min(block.range.location + block.range.length, attributedString.length)
+        var probeEnd = location
+        while probeEnd < limit, !Self.isWhitespace(text.character(at: probeEnd)) {
+            probeEnd += 1
+        }
+        if probeEnd > location {
+            let probe = DocumentHeightEstimator.contentHeight(
+                of: attributedString.attributedSubstring(
+                    from: NSRange(
+                        location: block.range.location,
+                        length: probeEnd - block.range.location
+                    )),
+                textWidth: textWidth)
+            if probe <= intra + 0.5 {
+                let line = DocumentHeightEstimator.contentHeight(
+                    of: attributedString.attributedSubstring(
+                        from: NSRange(location: location, length: probeEnd - location)),
+                    textWidth: textWidth)
+                intra = max(intra - line, 0)
+            }
         }
         return blockTop + intra
     }
@@ -187,6 +217,13 @@ public struct DocumentBlockOffsets {
         // add that line back, then ceil + insets (the over-estimate bias).
         let total = ceil(cumulative + lastTrailingPhantom) + verticalInset * 2
         return (total, blocks)
+    }
+
+    /// True for the UTF-16 unit of a whitespace or newline scalar (surrogate
+    /// halves are not whitespace), bounding the wrap-probe's word scan.
+    private static func isWhitespace(_ unit: unichar) -> Bool {
+        guard let scalar = Unicode.Scalar(unit) else { return false }
+        return CharacterSet.whitespacesAndNewlines.contains(scalar)
     }
 
     /// Height of the lone empty line `boundingRect` adds for the newline at

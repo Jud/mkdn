@@ -73,10 +73,10 @@
                 model: result.documentHeightModel, textWidth: textWidth))
             let real = try #require(textView.boundingRect(
                 forCharacterRange: NSRange(location: location, length: 1))?.minY)
-            // Lands within one line of the real line top, biased low (a card never
-            // floats above its comment): real <= estimated <= real + ~1 line.
-            #expect(estimated >= real - 4)
-            #expect(estimated - real < 26)
+            // Lands on the real line top: the wrap-boundary probe resolves whether
+            // the prefix measure counted the location's own line, so a mid-line
+            // location no longer sits a line low.
+            #expect(abs(estimated - real) < 6)
             // The refinement actually moved below the block-granular top (wrapped line).
             let blockTop = try #require(offsets.offset(forBlockIndex: 1))
             #expect(estimated > blockTop + 4)
