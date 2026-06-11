@@ -58,7 +58,6 @@ struct CodeBlockStylingTests {
         let str = result.attributedString
 
         let expectedBackground = PlatformTypeConverter.color(from: theme.colors.codeBackground)
-        let expectedBorder = PlatformTypeConverter.color(from: theme.colors.border)
 
         var foundColorInfo = false
         str.enumerateAttribute(
@@ -68,7 +67,6 @@ struct CodeBlockStylingTests {
             guard let info = value as? CodeBlockColorInfo else { return }
             foundColorInfo = true
             #expect(info.background == expectedBackground)
-            #expect(info.border == expectedBorder)
         }
         #expect(foundColorInfo)
     }

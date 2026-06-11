@@ -144,6 +144,63 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor i
 
 A second long paragraph to test consistent line spacing and text color across multiple blocks. The spacing between these paragraphs should match the spacing used elsewhere in the document between adjacent blocks.
 
+## Tables
+
+| Feature | Status | Notes |
+| --- | --- | --- |
+| Markdown rendering | Done | SwiftUI native |
+| Mermaid diagrams | Done | WKWebView per diagram |
+| Find bar | Done | Custom overlay |
+
+A wider table with mixed alignment and wrapping content:
+
+| Component | Description | Count |
+| :--- | :--- | ---: |
+| AppSettings | Global settings and theme management, including the scale factor and theme mode resolution | 1 |
+| ContentView | Main document view with find bar overlay | 1 |
+| DirectoryScanner | Recursive filesystem scanner | 12 |
+
+## Math
+
+Block math via dollar fences:
+
+$$\int_0^\infty e^{-x^2}\,dx = \frac{\sqrt{\pi}}{2}$$
+
+$$x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$$
+
+And via a math code fence:
+
+```math
+\sum_{n=1}^{\infty} \frac{1}{n^2} = \frac{\pi^2}{6}
+```
+
+Inline math like $E = mc^2$ and $\lim_{x \to 0} \frac{\sin x}{x} = 1$ flows within a sentence.
+
+## Diagrams
+
+```mermaid
+flowchart LR
+    A[Markdown] --> B[Parser]
+    B --> C{Block type?}
+    C -->|text| D[TextKit 2]
+    C -->|diagram| E[WKWebView]
+    D --> F[Preview]
+    E --> F
+```
+
+## Images
+
+![Landscape photo](https://picsum.photos/seed/mkdn-landscape/600/400)
+
+![Small photo with a caption that wraps to test alt-text layout under a narrow image](https://picsum.photos/seed/mkdn-small/200/150)
+
+## Footnotes
+
+This paragraph carries a footnote reference[^1], and this clause cites another[^2].
+
+[^1]: The first footnote, with **bold** and `code` inside.
+[^2]: The second footnote, short and plain.
+
 ## Final Section
 
 This is the last section, useful for testing scroll-to-bottom behavior and ensuring no content is clipped at the document end.

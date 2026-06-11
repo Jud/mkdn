@@ -11,8 +11,8 @@
 enum TableColumnSizer {
     // MARK: - Constants
 
-    static let horizontalCellPadding: CGFloat = 13
-    static let verticalCellPadding: CGFloat = 6
+    static let horizontalCellPadding: CGFloat = 12
+    static let verticalCellPadding: CGFloat = 8
     static let totalHorizontalPadding: CGFloat = horizontalCellPadding * 2
     static let headerDividerHeight: CGFloat = 1
     static let borderChrome: CGFloat = 2

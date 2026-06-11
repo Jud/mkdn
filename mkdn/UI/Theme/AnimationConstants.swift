@@ -353,19 +353,9 @@ enum AnimationConstants {
     /// - Design rationale: 2pt is the minimum width that reads clearly on Retina
     ///   displays while remaining elegant. Thicker borders feel heavy; thinner ones
     ///   disappear.
-    /// - Derivation: Sized to complement ``focusGlowRadius`` -- the stroke provides
-    ///   structure while the glow provides atmosphere.
+    /// - Derivation: The minimum weight that reads as a focus frame distinct
+    ///   from the 1pt resting hairlines elsewhere.
     static let focusBorderWidth: CGFloat = 2.0
-
-    /// Focus border outer glow radius.
-    ///
-    /// - Visual intent: A soft halo behind the border that evokes the orb's glow,
-    ///   visually connecting the focus state to the breathing orb aesthetic.
-    /// - Design rationale: 6pt produces a visible but soft glow. The glow animates in
-    ///   alongside the border via ``springSettle``.
-    /// - Derivation: From the orb's halo bloom -- the focus glow is the orb's radiant
-    ///   quality applied to a rectangular frame.
-    static let focusGlowRadius: CGFloat = 6.0
 
     // MARK: - Reduce Motion Alternatives
 

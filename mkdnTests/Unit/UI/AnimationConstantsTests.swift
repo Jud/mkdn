@@ -35,11 +35,6 @@ struct AnimationConstantsTests {
         #expect(AnimationConstants.focusBorderWidth == 2.0)
     }
 
-    @Test("Focus glow radius is 6pt")
-    func focusGlowRadius() {
-        #expect(AnimationConstants.focusGlowRadius == 6.0)
-    }
-
     @Test("Mermaid hover brightness is positive and subtle")
     func mermaidHoverBrightness() {
         #expect(AnimationConstants.mermaidHoverBrightness > 0)

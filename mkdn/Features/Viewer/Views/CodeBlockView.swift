@@ -32,11 +32,7 @@
                 }
             }
             .background(colors.codeBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
-            .overlay(
-                RoundedRectangle(cornerRadius: 6)
-                    .stroke(colors.border.opacity(0.3), lineWidth: 1)
-            )
+            .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radius.block))
         }
 
         /// Produce syntax-highlighted attributed text using tree-sitter.

@@ -79,8 +79,7 @@ extension MarkdownTextStorageBuilder {
 
         let blockID = UUID().uuidString
         let colorInfo = CodeBlockColorInfo(
-            background: PlatformTypeConverter.color(from: colors.codeBackground),
-            border: PlatformTypeConverter.color(from: colors.border)
+            background: PlatformTypeConverter.color(from: colors.codeBackground)
         )
 
         let hasLabel = !(language ?? "").isEmpty

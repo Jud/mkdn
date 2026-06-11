@@ -137,14 +137,14 @@
         }
     }
 
-    private let commentCardCornerRadius: CGFloat = 8
+    private let commentCardCornerRadius: CGFloat = DesignTokens.Radius.block
 
     private extension View {
         /// The flat, opaque card surface shared by both sidebar cards. The border
         /// differs per card (solid vs dashed warning), so callers add their own
         /// `.overlay`.
         func commentCardSurface(theme: AppTheme) -> some View {
-            padding(10)
+            padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(theme.colors.background)
                 .clipShape(RoundedRectangle(cornerRadius: commentCardCornerRadius))
@@ -173,7 +173,7 @@
                         .padding(.horizontal, 6)
                         .padding(.vertical, 3)
                         .background(theme.colors.commentHighlight)
-                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                        .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radius.inline))
                 }
                 Text(item.body)
                     .font(.body)
@@ -191,8 +191,8 @@
                 RoundedRectangle(cornerRadius: commentCardCornerRadius)
                     .strokeBorder(
                         hovering
-                            ? theme.colors.accent.opacity(0.55)
-                            : theme.colors.border.opacity(0.4)
+                            ? theme.colors.accent.opacity(DesignTokens.Stroke.engaged)
+                            : theme.colors.border.opacity(DesignTokens.Stroke.resting)
                     )
             )
             .contentShape(Rectangle())
@@ -225,8 +225,8 @@
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 4)
-                            .strokeBorder(theme.colors.warning.opacity(0.6))
+                        RoundedRectangle(cornerRadius: DesignTokens.Radius.inline)
+                            .strokeBorder(theme.colors.warning.opacity(DesignTokens.Stroke.engaged))
                     )
                 context
                 Text(item.body)
@@ -239,8 +239,8 @@
             .overlay(
                 RoundedRectangle(cornerRadius: commentCardCornerRadius)
                     .strokeBorder(
-                        theme.colors.warning.opacity(0.5),
-                        style: StrokeStyle(lineWidth: 1, dash: [4, 3])
+                        theme.colors.warning.opacity(DesignTokens.Stroke.resting),
+                        style: StrokeStyle(lineWidth: DesignTokens.Stroke.width, dash: [4, 3])
                     )
             )
         }

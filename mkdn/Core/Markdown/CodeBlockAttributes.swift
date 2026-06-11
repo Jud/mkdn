@@ -41,10 +41,8 @@ public enum CodeBlockAttributes {
 /// or bridged types for reliable attribute enumeration.
 public final class CodeBlockColorInfo: NSObject {
     public let background: PlatformTypeConverter.PlatformColor
-    public let border: PlatformTypeConverter.PlatformColor
 
-    public init(background: PlatformTypeConverter.PlatformColor, border: PlatformTypeConverter.PlatformColor) {
+    public init(background: PlatformTypeConverter.PlatformColor) {
         self.background = background
-        self.border = border
     }
 }

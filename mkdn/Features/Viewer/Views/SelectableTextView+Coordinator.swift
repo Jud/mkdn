@@ -148,6 +148,16 @@
                 }
             }
 
+            /// The theme's accent, resolved from the text view — not the system
+            /// `controlAccentColor`, so transient marks (footnote pulse, heading
+            /// dot) match every other accent use in the document.
+            private var themeAccent: NSColor {
+                guard let theme = (textView as? CodeBlockBackgroundTextView)?.commentTheme else {
+                    return .controlAccentColor
+                }
+                return PlatformTypeConverter.color(from: theme.colors.accent)
+            }
+
             private var footnotePulseTask: Task<Void, Never>?
             private var footnotePulseRange: NSRange?
             /// Background colors (e.g. comment highlights) the pulse temporarily
@@ -215,7 +225,8 @@
                     }
                 }
 
-                let highlightColor = NSColor.controlAccentColor.withAlphaComponent(0.2)
+                let pulseAccent = themeAccent
+                let highlightColor = pulseAccent.withAlphaComponent(0.2)
                 storage.addAttribute(.backgroundColor, value: highlightColor, range: contentRange)
 
                 footnotePulseTask = Task { @MainActor [weak self, weak textView] in
@@ -228,7 +239,7 @@
                         if alpha == 0 {
                             self?.clearFootnotePulse(storage, range: contentRange)
                         } else {
-                            let fade = NSColor.controlAccentColor.withAlphaComponent(alpha)
+                            let fade = pulseAccent.withAlphaComponent(alpha)
                             storage.addAttribute(.backgroundColor, value: fade, range: contentRange)
                         }
                     }
@@ -799,7 +810,7 @@
                 ))
                 dot.wantsLayer = true
                 dot.layer?.cornerRadius = dotSize / 2
-                dot.layer?.backgroundColor = NSColor.controlAccentColor.cgColor
+                dot.layer?.backgroundColor = themeAccent.cgColor
                 dot.alphaValue = 0
 
                 textView.addSubview(dot)
@@ -946,8 +957,9 @@
                 saveBackgrounds(for: findState.matchRanges, in: textStorage)
 
                 for (index, range) in findState.matchRanges.enumerated() {
-                    let alpha: CGFloat =
-                        (index == findState.currentMatchIndex) ? 0.4 : 0.15
+                    let alpha: CGFloat = (index == findState.currentMatchIndex)
+                        ? DesignTokens.Tint.active
+                        : DesignTokens.Tint.subtle
                     textStorage.addAttribute(
                         .backgroundColor,
                         value: highlightNSColor.withAlphaComponent(alpha),

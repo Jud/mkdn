@@ -111,7 +111,13 @@ struct ProgressiveTextStorageBuildTests {
                     let colors = value as? CodeBlockColorInfo
                     let refColors = refValue as? CodeBlockColorInfo
                     #expect(colors?.background == refColors?.background, label)
-                    #expect(colors?.border == refColors?.border, label)
+                case BlockquoteAttributes.bar:
+                    // Per-build instances with identity equality (so separate
+                    // quotes don't coalesce); compare the resolved values.
+                    let bar = value as? BlockquoteBarInfo
+                    let refBar = refValue as? BlockquoteBarInfo
+                    #expect(bar?.color == refBar?.color, label)
+                    #expect(bar?.depth == refBar?.depth, label)
                 default:
                     #expect(
                         (value as AnyObject).isEqual(refValue as AnyObject), label

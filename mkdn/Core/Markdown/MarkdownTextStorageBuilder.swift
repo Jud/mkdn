@@ -78,9 +78,11 @@ struct BlockBuildContext {
 public enum MarkdownTextStorageBuilder {
     // MARK: - Constants
 
+    // Vertical rhythm sits on a 4pt grid: 4 within an item, 8 within a group,
+    // 12 between paragraphs, 16 between blocks, 24 before headings.
     static let blockSpacing: CGFloat = 16
     static let lineSpacing: CGFloat = 2
-    static let paragraphBottomMargin: CGFloat = 10
+    static let paragraphBottomMargin: CGFloat = 12
     /// GitHub's CSS uses uniform 1.5rem (24px) top-margin for h1-h6;
     /// per-level prominence comes from font size alone.
     static let headingTopMargin: CGFloat = 24
@@ -90,15 +92,16 @@ public enum MarkdownTextStorageBuilder {
     static let listItemSpacing: CGFloat = 4
     static let listPrefixWidth: CGFloat = 32
     static let listLeftPadding: CGFloat = 4
-    static let blockquoteIndent: CGFloat = 19
+    static let blockquoteIndent: CGFloat = 16
+    /// On the 4pt grid: bar 0–4, then a 12pt gutter to the text at 16.
+    static let blockquoteBarWidth: CGFloat = 4
     static let attachmentPlaceholderHeight: CGFloat = 100
     static let thematicBreakHeight: CGFloat = 17
 
+    /// One quiet glyph per nesting tier — disc, then ring for all deeper levels.
     static let bulletStyles: [String] = [
         "\u{2022}",
         "\u{25E6}",
-        "\u{25AA}",
-        "\u{25AB}",
     ]
 
     // MARK: - Public API

@@ -23,9 +23,7 @@
     final class CodeBlockBackgroundTextView: NSTextView {
         // MARK: - Constants
 
-        static let cornerRadius: CGFloat = 6
-        static let borderWidth: CGFloat = 1
-        static let borderOpacity: CGFloat = 0.3
+        static let cornerRadius: CGFloat = DesignTokens.Radius.block
         /// The overlapping-comments count badge is sized as a fraction of the
         /// commented line's height, so it scales with the text size.
         static let overlapBadgeLineFraction: CGFloat = 0.85
@@ -668,6 +666,7 @@
         override func drawBackground(in rect: NSRect) {
             super.drawBackground(in: rect)
             drawCodeBlockContainers(in: rect)
+            drawBlockquoteBars(in: rect)
             drawCommentHighlights(in: rect)
         }
 

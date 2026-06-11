@@ -29,7 +29,7 @@ enum SolarizedDark {
         codeForeground: base0,
         linkColor: blue,
         headingColor: base1,
-        blockquoteBorder: cyan,
+        blockquoteBorder: base01,
         blockquoteBackground: base02,
         findHighlight: yellow,
         commentHighlight: yellow.opacity(0.30),

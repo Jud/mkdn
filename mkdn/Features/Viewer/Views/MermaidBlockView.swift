@@ -34,7 +34,7 @@
 
         var body: some View {
             diagramContent
-                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radius.block))
                 .overlay(focusBorder)
                 .contentShape(Rectangle())
                 .onHover { hovering in
@@ -149,17 +149,15 @@
 
         // MARK: - Focus Border
 
+        /// Focus is an interaction state, so it speaks in the accent hairline
+        /// (like card hover) rather than a glow.
         private var focusBorder: some View {
-            RoundedRectangle(cornerRadius: 6)
+            RoundedRectangle(cornerRadius: DesignTokens.Radius.block)
                 .stroke(
-                    colors.border,
+                    colors.accent.opacity(DesignTokens.Stroke.engaged),
                     lineWidth: isFocused ? AnimationConstants.focusBorderWidth : 0
                 )
                 .opacity(isFocused ? 1.0 : 0)
-                .shadow(
-                    color: colors.border.opacity(isFocused ? 0.4 : 0),
-                    radius: isFocused ? AnimationConstants.focusGlowRadius : 0
-                )
                 .animation(
                     isFocused
                         ? motion.resolved(.springSettle)

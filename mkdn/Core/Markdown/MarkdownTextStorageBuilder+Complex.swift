@@ -9,6 +9,7 @@ import SwiftUI
 extension MarkdownTextStorageBuilder {
     // MARK: - Blockquote
 
+    // swiftlint:disable:next function_body_length
     static func appendBlockquote(
         to result: NSMutableAttributedString,
         blocks: [MarkdownBlock],
@@ -19,8 +20,15 @@ extension MarkdownTextStorageBuilder {
     ) {
         let ctx = BlockBuildContext(colors: colors, syntaxColors: syntaxColors, scaleFactor: scaleFactor)
         let indent = blockquoteIndent * CGFloat(depth + 1)
+        // One shared info per level so consecutive paragraphs coalesce into a
+        // single attribute run — drawn as one continuous bar.
+        let barInfo = BlockquoteBarInfo(
+            color: PlatformTypeConverter.color(from: colors.blockquoteBorder),
+            depth: depth
+        )
 
         for block in blocks {
+            let start = result.length
             switch block {
             case let .paragraph(text):
                 appendIndentedParagraph(
@@ -64,6 +72,13 @@ extension MarkdownTextStorageBuilder {
                     scaleFactor: scaleFactor
                 )
             }
+            // Nested blockquotes carry their own (deeper) info; don't overwrite it.
+            if case .blockquote = block { continue }
+            result.addAttribute(
+                BlockquoteAttributes.bar,
+                value: barInfo,
+                range: NSRange(location: start, length: result.length - start)
+            )
         }
     }
 

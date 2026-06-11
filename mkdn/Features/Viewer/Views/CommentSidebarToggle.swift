@@ -40,7 +40,7 @@
                 .frame(minWidth: Self.diameter, minHeight: Self.diameter)
                 .background(theme.colors.backgroundSecondary)
                 .clipShape(Capsule())
-                .overlay(Capsule().strokeBorder(theme.colors.border.opacity(0.4)))
+                .overlay(Capsule().strokeBorder(theme.colors.border.opacity(DesignTokens.Stroke.resting)))
                 .shadow(color: .black.opacity(0.18), radius: 6, y: 2)
                 .animation(motion.resolved(.gentleSpring), value: count)
                 .animation(motion.resolved(.gentleSpring), value: isOpen)

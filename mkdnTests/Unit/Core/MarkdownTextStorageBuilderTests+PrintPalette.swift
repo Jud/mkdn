@@ -51,7 +51,7 @@ extension MarkdownTextStorageBuilderTests {
         #expect(themeColor == explicitColor)
     }
 
-    @Test("Code block ColorInfo uses provided palette colors for background and border")
+    @Test("Code block ColorInfo uses the provided palette's background color")
     @MainActor func codeBlockColorInfoUsesPrintPalette() {
         let block = IndexedBlock(
             index: 0,
@@ -76,8 +76,6 @@ extension MarkdownTextStorageBuilderTests {
 
         #expect(foundColorInfo != nil)
         let expectedBg = PlatformTypeConverter.color(from: PrintPalette.colors.codeBackground)
-        let expectedBorder = PlatformTypeConverter.color(from: PrintPalette.colors.border)
         #expect(foundColorInfo?.background == expectedBg)
-        #expect(foundColorInfo?.border == expectedBorder)
     }
 }

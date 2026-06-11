@@ -70,8 +70,8 @@
             appSettings: AppSettings
         ) -> NSView {
             let borderColor = appSettings.theme.colors.border
-            let rootView = borderColor
-                .frame(height: 1)
+            let rootView = borderColor.opacity(DesignTokens.Stroke.resting)
+                .frame(height: DesignTokens.Stroke.width)
                 .padding(.vertical, 8)
             return makeLayerBackedHost(rootView)
         }

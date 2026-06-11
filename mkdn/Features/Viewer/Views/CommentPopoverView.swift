@@ -53,7 +53,10 @@
                     .frame(height: 72)
                     .scrollContentBackground(.hidden)
                     .padding(4)
-                    .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(theme.colors.border))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: DesignTokens.Radius.inline)
+                            .strokeBorder(theme.colors.border.opacity(DesignTokens.Stroke.engaged))
+                    )
                     .focused($focused)
                     .onAppear { focused = true }
                 HStack {
@@ -107,8 +110,8 @@
                     )
                     if comment.id != comments.last?.id {
                         Rectangle()
-                            .fill(theme.colors.border.opacity(0.4))
-                            .frame(height: 1)
+                            .fill(theme.colors.border.opacity(DesignTokens.Stroke.resting))
+                            .frame(height: DesignTokens.Stroke.width)
                     }
                 }
             }

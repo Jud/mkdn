@@ -53,7 +53,7 @@
             }
             .frame(maxWidth: .infinity, minHeight: 60)
             .background(colors.backgroundSecondary)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radius.block))
         }
 
         private func imageContent(_ image: NSImage) -> some View {
@@ -69,7 +69,7 @@
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: renderedWidth, height: renderedHeight)
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                    .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radius.block))
 
                 if !alt.isEmpty {
                     Text(alt)
@@ -111,7 +111,7 @@
             }
             .frame(maxWidth: .infinity, minHeight: 60)
             .background(colors.backgroundSecondary)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radius.block))
         }
 
         // MARK: - Loading

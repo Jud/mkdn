@@ -148,7 +148,6 @@
 
             let origin = textContainerOrigin
             let containerWidth = textContainer.size.width
-            let borderInset = Self.borderWidth / 2
 
             cachedBlockRects = blocks.compactMap { block in
                 guard NSIntersectionRange(block.range, viewportCharRange).length > 0
@@ -163,9 +162,9 @@
 
                 let bounding = frames.reduce(frames[0]) { $0.union($1) }
                 let drawRect = CGRect(
-                    x: origin.x + borderInset,
+                    x: origin.x,
                     y: bounding.minY + origin.y,
-                    width: containerWidth - 2 * borderInset,
+                    width: containerWidth,
                     height: bounding.height + Self.bottomPadding
                 )
                 return CodeBlockGeometry(

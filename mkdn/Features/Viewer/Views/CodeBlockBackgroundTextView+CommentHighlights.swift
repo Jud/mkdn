@@ -104,14 +104,18 @@
             guard let first = rects.first else { return }
             let baseAlpha = base.usingColorSpace(.sRGB)?.alphaComponent ?? 1
             let union = rects.dropFirst().reduce(first) { $0.union($1) }
-            let outline = NSBezierPath(roundedRect: union, xRadius: 3, yRadius: 3)
+            let outline = NSBezierPath(
+                roundedRect: union,
+                xRadius: DesignTokens.Radius.inline,
+                yRadius: DesignTokens.Radius.inline
+            )
             let visible = rects.filter { $0.intersects(dirtyRect) }
 
             NSGraphicsContext.saveGraphicsState()
             outline.addClip()
             base.withAlphaComponent(baseAlpha * (1 - progress)).setFill()
             visible.forEach { $0.fill() }
-            accent.withAlphaComponent(0.4 * progress).setFill()
+            accent.withAlphaComponent(DesignTokens.Tint.active * progress).setFill()
             visible.forEach { $0.fill() }
             NSGraphicsContext.restoreGraphicsState()
 

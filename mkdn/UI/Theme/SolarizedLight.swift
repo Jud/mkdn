@@ -31,7 +31,7 @@ enum SolarizedLight {
         codeForeground: base00,
         linkColor: blue,
         headingColor: base01,
-        blockquoteBorder: cyan,
+        blockquoteBorder: base1,
         blockquoteBackground: base2,
         findHighlight: yellow,
         commentHighlight: yellow.opacity(0.30),

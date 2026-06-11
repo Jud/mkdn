@@ -106,18 +106,21 @@
             VStack(alignment: .leading, spacing: 0) {
                 headerRow(columnWidths: columnWidths)
                 Divider()
-                    .background(colors.border)
+                    .background(colors.border.opacity(DesignTokens.Stroke.resting))
                 dataRows(columnWidths: columnWidths)
             }
             .frame(width: totalWidth)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radius.block))
             .overlay(
                 // strokeBorder (not stroke): a centered stroke straddles the
                 // shape edge by half a point, and when the table is
                 // compressed to the full container width the host view's
                 // clip shaves that outer half off the right edge.
-                RoundedRectangle(cornerRadius: 6)
-                    .strokeBorder(colors.border.opacity(0.5), lineWidth: 1)
+                RoundedRectangle(cornerRadius: DesignTokens.Radius.block)
+                    .strokeBorder(
+                        colors.border.opacity(DesignTokens.Stroke.resting),
+                        lineWidth: DesignTokens.Stroke.width
+                    )
             )
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -182,8 +185,8 @@
                 .tint(colors.linkColor)
                 .lineLimit(nil)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, 13)
-                .padding(.vertical, 6)
+                .padding(.horizontal, TableColumnSizer.horizontalCellPadding)
+                .padding(.vertical, TableColumnSizer.verticalCellPadding)
                 .frame(width: width, alignment: alignment)
                 .background(cellHighlight(row: row, column: column))
                 .contentShape(Rectangle())
@@ -202,11 +205,11 @@
         @ViewBuilder
         private func cellHighlight(row: Int, column: Int) -> some View {
             if selectionState.isCurrentFindMatch(row: row, column: column) {
-                Color.yellow.opacity(0.4)
+                colors.findHighlight.opacity(DesignTokens.Tint.active)
             } else if selectionState.isFindMatch(row: row, column: column) {
-                Color.yellow.opacity(0.15)
+                colors.findHighlight.opacity(DesignTokens.Tint.subtle)
             } else if selectionState.isSelected(row: row, column: column) {
-                Color.accentColor.opacity(0.3)
+                colors.accent.opacity(DesignTokens.Tint.resting)
             }
         }
 

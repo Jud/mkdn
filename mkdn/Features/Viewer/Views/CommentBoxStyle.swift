@@ -55,10 +55,13 @@
         /// legible. Shadow reach (radius + y) must stay within
         /// `CommentBoxMetrics.shadowPadding`.
         func commentBox(theme: AppTheme) -> some View {
-            let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
+            let shape = RoundedRectangle(cornerRadius: DesignTokens.Radius.overlay, style: .continuous)
             return background(.ultraThinMaterial, in: shape)
                 .background(theme.colors.background.opacity(0.6), in: shape)
-                .overlay(shape.strokeBorder(theme.colors.border.opacity(0.4), lineWidth: 0.5))
+                .overlay(shape.strokeBorder(
+                    theme.colors.border.opacity(DesignTokens.Stroke.resting),
+                    lineWidth: DesignTokens.Stroke.width
+                ))
                 .environment(\.colorScheme, theme.colorScheme)
                 .shadow(color: .black.opacity(0.18), radius: 8, y: 4)
                 .padding(CommentBoxMetrics.shadowPadding)
