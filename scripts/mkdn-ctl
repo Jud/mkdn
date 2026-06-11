@@ -83,6 +83,9 @@ def main():
         elif cmd_name == "add-comment":
             body = sys.argv[3] if len(sys.argv) > 3 else "test comment"
             r = send(sock, {"addComment": {"substring": sys.argv[2], "body": body}})
+        elif cmd_name == "paste-comment":
+            text = sys.argv[3] if len(sys.argv) > 3 else "pasted comment"
+            r = send(sock, {"pasteComment": {"substring": sys.argv[2], "text": text}})
         elif cmd_name == "toggle-comments":
             r = send(sock, {"toggleCommentSidebar": {}})
         elif cmd_name == "toggle-minimap":

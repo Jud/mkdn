@@ -107,6 +107,11 @@
         /// closed), so a re-click on the same overlapping set toggles it closed
         /// (see `openCommentPopoverIfNeeded`).
         var openCommentIDs: [String] = []
+        /// A comment just added by paste, not yet resolved against the rendered
+        /// text. The comment-only repaint that follows the sidecar write consumes
+        /// it and opens the comment's box (see ``revealPendingComment()``) — the
+        /// paste path has no input overlay to morph into a display box.
+        var pendingRevealCommentID: String?
         /// One-shot: skip dismissing the open overlay on the next content rebuild.
         /// Set when a comment body is edited from the popover (a sidecar-only
         /// change that leaves the layout — and the overlay's anchor — valid), so
@@ -561,6 +566,33 @@
                 return
             }
             toggleComments(hits)
+        }
+
+        /// Pasting onto a selection authors a comment: the pasteboard text becomes
+        /// the body, anchored to the selected span — so a dictation tool can drop
+        /// a comment without touching the input box. The selection survives (a
+        /// comment add is a sidecar-only repaint, no storage swap), so pasting
+        /// again adds another comment on the same span.
+        override func paste(_ sender: Any?) {
+            guard let selection = commentableSelection(),
+                  let tape = anchorTape,
+                  let selector = CommentSelectorCapture.capture(builderRange: selection, in: tape),
+                  let documentState,
+                  let body = pasteboardCommentBody()
+            else {
+                super.paste(sender)
+                return
+            }
+            pendingRevealCommentID = documentState.addComment(selector, body: body)
+        }
+
+        /// Enable Edit > Paste (Cmd+V) when a paste would author a comment — the
+        /// read-only view otherwise reports paste invalid and the key does nothing.
+        override func validateUserInterfaceItem(_ item: any NSValidatedUserInterfaceItem) -> Bool {
+            if item.action == #selector(paste(_:)) {
+                return commentableSelection() != nil && pasteboardCommentBody() != nil
+            }
+            return super.validateUserInterfaceItem(item)
         }
 
         override func menu(for event: NSEvent) -> NSMenu? {

@@ -382,6 +382,10 @@
             applyEntranceOrGate(
                 coordinator: coordinator, textView: textView, scrollView: scrollView
             )
+            // A comment add while Find is open rebuilds (this path) instead of
+            // taking the comment-only repaint, so consume a paste-reveal here too
+            // — the new resolved index is already installed above.
+            textView.revealPendingComment()
             coordinator.lastAppliedText = attributedText
             OpenTimeline.shared.mark("renderComplete")
             RenderCompletionSignal.shared.signalRenderComplete()
@@ -421,6 +425,8 @@
             textView.keepCommentOverlayThroughRebuild = false
             textView.setNeedsDisplay(textView.enclosingScrollView?.documentVisibleRect ?? textView.bounds)
             textView.commentBadgeOverlay?.needsDisplay = true
+            // A paste-created comment opens once resolved, so the author sees it.
+            textView.revealPendingComment()
             RenderCompletionSignal.shared.signalRenderComplete()
         }
 

@@ -130,6 +130,11 @@
         /// rebuild path without simulating a text selection + menu).
         case addComment(substring: String, body: String)
 
+        /// Select the first occurrence of `substring` in the rendered text, put
+        /// `text` on the general pasteboard, and invoke the text view's paste
+        /// action — exercises the paste-creates-comment path end to end.
+        case pasteComment(substring: String, text: String)
+
         /// Synthesize a left click at window-local coordinates (top-left origin,
         /// in points) via `NSWindow.sendEvent` — exercises the real event path
         /// (hit-testing, SwiftUI gestures) without moving the global pointer.

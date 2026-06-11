@@ -168,6 +168,32 @@
             return selection
         }
 
+        /// Open the box for a comment just added by paste, once the repaint (or
+        /// the Find-open full rebuild) has resolved it against the rendered text.
+        /// One-shot; a no-op when nothing is pending or the comment didn't resolve.
+        func revealPendingComment() {
+            guard let id = pendingRevealCommentID else { return }
+            pendingRevealCommentID = nil
+            let hits = resolvedComments?.comments(ids: [id]) ?? []
+            guard let range = hits.first?.range else { return }
+            // A harness-driven paste can target a span below the fold; the box
+            // only anchors on visible hits, so bring the span on screen first.
+            if let visible = visibleCharacterRange(), NSIntersectionRange(range, visible).length == 0 {
+                scrollRangeToVisible(range)
+                relayoutViewport()
+            }
+            showComments(hits)
+        }
+
+        /// The pasteboard's plain text trimmed of edge whitespace, or nil when it
+        /// holds nothing a comment could be made of. Backs the paste-to-comment
+        /// overrides in the main class.
+        func pasteboardCommentBody() -> String? {
+            guard let text = NSPasteboard.general.string(forType: .string) else { return nil }
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        }
+
         private func selectionContainsAttachment(_ range: NSRange) -> Bool {
             guard let textStorage else { return false }
             var found = false

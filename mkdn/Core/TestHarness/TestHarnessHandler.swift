@@ -25,6 +25,8 @@
                 await handleRecreateView()
             case let .addComment(substring, body):
                 await handleAddComment(substring: substring, body: body)
+            case let .pasteComment(substring, text):
+                await handlePasteComment(substring: substring, text: text)
             case .toggleCommentSidebar:
                 await handleToggleCommentSidebar()
             case .toggleMinimap:
@@ -224,6 +226,40 @@
             docState.addComment(selector, body: body)
             try? await signal.awaitPreparedRender(timeout: .seconds(5))
             return .ok(message: "Comment added over: \(substring)")
+        }
+
+        private static func handlePasteComment(
+            substring: String, text: String
+        ) async -> HarnessResponse {
+            guard let docState = documentState else {
+                return .error("No document state available")
+            }
+            guard let textView = MkdnCommands.findTextView() else {
+                return .error("No text view available")
+            }
+            let rendered = textView.textStorage?.string ?? ""
+            guard let found = rendered.range(of: substring) else {
+                return .error("Substring not found in rendered text: \(substring)")
+            }
+            textView.setSelectedRange(NSRange(found, in: rendered))
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(text, forType: .string)
+
+            let countBefore = CommentDocument.parse(docState.markdownContent).entries.count
+            let signal = RenderCompletionSignal.shared
+            signal.prepareForRender()
+            textView.paste(nil)
+            let countAfter = CommentDocument.parse(docState.markdownContent).entries.count
+            guard countAfter == countBefore + 1 else {
+                signal.cancelPrepare()
+                return .error("Paste did not create a comment over: \(substring)")
+            }
+            do {
+                try await signal.awaitPreparedRender(timeout: .seconds(5))
+            } catch {
+                return .error("Render timeout after paste over: \(substring)")
+            }
+            return .ok(message: "Pasted comment over: \(substring), entries: \(countAfter)")
         }
 
         // MARK: - Mode Commands
