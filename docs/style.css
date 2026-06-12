@@ -258,6 +258,28 @@ section {
   color: var(--base0);
 }
 
+.comments-shot {
+  max-width: 960px;
+  margin: 0 auto 2.5rem;
+}
+
+.comments-shot video,
+.comments-shot img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 12px;
+  box-shadow:
+    0 22px 70px rgba(0, 0, 0, 0.56),
+    0 0 1px rgba(0, 0, 0, 0.3);
+}
+
+.comments-shot-caption {
+  font-size: 0.85rem;
+  color: var(--base01);
+  margin-top: 1rem;
+}
+
 .comments-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

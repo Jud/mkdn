@@ -47,6 +47,8 @@ Everything agents produce:
 
 ## Comments
 
+![the comment rail in Solarized Dark: highlighted spans in a document, each with an anchored card, one holding a threaded reply from an agent](docs/images/comments-dark.png)
+
 select text — a word, inline code, mid-sentence — and comment on it. the comment lives in a sidecar block at the end of the `.md` file, so it survives in git, passes invisibly through other renderers, and re-finds its text by what it says, not where it sits. edit the prose around a comment in another editor and it re-anchors; if its text is gone, it collects in a detached footer instead of vanishing.
 
 - comment rail (Cmd+Shift+C) — cards beside the text they annotate, following the scroll
