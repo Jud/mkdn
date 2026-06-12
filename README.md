@@ -63,7 +63,7 @@ format reference: [docs/features/markdown-comments/comment-format.md](docs/featu
 - Find in page (Cmd+F, Cmd+G / Cmd+Shift+G to navigate)
 - Document outline (Cmd+J) — collapsible heading tree with a breadcrumb trail
 - Marker track — headings and comments plotted along the right gutter, draggable thumb; swaps for a minimap (Cmd+Shift+M)
-- Table selection that matches Chrome — drag across cells, double-click a word, triple-click a cell; Cmd+C copies tab-separated
+- Real text selection in tables — drag across cells, double-click a word, triple-click a cell; Cmd+C pastes straight into a spreadsheet
 - Big documents open fast — first screen paints in ~a third of a second, the rest fills in behind it
 - VoiceOver-ready — custom rotors for headings, links, and comments; labeled table semantics
 - Side-by-side editor with live preview
