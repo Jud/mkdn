@@ -36,20 +36,36 @@
         /// Emphasize (id) / un-emphasize (nil) a comment's span in the document
         /// while its card is hovered.
         let onHover: (String?) -> Void
+        /// How active cards are laid out; the host owns (and persists) the choice.
+        /// Animated by the host via `Binding.animation`, so the mode switch is the
+        /// one card reposition that springs (scroll-follow stays un-animated).
+        @Binding var layout: CommentRailLayout
 
         static let width: CGFloat = 300
         /// The preview's `textContainerInset.height`, added back so a card lands
         /// beside the live text rather than the inset-subtracted scroll-space mark.
         private static let previewTopInset: CGFloat = 32
+        /// The floating sidebar toggle's diameter; the header row matches it so
+        /// the title and layout tabs center on the toggle's midline.
+        private static let headerRowHeight: CGFloat = 34
+        /// Where the stacked list starts: clear of the opaque header bar
+        /// (12pt top padding + the 34pt header row + 12pt bottom padding).
+        private static let stackTop: CGFloat = 64
 
         var body: some View {
             let map = mapState.documentMap
-            let cardTops = Dictionary(
-                map.comments.map { ($0.id, $0.y - map.viewportTop + Self.previewTopInset) }
-            ) { first, _ in first }
+            // Stacked: every card shares one anchor below the header, so the
+            // downward-only collision pass lays them out one after another in
+            // document order, ignoring the scroll position.
+            let cardTops = layout == .stacked
+                ? [:]
+                : Dictionary(
+                    map.comments.map { ($0.id, $0.y - map.viewportTop + Self.previewTopInset) }
+                ) { first, _ in first }
             // At the scroll end a card tail can't be pulled up by scrolling; let the
             // layout fit the overflow then. A short/unscrollable document reads as "end".
-            let atDocumentEnd = map.totalHeight > 0
+            let atDocumentEnd = layout == .anchored
+                && map.totalHeight > 0
                 && map.viewportTop + map.viewportHeight >= map.totalHeight - 1
             ZStack(alignment: .top) {
                 // Cards fill the space above the footer (not under it): the footer is
@@ -88,7 +104,7 @@
                         onReply: onReply,
                         onHover: onHover
                     )
-                    .commentCardAnchor(tops[item.id] ?? 0)
+                    .commentCardAnchor(tops[item.id] ?? Self.stackTop)
                 }
             }
             .padding(.horizontal, 12)
@@ -100,6 +116,7 @@
         private var headerBar: some View {
             VStack(spacing: 0) {
                 header
+                    .frame(height: Self.headerRowHeight)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                     .frame(maxWidth: .infinity)
@@ -116,6 +133,12 @@
                     .font(.headline)
                     .foregroundStyle(theme.colors.headingColor)
                 Spacer()
+                if !active.isEmpty {
+                    CommentLayoutPicker(layout: $layout, theme: theme)
+                        // Clear of the floating sidebar toggle pinned over the
+                        // header's right edge (its hit area, not just the glyph).
+                        .padding(.trailing, 60)
+                }
             }
         }
 
@@ -148,6 +171,66 @@
             }
             .foregroundStyle(theme.colors.foregroundSecondary)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    /// The header's layout switch: two segments behind a hairline, the selected
+    /// one carried by a sliding accent thumb. Hand-built from real buttons (not a
+    /// system segmented `Picker`) so each segment is pressable through the
+    /// accessibility tree — the system control's segments expose no AX actions
+    /// via SwiftUI's bridge, which would leave the harness (and any assistive
+    /// client's press action) unable to drive it.
+    private struct CommentLayoutPicker: View {
+        @Binding var layout: CommentRailLayout
+        let theme: AppTheme
+
+        @Namespace private var thumb
+
+        var body: some View {
+            HStack(spacing: 2) {
+                ForEach(CommentRailLayout.allCases, id: \.self) { mode in
+                    segment(mode)
+                }
+            }
+            .padding(2)
+            .background(
+                RoundedRectangle(cornerRadius: DesignTokens.Radius.block)
+                    .fill(theme.colors.background)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: DesignTokens.Radius.block)
+                    .strokeBorder(theme.colors.border.opacity(DesignTokens.Stroke.resting))
+            )
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("comment-layout-picker")
+            .accessibilityLabel("Card layout")
+        }
+
+        private func segment(_ mode: CommentRailLayout) -> some View {
+            let selected = layout == mode
+            return Button {
+                layout = mode
+            } label: {
+                Text(mode.label)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(
+                        selected ? theme.colors.headingColor : theme.colors.foregroundSecondary
+                    )
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background {
+                        if selected {
+                            RoundedRectangle(cornerRadius: DesignTokens.Radius.inline)
+                                .fill(theme.colors.accent.opacity(DesignTokens.Tint.resting))
+                                .matchedGeometryEffect(id: "thumb", in: thumb)
+                        }
+                    }
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .pointingHandCursor()
+            .accessibilityIdentifier("comment-layout-\(mode.rawValue)")
+            .accessibilityAddTraits(selected ? .isSelected : [])
         }
     }
 

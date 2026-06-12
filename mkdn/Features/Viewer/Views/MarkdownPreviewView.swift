@@ -78,6 +78,7 @@
 
         var body: some View {
             @Bindable var docState = documentState
+            @Bindable var bindableSettings = appSettings
             GeometryReader { proxy in // swiftlint:disable:this closure_body_length
                 let railWidth = CommentSidebarView.width * sidebarProgress
                 let gutterWidth = documentState.isMinimapVisible
@@ -151,7 +152,9 @@
                             onJump: { jumpToComment($0) },
                             onDelete: { documentState.deleteComment(id: $0) },
                             onReply: { documentState.addReply(toCommentID: $0, body: $1) },
-                            onHover: { MkdnCommands.findTextView()?.setHoveredComment($0) }
+                            onHover: { MkdnCommands.findTextView()?.setHoveredComment($0) },
+                            layout: $bindableSettings.commentRailLayout
+                                .animation(motion.resolved(.gentleSpring))
                         )
                         .frame(width: CommentSidebarView.width)
                         // Mounted whenever it can show so the slide has something to

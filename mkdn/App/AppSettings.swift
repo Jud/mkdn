@@ -10,6 +10,8 @@
 
     private let scaleFactorKey = "scaleFactor"
 
+    private let commentRailLayoutKey = "commentRailLayout"
+
     private let windowWidthKey = "windowWidth"
 
     private let windowHeightKey = "windowHeight"
@@ -64,6 +66,17 @@
             }
         }
 
+        // MARK: - Comment Rail
+
+        /// How the comment rail lays out its cards: anchored beside the text or
+        /// stacked into a list. Toggled from the rail header. Persisted to
+        /// UserDefaults under the `"commentRailLayout"` key.
+        public var commentRailLayout: CommentRailLayout {
+            didSet {
+                UserDefaults.standard.set(commentRailLayout.rawValue, forKey: commentRailLayoutKey)
+            }
+        }
+
         // MARK: - Zoom
 
         /// Zoom scale factor for preview text rendering.
@@ -107,6 +120,14 @@
 
             hasShownDefaultHandlerHint = UserDefaults.standard.bool(forKey: hasShownDefaultHandlerHintKey)
             autoReloadEnabled = UserDefaults.standard.bool(forKey: autoReloadEnabledKey)
+
+            if let raw = UserDefaults.standard.string(forKey: commentRailLayoutKey),
+               let layout = CommentRailLayout(rawValue: raw)
+            {
+                commentRailLayout = layout
+            } else {
+                commentRailLayout = .anchored
+            }
 
             let storedScale = CGFloat(UserDefaults.standard.double(forKey: scaleFactorKey))
             scaleFactor = storedScale > 0 ? storedScale : 1.0

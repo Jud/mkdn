@@ -342,4 +342,26 @@ struct AppSettingsTests {
         settings.scaleFactor = 0.5
         #expect(settings.zoomLabel == "50%")
     }
+
+    @Test("Fresh AppSettings defaults the comment rail to anchored layout")
+    @MainActor func defaultCommentRailLayoutIsAnchored() {
+        defer { UserDefaults.standard.removeObject(forKey: "commentRailLayout") }
+        UserDefaults.standard.removeObject(forKey: "commentRailLayout")
+
+        let settings = AppSettings()
+        #expect(settings.commentRailLayout == .anchored)
+    }
+
+    @Test("commentRailLayout persists and restores from UserDefaults")
+    @MainActor func commentRailLayoutRoundTrips() {
+        defer { UserDefaults.standard.removeObject(forKey: "commentRailLayout") }
+        UserDefaults.standard.removeObject(forKey: "commentRailLayout")
+
+        let settings = AppSettings()
+        settings.commentRailLayout = .stacked
+        #expect(UserDefaults.standard.string(forKey: "commentRailLayout") == "stacked")
+
+        let restored = AppSettings()
+        #expect(restored.commentRailLayout == .stacked)
+    }
 }

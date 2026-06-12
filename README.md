@@ -51,7 +51,7 @@ Everything agents produce:
 
 select text — a word, inline code, mid-sentence — and comment on it. the comment lives in a sidecar block at the end of the `.md` file, so it survives in git, passes invisibly through other renderers, and re-finds its text by what it says, not where it sits. edit the prose around a comment in another editor and it re-anchors; if its text is gone, it collects in a detached footer instead of vanishing.
 
-- comment rail (Cmd+Shift+C) — cards beside the text they annotate, following the scroll
+- comment rail (Cmd+Shift+C) — cards beside the text they annotate, following the scroll; a header toggle springs them into a compact stack and back
 - reply threads — replies nest under comments; agent replies via `mkdn comments reply` carry their author name
 - paste-to-comment — paste onto a selection and the pasteboard text becomes a comment on it
 - headless access — `mkdn comments list | reply | wait` for agents, no window needed
