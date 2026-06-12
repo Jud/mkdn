@@ -2,6 +2,8 @@
 
 the reading side of the agentic loop. agents produce markdown — plans, code, diagrams, docs — and mkdn renders all of it natively on macOS. SwiftUI + TextKit 2, not a web browser in disguise.
 
+and now the writing-back side: select text, comment on it. comments live in the `.md` file itself, and agents read them with `mkdn comments`.
+
 ## Install
 
 **Homebrew:**
@@ -27,6 +29,12 @@ mkdn docs/           # directory mode with sidebar
 
 Also supports Cmd+O and drag-and-drop.
 
+```bash
+mkdn comments list file.md            # read comments + reply threads as JSON
+mkdn comments reply file.md k7 "done" --author agent
+mkdn comments wait file.md            # block until new comments appear
+```
+
 ## What it renders
 
 Everything agents produce:
@@ -37,11 +45,27 @@ Everything agents produce:
 - **LaTeX math** — inline `$...$` and display `$$...$$` via [SwiftMath](https://github.com/mgriebling/SwiftMath)
 - **Mermaid diagrams** in lightweight embedded WKWebViews (one per diagram, bundled mermaid.js, no network requests)
 
+## Comments
+
+select text — a word, inline code, mid-sentence — and comment on it. the comment lives in a sidecar block at the end of the `.md` file, so it survives in git, passes invisibly through other renderers, and re-finds its text by what it says, not where it sits. edit the prose around a comment in another editor and it re-anchors; if its text is gone, it collects in a detached footer instead of vanishing.
+
+- comment rail (Cmd+Shift+C) — cards beside the text they annotate, following the scroll
+- reply threads — replies nest under comments; agent replies via `mkdn comments reply` carry their author name
+- paste-to-comment — paste onto a selection and the pasteboard text becomes a comment on it
+- headless access — `mkdn comments list | reply | wait` for agents, no window needed
+
+format reference: [docs/features/markdown-comments/comment-format.md](docs/features/markdown-comments/comment-format.md)
+
 ## Features
 
 - Solarized Dark / Light themes (auto-follows system, or pinned)
 - Staggered entrance animations — content cascades in on load and file switch
 - Find in page (Cmd+F, Cmd+G / Cmd+Shift+G to navigate)
+- Document outline (Cmd+J) — collapsible heading tree with a breadcrumb trail
+- Marker track — headings and comments plotted along the right gutter, draggable thumb; swaps for a minimap (Cmd+Shift+M)
+- Table selection that matches Chrome — drag across cells, double-click a word, triple-click a cell; Cmd+C copies tab-separated
+- Big documents open fast — first screen paints in ~a third of a second, the rest fills in behind it
+- VoiceOver-ready — custom rotors for headings, links, and comments; labeled table semantics
 - Side-by-side editor with live preview
 - Zoom (Cmd+/-, persists across sessions)
 - File watching — kernel-level DispatchSource, breathing orb on change
@@ -65,16 +89,20 @@ Everything agents produce:
 | Cmd+G | Next match |
 | Cmd+Shift+G | Previous match |
 | Cmd+E | Use selection for find |
+| Cmd+J | Document outline |
 | Cmd+Plus | Zoom in |
 | Cmd+Minus | Zoom out |
 | Cmd+0 | Reset zoom |
 | Cmd+Shift+L | Toggle sidebar |
+| Cmd+Shift+C | Toggle comment rail |
+| Cmd+Shift+M | Toggle minimap |
 | Cmd+Shift+O | Open directory |
 | Cmd+P | Print |
+| Cmd+Shift+P | Page setup |
 
 ## Architecture
 
-Two-target SPM layout: `mkdnLib` (library) and `mkdn` (thin executable entry point). Feature-Based MVVM. Tests use `@testable import mkdnLib` — 634 tests across 59 suites.
+Two-target SPM layout: `mkdnLib` (library) and `mkdn` (thin executable entry point). Feature-Based MVVM. Tests use `@testable import mkdnLib` — 844 tests across 89 suites.
 
 ```
 mkdn/
@@ -83,22 +111,25 @@ mkdn/
     Viewer/             Markdown preview (TextKit 2 rendering)
     Editor/             Side-by-side editing
     Sidebar/            Directory browsing
+    Outline/            Document outline navigator + breadcrumbs
   Core/
-    Markdown/           swift-markdown parsing + NSAttributedString
+    Markdown/           swift-markdown parsing + NSAttributedString, comments
     Mermaid/            WKWebView + mermaid.js diagram rendering
     Highlighting/       Tree-sitter syntax highlighting
     Math/               LaTeX math rendering
     FileWatcher/        Kernel-level file change detection
     DirectoryScanner/   Recursive Markdown file discovery
     DirectoryWatcher/   Directory-level change monitoring
+    Git/                Git status for the sidebar
     Services/           Shared service layer
-    CLI/                Argument parsing and validation
+    CLI/                Argument parsing, mkdn comments
+    Instrumentation/    Performance instrumentation
     TestHarness/        Visual testing infrastructure
   Platform/
     iOS/                iOS-specific view implementations
   UI/
     Components/         WelcomeView, BreathingOrb, ModeOverlay, WindowAccessor
-    Theme/              Solarized color palettes, ThemeMode
+    Theme/              Solarized color palettes, ThemeMode, DesignTokens
   Resources/            mermaid.min.js bundle
 
 mkdnEntry/

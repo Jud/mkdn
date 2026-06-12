@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>mkdn — the reading side of the agentic loop</title>
-  <meta name="description" content="native macOS viewer for agentic workflows. code, diagrams, and math, rendered natively and updated live.">
+  <meta name="description" content="native macOS viewer for agentic workflows. code, diagrams, and math, rendered natively and updated live. comments that live in the file, readable by agents.">
   <link rel="icon" href="images/icon.png" type="image/png">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -45,7 +45,7 @@
       <div class="philosophy-grid">
         <div class="philosophy-item">
           <h3><span class="accent">Review</span>, not write</h3>
-          <p>not a code editor. a code viewer built for comprehension.</p>
+          <p>not a code editor. a viewer built for comprehension — select anything and leave a comment your agent reads back.</p>
         </div>
         <div class="philosophy-item">
           <h3><span class="accent">Native</span>, not Electron</h3>
@@ -56,6 +56,31 @@
           <p>File watching at the kernel level. When an agent writes a file, mkdn re-renders it instantly. No reload button.</p>
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- Comments -->
+  <section class="comments">
+    <div class="container">
+      <h2>comments that live in the file</h2>
+      <p class="comments-lede">select text — a word, inline code, mid-sentence — and comment on it. the comment is stored in the <code>.md</code> file itself, so it survives in git, passes invisibly through other renderers, and re-finds its text when the prose around it moves.</p>
+      <div class="comments-grid">
+        <div class="feature-card">
+          <h3>A rail of cards</h3>
+          <p>comments sit beside the text they annotate and follow it as you scroll. click a card to jump to its spot. replies thread underneath.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Survives outside edits</h3>
+          <p>rewrite the prose in another editor, merge a branch — the comment re-anchors by what its text says, not where it sat.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Headless for agents</h3>
+          <p>no window needed. an agent lists comments as JSON, replies into the thread, or blocks until you leave a new one.</p>
+        </div>
+      </div>
+      <pre class="install-code comments-code"><code>mkdn comments list plan.md
+mkdn comments reply plan.md k7 "fixed in 3a41c2" --author agent
+mkdn comments wait plan.md</code></pre>
     </div>
   </section>
 
@@ -78,7 +103,7 @@
         </div>
         <div class="feature-card">
           <h3>Tables, lists, rich text</h3>
-          <p>full CommonMark: tables, lists, blockquotes. everything agents use to organize output.</p>
+          <p>full CommonMark. tables lay out and select like Chrome — drag across cells, copy, paste into a spreadsheet.</p>
         </div>
         <div class="feature-card">
           <h3>Solarized theming</h3>
@@ -87,6 +112,18 @@
         <div class="feature-card">
           <h3>Directory browsing</h3>
           <p>point it at a folder. sidebar, file watching, the whole tree at a glance.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Fast on big documents</h3>
+          <p>the first screen paints in about a third of a second. the rest fills in quietly behind it.</p>
+        </div>
+        <div class="feature-card">
+          <h3>A marker track</h3>
+          <p>headings and comments plotted along the right gutter. tap to jump, drag to scrub, or swap in a minimap.</p>
+        </div>
+        <div class="feature-card">
+          <h3>VoiceOver-ready</h3>
+          <p>custom rotors for headings, links, and comments. tables read with column context.</p>
         </div>
       </div>
     </div>
