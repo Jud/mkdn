@@ -60,6 +60,8 @@
                 processSidebar(command)
             case let .resizeWindow(width, height):
                 handleResizeWindow(width, height)
+            case let .moveWindow(x, y):
+                handleMoveWindow(x, y)
             case let .clickAt(x, y, clickCount):
                 await handleClickAt(x: x, y: y, clickCount: clickCount ?? 1)
             case let .dragAt(fromX, fromY, toX, toY):
@@ -407,6 +409,33 @@
             let actual = window.frame
             return .ok(
                 message: "Window resized to \(actual.width)x\(actual.height)"
+            )
+        }
+
+        /// Move the window's top-left to a point measured from the top-left of the
+        /// display that holds the menu bar (the global-origin screen). Lets a
+        /// capture run pin the window to a Retina display for 2x screenshots.
+        private static func handleMoveWindow(
+            _ x: Double,
+            _ y: Double
+        ) -> HarnessResponse {
+            guard let window = findMainWindow() else {
+                return .error("No visible window found")
+            }
+            let screen = NSScreen.screens.first(where: { $0.frame.origin == .zero })
+                ?? NSScreen.main
+                ?? NSScreen.screens.first
+            guard let screen else {
+                return .error("No screen found")
+            }
+            let topLeft = NSPoint(
+                x: screen.frame.minX + x,
+                y: screen.frame.maxY - y
+            )
+            window.setFrameTopLeftPoint(topLeft)
+            let scale = window.screen?.backingScaleFactor ?? 0
+            return .ok(
+                message: "Window moved to \(window.frame.origin) (scale \(scale))"
             )
         }
 

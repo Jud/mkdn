@@ -75,6 +75,10 @@ def main():
             r = send(sock, {"scrollSidebar": {"yOffset": float(sys.argv[2])}})
         elif cmd_name == "resize":
             r = send(sock, {"resizeWindow": {"width": float(sys.argv[2]), "height": float(sys.argv[3])}})
+        elif cmd_name == "move":
+            r = send(sock, {"moveWindow": {"x": float(sys.argv[2]), "y": float(sys.argv[3])}})
+        elif cmd_name == "reload":
+            r = send(sock, {"reloadFile": {}})
         elif cmd_name == "capture-region":
             x, y, w, h = float(sys.argv[2]), float(sys.argv[3]), float(sys.argv[4]), float(sys.argv[5])
             path = sys.argv[6] if len(sys.argv) > 6 else "/tmp/mkdn-region.png"

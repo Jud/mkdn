@@ -110,6 +110,11 @@
         /// preserving the current window origin.
         case resizeWindow(width: Double, height: Double)
 
+        /// Move the main window's top-left origin to the given screen point (in
+        /// points, top-left of the main display). Used to place the window on a
+        /// specific display before capturing (e.g. a Retina screen for 2x shots).
+        case moveWindow(x: Double, y: Double)
+
         /// Start lightweight frame capture using CGWindowListCreateImage at the
         /// given FPS. Frames are written to outputDir. Call ``stopQuickCapture``
         /// to stop and get results. Does not require screen recording permission.
