@@ -64,12 +64,19 @@
     <div class="container">
       <h2>comments that live in the file</h2>
       <p class="comments-lede">select text — a word, inline code, mid-sentence — and comment on it. the comment is stored in the <code>.md</code> file itself, so it survives in git, passes invisibly through other renderers, and re-finds its text when the prose around it moves.</p>
-      <div class="comments-shot">
-        <video controls playsinline preload="metadata" poster="images/comments-demo-poster.png" width="1280" height="900" aria-label="An 18-second narrated demo: the comment rail slides open beside an implementation-notes document, an agent's reply arrives in a thread live from the CLI, then a new comment is authored on a selection.">
-          <source src="images/comments-demo.mp4" type="video/mp4">
-          <img src="images/comments-demo-poster.png" alt="mkdn in Solarized Dark with the comment rail open: three highlighted spans, each with a comment card, one holding a threaded reply from an agent named claude" width="1280" height="900" loading="lazy">
-        </video>
-        <p class="comments-shot-caption">18 seconds: a comment, and an agent replying to it from the CLI — watch with sound.</p>
+      <div class="comments-hero">
+        <img src="images/comments-reply.gif" alt="mkdn in Solarized Dark with the comment rail open. An agent named claude replies to the comment 'where did 200 ms come from?' and the reply appears threaded under the card the instant it is written from the CLI." width="1000" height="814" loading="lazy">
+        <p class="comments-shot-caption">An agent replies from the CLI and the thread updates live in the open window — no reload, no refresh.</p>
+      </div>
+      <div class="comments-stills">
+        <figure class="comments-still">
+          <img src="images/comments-overlap.png" alt="Two overlapping comments on one sentence: an outer highlight over 'a single logical edit often lands as three writes inside 40 ms' and an inner highlight over 'three writes inside 40 ms', with a small badge reading 2 where they meet, and each comment shown as a card in the rail." width="1834" height="546" loading="lazy">
+          <figcaption>Comments nest and overlap — a badge counts how many share a span.</figcaption>
+        </figure>
+        <figure class="comments-still">
+          <img src="images/comments-anchored.png" alt="A single comment highlighting the words 'resolved path' in a sentence, with its card anchored directly beside that line in the rail, asking 'does this cover hardlinks too, or only symlinks?'." width="1846" height="434" loading="lazy">
+          <figcaption>Every comment anchors beside the exact line it annotates.</figcaption>
+        </figure>
       </div>
       <div class="comments-grid">
         <div class="feature-card">

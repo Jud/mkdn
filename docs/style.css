@@ -258,26 +258,51 @@ section {
   color: var(--base0);
 }
 
-.comments-shot {
-  max-width: 960px;
+.comments-hero {
+  max-width: 760px;
   margin: 0 auto 2.5rem;
 }
 
-.comments-shot video,
-.comments-shot img {
+/* The GIF carries the app window's own shadow on a page-matched
+   background, so it needs no frame of its own. */
+.comments-hero img {
   width: 100%;
   height: auto;
   display: block;
-  border-radius: 12px;
-  box-shadow:
-    0 22px 70px rgba(0, 0, 0, 0.56),
-    0 0 1px rgba(0, 0, 0, 0.3);
 }
 
 .comments-shot-caption {
   font-size: 0.85rem;
   color: var(--base01);
   margin-top: 1rem;
+}
+
+.comments-stills {
+  display: grid;
+  gap: 2rem;
+  max-width: 860px;
+  margin: 0 auto 3rem;
+}
+
+.comments-still {
+  margin: 0;
+}
+
+.comments-still img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 12px;
+  box-shadow:
+    0 18px 50px rgba(0, 0, 0, 0.5),
+    0 0 1px rgba(0, 0, 0, 0.3);
+}
+
+.comments-still figcaption {
+  font-size: 0.85rem;
+  color: var(--base01);
+  margin-top: 0.85rem;
+  text-align: center;
 }
 
 .comments-grid {
