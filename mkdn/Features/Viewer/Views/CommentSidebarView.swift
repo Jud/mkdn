@@ -41,6 +41,11 @@
         /// one card reposition that springs (scroll-follow stays un-animated).
         @Binding var layout: CommentRailLayout
 
+        /// Stacked-mode scroll position + the native wheel monitor that drives it.
+        /// Anchored mode follows the document instead, so this stays at zero there.
+        @State private var scroll = RailScrollModel()
+        @State private var railHovered = false
+
         static let width: CGFloat = 300
         /// The preview's `textContainerInset.height`, added back so a card lands
         /// beside the live text rather than the inset-subtracted scroll-space mark.
@@ -51,14 +56,21 @@
         /// Where the stacked list starts: clear of the opaque header bar
         /// (12pt top padding + the 34pt header row + 12pt bottom padding).
         private static let stackTop: CGFloat = 64
+        /// Vertical gap between stacked cards — matches `AnchoredCommentsLayout`.
+        private static let cardGap: CGFloat = 8
+        /// Breathing room below the last stacked card.
+        private static let stackBottomInset: CGFloat = 16
 
         var body: some View {
             let map = mapState.documentMap
             // Stacked: every card shares one anchor below the header, so the
             // downward-only collision pass lays them out one after another in
-            // document order, ignoring the scroll position.
-            let cardTops = layout == .stacked
-                ? [:]
+            // document order. Shifting that shared anchor by the scroll offset
+            // slides the whole stack — the rail's own scrolling, independent of
+            // the document.
+            let stackedAnchor = Self.stackTop - scroll.offset
+            let cardTops: [String: CGFloat] = layout == .stacked
+                ? Dictionary(uniqueKeysWithValues: active.map { ($0.id, stackedAnchor) })
                 : Dictionary(
                     map.comments.map { ($0.id, $0.y - map.viewportTop + Self.previewTopInset) }
                 ) { first, _ in first }
@@ -86,6 +98,16 @@
             .frame(maxHeight: .infinity, alignment: .top)
             .background(theme.colors.backgroundSecondary)
             .environment(\.colorScheme, theme.colorScheme)
+            // Capture wheel events only while hovering an overflowing stacked rail.
+            .onHover { hovering in
+                railHovered = hovering
+                syncWheelMonitor()
+            }
+            .onChange(of: layout) { _, newLayout in
+                if newLayout == .stacked { scroll.offset = 0 }
+                syncWheelMonitor()
+            }
+            .onDisappear { scroll.stopMonitoring() }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("comment-sidebar")
             .accessibilityLabel("Comments")
@@ -95,7 +117,7 @@
         /// animation: the per-frame reposition from the live `viewportTop` is the
         /// scroll-follow, so animating it would lag the text.
         private func anchoredActiveCards(tops: [String: CGFloat], atDocumentEnd: Bool) -> some View {
-            AnchoredCommentsLayout(gap: 8, atDocumentEnd: atDocumentEnd) {
+            AnchoredCommentsLayout(gap: Self.cardGap, atDocumentEnd: atDocumentEnd) {
                 ForEach(active) { item in
                     ActiveCommentCard(
                         item: item,
@@ -104,12 +126,72 @@
                         onReply: onReply,
                         onHover: onHover
                     )
+                    // Each card reports its laid-out height so the stacked content
+                    // height (and thus the max scroll) is known.
+                    .background(
+                        GeometryReader { proxy in
+                            Color.clear.preference(
+                                key: CardHeightsKey.self,
+                                value: [item.id: proxy.size.height]
+                            )
+                        }
+                    )
                     .commentCardAnchor(tops[item.id] ?? Self.stackTop)
                 }
             }
             .padding(.horizontal, 12)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .clipped()
+            .background(
+                GeometryReader { proxy in
+                    Color.clear.preference(key: CardsAreaHeightKey.self, value: proxy.size.height)
+                }
+            )
+            .overlay(alignment: .topTrailing) { stackScrollIndicator }
+            .onPreferenceChange(CardHeightsKey.self) { heights in
+                let total = active.reduce(Self.stackTop) { $0 + (heights[$1.id] ?? 0) }
+                    + Self.cardGap * CGFloat(max(0, active.count - 1))
+                    + Self.stackBottomInset
+                scroll.contentHeight = total
+                scroll.clamp()
+                syncWheelMonitor()
+            }
+            .onPreferenceChange(CardsAreaHeightKey.self) { height in
+                scroll.viewportHeight = height
+                scroll.clamp()
+                syncWheelMonitor()
+            }
+        }
+
+        /// Starts the wheel monitor only while the cursor is over a stacked rail
+        /// that actually overflows; tears it down otherwise so anchored mode and
+        /// non-overflowing stacks leave document scrolling untouched.
+        private func syncWheelMonitor() {
+            if railHovered, layout == .stacked, scroll.maxOffset > 0 {
+                scroll.startMonitoring()
+            } else {
+                scroll.stopMonitoring()
+            }
+        }
+
+        /// A slim scroll thumb on the rail's trailing edge, sized to the visible
+        /// fraction and faded in while the rail is hovered. Non-interactive — the
+        /// wheel monitor owns the scrolling.
+        @ViewBuilder private var stackScrollIndicator: some View {
+            if layout == .stacked, scroll.maxOffset > 0, scroll.contentHeight > 0 {
+                let track = max(0, scroll.viewportHeight - Self.stackTop - Self.stackBottomInset)
+                let thumb = max(28, track * (scroll.viewportHeight / scroll.contentHeight))
+                let travel = max(0, track - thumb)
+                let y = Self.stackTop + travel * (scroll.offset / scroll.maxOffset)
+                Capsule()
+                    .fill(theme.colors.foregroundSecondary.opacity(railHovered ? 0.35 : 0))
+                    .frame(width: 3, height: thumb)
+                    .padding(.trailing, 4)
+                    .offset(y: y)
+                    .animation(.easeOut(duration: 0.2), value: railHovered)
+                    .animation(.easeOut(duration: 0.1), value: scroll.offset)
+                    .allowsHitTesting(false)
+            }
         }
 
         /// Opaque header pinned to the top; active cards scroll under it.
@@ -449,6 +531,68 @@
             }
             .font(.caption.weight(.medium))
             .buttonStyle(.borderless)
+        }
+    }
+
+    /// Drives the stacked rail's scroll: a clamped content offset plus a native
+    /// `scrollWheel` monitor. Stacked cards share one anchor, so shifting it by
+    /// `offset` slides the whole stack. The monitor is installed only while the
+    /// cursor is over an overflowing stacked rail and consumes wheel events there
+    /// — so momentum carries for free (macOS keeps emitting decaying wheel deltas
+    /// after the fingers lift) without an `NSScrollView` that would break the
+    /// anchored↔stacked spring or intercept the cards' own clicks and hovers.
+    @MainActor @Observable
+    final class RailScrollModel {
+        var offset: CGFloat = 0
+        var contentHeight: CGFloat = 0
+        var viewportHeight: CGFloat = 0
+
+        @ObservationIgnored private var monitor: Any?
+
+        var maxOffset: CGFloat { max(0, contentHeight - viewportHeight) }
+
+        func clamp() { offset = min(max(0, offset), maxOffset) }
+
+        func startMonitoring() {
+            guard monitor == nil else { return }
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
+                // Wheel events are delivered on the main thread/run loop.
+                MainActor.assumeIsolated {
+                    self?.applyWheel(event.scrollingDeltaY, precise: event.hasPreciseScrollingDeltas)
+                }
+                return nil
+            }
+        }
+
+        func stopMonitoring() {
+            if let monitor { NSEvent.removeMonitor(monitor) }
+            monitor = nil
+        }
+
+        /// Precise (trackpad) deltas are in points; line-based (mouse wheel) deltas
+        /// are coarse, so scale them up. Natural-scroll direction is already baked
+        /// into `scrollingDeltaY`.
+        private func applyWheel(_ deltaY: CGFloat, precise: Bool) {
+            let step = precise ? deltaY : deltaY * 16
+            offset = min(max(0, offset - step), maxOffset)
+        }
+    }
+
+    /// Per-card laid-out heights, merged across the cards, so the rail can size
+    /// its stacked content and clamp the scroll.
+    private struct CardHeightsKey: PreferenceKey {
+        static let defaultValue: [String: CGFloat] = [:]
+        static func reduce(value: inout [String: CGFloat], nextValue: () -> [String: CGFloat]) {
+            value.merge(nextValue()) { _, new in new }
+        }
+    }
+
+    /// The cards' available area (rail minus the detached footer), the stacked
+    /// scroll viewport.
+    private struct CardsAreaHeightKey: PreferenceKey {
+        static let defaultValue: CGFloat = 0
+        static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+            value = max(value, nextValue())
         }
     }
 #endif
