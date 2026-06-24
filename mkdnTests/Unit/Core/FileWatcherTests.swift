@@ -49,8 +49,13 @@ struct FileWatcherTests {
         #expect(!watcher.isSavePaused)
     }
 
-    // Note: Tests that call watch(url:) create a DispatchSource whose async
-    // teardown can race with the test process exit, causing signal 5 crashes.
-    // Integration tests for file watching should run in the full app context
-    // or in a dedicated XCUITest harness.
+    // Note: Tests that call watch(url:) instantiate a file-system event source
+    // (FSEvents) whose teardown races the test process exit, causing signal 5
+    // crashes — so watch() is intentionally not unit-tested here.
+    //
+    // The watcher now uses FSEvents on the file's parent directory (was an
+    // fd-bound DispatchSource vnode source, which went permanently deaf after an
+    // atomic-rename save swapped the file's inode). That regression — repeated
+    // atomic-rename writes must each be detected — is verified out-of-process
+    // (scripts/ or a standalone harness) and via the full app, not in this suite.
 }
