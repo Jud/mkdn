@@ -150,6 +150,10 @@
                 coordinator: coordinator, textView: textView, scrollView: scrollView
             )
             coordinator.lastAppliedText = attributedText
+            // Seed the reload anchor's state on the cold path too, so a view rebuilt
+            // over already-rendered content still preserves scroll on the next reload.
+            coordinator.appliedBlocks = blocks
+            coordinator.lastFileURL = documentState.currentFileURL
             coordinator.lastCommentRevision = commentRevision
             coordinator.wireScrollSpy()
             coordinator.scheduleDocumentMapRebuild()
@@ -324,6 +328,18 @@
         ) {
             let textChanged = textView.textStorage?.string != attributedText.string
 
+            // Same-file reload: capture the reader's top line before the swap so the
+            // new content re-pins to it instead of snapping to the top. Only when the
+            // text actually changed, the same file is reloading (not a fresh open or a
+            // file switch), and we're not playing a from-scratch entrance.
+            let isInPlaceReload = textChanged
+                && coordinator.lastAppliedText != nil
+                && !isFullReload
+                && coordinator.lastFileURL == documentState.currentFileURL
+            let reloadAnchor = isInPlaceReload
+                ? coordinator.captureReloadAnchor(in: scrollView)
+                : nil
+
             // The storage is about to be replaced; a still-running tail would
             // append the old document's blocks into it.
             coordinator.cancelProgressiveTail()
@@ -376,10 +392,21 @@
             textView.refreshSettledHeight()
             textView.window?.invalidateCursorRects(for: textView)
 
+            // The reload anchor (captured above) maps block ids in these new blocks.
+            coordinator.appliedBlocks = blocks
+
             if textChanged {
                 textView.setSelectedRange(NSRange(location: 0, length: 0))
-                scrollView.contentView.scroll(to: .zero)
-                scrollView.reflectScrolledClipView(scrollView.contentView)
+                if let reloadAnchor {
+                    // In-place reload: hold the reader's line instead of jumping to top.
+                    coordinator.restoreReloadAnchor(
+                        id: reloadAnchor.id, ordinal: reloadAnchor.ordinal,
+                        delta: reloadAnchor.delta, in: scrollView
+                    )
+                } else {
+                    scrollView.contentView.scroll(to: .zero)
+                    scrollView.reflectScrolledClipView(scrollView.contentView)
+                }
             }
 
             applyEntranceOrGate(
@@ -390,6 +417,7 @@
             // — the new resolved index is already installed above.
             textView.revealPendingComment()
             coordinator.lastAppliedText = attributedText
+            coordinator.lastFileURL = documentState.currentFileURL
             OpenTimeline.shared.mark("renderComplete")
             RenderCompletionSignal.shared.signalRenderComplete()
         }

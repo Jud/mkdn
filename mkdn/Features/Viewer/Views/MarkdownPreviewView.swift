@@ -44,7 +44,10 @@
         @State private var renderedBlocks: [IndexedBlock] = []
         @State private var cachedBlocks: [IndexedBlock] = []
         @State private var isInitialRender = true
-        @State private var knownBlockIDs: Set<String> = []
+        /// The file backing the last render, to tell a fresh document (first open
+        /// or a switch — animate the entrance, start at the top) from a same-file
+        /// reload (no entrance; the text view preserves the reader's scroll line).
+        @State private var lastRenderedFileURL: URL?
         @State private var textStorageResult = TextStorageResult(
             attributedString: NSAttributedString(),
             attachments: []
@@ -230,8 +233,15 @@
                 }
                 cachedBlocks = newBlocks
 
-                let anyKnown = newBlocks.contains { knownBlockIDs.contains($0.id) }
-                let shouldAnimate = !anyKnown && !reduceMotion && !newBlocks.isEmpty
+                // A from-scratch entrance (fade + start at top) belongs to a *new*
+                // document — first open or a file switch — not a same-file reload,
+                // which should refresh in place while the text view holds the
+                // reader's line. Keying on file identity (rather than block overlap)
+                // also keeps a switch between files that happen to share a block —
+                // an `hr`, a common heading — animating and gating normally.
+                let isNewDocument = documentState.currentFileURL != lastRenderedFileURL
+                let shouldAnimate = isNewDocument && !reduceMotion && !newBlocks.isEmpty
+                lastRenderedFileURL = documentState.currentFileURL
 
                 if Self.shouldOpenProgressively(newBlocks, body: document.body) {
                     openProgressively(
@@ -400,7 +410,6 @@
             _ newBlocks: [IndexedBlock], isFullReload animate: Bool
         ) {
             renderedBlocks = newBlocks
-            knownBlockIDs = Set(newBlocks.map(\.id))
             isFullReload = animate
             progressiveSession = nil
         }

@@ -19,6 +19,13 @@
             var lastCommentRevision = 0
             var headingOffsets: [Int: Int] = [:]
             var lastScrolledTarget: Int?
+            /// Blocks backing the currently-installed storage, keyed by source
+            /// index — maps the reload anchor's top-of-viewport block to/from its
+            /// content id across a reload.
+            var appliedBlocks: [IndexedBlock] = []
+            /// The file URL of the last applied content, to tell an in-place reload
+            /// (preserve the reader's line) from opening a different file (top).
+            var lastFileURL: URL?
             private var headingDotView: NSView?
             private var headingDotFadeTask: Task<Void, Never>?
             /// Cached heading y-positions for scroll-spy. Maps blockIndex to y-coordinate.
@@ -317,6 +324,14 @@
                     deferredHeadingTarget = nil
                     _ = scrollToHeading(blockIndex: target, in: scrollView)
                 }
+                if let anchor = deferredReloadAnchor,
+                   let scrollView = textView?.enclosingScrollView
+                {
+                    deferredReloadAnchor = nil
+                    restoreReloadAnchor(
+                        id: anchor.id, ordinal: anchor.ordinal, delta: anchor.delta, in: scrollView
+                    )
+                }
             }
 
             /// Whole-string measures (heading positions, document map, height estimate)
@@ -447,6 +462,9 @@
             /// gesture or open tail), replayed by the next settle/finish once
             /// the offsets are trustworthy again.
             private var deferredHeadingTarget: Int?
+            /// A reload re-pin refused while offsets weren't ready (progressive open
+            /// tail / width gesture), replayed by the next settle/finish.
+            private var deferredReloadAnchor: (id: String, ordinal: Int, delta: CGFloat)?
             /// Time each tail slice may spend building before yielding the
             /// main actor. The per-slice fixed costs (storage edit processing,
             /// sleep wake) are large enough that thinner slices mostly buy
@@ -514,6 +532,9 @@
                 activeTailSession = nil
                 onProgressiveOpenFinished = nil
                 deferredHeadingTarget = nil
+                // A content swap supersedes any reload re-pin still waiting on a settle;
+                // dropping it keeps a stale anchor from replaying against new content.
+                deferredReloadAnchor = nil
                 (textView as? CodeBlockBackgroundTextView)?.forceFinishProgressiveOpen = nil
             }
 
@@ -802,6 +823,60 @@
                         self?.handleScrollForSpy()
                     }
                 }
+            }
+
+            // MARK: - Reload Scroll Preservation
+
+            /// Top-of-viewport block + the pixel offset below it, captured before a
+            /// same-file reload swaps the storage. Anchored on the block's *content*
+            /// id (not an `NSTextLocation`, which dangles when the content changes) so
+            /// the rebuilt document can be re-pinned to the same line. Content ids
+            /// aren't unique (`hr`, repeated paragraphs), so an occurrence `ordinal`
+            /// disambiguates which one was at the top.
+            func captureReloadAnchor(
+                in scrollView: NSScrollView
+            ) -> (id: String, ordinal: Int, delta: CGFloat)? {
+                guard let offsets = blockOffsets(),
+                      let originY = textView?.textContainerOrigin.y
+                else { return nil }
+                // `blockOffsets` is text-view space; the clip origin is scroll space —
+                // they differ by the container origin.
+                let visibleTop = scrollView.contentView.bounds.origin.y
+                guard let index = offsets.blockIndex(atY: visibleTop + originY),
+                      let blockTopView = offsets.offset(forBlockIndex: index),
+                      let id = appliedBlocks.first(where: { $0.index == index })?.block.id
+                else { return nil }
+                // 0-based count of same-id blocks at or before this one, in index order.
+                let ordinal = appliedBlocks.filter { $0.block.id == id && $0.index <= index }.count - 1
+                return (id, ordinal, visibleTop - (blockTopView - originY))
+            }
+
+            /// Re-pin the captured reload line: place the `ordinal`-th block with `id`
+            /// the same `delta` below the viewport top, instantly (no animated slide).
+            /// Defers until offsets are ready (progressive open / width gesture), and
+            /// holds the current position — never snaps to top — if that block's own
+            /// text changed (id gone from the new document).
+            @discardableResult
+            func restoreReloadAnchor(
+                id: String, ordinal: Int, delta: CGFloat, in scrollView: NSScrollView
+            ) -> Bool {
+                guard !isMetricsSuppressed else {
+                    deferredReloadAnchor = (id, ordinal, delta)
+                    return false
+                }
+                let matches = appliedBlocks
+                    .filter { $0.block.id == id }
+                    .sorted { $0.index < $1.index }
+                guard !matches.isEmpty else { return true } // block gone — hold position
+                let index = matches[min(ordinal, matches.count - 1)].index
+                guard let y = navigationY(forBlockIndex: index) else {
+                    deferredReloadAnchor = (id, ordinal, delta)
+                    return false
+                }
+                let clipView = scrollView.contentView
+                clipView.setBoundsOrigin(NSPoint(x: clipView.bounds.origin.x, y: max(0, y + delta)))
+                scrollView.reflectScrolledClipView(clipView)
+                return true
             }
 
             // swiftlint:disable function_body_length
