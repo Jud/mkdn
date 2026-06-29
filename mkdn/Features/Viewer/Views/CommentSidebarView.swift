@@ -345,9 +345,22 @@
     }
 
     /// One reply in a card's thread: author line + body behind a thin thread rail.
+    /// A freshly-arrived reply (e.g. an agent's answer landing via auto-reload)
+    /// pops into the thread — scale-up from the top with the bouncy
+    /// ``AnimationConstants/outlinePop`` spring — rather than blinking in. The
+    /// pop is driven by the host card's `.animation(value: item.replies)`; this
+    /// row only declares how it enters. Reduce Motion downgrades to a plain fade.
     private struct CommentReplyRow: View {
         let reply: CommentSidecar.Reply
         let theme: AppTheme
+
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+        private var entrance: AnyTransition {
+            reduceMotion
+                ? .opacity
+                : .scale(scale: 0.85, anchor: .top).combined(with: .opacity)
+        }
 
         var body: some View {
             VStack(alignment: .leading, spacing: 2) {
@@ -363,6 +376,7 @@
                     .fill(theme.colors.border.opacity(DesignTokens.Stroke.engaged))
                     .frame(width: 2)
             }
+            .transition(entrance)
         }
     }
 
@@ -378,9 +392,15 @@
         /// Emphasize (id) / un-emphasize (nil) the comment's span in the document.
         let onHover: (String?) -> Void
 
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
         @State private var hovering = false
         @State private var isReplying = false
         @State private var draft = ""
+
+        /// Spring that pops an arriving reply in; a quick fade under Reduce Motion.
+        private var replyEntranceAnimation: Animation {
+            reduceMotion ? AnimationConstants.reducedCrossfade : AnimationConstants.outlinePop
+        }
 
         var body: some View {
             VStack(alignment: .leading, spacing: 6) {
@@ -458,6 +478,10 @@
             .onDisappear { if hovering { onHover(nil) } }
             .pointingHandCursor()
             .animation(.easeInOut(duration: 0.15), value: hovering)
+            // Drives the entrance transition of a newly-arrived reply row (see
+            // CommentReplyRow). Scoped to `item.replies` so it fires only when a
+            // reply lands — not on hover, scroll-follow, or first mount.
+            .animation(replyEntranceAnimation, value: item.replies)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("comment-card")
             .accessibilityLabel(item.quote.isEmpty ? "Comment" : "Comment on \(item.quote)")
@@ -472,6 +496,8 @@
         let item: CommentSidebarItem
         let theme: AppTheme
         let onDelete: (String) -> Void
+
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
         var body: some View {
             VStack(alignment: .leading, spacing: 8) {
@@ -504,6 +530,12 @@
                         theme.colors.warning.opacity(DesignTokens.Stroke.resting),
                         style: StrokeStyle(lineWidth: DesignTokens.Stroke.width, dash: [4, 3])
                     )
+            )
+            // A reply can still land on a detached comment; pop it in to match
+            // the active card (see CommentReplyRow / ActiveCommentCard).
+            .animation(
+                reduceMotion ? AnimationConstants.reducedCrossfade : AnimationConstants.outlinePop,
+                value: item.replies
             )
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("detached-comment-card")

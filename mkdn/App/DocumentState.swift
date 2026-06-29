@@ -140,8 +140,8 @@
 
         /// Add a comment anchored by content: store `selector` (a normalized
         /// quote + context captured against the rendered text) and `body` in the
-        /// EOF sidecar, no inline markers. Updates the content (re-renders, marks
-        /// dirty); persistence is the normal save flow (not auto-saved). Returns
+        /// EOF sidecar, no inline markers. Updates the content (re-renders) and
+        /// auto-persists the sidecar (see ``persistCommentChange()``). Returns
         /// the new comment's id so the caller can reveal it.
         @discardableResult
         public func addComment(_ selector: CommentSelector, body: String) -> String {
@@ -149,6 +149,7 @@
             var entry = CommentSidecar.Entry(id: id, body: body)
             entry.setAnchor(selector)
             markdownContent = CommentSidecar.upsert(entry, into: markdownContent)
+            persistCommentChange()
             return id
         }
 
@@ -166,6 +167,7 @@
             var updated = markdownContent
             updated.replaceSubrange(decoded.blockRange, with: CommentSidecar.encode(entries))
             markdownContent = updated
+            persistCommentChange()
             return true
         }
 
@@ -180,6 +182,7 @@
                 return false
             }
             markdownContent = updated.raw
+            persistCommentChange()
             return true
         }
 
@@ -190,7 +193,19 @@
             let updated = CommentSidecar.remove(id: id, from: markdownContent)
             guard updated != markdownContent else { return false }
             markdownContent = updated
+            persistCommentChange()
             return true
+        }
+
+        /// Persist a comment mutation to disk immediately. Comments are
+        /// annotations layered into the EOF sidecar, not body edits, so they
+        /// auto-save rather than waiting for an explicit ⌘S: this keeps the
+        /// on-disk sidecar current and stops a pending comment from silently
+        /// blocking auto-reload (the orb's `hasUnsavedChanges` guard). No-op
+        /// when no file is open or the write fails — the comment simply stays
+        /// in memory, matching the prior manual-save behavior.
+        private func persistCommentChange() {
+            try? saveFile()
         }
 
         /// Reload the file from disk.

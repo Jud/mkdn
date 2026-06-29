@@ -131,6 +131,27 @@ struct DocumentStateTests {
         #expect(!state.hasUnsavedChanges)
     }
 
+    @Test("addComment auto-saves: no unsaved changes and the sidecar lands on disk")
+    @MainActor func addCommentAutoSaves() throws {
+        let (state, url) = try Self.stateWithFile(content: "The quick brown fox")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let selector = CommentSelector(
+            quote: "quick", prefix: "", suffix: "",
+            start: 0, end: "quick".utf16.count, norm: AnchorTape.normalizationVersion
+        )
+        let id = state.addComment(selector, body: "note")
+
+        // Auto-saved, so nothing is left pending to block auto-reload.
+        #expect(!state.hasUnsavedChanges)
+        #expect(state.lastSavedContent == state.markdownContent)
+
+        // The sidecar entry is durable on disk, not just in memory.
+        let onDisk = try String(contentsOf: url, encoding: .utf8)
+        #expect(onDisk == state.markdownContent)
+        #expect(CommentSidecar.decode(from: onDisk)?.entries.first?.id == id)
+    }
+
     @Test("saveFile writes correct content verified by read-back")
     @MainActor func saveFileWritesContent() throws {
         let (state, url) = try Self.stateWithFile(content: "# Initial")
