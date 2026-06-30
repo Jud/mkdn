@@ -148,8 +148,8 @@
             let id = CommentSidecar.uniqueID(in: markdownContent)
             var entry = CommentSidecar.Entry(id: id, body: body)
             entry.setAnchor(selector)
-            markdownContent = CommentSidecar.upsert(entry, into: markdownContent)
-            persistCommentChange()
+            // Capture `entry` so the same id lands in memory and on disk.
+            mutateComments { CommentSidecar.upsert(entry, into: $0) }
             return id
         }
 
@@ -157,18 +157,16 @@
         /// entry has that id.
         @discardableResult
         public func editComment(id: String, newBody: String) -> Bool {
-            guard let decoded = CommentSidecar.decode(from: markdownContent),
-                  let index = decoded.entries.firstIndex(where: { $0.id == id })
-            else {
-                return false
+            mutateComments { content in
+                guard let decoded = CommentSidecar.decode(from: content),
+                      let index = decoded.entries.firstIndex(where: { $0.id == id })
+                else { return nil }
+                var entries = decoded.entries
+                entries[index].body = newBody
+                var updated = content
+                updated.replaceSubrange(decoded.blockRange, with: CommentSidecar.encode(entries))
+                return updated
             }
-            var entries = decoded.entries
-            entries[index].body = newBody
-            var updated = markdownContent
-            updated.replaceSubrange(decoded.blockRange, with: CommentSidecar.encode(entries))
-            markdownContent = updated
-            persistCommentChange()
-            return true
         }
 
         /// Append a reply to a comment's thread. In-app replies carry no author
@@ -176,36 +174,70 @@
         /// with a name. False if no entry has that id.
         @discardableResult
         public func addReply(toCommentID id: String, body: String) -> Bool {
-            guard let updated = CommentSidecar.addReply(
-                to: id, body: body, author: nil, in: markdownContent
-            ) else {
-                return false
+            // Mint the reply id once so the in-memory and on-disk writes are
+            // identical (CommentSidecar.addReply would generate a fresh id per
+            // call, and this edit runs against both the memory and disk copies).
+            let reply = CommentSidecar.Reply(
+                id: CommentSidecar.uniqueID(in: markdownContent), body: body, author: nil
+            )
+            return mutateComments { content in
+                guard let decoded = CommentSidecar.decode(from: content),
+                      let index = decoded.entries.firstIndex(where: { $0.id == id })
+                else { return nil }
+                var entries = decoded.entries
+                entries[index].replies = (entries[index].replies ?? []) + [reply]
+                var updated = content
+                updated.replaceSubrange(decoded.blockRange, with: CommentSidecar.encode(entries))
+                return updated
             }
-            markdownContent = updated.raw
-            persistCommentChange()
-            return true
         }
 
         /// Delete a comment's sidecar entry by id (works even when the comment is
         /// orphaned). False if no entry has that id.
         @discardableResult
         public func deleteComment(id: String) -> Bool {
-            let updated = CommentSidecar.remove(id: id, from: markdownContent)
-            guard updated != markdownContent else { return false }
-            markdownContent = updated
-            persistCommentChange()
+            mutateComments { content in
+                let updated = CommentSidecar.remove(id: id, from: content)
+                return updated != content ? updated : nil
+            }
+        }
+
+        /// Apply a comment-sidecar edit to the in-memory document (so the rail
+        /// re-renders) and persist it durably — but persist by re-applying the
+        /// SAME edit to the file's *current on-disk* content, never our in-memory
+        /// copy. Comments are annotations, so writing the whole in-memory document
+        /// would (a) commit body edits the user hasn't saved and (b) clobber an
+        /// external change that landed since we loaded. Re-applying only the
+        /// sidecar delta to the latest disk content avoids both: the body stays
+        /// the user's to save, and a concurrent agent/editor write survives (the
+        /// still-pending reload reconciles in-memory afterward). Returns false
+        /// when the edit doesn't apply in memory (e.g. unknown id).
+        @discardableResult
+        private func mutateComments(_ edit: (String) -> String?) -> Bool {
+            guard let next = edit(markdownContent) else { return false }
+            markdownContent = next
+            persistSidecarEdit(edit)
             return true
         }
 
-        /// Persist a comment mutation to disk immediately. Comments are
-        /// annotations layered into the EOF sidecar, not body edits, so they
-        /// auto-save rather than waiting for an explicit ⌘S: this keeps the
-        /// on-disk sidecar current and stops a pending comment from silently
-        /// blocking auto-reload (the orb's `hasUnsavedChanges` guard). No-op
-        /// when no file is open or the write fails — the comment simply stays
-        /// in memory, matching the prior manual-save behavior.
-        private func persistCommentChange() {
-            try? saveFile()
+        /// Persist a sidecar edit by re-applying it to the file's current on-disk
+        /// content. No-op when no file is open or the edit doesn't apply there;
+        /// surfaces a failed write instead of dropping it silently.
+        private func persistSidecarEdit(_ edit: (String) -> String?) {
+            guard let url = currentFileURL else { return }
+            do {
+                let onDisk = try String(contentsOf: url, encoding: .utf8)
+                guard let written = edit(onDisk) else { return }
+                fileWatcher.pauseForSave()
+                defer { fileWatcher.resumeAfterSave() }
+                try written.write(to: url, atomically: true, encoding: .utf8)
+                // When nothing else diverges (no unsaved body edits, no external
+                // change) the write equals our in-memory doc — keep the saved
+                // baseline current so it doesn't read as dirty.
+                if markdownContent == written { lastSavedContent = written }
+            } catch {
+                modeOverlayLabel = "Save failed"
+            }
         }
 
         /// Reload the file from disk.

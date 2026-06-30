@@ -152,6 +152,49 @@ struct DocumentStateTests {
         #expect(CommentSidecar.decode(from: onDisk)?.entries.first?.id == id)
     }
 
+    @Test("addComment grafts onto an external disk change instead of clobbering it")
+    @MainActor func addCommentDoesNotClobberExternalEdit() throws {
+        let (state, url) = try Self.stateWithFile(content: "The quick brown fox")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        // An agent/editor rewrites the body on disk after we loaded.
+        try "The quick red fox — edited externally".write(to: url, atomically: true, encoding: .utf8)
+
+        let selector = CommentSelector(
+            quote: "quick", prefix: "", suffix: "",
+            start: 0, end: "quick".utf16.count, norm: AnchorTape.normalizationVersion
+        )
+        let id = state.addComment(selector, body: "note")
+
+        // The external body survives on disk; only our comment is grafted on.
+        let onDisk = try String(contentsOf: url, encoding: .utf8)
+        #expect(onDisk.contains("edited externally"))
+        #expect(CommentSidecar.decode(from: onDisk)?.entries.first?.id == id)
+    }
+
+    @Test("a comment persists only the sidecar, leaving unsaved body edits in memory")
+    @MainActor func addCommentDoesNotPersistBodyEdits() throws {
+        let (state, url) = try Self.stateWithFile(content: "The quick brown fox")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        // An unsaved in-memory body edit (e.g. typed in side-by-side edit mode).
+        state.markdownContent = "The quick brown fox jumps"
+
+        let selector = CommentSelector(
+            quote: "quick", prefix: "", suffix: "",
+            start: 0, end: "quick".utf16.count, norm: AnchorTape.normalizationVersion
+        )
+        state.addComment(selector, body: "note")
+
+        // Disk keeps the original body (the edit is NOT auto-saved) but gains the comment.
+        let onDisk = try String(contentsOf: url, encoding: .utf8)
+        #expect(!onDisk.contains("jumps"))
+        #expect(CommentSidecar.decode(from: onDisk)?.entries.first != nil)
+        // The body edit is still pending in memory.
+        #expect(state.hasUnsavedChanges)
+        #expect(state.markdownContent.contains("jumps"))
+    }
+
     @Test("saveFile writes correct content verified by read-back")
     @MainActor func saveFileWritesContent() throws {
         let (state, url) = try Self.stateWithFile(content: "# Initial")
