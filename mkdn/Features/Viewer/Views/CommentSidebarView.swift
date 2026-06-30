@@ -49,7 +49,9 @@
         /// detached footer grow to fit a long comment while capping it at a
         /// fraction of the rail so the active cards stay visible (see detachedFooter).
         @State private var railHeight: CGFloat = 0
-        @State private var detachedContentHeight: CGFloat = 0
+        /// `.infinity` until measured, so the footer shows at `detachedFooterCap`
+        /// before its content height is known (`min(.infinity, cap) == cap`).
+        @State private var detachedContentHeight: CGFloat = .infinity
 
         static let width: CGFloat = 300
         /// The preview's `textContainerInset.height`, added back so a card lands
@@ -265,9 +267,7 @@
                 .scrollIndicators(.never)
                 // Grow to fit the detached cards so a long comment reads in full;
                 // only when the content would exceed the cap does the footer scroll.
-                .frame(height: detachedContentHeight > 0
-                    ? min(detachedContentHeight, detachedFooterCap)
-                    : detachedFooterCap)
+                .frame(height: min(detachedContentHeight, detachedFooterCap))
                 .onPreferenceChange(DetachedHeightKey.self) { detachedContentHeight = $0 }
             }
             .padding(16)
@@ -378,9 +378,9 @@
     /// One reply in a card's thread: author line + body behind a thin thread rail.
     /// A freshly-arrived reply (e.g. an agent's answer landing via auto-reload)
     /// pops into the thread — scale-up from the top with the bouncy
-    /// ``AnimationConstants/outlinePop`` spring — rather than blinking in. The
-    /// pop is driven by the host card's `.animation(value: item.replies)`; this
-    /// row only declares how it enters. Reduce Motion downgrades to a plain fade.
+    /// ``AnimationConstants/outlinePop`` spring — rather than blinking in. The pop
+    /// is driven by the enclosing ``CommentReplyThread``'s `.animation(value:)`;
+    /// this row only declares how it enters. Reduce Motion downgrades to a fade.
     private struct CommentReplyRow: View {
         let reply: CommentSidecar.Reply
         let theme: AppTheme
@@ -411,6 +411,30 @@
         }
     }
 
+    /// A comment's reply thread: the rows plus the entrance animation that pops a
+    /// newly-arrived reply in. Owning the `.animation(value: replies)` here — not
+    /// on each host card — scopes the spring to the thread and removes the
+    /// per-card duplication. Scoped to `replies` so it fires only when one lands,
+    /// not on hover, scroll-follow, or first mount. Reduce Motion → quick fade.
+    private struct CommentReplyThread: View {
+        let replies: [CommentSidecar.Reply]
+        let theme: AppTheme
+
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+        var body: some View {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(replies) { reply in
+                    CommentReplyRow(reply: reply, theme: theme)
+                }
+            }
+            .animation(
+                reduceMotion ? AnimationConstants.reducedCrossfade : AnimationConstants.outlinePop,
+                value: replies
+            )
+        }
+    }
+
     /// A resolved comment: quote chip (in `commentHighlight`) + body, then its
     /// reply thread and a Reply affordance. The whole card is a button (pointer
     /// cursor + accent lift on hover) that scrolls to the comment.
@@ -423,15 +447,9 @@
         /// Emphasize (id) / un-emphasize (nil) the comment's span in the document.
         let onHover: (String?) -> Void
 
-        @Environment(\.accessibilityReduceMotion) private var reduceMotion
         @State private var hovering = false
         @State private var isReplying = false
         @State private var draft = ""
-
-        /// Spring that pops an arriving reply in; a quick fade under Reduce Motion.
-        private var replyEntranceAnimation: Animation {
-            reduceMotion ? AnimationConstants.reducedCrossfade : AnimationConstants.outlinePop
-        }
 
         var body: some View {
             VStack(alignment: .leading, spacing: 6) {
@@ -452,9 +470,7 @@
                     .font(.body)
                     .foregroundStyle(theme.colors.foreground)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                ForEach(item.replies) { reply in
-                    CommentReplyRow(reply: reply, theme: theme)
-                }
+                CommentReplyThread(replies: item.replies, theme: theme)
                 if isReplying {
                     CommentEditor(
                         draft: $draft,
@@ -514,10 +530,6 @@
             .onDisappear { if hovering { onHover(nil) } }
             .pointingHandCursor()
             .animation(.easeInOut(duration: 0.15), value: hovering)
-            // Drives the entrance transition of a newly-arrived reply row (see
-            // CommentReplyRow). Scoped to `item.replies` so it fires only when a
-            // reply lands — not on hover, scroll-follow, or first mount.
-            .animation(replyEntranceAnimation, value: item.replies)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("comment-card")
             .accessibilityLabel(item.quote.isEmpty ? "Comment" : "Comment on \(item.quote)")
@@ -532,8 +544,6 @@
         let item: CommentSidebarItem
         let theme: AppTheme
         let onDelete: (String) -> Void
-
-        @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
         var body: some View {
             VStack(alignment: .leading, spacing: 8) {
@@ -554,9 +564,7 @@
                     .font(.body)
                     .foregroundStyle(theme.colors.foreground)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                ForEach(item.replies) { reply in
-                    CommentReplyRow(reply: reply, theme: theme)
-                }
+                CommentReplyThread(replies: item.replies, theme: theme)
                 actions
             }
             .commentCardSurface(theme: theme)
@@ -566,12 +574,6 @@
                         theme.colors.warning.opacity(DesignTokens.Stroke.resting),
                         style: StrokeStyle(lineWidth: DesignTokens.Stroke.width, dash: [4, 3])
                     )
-            )
-            // A reply can still land on a detached comment; pop it in to match
-            // the active card (see CommentReplyRow / ActiveCommentCard).
-            .animation(
-                reduceMotion ? AnimationConstants.reducedCrossfade : AnimationConstants.outlinePop,
-                value: item.replies
             )
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("detached-comment-card")
@@ -655,29 +657,26 @@
         }
     }
 
-    /// The cards' available area (rail minus the detached footer), the stacked
-    /// scroll viewport.
-    private struct CardsAreaHeightKey: PreferenceKey {
-        static let defaultValue: CGFloat = 0
+    /// Shared conformance for the rail's height measurements: the tallest reported
+    /// height wins. The keys stay distinct types so their separate readers don't
+    /// conflate overlapping subtree measurements (the rail is an ancestor of both
+    /// the cards area and the detached footer).
+    private protocol MaxHeightPreferenceKey: PreferenceKey where Value == CGFloat {}
+    extension MaxHeightPreferenceKey {
+        static var defaultValue: CGFloat { 0 }
         static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
             value = max(value, nextValue())
         }
     }
 
+    /// The cards' available area (rail minus the detached footer), the stacked
+    /// scroll viewport.
+    private struct CardsAreaHeightKey: MaxHeightPreferenceKey {}
+
     /// The whole rail's height — bounds the detached footer to a fraction of it.
-    private struct RailHeightKey: PreferenceKey {
-        static let defaultValue: CGFloat = 0
-        static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-            value = max(value, nextValue())
-        }
-    }
+    private struct RailHeightKey: MaxHeightPreferenceKey {}
 
     /// The detached cards' natural (unclamped) height, so the footer can size to
     /// fit them up to the cap instead of trapping a long comment in a fixed box.
-    private struct DetachedHeightKey: PreferenceKey {
-        static let defaultValue: CGFloat = 0
-        static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-            value = max(value, nextValue())
-        }
-    }
+    private struct DetachedHeightKey: MaxHeightPreferenceKey {}
 #endif
