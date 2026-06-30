@@ -45,6 +45,11 @@
         /// Anchored mode follows the document instead, so this stays at zero there.
         @State private var scroll = RailScrollModel()
         @State private var railHovered = false
+        /// Rail height + the detached cards' natural height: together they let the
+        /// detached footer grow to fit a long comment while capping it at a
+        /// fraction of the rail so the active cards stay visible (see detachedFooter).
+        @State private var railHeight: CGFloat = 0
+        @State private var detachedContentHeight: CGFloat = 0
 
         static let width: CGFloat = 300
         /// The preview's `textContainerInset.height`, added back so a card lands
@@ -97,6 +102,12 @@
             .frame(width: Self.width)
             .frame(maxHeight: .infinity, alignment: .top)
             .background(theme.colors.backgroundSecondary)
+            .background(
+                GeometryReader { proxy in
+                    Color.clear.preference(key: RailHeightKey.self, value: proxy.size.height)
+                }
+            )
+            .onPreferenceChange(RailHeightKey.self) { railHeight = $0 }
             .environment(\.colorScheme, theme.colorScheme)
             // Capture wheel events only while hovering an overflowing stacked rail.
             .onHover { hovering in
@@ -224,6 +235,14 @@
             }
         }
 
+        /// Upper bound on the detached footer's height: a fraction of the rail so
+        /// the active cards keep their share. Larger when there are no active cards
+        /// (nothing above to protect). Falls back to a fixed floor until the rail
+        /// height is measured.
+        private var detachedFooterCap: CGFloat {
+            max(160, railHeight * (active.isEmpty ? 0.82 : 0.58))
+        }
+
         private var detachedFooter: some View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("DETACHED (\(detached.count))")
@@ -235,9 +254,21 @@
                             DetachedCommentCard(item: item, theme: theme, onDelete: onDelete)
                         }
                     }
+                    .background(
+                        GeometryReader { proxy in
+                            Color.clear.preference(
+                                key: DetachedHeightKey.self, value: proxy.size.height
+                            )
+                        }
+                    )
                 }
                 .scrollIndicators(.never)
-                .frame(maxHeight: 180)
+                // Grow to fit the detached cards so a long comment reads in full;
+                // only when the content would exceed the cap does the footer scroll.
+                .frame(height: detachedContentHeight > 0
+                    ? min(detachedContentHeight, detachedFooterCap)
+                    : detachedFooterCap)
+                .onPreferenceChange(DetachedHeightKey.self) { detachedContentHeight = $0 }
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -452,8 +483,12 @@
             .overlay {
                 // Faint accent wash on hover — signals the card is clickable
                 // without changing its size (no reflow of the cards below).
+                // Non-hit-testing: a filled shape sits over the whole card,
+                // so without this it would swallow the Reply button's clicks
+                // (they'd fall through to the card's jump gesture instead).
                 RoundedRectangle(cornerRadius: commentCardCornerRadius)
                     .fill(theme.colors.accent.opacity(hovering ? 0.06 : 0))
+                    .allowsHitTesting(false)
             }
             .overlay(
                 RoundedRectangle(cornerRadius: commentCardCornerRadius)
@@ -462,6 +497,7 @@
                             ? theme.colors.accent.opacity(DesignTokens.Stroke.engaged)
                             : theme.colors.border.opacity(DesignTokens.Stroke.resting)
                     )
+                    .allowsHitTesting(false)
             )
             .contentShape(Rectangle())
             // While the reply editor is open, clicks belong to it (focusing,
@@ -622,6 +658,23 @@
     /// The cards' available area (rail minus the detached footer), the stacked
     /// scroll viewport.
     private struct CardsAreaHeightKey: PreferenceKey {
+        static let defaultValue: CGFloat = 0
+        static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+            value = max(value, nextValue())
+        }
+    }
+
+    /// The whole rail's height — bounds the detached footer to a fraction of it.
+    private struct RailHeightKey: PreferenceKey {
+        static let defaultValue: CGFloat = 0
+        static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+            value = max(value, nextValue())
+        }
+    }
+
+    /// The detached cards' natural (unclamped) height, so the footer can size to
+    /// fit them up to the cap instead of trapping a long comment in a fixed box.
+    private struct DetachedHeightKey: PreferenceKey {
         static let defaultValue: CGFloat = 0
         static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
             value = max(value, nextValue())
